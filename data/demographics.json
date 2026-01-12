@@ -1,0 +1,340 @@
+{
+  "extracted_at": "2026-01-12T13:45:00",
+  "data": [
+    {
+      "nct_id": "NCT00000001",
+      "brief_title": "Sample Cardiovascular Disease Study",
+      "study_type": "INTERVENTIONAL",
+      "phase": "Phase 3",
+      "enrollment": 500,
+      "status": "COMPLETED",
+      "results_date": "2020-06-15",
+      "last_update": "2020-12-01",
+      "sponsor_class": "INDUSTRY",
+      "countries": [],
+      "race": {
+        "reported": true,
+        "omb_totals": {
+          "american_indian_alaska_native": 10,
+          "asian": 75,
+          "black_african_american": 100,
+          "native_hawaiian_pacific_islander": 5,
+          "white": 300,
+          "more_than_one_race": 8,
+          "unknown_not_reported": 2,
+          "other": 0
+        },
+        "subcategory_totals": {
+          "asian_chinese": 30,
+          "asian_south_asian_indian": 25,
+          "asian_japanese": 20
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "ethnicity": {
+        "reported": true,
+        "omb_totals": {
+          "hispanic_latino": 80,
+          "not_hispanic_latino": 415,
+          "unknown_not_reported": 5
+        },
+        "subcategory_totals": {
+          "hispanic_latino_mexican": 40,
+          "hispanic_latino_puerto_rican": 25,
+          "hispanic_latino_cuban": 15
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "sex": {
+        "reported": true,
+        "totals": {
+          "female": 250,
+          "male": 248,
+          "unknown": 2
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "gender": {
+        "reported": false,
+        "totals": {
+          "woman": 0,
+          "man": 0,
+          "nonbinary": 0,
+          "other": 0,
+          "unknown": 0
+        },
+        "raw_categories": [],
+        "flags": []
+      }
+    },
+    {
+      "nct_id": "NCT00000002",
+      "brief_title": "Cancer Immunotherapy Trial",
+      "study_type": "INTERVENTIONAL",
+      "phase": "Phase 2",
+      "enrollment": 250,
+      "status": "COMPLETED",
+      "results_date": "2021-03-20",
+      "last_update": "2021-08-15",
+      "sponsor_class": "NIH",
+      "countries": [],
+      "race": {
+        "reported": true,
+        "omb_totals": {
+          "american_indian_alaska_native": 3,
+          "asian": 45,
+          "black_african_american": 60,
+          "native_hawaiian_pacific_islander": 2,
+          "white": 135,
+          "more_than_one_race": 4,
+          "unknown_not_reported": 1,
+          "other": 0
+        },
+        "subcategory_totals": {
+          "asian_korean": 15,
+          "asian_vietnamese": 10,
+          "black_african_american_african_american": 50
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "ethnicity": {
+        "reported": true,
+        "omb_totals": {
+          "hispanic_latino": 35,
+          "not_hispanic_latino": 213,
+          "unknown_not_reported": 2
+        },
+        "subcategory_totals": {
+          "hispanic_latino_south_american_colombian": 15,
+          "hispanic_latino_central_american_guatemalan": 10
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "sex": {
+        "reported": true,
+        "totals": {
+          "female": 125,
+          "male": 124,
+          "unknown": 1
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "gender": {
+        "reported": false,
+        "totals": {
+          "woman": 0,
+          "man": 0,
+          "nonbinary": 0,
+          "other": 0,
+          "unknown": 0
+        },
+        "raw_categories": [],
+        "flags": []
+      }
+    },
+    {
+      "nct_id": "NCT00000003",
+      "brief_title": "Diabetes Prevention Program",
+      "study_type": "INTERVENTIONAL",
+      "phase": "Phase 3",
+      "enrollment": 800,
+      "status": "COMPLETED",
+      "results_date": "2022-09-10",
+      "last_update": "2023-01-05",
+      "sponsor_class": "OTHER",
+      "countries": [],
+      "race": {
+        "reported": true,
+        "omb_totals": {
+          "american_indian_alaska_native": 20,
+          "asian": 120,
+          "black_african_american": 180,
+          "native_hawaiian_pacific_islander": 10,
+          "white": 450,
+          "more_than_one_race": 15,
+          "unknown_not_reported": 5,
+          "other": 0
+        },
+        "subcategory_totals": {
+          "asian_chinese": 45,
+          "asian_filipino": 30,
+          "asian_south_asian_indian": 25,
+          "black_african_american_caribbean_haitian": 30
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "ethnicity": {
+        "reported": true,
+        "omb_totals": {
+          "hispanic_latino": 150,
+          "not_hispanic_latino": 645,
+          "unknown_not_reported": 5
+        },
+        "subcategory_totals": {
+          "hispanic_latino_mexican": 80,
+          "hispanic_latino_puerto_rican": 40,
+          "hispanic_latino_cuban": 20
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "sex": {
+        "reported": true,
+        "totals": {
+          "female": 420,
+          "male": 378,
+          "unknown": 2
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "gender": {
+        "reported": false,
+        "totals": {
+          "woman": 0,
+          "man": 0,
+          "nonbinary": 0,
+          "other": 0,
+          "unknown": 0
+        },
+        "raw_categories": [],
+        "flags": []
+      }
+    },
+    {
+      "nct_id": "NCT00000004",
+      "brief_title": "Mental Health Treatment Study",
+      "study_type": "OBSERVATIONAL",
+      "phase": "",
+      "enrollment": 350,
+      "status": "COMPLETED",
+      "results_date": "2023-05-18",
+      "last_update": "2023-09-22",
+      "sponsor_class": "OTHER",
+      "countries": [],
+      "race": {
+        "reported": true,
+        "omb_totals": {
+          "american_indian_alaska_native": 8,
+          "asian": 50,
+          "black_african_american": 75,
+          "native_hawaiian_pacific_islander": 4,
+          "white": 200,
+          "more_than_one_race": 10,
+          "unknown_not_reported": 3,
+          "other": 0
+        },
+        "subcategory_totals": {
+          "asian_east_asian_taiwanese": 15,
+          "white_middle_eastern_arab": 25
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "ethnicity": {
+        "reported": true,
+        "omb_totals": {
+          "hispanic_latino": 60,
+          "not_hispanic_latino": 287,
+          "unknown_not_reported": 3
+        },
+        "subcategory_totals": {
+          "hispanic_latino_dominican": 20,
+          "hispanic_latino_south_american_peruvian": 15
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "sex": {
+        "reported": true,
+        "totals": {
+          "female": 185,
+          "male": 164,
+          "unknown": 1
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "gender": {
+        "reported": true,
+        "totals": {
+          "woman": 186,
+          "man": 162,
+          "nonbinary": 2,
+          "other": 0,
+          "unknown": 0
+        },
+        "raw_categories": [],
+        "flags": []
+      }
+    },
+    {
+      "nct_id": "NCT00000005",
+      "brief_title": "Respiratory Disease Observational Study",
+      "study_type": "OBSERVATIONAL",
+      "phase": "",
+      "enrollment": 600,
+      "status": "COMPLETED",
+      "results_date": "2024-02-28",
+      "last_update": "2024-06-10",
+      "sponsor_class": "INDUSTRY",
+      "countries": [],
+      "race": {
+        "reported": false,
+        "omb_totals": {
+          "american_indian_alaska_native": 0,
+          "asian": 0,
+          "black_african_american": 0,
+          "native_hawaiian_pacific_islander": 0,
+          "white": 0,
+          "more_than_one_race": 0,
+          "unknown_not_reported": 0,
+          "other": 0
+        },
+        "subcategory_totals": {},
+        "raw_categories": [],
+        "flags": []
+      },
+      "ethnicity": {
+        "reported": false,
+        "omb_totals": {
+          "hispanic_latino": 0,
+          "not_hispanic_latino": 0,
+          "unknown_not_reported": 0
+        },
+        "subcategory_totals": {},
+        "raw_categories": [],
+        "flags": []
+      },
+      "sex": {
+        "reported": true,
+        "totals": {
+          "female": 300,
+          "male": 298,
+          "unknown": 2
+        },
+        "raw_categories": [],
+        "flags": []
+      },
+      "gender": {
+        "reported": false,
+        "totals": {
+          "woman": 0,
+          "man": 0,
+          "nonbinary": 0,
+          "other": 0,
+          "unknown": 0
+        },
+        "raw_categories": [],
+        "flags": []
+      }
+    }
+  ]
+}
