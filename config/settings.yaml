@@ -1,0 +1,10 @@
+api:
+  page_size: 100
+  rate_limit_delay: 0.5
+
+extraction:
+  fuzzy_match_threshold: 85
+
+output:
+  data_dir: "data"
+  format: "json"  # Dashboard will consume JSON
