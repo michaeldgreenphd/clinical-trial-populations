@@ -409,7 +409,18 @@ function formatCountries(countries) {
     }
 
     // Extract country names from objects (each item is {country: "Country Name"})
-    const countryNames = countries.map(c => c.country || c).filter(name => name);
+    const countryNames = countries.map(c => {
+        // If it's an object with a 'country' property, extract it
+        if (typeof c === 'object' && c !== null && c.country) {
+            return c.country;
+        }
+        // If it's already a string, use it
+        if (typeof c === 'string') {
+            return c;
+        }
+        // Otherwise, skip it
+        return null;
+    }).filter(name => name && typeof name === 'string');
 
     // Remove duplicates
     const uniqueCountries = [...new Set(countryNames)];
