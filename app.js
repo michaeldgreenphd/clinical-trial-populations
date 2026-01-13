@@ -384,6 +384,7 @@ function renderStudiesTable() {
             <td>${study.sponsor_class || 'N/A'}</td>
             <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
             <td>${study.results_date || 'N/A'}</td>
+            <td>${formatCountries(study.countries)}</td>
             <td class="text-center">${study.race?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
             <td class="text-center">${study.ethnicity?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
             <td class="text-center">${study.sex?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
@@ -400,6 +401,17 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+function formatCountries(countries) {
+    if (!countries || !Array.isArray(countries) || countries.length === 0) {
+        return 'N/A';
+    }
+    // If more than 3 countries, show first 2 and "+X more"
+    if (countries.length > 3) {
+        return countries.slice(0, 2).join(', ') + ` +${countries.length - 2} more`;
+    }
+    return countries.join(', ');
 }
 
 // Chart rendering functions (keeping existing logic)
