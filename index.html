@@ -21,37 +21,69 @@
         <button class="tab" data-tab="ethnicity">Ethnicity</button>
         <button class="tab" data-tab="sex">Sex</button>
         <button class="tab" data-tab="gender">Gender</button>
+        <button class="tab" data-tab="studies">Studies</button>
     </nav>
 
     <main>
         <section id="filters">
-            <div class="filter-group">
-                <label for="year-range">Year Range:</label>
-                <input type="range" id="year-start" min="2009" max="2026" value="2009">
-                <span id="year-start-label">2009</span>
-                <span> - </span>
-                <input type="range" id="year-end" min="2009" max="2026" value="2026">
-                <span id="year-end-label">2026</span>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="year-range">Year Range:</label>
+                    <input type="range" id="year-start" min="2009" max="2026" value="2009">
+                    <span id="year-start-label">2009</span>
+                    <span> - </span>
+                    <input type="range" id="year-end" min="2009" max="2026" value="2026">
+                    <span id="year-end-label">2026</span>
+                </div>
+
+                <div class="filter-group">
+                    <label for="study-type">Study Type:</label>
+                    <select id="study-type">
+                        <option value="all">All</option>
+                        <option value="INTERVENTIONAL">Interventional</option>
+                        <option value="OBSERVATIONAL">Observational</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="phase">Phase:</label>
+                    <select id="phase">
+                        <option value="all">All Phases</option>
+                        <option value="Early Phase 1">Early Phase 1</option>
+                        <option value="Phase 1">Phase 1</option>
+                        <option value="Phase 2">Phase 2</option>
+                        <option value="Phase 3">Phase 3</option>
+                        <option value="Phase 4">Phase 4</option>
+                        <option value="N/A">N/A</option>
+                    </select>
+                </div>
             </div>
 
-            <div class="filter-group">
-                <label for="study-type">Study Type:</label>
-                <select id="study-type">
-                    <option value="all">All</option>
-                    <option value="INTERVENTIONAL">Interventional</option>
-                    <option value="OBSERVATIONAL">Observational</option>
-                </select>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="sponsor-class">Sponsor:</label>
+                    <select id="sponsor-class">
+                        <option value="all">All Sponsors</option>
+                        <option value="NIH">NIH</option>
+                        <option value="INDUSTRY">Industry</option>
+                        <option value="FED">Federal (Non-NIH)</option>
+                        <option value="OTHER">Other</option>
+                        <option value="NETWORK">Network</option>
+                    </select>
+                </div>
+
+                <div class="filter-group filter-search">
+                    <label for="condition-search">Condition/Disease:</label>
+                    <input type="text" id="condition-search" placeholder="Search conditions..." />
+                    <button id="clear-condition" class="clear-btn" style="display:none;">✕</button>
+                </div>
+
+                <div class="filter-group">
+                    <button id="reset-filters" class="reset-btn">Reset All Filters</button>
+                </div>
             </div>
 
-            <div class="filter-group">
-                <label for="sponsor-class">Sponsor:</label>
-                <select id="sponsor-class">
-                    <option value="all">All</option>
-                    <option value="NIH">NIH</option>
-                    <option value="INDUSTRY">Industry</option>
-                    <option value="OTHER">Other</option>
-                </select>
-            </div>
+            <div class="active-filters" id="active-filters"></div>
         </section>
 
         <!-- Overview Tab -->
@@ -144,6 +176,44 @@
                 <h3>Gender Reporting</h3>
                 <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
                 <canvas id="gender-distribution-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Studies Tab -->
+        <section id="studies" class="tab-content">
+            <div class="chart-container">
+                <h3>Study Details</h3>
+                <p class="note">
+                    Click on any NCT ID to view the full trial on ClinicalTrials.gov.
+                    Click column headers to sort.
+                </p>
+
+                <div class="table-controls">
+                    <input type="text" id="study-table-search" placeholder="Search studies by title, ID, or condition..." />
+                    <span id="study-count" class="study-count"></span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="studies-table" class="studies-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="nct_id" class="sortable">NCT ID</th>
+                                <th data-sort="brief_title" class="sortable">Title</th>
+                                <th data-sort="phase" class="sortable">Phase</th>
+                                <th data-sort="study_type" class="sortable">Type</th>
+                                <th data-sort="sponsor_class" class="sortable">Sponsor</th>
+                                <th data-sort="enrollment" class="sortable">Enrollment</th>
+                                <th data-sort="results_date" class="sortable">Results Date</th>
+                                <th class="text-center">Race</th>
+                                <th class="text-center">Ethnicity</th>
+                                <th class="text-center">Sex</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studies-table-body">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
     </main>

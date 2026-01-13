@@ -80,9 +80,6 @@ main {
 }
 
 #filters {
-    display: flex;
-    gap: 2rem;
-    flex-wrap: wrap;
     padding: 1rem;
     background: var(--card-background);
     border-radius: 0.5rem;
@@ -90,26 +87,115 @@ main {
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
+.filter-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.filter-row:last-of-type {
+    margin-bottom: 0;
+}
+
 .filter-group {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    position: relative;
 }
 
 .filter-group label {
     font-weight: 500;
     color: var(--text-secondary);
+    white-space: nowrap;
 }
 
-.filter-group select {
+.filter-group select,
+.filter-group input[type="text"] {
     padding: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: 0.25rem;
     font-size: 1rem;
 }
 
+.filter-group input[type="text"] {
+    min-width: 200px;
+}
+
 .filter-group input[type="range"] {
     width: 100px;
+}
+
+.filter-search {
+    position: relative;
+}
+
+.clear-btn {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 0.25rem;
+    line-height: 1;
+}
+
+.clear-btn:hover {
+    color: var(--primary-color);
+}
+
+.reset-btn {
+    padding: 0.5rem 1rem;
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+    transition: all 0.2s;
+}
+
+.reset-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.active-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 1rem;
+}
+
+.filter-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 0.75rem;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+}
+
+.filter-tag button {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0;
+    line-height: 1;
+}
+
+.filter-tag button:hover {
+    opacity: 0.8;
 }
 
 .tab-content {
@@ -202,6 +288,122 @@ main {
     margin-bottom: 1rem;
 }
 
+/* Table Styles */
+.table-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    gap: 1rem;
+}
+
+.table-controls input[type="text"] {
+    flex: 1;
+    max-width: 400px;
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    font-size: 1rem;
+}
+
+.study-count {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+}
+
+.studies-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+}
+
+.studies-table thead {
+    background: var(--background);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.studies-table th {
+    padding: 0.75rem;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.studies-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+}
+
+.studies-table th.sortable:hover {
+    background: var(--border-color);
+}
+
+.studies-table th.sorted-asc::after {
+    content: " ▲";
+    color: var(--primary-color);
+}
+
+.studies-table th.sorted-desc::after {
+    content: " ▼";
+    color: var(--primary-color);
+}
+
+.studies-table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.studies-table tbody tr:hover {
+    background: var(--background);
+}
+
+.studies-table .nct-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.studies-table .nct-link:hover {
+    text-decoration: underline;
+}
+
+.studies-table .check-mark {
+    color: #10b981;
+    font-size: 1.2rem;
+}
+
+.studies-table .x-mark {
+    color: #ef4444;
+    font-size: 1.2rem;
+}
+
+.studies-table .text-center {
+    text-align: center;
+}
+
+.studies-table .text-right {
+    text-align: right;
+}
+
+.phase-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--background);
+    color: var(--text-primary);
+}
+
 footer {
     text-align: center;
     padding: 2rem;
@@ -223,7 +425,7 @@ footer p {
         grid-template-columns: 1fr;
     }
 
-    #filters {
+    .filter-row {
         flex-direction: column;
     }
 
@@ -232,11 +434,42 @@ footer p {
         justify-content: space-between;
     }
 
+    .filter-group input[type="text"] {
+        min-width: 150px;
+    }
+
+    .table-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .table-controls input[type="text"] {
+        max-width: 100%;
+    }
+
+    .studies-table {
+        font-size: 0.75rem;
+    }
+
+    .studies-table th,
+    .studies-table td {
+        padding: 0.5rem;
+    }
+
     header h1 {
         font-size: 1.5rem;
     }
 
     main {
         padding: 1rem;
+    }
+
+    .tabs {
+        gap: 0.25rem;
+    }
+
+    .tab {
+        padding: 0.5rem 1rem;
+        font-size: 0.875rem;
     }
 }

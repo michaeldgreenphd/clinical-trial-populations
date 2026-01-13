@@ -1,7 +1,8 @@
-// ClinicalTrials.gov Demographics Dashboard
+// ClinicalTrials.gov Demographics Dashboard - Enhanced Version
 
 let data = null;
 let charts = {};
+let currentSort = { field: null, direction: 'asc' };
 
 // Colors for charts
 const COLORS = {
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initTabs();
     initFilters();
     initSubcategoryButtons();
+    initTable();
     renderDashboard();
 });
 
@@ -68,18 +70,28 @@ function initTabs() {
 
             tab.classList.add('active');
             document.getElementById(tab.dataset.tab).classList.add('active');
+
+            // Render table when Studies tab is selected
+            if (tab.dataset.tab === 'studies') {
+                renderStudiesTable();
+            }
         });
     });
 }
 
 function initFilters() {
-    ['year-start', 'year-end', 'study-type', 'sponsor-class'].forEach(id => {
+    const filterIds = ['year-start', 'year-end', 'study-type', 'phase', 'sponsor-class'];
+    filterIds.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
-            element.addEventListener('change', renderDashboard);
+            element.addEventListener('change', () => {
+                renderDashboard();
+                updateActiveFilters();
+            });
         }
     });
 
+    // Year range labels
     const yearStartInput = document.getElementById('year-start');
     const yearEndInput = document.getElementById('year-end');
 
@@ -94,7 +106,123 @@ function initFilters() {
             document.getElementById('year-end-label').textContent = e.target.value;
         });
     }
+
+    // Condition search
+    const conditionSearch = document.getElementById('condition-search');
+    const clearCondition = document.getElementById('clear-condition');
+
+    if (conditionSearch) {
+        conditionSearch.addEventListener('input', (e) => {
+            const hasValue = e.target.value.trim().length > 0;
+            clearCondition.style.display = hasValue ? 'block' : 'none';
+            renderDashboard();
+            updateActiveFilters();
+        });
+    }
+
+    if (clearCondition) {
+        clearCondition.addEventListener('click', () => {
+            conditionSearch.value = '';
+            clearCondition.style.display = 'none';
+            renderDashboard();
+            updateActiveFilters();
+        });
+    }
+
+    // Reset filters button
+    const resetBtn = document.getElementById('reset-filters');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetFilters);
+    }
 }
+
+function resetFilters() {
+    document.getElementById('year-start').value = 2009;
+    document.getElementById('year-end').value = 2026;
+    document.getElementById('year-start-label').textContent = '2009';
+    document.getElementById('year-end-label').textContent = '2026';
+    document.getElementById('study-type').value = 'all';
+    document.getElementById('phase').value = 'all';
+    document.getElementById('sponsor-class').value = 'all';
+    document.getElementById('condition-search').value = '';
+    document.getElementById('clear-condition').style.display = 'none';
+
+    renderDashboard();
+    updateActiveFilters();
+}
+
+function updateActiveFilters() {
+    const container = document.getElementById('active-filters');
+    if (!container) return;
+
+    const filters = [];
+
+    const yearStart = document.getElementById('year-start').value;
+    const yearEnd = document.getElementById('year-end').value;
+    if (yearStart != 2009 || yearEnd != 2026) {
+        filters.push({ label: `Years: ${yearStart}-${yearEnd}`, reset: () => {
+            document.getElementById('year-start').value = 2009;
+            document.getElementById('year-end').value = 2026;
+            document.getElementById('year-start-label').textContent = '2009';
+            document.getElementById('year-end-label').textContent = '2026';
+        }});
+    }
+
+    const studyType = document.getElementById('study-type').value;
+    if (studyType !== 'all') {
+        filters.push({ label: `Type: ${studyType}`, reset: () => {
+            document.getElementById('study-type').value = 'all';
+        }});
+    }
+
+    const phase = document.getElementById('phase').value;
+    if (phase !== 'all') {
+        filters.push({ label: `Phase: ${phase}`, reset: () => {
+            document.getElementById('phase').value = 'all';
+        }});
+    }
+
+    const sponsor = document.getElementById('sponsor-class').value;
+    if (sponsor !== 'all') {
+        filters.push({ label: `Sponsor: ${sponsor}`, reset: () => {
+            document.getElementById('sponsor-class').value = 'all';
+        }});
+    }
+
+    const condition = document.getElementById('condition-search').value.trim();
+    if (condition) {
+        filters.push({ label: `Condition: ${condition}`, reset: () => {
+            document.getElementById('condition-search').value = '';
+            document.getElementById('clear-condition').style.display = 'none';
+        }});
+    }
+
+    container.innerHTML = filters.map(f => `
+        <span class="filter-tag">
+            ${f.label}
+            <button onclick="removeFilter(this, event)">&times;</button>
+        </span>
+    `).join('');
+
+    // Store reset functions
+    container.querySelectorAll('.filter-tag').forEach((tag, i) => {
+        tag.dataset.resetIndex = i;
+        tag._resetFn = filters[i].reset;
+    });
+}
+
+function removeFilter(button, event) {
+    event.preventDefault();
+    const tag = button.closest('.filter-tag');
+    if (tag._resetFn) {
+        tag._resetFn();
+        renderDashboard();
+        updateActiveFilters();
+    }
+}
+
+// Make removeFilter available globally
+window.removeFilter = removeFilter;
 
 function initSubcategoryButtons() {
     document.querySelectorAll('.subcat-btn').forEach(btn => {
@@ -106,19 +234,54 @@ function initSubcategoryButtons() {
     });
 }
 
+function initTable() {
+    // Table search
+    const tableSearch = document.getElementById('study-table-search');
+    if (tableSearch) {
+        tableSearch.addEventListener('input', renderStudiesTable);
+    }
+
+    // Sortable headers
+    document.querySelectorAll('.studies-table th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+            const field = th.dataset.sort;
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+            }
+            renderStudiesTable();
+        });
+    });
+}
+
 function getFilteredData() {
     if (!data) return [];
 
     const yearStart = parseInt(document.getElementById('year-start')?.value || 2009);
     const yearEnd = parseInt(document.getElementById('year-end')?.value || 2026);
     const studyType = document.getElementById('study-type')?.value || 'all';
+    const phase = document.getElementById('phase')?.value || 'all';
     const sponsorClass = document.getElementById('sponsor-class')?.value || 'all';
+    const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
 
     return data.filter(study => {
         const year = parseInt(study.results_date?.substring(0, 4));
         if (isNaN(year) || year < yearStart || year > yearEnd) return false;
         if (studyType !== 'all' && study.study_type !== studyType) return false;
+        if (phase !== 'all') {
+            if (phase === 'N/A') {
+                if (study.phase && study.phase.trim() !== '') return false;
+            } else {
+                if (!study.phase?.includes(phase)) return false;
+            }
+        }
         if (sponsorClass !== 'all' && study.sponsor_class !== sponsorClass) return false;
+        if (conditionSearch) {
+            const title = study.brief_title?.toLowerCase() || '';
+            if (!title.includes(conditionSearch)) return false;
+        }
         return true;
     });
 }
@@ -153,13 +316,97 @@ function renderDashboard() {
     renderSexDistribution(filtered);
     renderSexTrends(filtered);
     renderGenderDistribution(filtered);
+
+    // Update table if visible
+    const studiesTab = document.querySelector('.tab[data-tab="studies"]');
+    if (studiesTab?.classList.contains('active')) {
+        renderStudiesTable();
+    }
 }
 
+function renderStudiesTable() {
+    const tbody = document.getElementById('studies-table-body');
+    const countSpan = document.getElementById('study-count');
+    if (!tbody) return;
+
+    let filtered = getFilteredData();
+
+    // Apply table-specific search
+    const tableSearch = document.getElementById('study-table-search')?.value?.toLowerCase().trim();
+    if (tableSearch) {
+        filtered = filtered.filter(s => {
+            return (s.nct_id?.toLowerCase().includes(tableSearch)) ||
+                   (s.brief_title?.toLowerCase().includes(tableSearch));
+        });
+    }
+
+    // Apply sorting
+    if (currentSort.field) {
+        filtered.sort((a, b) => {
+            let aVal = a[currentSort.field];
+            let bVal = b[currentSort.field];
+
+            // Handle numeric fields
+            if (currentSort.field === 'enrollment') {
+                aVal = parseInt(aVal) || 0;
+                bVal = parseInt(bVal) || 0;
+            }
+
+            // Handle string comparison
+            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+
+            if (aVal < bVal) return currentSort.direction === 'asc' ? -1 : 1;
+            if (aVal > bVal) return currentSort.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
+
+    // Update sort indicators
+    document.querySelectorAll('.studies-table th.sortable').forEach(th => {
+        th.classList.remove('sorted-asc', 'sorted-desc');
+        if (th.dataset.sort === currentSort.field) {
+            th.classList.add(`sorted-${currentSort.direction}`);
+        }
+    });
+
+    // Render rows
+    tbody.innerHTML = filtered.map(study => `
+        <tr>
+            <td>
+                <a href="https://clinicaltrials.gov/study/${study.nct_id}"
+                   target="_blank"
+                   class="nct-link">${study.nct_id}</a>
+            </td>
+            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
+            <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
+            <td>${study.study_type || 'N/A'}</td>
+            <td>${study.sponsor_class || 'N/A'}</td>
+            <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
+            <td>${study.results_date || 'N/A'}</td>
+            <td class="text-center">${study.race?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
+            <td class="text-center">${study.ethnicity?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
+            <td class="text-center">${study.sex?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
+        </tr>
+    `).join('');
+
+    // Update count
+    if (countSpan) {
+        countSpan.textContent = `Showing ${filtered.length} ${filtered.length === 1 ? 'study' : 'studies'}`;
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Chart rendering functions (keeping existing logic)
 function renderReportingTrends(filtered) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
 
-    // Group by year
     const byYear = {};
     filtered.forEach(study => {
         const year = study.results_date?.substring(0, 4);
@@ -276,7 +523,6 @@ function renderRaceTrends(filtered) {
     const ctx = document.getElementById('race-trends-chart');
     if (!ctx) return;
 
-    // Group by year and calculate percentages
     const byYear = {};
     filtered.forEach(study => {
         const year = study.results_date?.substring(0, 4);
@@ -356,7 +602,6 @@ function renderRaceSubcategories(category) {
         if (!study.race?.reported) return;
 
         Object.entries(study.race.subcategory_totals || {}).forEach(([key, count]) => {
-            // Filter by category
             if (category === 'asian' && key.startsWith('asian_')) {
                 subcategories[key] = (subcategories[key] || 0) + count;
             } else if (category === 'black' && key.startsWith('black_')) {
