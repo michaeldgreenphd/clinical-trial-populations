@@ -407,11 +407,22 @@ function formatCountries(countries) {
     if (!countries || !Array.isArray(countries) || countries.length === 0) {
         return 'N/A';
     }
-    // If more than 3 countries, show first 2 and "+X more"
-    if (countries.length > 3) {
-        return countries.slice(0, 2).join(', ') + ` +${countries.length - 2} more`;
+
+    // Extract country names from objects (each item is {country: "Country Name"})
+    const countryNames = countries.map(c => c.country || c).filter(name => name);
+
+    // Remove duplicates
+    const uniqueCountries = [...new Set(countryNames)];
+
+    if (uniqueCountries.length === 0) {
+        return 'N/A';
     }
-    return countries.join(', ');
+
+    // If more than 3 countries, show first 2 and "+X more"
+    if (uniqueCountries.length > 3) {
+        return uniqueCountries.slice(0, 2).join(', ') + ` +${uniqueCountries.length - 2} more`;
+    }
+    return uniqueCountries.join(', ');
 }
 
 // Chart rendering functions (keeping existing logic)
@@ -605,7 +616,7 @@ function renderRaceTrends(filtered) {
 
 function renderRaceSubcategories(category) {
     const ctx = document.getElementById('race-subcategory-chart');
-    const container = document.querySelector('#race .chart-container.full-width');
+    const container = document.getElementById('race-subcategory-container');
     if (!ctx || !container) return;
 
     const filtered = getFilteredData();
@@ -762,7 +773,7 @@ function renderEthnicityTrends(filtered) {
 
 function renderEthnicitySubcategories(filtered) {
     const ctx = document.getElementById('ethnicity-subcategory-chart');
-    const container = document.querySelector('#ethnicity .chart-container.full-width');
+    const container = document.getElementById('ethnicity-subcategory-container');
     if (!ctx || !container) return;
 
     const subcategories = {};

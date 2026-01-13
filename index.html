@@ -126,9 +126,9 @@
                 </div>
             </div>
 
-            <div class="chart-container full-width">
+            <div class="chart-container full-width" id="race-subcategory-container">
                 <h3>Detailed Subcategories</h3>
-                <p class="note">Note: Subcategory data (e.g., Chinese, Japanese, Korean under Asian) is only displayed when studies report this granular level of detail. ClinicalTrials.gov typically reports only NIH/OMB categories.</p>
+                <p class="note">Note: Subcategory data (e.g., Chinese, Japanese, Korean under Asian) is only displayed when studies report this granular level of detail. The "Other" category represents race categories reported by ClinicalTrials.gov that are not standard NIH/OMB categories.</p>
                 <div class="subcategory-selector">
                     <button class="subcat-btn active" data-category="asian">Asian</button>
                     <button class="subcat-btn" data-category="black">Black/African American</button>
@@ -151,7 +151,7 @@
                 </div>
             </div>
 
-            <div class="chart-container full-width">
+            <div class="chart-container full-width" id="ethnicity-subcategory-container">
                 <h3>Hispanic/Latino Subcategories</h3>
                 <p class="note">Note: Subcategory data (e.g., Mexican, Puerto Rican, Cuban) is only displayed when studies report this granular level of detail. Most studies report only aggregate Hispanic/Latino data.</p>
                 <canvas id="ethnicity-subcategory-chart"></canvas>
@@ -223,7 +223,7 @@
 
     <footer>
         <p>Data source: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a></p>
-        <p>Methodology based on: Green MD, et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</p>
+        <p>Methodology based on: Aziz et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</p>
         <p><a href="https://github.com/michaeldgreenphd/clinical-trial-populations">GitHub Repository</a></p>
     </footer>
 
