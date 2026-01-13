@@ -384,7 +384,6 @@ function renderStudiesTable() {
             <td>${study.sponsor_class || 'N/A'}</td>
             <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
             <td>${study.results_date || 'N/A'}</td>
-            <td>${formatCountries(study.countries)}</td>
             <td class="text-center">${study.race?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
             <td class="text-center">${study.ethnicity?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
             <td class="text-center">${study.sex?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
