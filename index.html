@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ClinicalTrials.gov Demographics Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>ClinicalTrials.gov Demographics Dashboard</h1>
+        <p class="subtitle">Analyzing diversity in clinical research</p>
+        <p class="last-updated">Last updated: <span id="last-updated"></span></p>
+    </header>
+
+    <nav class="tabs">
+        <button class="tab active" data-tab="overview">Overview</button>
+        <button class="tab" data-tab="race">Race</button>
+        <button class="tab" data-tab="ethnicity">Ethnicity</button>
+        <button class="tab" data-tab="sex">Sex</button>
+        <button class="tab" data-tab="gender">Gender</button>
+        <button class="tab" data-tab="studies">Studies</button>
+    </nav>
+
+    <main>
+        <section id="filters">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="year-range">Year Range:</label>
+                    <input type="range" id="year-start" min="2009" max="2026" value="2009">
+                    <span id="year-start-label">2009</span>
+                    <span> - </span>
+                    <input type="range" id="year-end" min="2009" max="2026" value="2026">
+                    <span id="year-end-label">2026</span>
+                </div>
+
+                <div class="filter-group">
+                    <label for="study-type">Study Type:</label>
+                    <select id="study-type">
+                        <option value="all">All</option>
+                        <option value="INTERVENTIONAL">Interventional</option>
+                        <option value="OBSERVATIONAL">Observational</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="phase">Phase:</label>
+                    <select id="phase">
+                        <option value="all">All Phases</option>
+                        <option value="Early Phase 1">Early Phase 1</option>
+                        <option value="Phase 1">Phase 1</option>
+                        <option value="Phase 2">Phase 2</option>
+                        <option value="Phase 3">Phase 3</option>
+                        <option value="Phase 4">Phase 4</option>
+                        <option value="N/A">N/A</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="sponsor-class">Sponsor:</label>
+                    <select id="sponsor-class">
+                        <option value="all">All Sponsors</option>
+                        <option value="NIH">NIH</option>
+                        <option value="INDUSTRY">Industry</option>
+                        <option value="FED">Federal (Non-NIH)</option>
+                        <option value="OTHER">Other</option>
+                        <option value="NETWORK">Network</option>
+                    </select>
+                </div>
+
+                <div class="filter-group filter-search">
+                    <label for="condition-search">Condition/Disease:</label>
+                    <input type="text" id="condition-search" placeholder="Search conditions..." />
+                    <button id="clear-condition" class="clear-btn" style="display:none;">✕</button>
+                </div>
+
+                <div class="filter-group">
+                    <button id="reset-filters" class="reset-btn">Reset All Filters</button>
+                </div>
+            </div>
+
+            <div class="active-filters" id="active-filters"></div>
+        </section>
+
+        <!-- Overview Tab -->
+        <section id="overview" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Total Studies</h3>
+                    <p class="stat-value" id="total-studies">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Report Race</h3>
+                    <p class="stat-value" id="race-reporting">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Report Ethnicity</h3>
+                    <p class="stat-value" id="ethnicity-reporting">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Report Both</h3>
+                    <p class="stat-value" id="both-reporting">-</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Reporting Trends Over Time</h3>
+                <canvas id="reporting-trends-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Race Tab -->
+        <section id="race" class="tab-content">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Race Distribution (NIH/OMB Categories)</h3>
+                    <canvas id="race-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Race Reporting Over Time</h3>
+                    <canvas id="race-trends-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h3>Detailed Subcategories</h3>
+                <p class="note">Note: Subcategory data (e.g., Chinese, Japanese, Korean under Asian) is only displayed when studies report this granular level of detail. ClinicalTrials.gov typically reports only NIH/OMB categories.</p>
+                <div class="subcategory-selector">
+                    <button class="subcat-btn active" data-category="asian">Asian</button>
+                    <button class="subcat-btn" data-category="black">Black/African American</button>
+                    <button class="subcat-btn" data-category="white">White</button>
+                </div>
+                <canvas id="race-subcategory-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Ethnicity Tab -->
+        <section id="ethnicity" class="tab-content">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Ethnicity Distribution</h3>
+                    <canvas id="ethnicity-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Ethnicity Reporting Over Time</h3>
+                    <canvas id="ethnicity-trends-chart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container full-width">
+                <h3>Hispanic/Latino Subcategories</h3>
+                <p class="note">Note: Subcategory data (e.g., Mexican, Puerto Rican, Cuban) is only displayed when studies report this granular level of detail. Most studies report only aggregate Hispanic/Latino data.</p>
+                <canvas id="ethnicity-subcategory-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Sex Tab -->
+        <section id="sex" class="tab-content">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Sex Distribution</h3>
+                    <canvas id="sex-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Sex Ratio Over Time</h3>
+                    <canvas id="sex-trends-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Gender Tab -->
+        <section id="gender" class="tab-content">
+            <div class="chart-container">
+                <h3>Gender Reporting</h3>
+                <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
+                <canvas id="gender-distribution-chart"></canvas>
+            </div>
+        </section>
+
+        <!-- Studies Tab -->
+        <section id="studies" class="tab-content">
+            <div class="chart-container">
+                <h3>Study Details</h3>
+                <p class="note">
+                    Click on any NCT ID to view the full trial on ClinicalTrials.gov.
+                    Click column headers to sort.
+                </p>
+
+                <div class="table-controls">
+                    <input type="text" id="study-table-search" placeholder="Search studies by title, ID, or condition..." />
+                    <span id="study-count" class="study-count"></span>
+                </div>
+
+                <div class="table-wrapper">
+                    <table id="studies-table" class="studies-table">
+                        <thead>
+                            <tr>
+                                <th data-sort="nct_id" class="sortable">NCT ID</th>
+                                <th data-sort="brief_title" class="sortable">Title</th>
+                                <th data-sort="phase" class="sortable">Phase</th>
+                                <th data-sort="study_type" class="sortable">Type</th>
+                                <th data-sort="sponsor_class" class="sortable">Sponsor</th>
+                                <th data-sort="enrollment" class="sortable">Participants</th>
+                                <th data-sort="results_date" class="sortable">Results Date</th>
+                                <th>Countries</th>
+                                <th class="text-center">Race</th>
+                                <th class="text-center">Ethnicity</th>
+                                <th class="text-center">Sex</th>
+                            </tr>
+                        </thead>
+                        <tbody id="studies-table-body">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Data source: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a></p>
+        <p>Methodology based on: Green MD, et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</p>
+        <p><a href="https://github.com/michaeldgreenphd/clinical-trial-populations">GitHub Repository</a></p>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
