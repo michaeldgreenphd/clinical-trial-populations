@@ -80,7 +80,11 @@ function initTabs() {
 }
 
 function initFilters() {
-    const filterIds = ['year-start', 'year-end', 'study-type', 'phase', 'sponsor-class', 'intervention-model', 'masking', 'primary-purpose'];
+    const filterIds = [
+        'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
+        'intervention-model', 'masking', 'primary-purpose', 'observational-model',
+        'time-perspective', 'enrollment-type', 'healthy-volunteers'
+    ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
@@ -270,6 +274,10 @@ function getFilteredData() {
     const interventionModel = document.getElementById('intervention-model')?.value || 'all';
     const masking = document.getElementById('masking')?.value || 'all';
     const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
+    const observationalModel = document.getElementById('observational-model')?.value || 'all';
+    const timePerspective = document.getElementById('time-perspective')?.value || 'all';
+    const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
+    const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
     const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
 
     return data.filter(study => {
@@ -291,6 +299,14 @@ function getFilteredData() {
         if (interventionModel !== 'all' && study.intervention_model !== interventionModel) return false;
         if (masking !== 'all' && study.masking !== masking) return false;
         if (primaryPurpose !== 'all' && study.primary_purpose !== primaryPurpose) return false;
+        if (observationalModel !== 'all' && study.observational_model !== observationalModel) return false;
+        if (timePerspective !== 'all' && study.time_perspective !== timePerspective) return false;
+        if (enrollmentType !== 'all' && study.enrollment_type !== enrollmentType) return false;
+        if (healthyVolunteers !== 'all') {
+            const acceptsHealthy = study.healthy_volunteers === true;
+            if (healthyVolunteers === 'true' && !acceptsHealthy) return false;
+            if (healthyVolunteers === 'false' && acceptsHealthy) return false;
+        }
         if (conditionSearch) {
             const title = study.brief_title?.toLowerCase() || '';
             if (!title.includes(conditionSearch)) return false;
@@ -384,7 +400,23 @@ function renderStudiesTable() {
     });
 
     // Render rows
-    tbody.innerHTML = filtered.map(study => `
+    tbody.innerHTML = filtered.map(study => {
+        // Format age range
+        const minAge = study.min_age || 'N/A';
+        const maxAge = study.max_age || 'N/A';
+        const ageRange = minAge === 'N/A' && maxAge === 'N/A' ? 'N/A' : `${minAge} - ${maxAge}`;
+
+        // Format enrollment with type indicator
+        const enrollmentText = `${(study.enrollment || 0).toLocaleString()}`;
+        const enrollmentBadge = study.enrollment_type === 'ANTICIPATED' ?
+            `<span class="enrollment-badge" title="Anticipated enrollment">${enrollmentText}*</span>` : enrollmentText;
+
+        // Format status with tooltip for stopped studies
+        const statusText = study.status || 'N/A';
+        const statusWithReason = study.why_stopped ?
+            `<span title="Reason: ${escapeHtml(study.why_stopped)}" class="status-stopped">${statusText}</span>` : statusText;
+
+        return `
         <tr>
             <td>
                 <a href="https://clinicaltrials.gov/study/${study.nct_id}"
@@ -394,16 +426,25 @@ function renderStudiesTable() {
             <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
-            <td>${study.intervention_model || 'N/A'}</td>
+            <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
-            <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
-            <td>${study.results_date || 'N/A'}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td>${ageRange}</td>
+            <td>${statusWithReason}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
             <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
+            <td class="text-center">
+                <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 4.5a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4.5z"/>
+                    </svg>
+                </button>
+            </td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 
     // Update count
     if (countSpan) {
@@ -485,6 +526,130 @@ function closeBreakdown() {
 // Make functions available globally
 window.showBreakdown = showBreakdown;
 window.closeBreakdown = closeBreakdown;
+
+function showStudyDetails(nctId) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study) return;
+
+    const overlay = document.getElementById('study-details-overlay');
+
+    // Format masking details
+    let maskingDetails = '';
+    if (study.masking && study.masking !== 'NONE') {
+        const masked = [];
+        if (study.subject_masked) masked.push('Participants');
+        if (study.caregiver_masked) masked.push('Care Providers');
+        if (study.investigator_masked) masked.push('Investigators');
+        if (study.outcomes_assessor_masked) masked.push('Outcomes Assessors');
+        maskingDetails = masked.length > 0 ? `<br><small>Masked: ${masked.join(', ')}</small>` : '';
+    }
+
+    // Format collaborators
+    let collaboratorsHtml = '';
+    if (study.collaborators && study.collaborators.length > 0) {
+        collaboratorsHtml = `
+            <div class="detail-section">
+                <h5>Collaborators</h5>
+                <ul class="collaborators-list">
+                    ${study.collaborators.map(c => `<li>${escapeHtml(c.name)} <span class="badge">${c.class}</span></li>`).join('')}
+                </ul>
+            </div>`;
+    }
+
+    // Format secondary outcomes
+    let secondaryOutcomesHtml = '';
+    if (study.secondary_outcomes && study.secondary_outcomes.length > 0) {
+        secondaryOutcomesHtml = `
+            <div class="detail-section">
+                <h5>Secondary Outcomes (${study.secondary_outcomes.length})</h5>
+                <ul class="outcomes-list">
+                    ${study.secondary_outcomes.slice(0, 5).map(o => `
+                        <li>
+                            <strong>${escapeHtml(o.measure)}</strong>
+                            ${o.time_frame ? `<br><small>Time Frame: ${escapeHtml(o.time_frame)}</small>` : ''}
+                        </li>
+                    `).join('')}
+                    ${study.secondary_outcomes.length > 5 ? `<li><em>... and ${study.secondary_outcomes.length - 5} more</em></li>` : ''}
+                </ul>
+            </div>`;
+    }
+
+    const html = `
+        <div class="study-details-modal">
+            <div class="modal-header">
+                <h3>${escapeHtml(study.brief_title)}</h3>
+                <button class="close-btn" onclick="closeStudyDetails()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-row">
+                    <strong>NCT ID:</strong>
+                    <a href="https://clinicaltrials.gov/study/${study.nct_id}" target="_blank" class="nct-link">${study.nct_id}</a>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Study Design</h5>
+                    <div class="detail-grid">
+                        <div><strong>Type:</strong> ${study.study_type || 'N/A'}</div>
+                        <div><strong>Phase:</strong> ${study.phase || 'N/A'}</div>
+                        <div><strong>Allocation:</strong> ${study.allocation || 'N/A'}</div>
+                        <div><strong>Model:</strong> ${study.intervention_model || study.observational_model || 'N/A'}</div>
+                        <div><strong>Masking:</strong> ${study.masking || 'N/A'}${maskingDetails}</div>
+                        <div><strong>Purpose:</strong> ${study.primary_purpose || 'N/A'}</div>
+                        ${study.time_perspective !== 'N/A' ? `<div><strong>Time Perspective:</strong> ${study.time_perspective}</div>` : ''}
+                    </div>
+                    ${study.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(study.intervention_model_description)}</p>` : ''}
+                    ${study.masking_description ? `<p class="description"><strong>Masking Description:</strong> ${escapeHtml(study.masking_description)}</p>` : ''}
+                </div>
+
+                <div class="detail-section">
+                    <h5>Primary Outcome</h5>
+                    <p><strong>${escapeHtml(study.primary_endpoint || 'N/A')}</strong></p>
+                    ${study.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(study.primary_outcome_time_frame)}</small></p>` : ''}
+                    ${study.primary_outcome_description ? `<p class="description">${escapeHtml(study.primary_outcome_description)}</p>` : ''}
+                </div>
+
+                ${secondaryOutcomesHtml}
+
+                <div class="detail-section">
+                    <h5>Enrollment & Eligibility</h5>
+                    <div class="detail-grid">
+                        <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
+                        <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
+                        <div><strong>Gender:</strong> ${study.gender || 'ALL'}</div>
+                        <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Sponsor & Collaborators</h5>
+                    <p><strong>Lead Sponsor:</strong> ${escapeHtml(study.lead_sponsor_name || 'Unknown')} <span class="badge">${study.sponsor_class || 'N/A'}</span></p>
+                    ${collaboratorsHtml}
+                </div>
+
+                <div class="detail-section">
+                    <h5>Study Status</h5>
+                    <div class="detail-grid">
+                        <div><strong>Status:</strong> ${study.status || 'N/A'}</div>
+                        <div><strong>Results Posted:</strong> ${study.results_date || 'N/A'}</div>
+                        <div><strong>Completion Date:</strong> ${study.completion_date || study.primary_completion_date || 'N/A'}</div>
+                        <div><strong>Last Update:</strong> ${study.last_update || 'N/A'}</div>
+                    </div>
+                    ${study.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(study.why_stopped)}</p>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
+function closeStudyDetails() {
+    document.getElementById('study-details-overlay').style.display = 'none';
+}
+
+window.showStudyDetails = showStudyDetails;
+window.closeStudyDetails = closeStudyDetails;
 
 function formatCountries(countries) {
     if (!countries || !Array.isArray(countries) || countries.length === 0) {
