@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from src.api_client import CTGovAPIClient
-from src.utils import get_study_metadata, save_json
+from src.utils import get_study_metadata, save_json, get_baseline_measures, extract_demographic_breakdown
 from src.race_extractor import extract_race_data
 from src.ethnicity_extractor import extract_ethnicity_data
 from src.sex_extractor import extract_sex_data
@@ -40,12 +40,22 @@ def extract_demographics_from_study(study: dict) -> dict:
         sex_data = extract_sex_data(study)
         gender_data = extract_gender_data(study)
 
+        # Extract demographic breakdowns for interactive display
+        baseline_measures = get_baseline_measures(study)
+        race_breakdown = extract_demographic_breakdown(baseline_measures, "race")
+        ethnicity_breakdown = extract_demographic_breakdown(baseline_measures, "ethnicity")
+        sex_breakdown = extract_demographic_breakdown(baseline_measures, "sex")
+
         return {
             **metadata,
             "race": race_data,
             "ethnicity": ethnicity_data,
             "sex": sex_data,
-            "gender": gender_data
+            "gender": gender_data,
+            # Add breakdowns for interactive dashboard
+            "raceBreakdown": race_breakdown,
+            "ethnicityBreakdown": ethnicity_breakdown,
+            "sexBreakdown": sex_breakdown
         }
     except Exception as e:
         logger.error(f"Error extracting from study {study.get('protocolSection', {}).get('identificationModule', {}).get('nctId', 'UNKNOWN')}: {str(e)}")

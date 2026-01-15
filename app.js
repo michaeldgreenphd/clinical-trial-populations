@@ -80,7 +80,7 @@ function initTabs() {
 }
 
 function initFilters() {
-    const filterIds = ['year-start', 'year-end', 'study-type', 'phase', 'sponsor-class'];
+    const filterIds = ['year-start', 'year-end', 'study-type', 'phase', 'sponsor-class', 'intervention-model', 'masking', 'primary-purpose'];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
@@ -144,6 +144,9 @@ function resetFilters() {
     document.getElementById('study-type').value = 'all';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
+    document.getElementById('intervention-model').value = 'all';
+    document.getElementById('masking').value = 'all';
+    document.getElementById('primary-purpose').value = 'all';
     document.getElementById('condition-search').value = '';
     document.getElementById('clear-condition').style.display = 'none';
 
@@ -264,6 +267,9 @@ function getFilteredData() {
     const studyType = document.getElementById('study-type')?.value || 'all';
     const phase = document.getElementById('phase')?.value || 'all';
     const sponsorClass = document.getElementById('sponsor-class')?.value || 'all';
+    const interventionModel = document.getElementById('intervention-model')?.value || 'all';
+    const masking = document.getElementById('masking')?.value || 'all';
+    const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
     const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
 
     return data.filter(study => {
@@ -278,6 +284,9 @@ function getFilteredData() {
             }
         }
         if (sponsorClass !== 'all' && study.sponsor_class !== sponsorClass) return false;
+        if (interventionModel !== 'all' && study.intervention_model !== interventionModel) return false;
+        if (masking !== 'all' && study.masking !== masking) return false;
+        if (primaryPurpose !== 'all' && study.primary_purpose !== primaryPurpose) return false;
         if (conditionSearch) {
             const title = study.brief_title?.toLowerCase() || '';
             if (!title.includes(conditionSearch)) return false;
@@ -381,13 +390,14 @@ function renderStudiesTable() {
             <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
-            <td>${study.sponsor_class || 'N/A'}</td>
+            <td>${study.intervention_model || 'N/A'}</td>
+            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
+            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
             <td>${study.results_date || 'N/A'}</td>
-            <td>${formatCountries(study.countries)}</td>
-            <td class="text-center">${study.race?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
-            <td class="text-center">${study.ethnicity?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
-            <td class="text-center">${study.sex?.reported ? '<span class="check-mark">✓</span>' : '<span class="x-mark">✗</span>'}</td>
+            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
         </tr>
     `).join('');
 
@@ -403,15 +413,106 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+function truncateText(text, maxLength) {
+    if (!text || text === 'N/A') return text;
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 3) + '...';
+}
+
+function renderDemographicCell(study, field) {
+    const breakdownKey = `${field}Breakdown`;
+    const reported = study[field]?.reported;
+
+    if (!reported || !study[breakdownKey]) {
+        return '<span class="x-mark">✗</span>';
+    }
+
+    return `<button class="demo-check"
+                    onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
+                    title="Click to view breakdown">
+                ✓
+            </button>`;
+}
+
+function showBreakdown(nctId, breakdownType) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study) return;
+
+    const breakdown = study[breakdownType];
+    if (!breakdown) return;
+
+    // Determine the category name
+    const categoryName = breakdownType.replace('Breakdown', '');
+    const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
+
+    // Build breakdown HTML
+    let html = `<div class="breakdown-modal">
+        <h4>${categoryDisplay} Distribution - ${nctId}</h4>
+        <p class="modal-subtitle">Click outside to close</p>
+        <table class="breakdown-table">
+            <thead><tr><th>Category</th><th>Count</th><th>Percent</th></tr></thead>
+            <tbody>`;
+
+    // Sort by count descending
+    const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+
+    for (const [category, data] of entries) {
+        html += `<tr>
+            <td>${escapeHtml(category)}</td>
+            <td>${data.count.toLocaleString()}</td>
+            <td style="--percent: ${data.percent}">${data.percent.toFixed(1)}%</td>
+        </tr>`;
+    }
+
+    html += `</tbody></table>
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+
+    // Display modal
+    const overlay = document.getElementById('breakdown-overlay');
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
+function closeBreakdown() {
+    document.getElementById('breakdown-overlay').style.display = 'none';
+}
+
+// Make functions available globally
+window.showBreakdown = showBreakdown;
+window.closeBreakdown = closeBreakdown;
+
 function formatCountries(countries) {
     if (!countries || !Array.isArray(countries) || countries.length === 0) {
         return 'N/A';
     }
-    // If more than 3 countries, show first 2 and "+X more"
-    if (countries.length > 3) {
-        return countries.slice(0, 2).join(', ') + ` +${countries.length - 2} more`;
+
+    // Extract country names from objects (each item is {country: "Country Name"})
+    const countryNames = countries.map(c => {
+        // If it's an object with a 'country' property, extract it
+        if (typeof c === 'object' && c !== null && c.country) {
+            return c.country;
+        }
+        // If it's already a string, use it
+        if (typeof c === 'string') {
+            return c;
+        }
+        // Otherwise, skip it
+        return null;
+    }).filter(name => name && typeof name === 'string');
+
+    // Remove duplicates
+    const uniqueCountries = [...new Set(countryNames)];
+
+    if (uniqueCountries.length === 0) {
+        return 'N/A';
     }
-    return countries.join(', ');
+
+    // If more than 3 countries, show first 2 and "+X more"
+    if (uniqueCountries.length > 3) {
+        return uniqueCountries.slice(0, 2).join(', ') + ` +${uniqueCountries.length - 2} more`;
+    }
+    return uniqueCountries.join(', ');
 }
 
 // Chart rendering functions (keeping existing logic)
@@ -605,7 +706,8 @@ function renderRaceTrends(filtered) {
 
 function renderRaceSubcategories(category) {
     const ctx = document.getElementById('race-subcategory-chart');
-    if (!ctx) return;
+    const container = document.getElementById('race-subcategory-container');
+    if (!ctx || !container) return;
 
     const filtered = getFilteredData();
     const subcategories = {};
@@ -628,15 +730,26 @@ function renderRaceSubcategories(category) {
         k.replace(/_/g, ' ').replace(/^(asian|black|white) /, '').replace(/\b\w/g, l => l.toUpperCase())
     );
 
+    // Check if there's any subcategory data across all studies
+    const hasAnySubcategoryData = labels.length > 0;
+
+    if (!hasAnySubcategoryData) {
+        // Hide the entire subcategory section if no data is available
+        container.style.display = 'none';
+        return;
+    } else {
+        container.style.display = 'block';
+    }
+
     if (charts.raceSubcategory) charts.raceSubcategory.destroy();
 
     charts.raceSubcategory = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels.length > 0 ? labels : ['No subcategories found'],
+            labels: labels,
             datasets: [{
                 label: 'Count',
-                data: labels.length > 0 ? Object.values(subcategories) : [0],
+                data: Object.values(subcategories),
                 backgroundColor: '#3b82f6'
             }]
         },
@@ -750,7 +863,8 @@ function renderEthnicityTrends(filtered) {
 
 function renderEthnicitySubcategories(filtered) {
     const ctx = document.getElementById('ethnicity-subcategory-chart');
-    if (!ctx) return;
+    const container = document.getElementById('ethnicity-subcategory-container');
+    if (!ctx || !container) return;
 
     const subcategories = {};
 
@@ -766,15 +880,26 @@ function renderEthnicitySubcategories(filtered) {
         k.replace(/_/g, ' ').replace(/^hispanic latino /, '').replace(/\b\w/g, l => l.toUpperCase())
     );
 
+    // Check if there's any subcategory data
+    const hasAnySubcategoryData = labels.length > 0;
+
+    if (!hasAnySubcategoryData) {
+        // Hide the entire subcategory section if no data is available
+        container.style.display = 'none';
+        return;
+    } else {
+        container.style.display = 'block';
+    }
+
     if (charts.ethnicitySubcategory) charts.ethnicitySubcategory.destroy();
 
     charts.ethnicitySubcategory = new Chart(ctx, {
         type: 'bar',
         data: {
-            labels: labels.length > 0 ? labels : ['No subcategories found'],
+            labels: labels,
             datasets: [{
                 label: 'Count',
-                data: labels.length > 0 ? Object.values(subcategories) : [0],
+                data: Object.values(subcategories),
                 backgroundColor: '#f59e0b'
             }]
         },

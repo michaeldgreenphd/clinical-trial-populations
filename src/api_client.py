@@ -48,8 +48,17 @@ class CTGovAPIClient:
             params["pageToken"] = page_token
         if filters.get("condition"):
             params["query.cond"] = filters["condition"]
-        if filters.get("results_after"):
+
+        # Handle date filtering
+        if filters.get("results_after") and filters.get("results_before"):
+            # Both start and end date provided - use RANGE
+            params["filter.resultsFirstPostDate"] = f"{filters['results_after']}:{filters['results_before']}"
+        elif filters.get("results_after"):
+            # Only start date - use MIN to MAX
             params["filter.resultsFirstPostDate"] = f"{filters['results_after']}:MAX"
+        elif filters.get("results_before"):
+            # Only end date - use MIN to specified date
+            params["filter.resultsFirstPostDate"] = f"MIN:{filters['results_before']}"
 
         response = self.session.get(f"{self.BASE_URL}/studies", params=params, timeout=30)
         response.raise_for_status()

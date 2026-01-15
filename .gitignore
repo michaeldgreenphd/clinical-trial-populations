@@ -23,26 +23,25 @@ wheels/
 .installed.cfg
 *.egg
 
-# IDEs
+# Logs
+*.log
+extraction.log
+
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Data files (optional - uncomment to exclude large data files)
-# data/*.json
-# data/*.csv
-
-# Logs
-*.log
+# Jupyter
+.ipynb_checkpoints/
 
 # Testing
 .pytest_cache/
 .coverage
 htmlcov/
-
-# Environment variables
-.env
-.env.local
