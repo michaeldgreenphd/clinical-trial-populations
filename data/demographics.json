@@ -1,5 +1,5 @@
 {
-  "extracted_at": "2026-01-15T02:05:23.113809",
+  "extracted_at": "2026-01-15T02:46:11.528232",
   "data": [
     {
       "nct_id": "NCT04829747",
@@ -1699,8 +1699,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -2496,8 +2496,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -3301,8 +3301,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -4598,8 +4598,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -6643,8 +6643,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -7069,8 +7069,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -8185,8 +8185,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -12691,8 +12691,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -13369,8 +13369,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -20918,8 +20918,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -22449,8 +22449,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -22791,8 +22791,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -28415,10 +28415,10 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
+          "fuzzy_match_94.73684210526316",
           "unmapped",
-          "fuzzy_match_93.33333333333333",
-          "fuzzy_match_94.73684210526316"
+          "multiple_ethnicity_tables_2",
+          "fuzzy_match_93.33333333333333"
         ]
       },
       "sex": {
@@ -29186,8 +29186,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -31233,8 +31233,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -31787,8 +31787,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -32142,8 +32142,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -36314,8 +36314,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -36487,8 +36487,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -36625,8 +36625,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -37984,8 +37984,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -38184,8 +38184,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -39540,8 +39540,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -39814,8 +39814,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -41153,8 +41153,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -41643,8 +41643,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -47690,9 +47690,9 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
+          "fuzzy_match_95.65217391304348",
           "unmapped",
-          "fuzzy_match_95.65217391304348"
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -51164,8 +51164,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -56056,8 +56056,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -56908,8 +56908,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
           "unmapped",
+          "multiple_ethnicity_tables_2",
           "fuzzy_match_93.33333333333333"
         ]
       },
@@ -57357,8 +57357,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -59914,8 +59914,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -60746,8 +60746,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -61503,8 +61503,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -66636,8 +66636,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -68233,8 +68233,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -74674,8 +74674,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -78903,8 +78903,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -79793,8 +79793,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -80402,8 +80402,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -81612,8 +81612,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -82576,8 +82576,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -90853,8 +90853,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -91129,8 +91129,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -92466,8 +92466,8 @@
           }
         ],
         "flags": [
-          "unmapped",
-          "heuristic_match"
+          "heuristic_match",
+          "unmapped"
         ]
       },
       "gender": {
@@ -95528,8 +95528,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -95916,8 +95916,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -97518,8 +97518,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -101880,8 +101880,8 @@
           }
         ],
         "flags": [
-          "unmapped",
-          "heuristic_match"
+          "heuristic_match",
+          "unmapped"
         ]
       },
       "gender": {
@@ -105904,8 +105904,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -106913,8 +106913,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -108723,8 +108723,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -110041,8 +110041,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -110223,8 +110223,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -113580,8 +113580,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -114003,8 +114003,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -115428,8 +115428,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -115605,8 +115605,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -116767,8 +116767,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
@@ -118829,8 +118829,8 @@
           }
         ],
         "flags": [
-          "multiple_ethnicity_tables_2",
-          "unmapped"
+          "unmapped",
+          "multiple_ethnicity_tables_2"
         ]
       },
       "sex": {
