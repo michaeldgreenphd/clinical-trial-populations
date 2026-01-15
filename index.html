@@ -72,6 +72,46 @@
                     </select>
                 </div>
 
+                <div class="filter-group">
+                    <label for="intervention-model">Design:</label>
+                    <select id="intervention-model">
+                        <option value="all">All Designs</option>
+                        <option value="PARALLEL">Parallel</option>
+                        <option value="CROSSOVER">Crossover</option>
+                        <option value="SINGLE_GROUP">Single Group</option>
+                        <option value="SEQUENTIAL">Sequential</option>
+                        <option value="FACTORIAL">Factorial</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="masking">Masking:</label>
+                    <select id="masking">
+                        <option value="all">All</option>
+                        <option value="NONE">None (Open Label)</option>
+                        <option value="SINGLE">Single</option>
+                        <option value="DOUBLE">Double</option>
+                        <option value="TRIPLE">Triple</option>
+                        <option value="QUADRUPLE">Quadruple</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="primary-purpose">Purpose:</label>
+                    <select id="primary-purpose">
+                        <option value="all">All Purposes</option>
+                        <option value="TREATMENT">Treatment</option>
+                        <option value="PREVENTION">Prevention</option>
+                        <option value="DIAGNOSTIC">Diagnostic</option>
+                        <option value="SUPPORTIVE_CARE">Supportive Care</option>
+                        <option value="SCREENING">Screening</option>
+                        <option value="HEALTH_SERVICES_RESEARCH">Health Services Research</option>
+                        <option value="BASIC_SCIENCE">Basic Science</option>
+                    </select>
+                </div>
+
                 <div class="filter-group filter-search">
                     <label for="condition-search">Condition/Disease:</label>
                     <input type="text" id="condition-search" placeholder="Search conditions..." />
@@ -187,7 +227,7 @@
                 <h3>Study Details</h3>
                 <p class="note">
                     Click on any NCT ID to view the full trial on ClinicalTrials.gov.
-                    Click column headers to sort.
+                    Click column headers to sort. Click checkmarks (✓) to view detailed demographic breakdowns.
                 </p>
 
                 <div class="table-controls">
@@ -203,7 +243,9 @@
                                 <th data-sort="brief_title" class="sortable">Title</th>
                                 <th data-sort="phase" class="sortable">Phase</th>
                                 <th data-sort="study_type" class="sortable">Type</th>
-                                <th data-sort="sponsor_class" class="sortable">Sponsor</th>
+                                <th data-sort="intervention_model" class="sortable">Design</th>
+                                <th data-sort="primary_endpoint" class="sortable">Primary Endpoint</th>
+                                <th data-sort="lead_sponsor_name" class="sortable">Lead Sponsor</th>
                                 <th data-sort="enrollment" class="sortable">Participants</th>
                                 <th data-sort="results_date" class="sortable">Results Date</th>
                                 <th class="text-center">Race</th>
@@ -225,6 +267,9 @@
         <p>Methodology based on: <a href="https://www.medrxiv.org/content/10.1101/2025.07.21.25331865v1" target="_blank">Aziz et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</a></p>
         <p><a href="https://github.com/michaeldgreenphd/clinical-trial-populations">GitHub Repository</a></p>
     </footer>
+
+    <!-- Modal Overlay for Demographic Breakdown -->
+    <div id="breakdown-overlay" class="modal-overlay" onclick="if(event.target===this) closeBreakdown()"></div>
 
     <script src="app.js"></script>
 </body>
