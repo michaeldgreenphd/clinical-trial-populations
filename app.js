@@ -277,10 +277,14 @@ function getFilteredData() {
         if (isNaN(year) || year < yearStart || year > yearEnd) return false;
         if (studyType !== 'all' && study.study_type !== studyType) return false;
         if (phase !== 'all') {
-            if (phase === 'N/A') {
-                if (study.phase && study.phase.trim() !== '') return false;
+            if (phase === 'NA') {
+                // Match "NA" or empty/missing phase
+                if (study.phase && study.phase !== 'NA') return false;
             } else {
-                if (!study.phase?.includes(phase)) return false;
+                // Check if the selected phase is included in the study's phase(s)
+                // Handles both single phases (e.g., "PHASE1") and combined (e.g., "PHASE1, PHASE2")
+                const studyPhases = study.phase?.split(',').map(p => p.trim()) || [];
+                if (!studyPhases.includes(phase)) return false;
             }
         }
         if (sponsorClass !== 'all' && study.sponsor_class !== sponsorClass) return false;
