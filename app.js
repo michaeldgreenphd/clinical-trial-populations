@@ -82,8 +82,8 @@ function initTabs() {
 function initFilters() {
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
-        'intervention-model', 'masking', 'primary-purpose', 'observational-model',
-        'time-perspective', 'enrollment-type', 'healthy-volunteers'
+        'intervention-model', 'masking', 'primary-purpose',
+        'enrollment-type', 'healthy-volunteers'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -274,8 +274,6 @@ function getFilteredData() {
     const interventionModel = document.getElementById('intervention-model')?.value || 'all';
     const masking = document.getElementById('masking')?.value || 'all';
     const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
-    const observationalModel = document.getElementById('observational-model')?.value || 'all';
-    const timePerspective = document.getElementById('time-perspective')?.value || 'all';
     const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
     const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
     const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
@@ -299,8 +297,6 @@ function getFilteredData() {
         if (interventionModel !== 'all' && study.intervention_model !== interventionModel) return false;
         if (masking !== 'all' && study.masking !== masking) return false;
         if (primaryPurpose !== 'all' && study.primary_purpose !== primaryPurpose) return false;
-        if (observationalModel !== 'all' && study.observational_model !== observationalModel) return false;
-        if (timePerspective !== 'all' && study.time_perspective !== timePerspective) return false;
         if (enrollmentType !== 'all' && study.enrollment_type !== enrollmentType) return false;
         if (healthyVolunteers !== 'all') {
             const acceptsHealthy = study.healthy_volunteers === true;
@@ -595,10 +591,8 @@ function showStudyDetails(nctId) {
                         <div><strong>Model:</strong> ${study.intervention_model || study.observational_model || 'N/A'}</div>
                         <div><strong>Masking:</strong> ${study.masking || 'N/A'}${maskingDetails}</div>
                         <div><strong>Purpose:</strong> ${study.primary_purpose || 'N/A'}</div>
-                        ${study.time_perspective !== 'N/A' ? `<div><strong>Time Perspective:</strong> ${study.time_perspective}</div>` : ''}
                     </div>
                     ${study.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(study.intervention_model_description)}</p>` : ''}
-                    ${study.masking_description ? `<p class="description"><strong>Masking Description:</strong> ${escapeHtml(study.masking_description)}</p>` : ''}
                 </div>
 
                 <div class="detail-section">
