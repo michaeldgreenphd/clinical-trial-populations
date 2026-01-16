@@ -847,3 +847,58 @@ footer p {
         grid-template-columns: 1fr;
     }
 }
+
+/* Match Quality Badges in Breakdown Modal */
+.match-high {
+    color: #10b981;
+    font-weight: 600;
+}
+
+.match-medium {
+    color: #f59e0b;
+    font-weight: 600;
+}
+
+.match-low {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.match-na {
+    color: #9ca3af;
+}
+
+.original-label {
+    font-style: italic;
+    color: #6b7280;
+}
+
+.modal-note {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    background: #f3f4f6;
+    border-left: 3px solid var(--primary-color);
+    font-size: 0.875rem;
+    line-height: 1.5;
+}
+
+.modal-subtitle {
+    color: #6b7280;
+    font-size: 0.875rem;
+    margin: 0.5rem 0 1rem 0;
+}
+
+/* Wider breakdown modal for new columns */
+.breakdown-modal {
+    max-width: 800px !important;
+}
+
+.breakdown-table th:nth-child(1),
+.breakdown-table td:nth-child(1) {
+    min-width: 150px;
+}
+
+.breakdown-table th:nth-child(2),
+.breakdown-table td:nth-child(2) {
+    min-width: 150px;
+}

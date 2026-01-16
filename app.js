@@ -421,13 +421,6 @@ function renderStudiesTable() {
             </td>
             <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
-            <td>${study.study_type || 'N/A'}</td>
-            <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
-            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
-            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
-            <td class="text-right">${enrollmentBadge}</td>
-            <td>${ageRange}</td>
-            <td>${statusWithReason}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
             <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
@@ -438,6 +431,13 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
+            <td>${study.study_type || 'N/A'}</td>
+            <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
+            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
+            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td>${ageRange}</td>
+            <td>${statusWithReason}</td>
         </tr>
         `;
     }).join('');
@@ -486,26 +486,54 @@ function showBreakdown(nctId, breakdownType) {
     const categoryName = breakdownType.replace('Breakdown', '');
     const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
+    // Get raw categories for transparency (if available)
+    const rawCategories = study[categoryName]?.raw_categories || [];
+
     // Build breakdown HTML
     let html = `<div class="breakdown-modal">
         <h4>${categoryDisplay} Distribution - ${nctId}</h4>
         <p class="modal-subtitle">Click outside to close</p>
         <table class="breakdown-table">
-            <thead><tr><th>Category</th><th>Count</th><th>Percent</th></tr></thead>
+            <thead><tr><th>NIH/OMB Category</th><th>Original Label</th><th>Match Quality</th><th>Count</th><th>Percent</th></tr></thead>
             <tbody>`;
 
     // Sort by count descending
     const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
 
     for (const [category, data] of entries) {
+        // Find matching raw category for this entry
+        const rawCat = rawCategories.find(rc =>
+            (rc.original === category ||
+             (rc.omb_category && formatOmbCategory(rc.omb_category) === category))
+        );
+
+        const originalLabel = rawCat?.original || category;
+        const confidence = rawCat?.confidence || 'n/a';
+        const isFuzzy = rawCat?.flags?.some(f => f.includes('fuzzy_match')) || false;
+        const isUnmapped = rawCat?.flags?.includes('unmapped') || false;
+
+        let matchQuality = '';
+        if (confidence === 'high') {
+            matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
+        } else if (confidence === 'medium' || isFuzzy) {
+            matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
+        } else if (isUnmapped) {
+            matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
+        } else {
+            matchQuality = '<span class="match-na">-</span>';
+        }
+
         html += `<tr>
             <td>${escapeHtml(category)}</td>
+            <td class="original-label">${escapeHtml(originalLabel)}</td>
+            <td class="text-center">${matchQuality}</td>
             <td>${data.count.toLocaleString()}</td>
             <td style="--percent: ${data.percent}">${data.percent.toFixed(1)}%</td>
         </tr>`;
     }
 
     html += `</tbody></table>
+        <p class="modal-note"><strong>About Match Quality:</strong> "Exact" means the label matched our NIH/OMB mappings directly. "Fuzzy" means approximate string matching was used. "Unmapped" means the original label couldn't be classified into standard categories.</p>
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;
 
@@ -513,6 +541,13 @@ function showBreakdown(nctId, breakdownType) {
     const overlay = document.getElementById('breakdown-overlay');
     overlay.innerHTML = html;
     overlay.style.display = 'flex';
+}
+
+function formatOmbCategory(ombCat) {
+    // Convert snake_case to Title Case with spaces
+    return ombCat.split('_').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
 }
 
 function closeBreakdown() {
