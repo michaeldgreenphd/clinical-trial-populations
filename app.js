@@ -40,33 +40,28 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadData() {
     try {
-        // Get the latest release tag
-        const pointerResponse = await fetch('data/latest-release.txt');
-        if (!pointerResponse.ok) {
-            throw new Error('Could not find latest data release');
-        }
-        const releaseTag = (await pointerResponse.text()).trim();
+        // Fetch both parts of the split data file
+        const fetchAndDecompress = async (url) => {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
+            const decompressedResponse = new Response(decompressedStream);
+            return await decompressedResponse.json();
+        };
 
-        // Fetch the gzipped data file from GitHub releases
-        const dataUrl = `https://github.com/michaeldgreenphd/clinical-trial-populations/releases/download/${releaseTag}/demographics.json.gz`;
-        const response = await fetch(dataUrl);
+        // Fetch both parts in parallel
+        const [part1, part2] = await Promise.all([
+            fetchAndDecompress('data/demographics.part1.json.gz'),
+            fetchAndDecompress('data/demographics.part2.json.gz')
+        ]);
 
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
+        // Combine the data from both parts
+        data = [...part1.data, ...part2.data];
 
-        // Decompress the gzip data using the Compression Streams API
-        const decompressedStream = response.body.pipeThrough(
-            new DecompressionStream('gzip')
-        );
-
-        // Read the decompressed data
-        const decompressedResponse = new Response(decompressedStream);
-        const json = await decompressedResponse.json();
-
-        data = json.data;
         document.getElementById('last-updated').textContent =
-            new Date(json.extracted_at).toLocaleDateString();
+            new Date(part1.extracted_at).toLocaleDateString();
     } catch (error) {
         console.error('Error loading data:', error);
         document.getElementById('last-updated').textContent = 'Error loading data';
