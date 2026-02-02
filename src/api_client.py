@@ -37,28 +37,31 @@ class CTGovAPIClient:
     def search_studies(self, page_token: Optional[str] = None, **filters) -> Dict[str, Any]:
         self._rate_limit()
 
+        # Build advanced filter for studies with results
+        # Include date range if specified
+        if filters.get("results_after") and filters.get("results_before"):
+            # Both start and end date provided
+            date_filter = f"AREA[ResultsFirstPostDate]RANGE[{filters['results_after']},{filters['results_before']}]"
+        elif filters.get("results_after"):
+            # Only start date - from specified date to MAX
+            date_filter = f"AREA[ResultsFirstPostDate]RANGE[{filters['results_after']},MAX]"
+        elif filters.get("results_before"):
+            # Only end date - from MIN to specified date
+            date_filter = f"AREA[ResultsFirstPostDate]RANGE[MIN,{filters['results_before']}]"
+        else:
+            # No date filter - just require results exist
+            date_filter = "AREA[ResultsFirstPostDate]RANGE[MIN,MAX]"
+
         params = {
             "pageSize": self.page_size,
             "format": "json",
-            # Don't specify fields - get the full study record with all protocol sections
-            "filter.advanced": "AREA[ResultsFirstPostDate]RANGE[MIN,MAX]"  # Has results
+            "filter.advanced": date_filter
         }
 
         if page_token:
             params["pageToken"] = page_token
         if filters.get("condition"):
             params["query.cond"] = filters["condition"]
-
-        # Handle date filtering
-        if filters.get("results_after") and filters.get("results_before"):
-            # Both start and end date provided - use RANGE
-            params["filter.resultsFirstPostDate"] = f"{filters['results_after']}:{filters['results_before']}"
-        elif filters.get("results_after"):
-            # Only start date - use MIN to MAX
-            params["filter.resultsFirstPostDate"] = f"{filters['results_after']}:MAX"
-        elif filters.get("results_before"):
-            # Only end date - use MIN to specified date
-            params["filter.resultsFirstPostDate"] = f"MIN:{filters['results_before']}"
 
         response = self.session.get(f"{self.BASE_URL}/studies", params=params, timeout=30)
         response.raise_for_status()
