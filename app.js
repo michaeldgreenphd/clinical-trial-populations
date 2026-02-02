@@ -349,6 +349,100 @@ function renderDashboard() {
     }
 }
 
+/**
+ * Render sparkline for time-to-report metric
+ * Tufte principle: Small multiples allow micro/macro reading
+ */
+function renderSparkline(days) {
+    if (days === null || days === undefined || days < 0) {
+        return '<span class="text-muted">N/A</span>';
+    }
+
+    // Calculate bar width (0-100px range, max at 730 days = 2 years)
+    const maxDays = 730;
+    const widthPercent = Math.min((days / maxDays) * 100, 100);
+
+    // Determine color class based on thresholds
+    let colorClass = 'fast';
+    if (days > 365) {
+        colorClass = 'slow'; // > 1 year: red
+    } else if (days > 180) {
+        colorClass = 'medium'; // 6 months - 1 year: orange
+    } // < 6 months: green
+
+    return `
+        <div class="sparkline-cell">
+            <div class="sparkline-bar ${colorClass}" style="width: ${widthPercent}px" title="${days} days"></div>
+            <span class="sparkline-value">${days}d</span>
+        </div>
+    `;
+}
+
+/**
+ * Render publication icon(s) with links
+ */
+function renderPublications(study) {
+    const refs = study.references || [];
+
+    if (refs.length === 0) {
+        return '<span class="text-muted">-</span>';
+    }
+
+    if (refs.length === 1) {
+        const ref = refs[0];
+        const icon = ref.source === 'pubmed' ? '📄' : '📄';
+        const sourceClass = ref.source === 'pubmed' ? 'pubmed' : '';
+        const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
+        const title = ref.citation || 'View publication';
+
+        return `<a href="${url}" target="_blank" class="pub-icon ${sourceClass}" title="${escapeHtml(title)}">${icon}</a>`;
+    }
+
+    // Multiple publications
+    const pubmedCount = refs.filter(r => r.pmid).length;
+    return `<a href="#" onclick="showPublications('${study.nct_id}'); return false;"
+               class="pub-icon multiple"
+               title="${refs.length} publication(s)">📚</a>`;
+}
+
+/**
+ * Show publications modal
+ */
+function showPublications(nctId) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study || !study.references || study.references.length === 0) return;
+
+    let html = `<div class="breakdown-modal">
+        <h4>Publications - ${nctId}</h4>
+        <p class="modal-subtitle">Click outside to close</p>
+        <div style="max-height: 400px; overflow-y: auto;">`;
+
+    study.references.forEach((ref, idx) => {
+        const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
+        const source = ref.source === 'pubmed' ? 'PubMed' : 'ClinicalTrials.gov';
+
+        html += `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.25rem;">
+                <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                    ${ref.pmid ? `<a href="${url}" target="_blank" style="color: var(--primary-color);">PMID: ${ref.pmid}</a>` : `Publication ${idx + 1}`}
+                    <span style="font-size: 0.75rem; color: #6b7280; margin-left: 0.5rem;">(${source})</span>
+                </div>
+                <div style="font-size: 0.875rem; color: #374151;">
+                    ${escapeHtml(ref.citation || ref.title || 'No citation available')}
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+
+    const overlay = document.getElementById('breakdown-overlay');
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
 function renderStudiesTable() {
     const tbody = document.getElementById('studies-table-body');
     const countSpan = document.getElementById('study-count');
@@ -372,9 +466,12 @@ function renderStudiesTable() {
             let bVal = b[currentSort.field];
 
             // Handle numeric fields
-            if (currentSort.field === 'enrollment') {
-                aVal = parseInt(aVal) || 0;
-                bVal = parseInt(bVal) || 0;
+            if (currentSort.field === 'enrollment' ||
+                currentSort.field === 'completion_to_report_days' ||
+                currentSort.field === 'start_to_report_days') {
+                // Treat null/undefined as very large numbers for sorting (put at end)
+                aVal = (aVal === null || aVal === undefined) ? 999999 : parseInt(aVal) || 0;
+                bVal = (bVal === null || bVal === undefined) ? 999999 : parseInt(bVal) || 0;
             }
 
             // Handle string comparison
@@ -436,7 +533,8 @@ function renderStudiesTable() {
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${enrollmentBadge}</td>
-            <td>${ageRange}</td>
+            <td>${renderSparkline(study.completion_to_report_days)}</td>
+            <td class="text-center">${renderPublications(study)}</td>
             <td>${statusWithReason}</td>
         </tr>
         `;
@@ -468,9 +566,27 @@ function renderDemographicCell(study, field) {
         return '<span class="x-mark">✗</span>';
     }
 
+    // Get raw categories for tooltip
+    const rawCategories = study[field]?.raw_categories || [];
+    let tooltipText = '';
+
+    if (rawCategories.length > 0) {
+        // Build tooltip showing raw labels and match quality
+        const summaries = rawCategories.slice(0, 3).map(rc => {
+            const confidence = rc.confidence === 'high' ? '✓' :
+                             rc.confidence === 'medium' ? '≈' : '⚠';
+            return `${confidence} "${rc.original}"`;
+        }).join('; ');
+
+        const moreCount = rawCategories.length > 3 ? ` +${rawCategories.length - 3} more` : '';
+        tooltipText = `Raw data: ${summaries}${moreCount}. Click for details.`;
+    } else {
+        tooltipText = 'Click to view breakdown';
+    }
+
     return `<button class="demo-check"
                     onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
-                    title="Click to view breakdown">
+                    title="${escapeHtml(tooltipText)}">
                 ✓
             </button>`;
 }

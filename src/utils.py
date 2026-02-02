@@ -2,6 +2,44 @@
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
+
+def calculate_days_between(start_date: str, end_date: str) -> Optional[int]:
+    """
+    Calculate days between two dates in YYYY-MM-DD format.
+    Returns None if either date is missing or invalid.
+    """
+    if not start_date or not end_date:
+        return None
+    try:
+        start = datetime.strptime(start_date, "%Y-%m-%d")
+        end = datetime.strptime(end_date, "%Y-%m-%d")
+        return (end - start).days
+    except (ValueError, TypeError):
+        return None
+
+def extract_references(study: dict) -> list:
+    """Extract publication references from a study."""
+    protocol = study.get("protocolSection", {})
+    refs_mod = protocol.get("referencesModule", {})
+
+    references = []
+
+    # Get references from the referencesModule
+    for ref in refs_mod.get("references", []):
+        pmid = ref.get("pmid")
+        citation = ref.get("citation", "")
+        ref_type = ref.get("type", "")
+
+        if pmid:
+            references.append({
+                "pmid": pmid,
+                "citation": citation,
+                "type": ref_type,
+                "source": "clinicaltrials.gov"
+            })
+
+    return references
 
 def get_baseline_measures(study: dict) -> list:
     """Extract baseline characteristic measures from a study."""
@@ -91,11 +129,21 @@ def get_study_metadata(study: dict) -> dict:
     healthy_volunteers = eligibility_mod.get("healthyVolunteers", False)
 
     # Extract completion and status details
+    start_date_struct = status_mod.get("startDateStruct", {})
+    start_date = start_date_struct.get("date", "")
     completion_date_struct = status_mod.get("completionDateStruct", {})
     completion_date = completion_date_struct.get("date", "")
     primary_completion_date_struct = status_mod.get("primaryCompletionDateStruct", {})
     primary_completion_date = primary_completion_date_struct.get("date", "")
+    results_date = status_mod.get("resultsFirstPostDateStruct", {}).get("date", "")
     why_stopped = status_mod.get("whyStopped", "")
+
+    # Calculate time metrics
+    completion_to_report = calculate_days_between(primary_completion_date, results_date)
+    start_to_report = calculate_days_between(start_date, results_date)
+
+    # Extract publication references
+    references = extract_references(study)
 
     return {
         "nct_id": id_mod.get("nctId", ""),
@@ -105,7 +153,8 @@ def get_study_metadata(study: dict) -> dict:
         "enrollment": enrollment,
         "enrollment_type": enrollment_type,
         "status": status_mod.get("overallStatus", ""),
-        "results_date": status_mod.get("resultsFirstPostDateStruct", {}).get("date", ""),
+        "start_date": start_date,
+        "results_date": results_date,
         "last_update": status_mod.get("lastUpdatePostDateStruct", {}).get("date", ""),
         "completion_date": completion_date,
         "primary_completion_date": primary_completion_date,
@@ -136,7 +185,12 @@ def get_study_metadata(study: dict) -> dict:
         "min_age": min_age,
         "max_age": max_age,
         "gender": gender,
-        "healthy_volunteers": healthy_volunteers
+        "healthy_volunteers": healthy_volunteers,
+        # Time metrics
+        "completion_to_report_days": completion_to_report,
+        "start_to_report_days": start_to_report,
+        # Publications
+        "references": references
     }
 
 def extract_demographic_breakdown(measures: list, category_type: str) -> dict:

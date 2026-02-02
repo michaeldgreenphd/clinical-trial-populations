@@ -15,6 +15,7 @@ from src.race_extractor import extract_race_data
 from src.ethnicity_extractor import extract_ethnicity_data
 from src.sex_extractor import extract_sex_data
 from src.gender_extractor import extract_gender_data
+from src.pubmed_fetcher import PubMedFetcher
 
 # Set up logging
 logging.basicConfig(
@@ -23,12 +24,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def extract_demographics_from_study(study: dict) -> dict:
+def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMedFetcher] = None) -> dict:
     """
     Extract all demographic data from a single study.
 
     Args:
         study: Study data from ClinicalTrials.gov API
+        pubmed_fetcher: Optional PubMedFetcher instance for finding publications
 
     Returns:
         Dictionary containing study metadata and all demographic data
@@ -45,6 +47,18 @@ def extract_demographics_from_study(study: dict) -> dict:
         race_breakdown = extract_demographic_breakdown(baseline_measures, "race")
         ethnicity_breakdown = extract_demographic_breakdown(baseline_measures, "ethnicity")
         sex_breakdown = extract_demographic_breakdown(baseline_measures, "sex")
+
+        # If no references found and PubMed fetcher provided, try PubMed
+        if pubmed_fetcher and not metadata.get("references"):
+            nct_id = metadata.get("nct_id")
+            if nct_id:
+                try:
+                    pubmed_refs = pubmed_fetcher.get_publications_for_study(nct_id)
+                    if pubmed_refs:
+                        metadata["references"] = pubmed_refs
+                        logger.info(f"Found {len(pubmed_refs)} PubMed reference(s) for {nct_id}")
+                except Exception as e:
+                    logger.warning(f"PubMed fetch failed for {nct_id}: {str(e)}")
 
         return {
             **metadata,
@@ -86,11 +100,22 @@ def main():
         default=None,
         help="Filter by results posted after date (YYYY-MM-DD)"
     )
+    parser.add_argument(
+        "--fetch-pubmed",
+        action="store_true",
+        help="Fetch publications from PubMed for studies without references"
+    )
     args = parser.parse_args()
 
     # Initialize API client
     logger.info("Initializing ClinicalTrials.gov API client...")
     client = CTGovAPIClient(page_size=100, rate_limit_delay=0.5)
+
+    # Initialize PubMed fetcher if requested
+    pubmed_fetcher = None
+    if args.fetch_pubmed:
+        logger.info("Initializing PubMed fetcher...")
+        pubmed_fetcher = PubMedFetcher(rate_limit_delay=0.34)
 
     # Extract data
     logger.info("Starting extraction...")
@@ -98,6 +123,8 @@ def main():
         logger.info(f"Limiting to {args.limit} studies")
     if args.condition:
         logger.info(f"Filtering by condition: {args.condition}")
+    if args.fetch_pubmed:
+        logger.info("PubMed fetching enabled for studies without references")
 
     results = []
     errors = 0
@@ -109,7 +136,7 @@ def main():
     )
 
     for study in tqdm(studies, desc="Extracting demographics"):
-        result = extract_demographics_from_study(study)
+        result = extract_demographics_from_study(study, pubmed_fetcher=pubmed_fetcher)
         if result:
             results.append(result)
         else:

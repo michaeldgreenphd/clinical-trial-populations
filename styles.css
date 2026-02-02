@@ -317,25 +317,30 @@ main {
     border-radius: 0.25rem;
 }
 
+/* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.875rem;
+    border: none; /* Remove outer borders */
 }
 
 .studies-table thead {
-    background: var(--background);
+    background: white;
     position: sticky;
     top: 0;
     z-index: 10;
+    box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.05); /* Subtle shadow instead of heavy border */
 }
 
 .studies-table th {
-    padding: 0.75rem;
+    padding: 0.75rem 1rem 0.75rem 0.5rem;
     text-align: left;
     font-weight: 600;
     color: var(--text-primary);
-    border-bottom: 2px solid var(--border-color);
+    border: none; /* No vertical borders */
+    border-bottom: 1px solid #d1d5db; /* Subtle horizontal line */
+    background: white;
 }
 
 .studies-table th.sortable {
@@ -344,7 +349,7 @@ main {
 }
 
 .studies-table th.sortable:hover {
-    background: var(--border-color);
+    background: #f9fafb; /* Very subtle hover */
 }
 
 .studies-table th.sorted-asc::after {
@@ -358,12 +363,17 @@ main {
 }
 
 .studies-table td {
-    padding: 0.75rem;
-    border-bottom: 1px solid var(--border-color);
+    padding: 0.75rem 1rem 0.75rem 0.5rem;
+    border: none; /* No vertical borders - Tufte principle */
+    border-bottom: 1px solid #f3f4f6; /* Very light horizontal guides only */
+}
+
+.studies-table tbody tr {
+    /* No zebra striping - rely on whitespace and subtle lines */
 }
 
 .studies-table tbody tr:hover {
-    background: var(--background);
+    background: #fafbfc; /* Very subtle hover for interaction */
 }
 
 .studies-table .nct-link {
@@ -901,4 +911,102 @@ footer p {
 .breakdown-table th:nth-child(2),
 .breakdown-table td:nth-child(2) {
     min-width: 150px;
+}
+
+/* Sparkline styles for time metrics - Tufte principle: small multiples */
+.sparkline-cell {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    white-space: nowrap;
+}
+
+.sparkline-bar {
+    display: inline-block;
+    height: 16px;
+    background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%);
+    border-radius: 2px;
+    min-width: 2px;
+    max-width: 100px;
+    transition: all 0.2s;
+}
+
+.sparkline-bar.fast {
+    background: #10b981; /* Green for fast reporting (< 180 days) */
+}
+
+.sparkline-bar.medium {
+    background: #f59e0b; /* Orange for medium (180-365 days) */
+}
+
+.sparkline-bar.slow {
+    background: #ef4444; /* Red for slow (> 365 days) */
+}
+
+.sparkline-value {
+    font-size: 0.8125rem;
+    color: var(--text-secondary);
+    min-width: 50px;
+}
+
+/* Tooltip for raw/mapped demographic labels */
+.demographic-tooltip {
+    position: relative;
+    cursor: help;
+}
+
+.demographic-tooltip:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem 0.75rem;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border-radius: 0.25rem;
+    z-index: 1000;
+    margin-bottom: 0.25rem;
+    pointer-events: none;
+}
+
+.demographic-tooltip:hover::before {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 5px solid transparent;
+    border-top-color: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+}
+
+/* Publication icon styling */
+.pub-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--primary-color);
+    color: white;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: all 0.2s;
+}
+
+.pub-icon:hover {
+    background: #1d4ed8;
+    transform: translateY(-1px);
+}
+
+.pub-icon.multiple {
+    background: #059669;
+}
+
+.pub-icon.pubmed {
+    background: #8b5cf6;
 }
