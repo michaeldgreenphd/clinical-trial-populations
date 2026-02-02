@@ -40,8 +40,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadData() {
     try {
-        // Fetch the gzipped data file
-        const response = await fetch('data/demographics.json.gz');
+        // Get the latest release tag
+        const pointerResponse = await fetch('data/latest-release.txt');
+        if (!pointerResponse.ok) {
+            throw new Error('Could not find latest data release');
+        }
+        const releaseTag = (await pointerResponse.text()).trim();
+
+        // Fetch the gzipped data file from GitHub releases
+        const dataUrl = `https://github.com/michaeldgreenphd/clinical-trial-populations/releases/download/${releaseTag}/demographics.json.gz`;
+        const response = await fetch(dataUrl);
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -67,10 +75,8 @@ async function loadData() {
         document.querySelector('main').innerHTML = `
             <div class="chart-container">
                 <h3>No Data Available</h3>
-                <p class="note">The demographics data file has not been generated yet. Run the extraction script to generate data:</p>
-                <pre style="background: #f1f5f9; padding: 1rem; border-radius: 0.25rem; margin-top: 1rem;">
-python src/extract_all.py --output data/demographics.json --limit 100
-                </pre>
+                <p class="note">The demographics data file has not been generated yet. Run the extraction script to generate data.</p>
+                <p class="note">Error: ${error.message}</p>
             </div>
         `;
     }
