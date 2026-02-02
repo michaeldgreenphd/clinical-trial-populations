@@ -633,6 +633,7 @@ function renderStudiesTable() {
                    class="nct-link">${study.nct_id}</a>
             </td>
             <td>${study.start_date || 'N/A'}</td>
+            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
             <td>${statusWithReason}</td>
             <td>${study.results_date || 'N/A'}</td>
             <td>${study.last_update || 'N/A'}</td>
