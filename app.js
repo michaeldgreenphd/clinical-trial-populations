@@ -632,8 +632,11 @@ function renderStudiesTable() {
                    target="_blank"
                    class="nct-link">${study.nct_id}</a>
             </td>
-            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
-            <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
+            <td>${study.start_date || 'N/A'}</td>
+            <td>${statusWithReason}</td>
+            <td>${study.results_date || 'N/A'}</td>
+            <td>${study.last_update || 'N/A'}</td>
+            <td>${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
             <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
@@ -644,14 +647,14 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
+            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
+            <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
             <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${enrollmentBadge}</td>
-            <td>${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center">${renderPublications(study)}</td>
-            <td>${statusWithReason}</td>
         </tr>
         `;
     }).join('');
