@@ -62,4 +62,16 @@ jobs:
             git add .
             git commit -m "Merge main into dashboard: update data, keep dashboard README"
           }
+
+          # Clean up old/large files that shouldn't be on dashboard branch
+          git rm -f data/demographics.json data/demographics\ \(4\).json data/demographics\ \(5\).json data/latest-release.txt 2>/dev/null || true
+
+          # Only keep the split compressed files
+          git add data/demographics.part*.json.gz
+
+          # Commit cleanup if there were changes
+          if ! git diff --cached --quiet; then
+            git commit -m "Clean up: remove large uncompressed data files"
+          fi
+
           git push
