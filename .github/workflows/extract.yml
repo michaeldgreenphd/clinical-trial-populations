@@ -23,7 +23,7 @@ jobs:
         run: pip install requests pyyaml rapidfuzz tqdm
 
       - name: Run extraction
-        run: python src/extract_all.py --output data/
+        run: python -m src.extract_all --output data/demographics.json --limit 10000
 
       - name: Commit and push data
         run: |
