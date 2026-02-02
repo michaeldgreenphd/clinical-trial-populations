@@ -8,12 +8,31 @@ def calculate_days_between(start_date: str, end_date: str) -> Optional[int]:
     """
     Calculate days between two dates in YYYY-MM-DD format.
     Returns None if either date is missing or invalid.
+
+    Note: ClinicalTrials.gov API sometimes returns partial dates (YYYY-MM or YYYY).
+    We normalize these by assuming the 1st day of the month/year.
     """
     if not start_date or not end_date:
         return None
+
     try:
-        start = datetime.strptime(start_date, "%Y-%m-%d")
-        end = datetime.strptime(end_date, "%Y-%m-%d")
+        # Normalize partial dates to full dates
+        # If date is YYYY-MM, append -01
+        # If date is YYYY, append -01-01
+        def normalize_date(date_str: str) -> str:
+            parts = date_str.split('-')
+            if len(parts) == 1:  # YYYY only
+                return f"{parts[0]}-01-01"
+            elif len(parts) == 2:  # YYYY-MM
+                return f"{parts[0]}-{parts[1]}-01"
+            else:  # YYYY-MM-DD already
+                return date_str
+
+        start_normalized = normalize_date(start_date)
+        end_normalized = normalize_date(end_date)
+
+        start = datetime.strptime(start_normalized, "%Y-%m-%d")
+        end = datetime.strptime(end_normalized, "%Y-%m-%d")
         return (end - start).days
     except (ValueError, TypeError):
         return None

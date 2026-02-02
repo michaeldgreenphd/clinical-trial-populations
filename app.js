@@ -587,7 +587,6 @@ function renderDemographicCell(study, field) {
     return `<button class="demo-check"
                     onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
                     title="${escapeHtml(tooltipText)}">
-                ✓
             </button>`;
 }
 
