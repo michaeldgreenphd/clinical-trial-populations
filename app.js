@@ -42,16 +42,23 @@ async function loadData() {
     try {
         // Fetch both parts of the split data file
         const fetchAndDecompress = async (url) => {
-            const response = await fetch(url);
+            console.log(`Fetching: ${url}`);
+            // Add cache-busting parameter
+            const cacheBust = new Date().getTime();
+            const response = await fetch(`${url}?v=${cacheBust}`);
+            console.log(`Response status for ${url}: ${response.status}`);
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
             }
             const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
             const decompressedResponse = new Response(decompressedStream);
-            return await decompressedResponse.json();
+            const json = await decompressedResponse.json();
+            console.log(`Successfully loaded ${json.data.length} studies from ${url}`);
+            return json;
         };
 
         // Fetch both parts in parallel
+        console.log('Loading data parts...');
         const [part1, part2] = await Promise.all([
             fetchAndDecompress('data/demographics.part1.json.gz'),
             fetchAndDecompress('data/demographics.part2.json.gz')
@@ -59,6 +66,7 @@ async function loadData() {
 
         // Combine the data from both parts
         data = [...part1.data, ...part2.data];
+        console.log(`Total studies loaded: ${data.length}`);
 
         document.getElementById('last-updated').textContent =
             new Date(part1.extracted_at).toLocaleDateString();
@@ -66,12 +74,17 @@ async function loadData() {
         console.error('Error loading data:', error);
         document.getElementById('last-updated').textContent = 'Error loading data';
 
-        // Show friendly error message
+        // Show friendly error message with more details
         document.querySelector('main').innerHTML = `
             <div class="chart-container">
                 <h3>No Data Available</h3>
-                <p class="note">The demographics data file has not been generated yet. Run the extraction script to generate data.</p>
+                <p class="note">Error loading data files. Please check the browser console for details.</p>
                 <p class="note">Error: ${error.message}</p>
+                <p class="note" style="font-size: 0.9em; color: #666;">
+                    Trying to load:<br>
+                    - data/demographics.part1.json.gz<br>
+                    - data/demographics.part2.json.gz
+                </p>
             </div>
         `;
     }
