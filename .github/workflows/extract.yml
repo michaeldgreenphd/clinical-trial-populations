@@ -35,6 +35,13 @@ jobs:
 
       - name: Trigger dashboard rebuild
         run: |
+          git fetch origin dashboard
           git checkout dashboard
-          git merge main --no-edit
+          git merge main --no-edit --allow-unrelated-histories -X theirs || {
+            # If merge fails due to conflicts, resolve by keeping data/ from main
+            git checkout --theirs data/
+            git checkout --ours README.md || true
+            git add .
+            git commit -m "Merge main into dashboard: update data, keep dashboard README"
+          }
           git push
