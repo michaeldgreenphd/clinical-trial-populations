@@ -80,7 +80,15 @@ function initTabs() {
 }
 
 function initFilters() {
-    const filterIds = ['year-start', 'year-end', 'study-type', 'phase', 'sponsor-class', 'intervention-model', 'masking', 'primary-purpose'];
+    // Populate condition and country dropdowns
+    populateConditionsDropdown();
+    populateCountriesDropdown();
+
+    const filterIds = [
+        'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
+        'intervention-model', 'masking', 'primary-purpose',
+        'enrollment-type', 'healthy-volunteers', 'condition', 'country'
+    ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
@@ -107,33 +115,74 @@ function initFilters() {
         });
     }
 
-    // Condition search
-    const conditionSearch = document.getElementById('condition-search');
-    const clearCondition = document.getElementById('clear-condition');
-
-    if (conditionSearch) {
-        conditionSearch.addEventListener('input', (e) => {
-            const hasValue = e.target.value.trim().length > 0;
-            clearCondition.style.display = hasValue ? 'block' : 'none';
-            renderDashboard();
-            updateActiveFilters();
-        });
-    }
-
-    if (clearCondition) {
-        clearCondition.addEventListener('click', () => {
-            conditionSearch.value = '';
-            clearCondition.style.display = 'none';
-            renderDashboard();
-            updateActiveFilters();
-        });
-    }
-
     // Reset filters button
     const resetBtn = document.getElementById('reset-filters');
     if (resetBtn) {
         resetBtn.addEventListener('click', resetFilters);
     }
+}
+
+function populateConditionsDropdown() {
+    const select = document.getElementById('condition');
+    if (!select || !data) return;
+
+    // Extract all unique conditions from all studies
+    const conditionsSet = new Set();
+    data.forEach(study => {
+        if (study.conditions && Array.isArray(study.conditions)) {
+            study.conditions.forEach(condition => {
+                if (condition && condition.trim()) {
+                    conditionsSet.add(condition.trim());
+                }
+            });
+        }
+    });
+
+    // Sort alphabetically
+    const sortedConditions = Array.from(conditionsSet).sort((a, b) => a.localeCompare(b));
+
+    // Clear existing options (except "All")
+    select.innerHTML = '<option value="all">All Conditions</option>';
+
+    // Add condition options
+    sortedConditions.forEach(condition => {
+        const option = document.createElement('option');
+        option.value = condition;
+        option.textContent = condition;
+        select.appendChild(option);
+    });
+}
+
+function populateCountriesDropdown() {
+    const select = document.getElementById('country');
+    if (!select || !data) return;
+
+    // Extract all unique countries from all studies
+    const countriesSet = new Set();
+    data.forEach(study => {
+        if (study.countries && Array.isArray(study.countries)) {
+            study.countries.forEach(countryObj => {
+                const country = countryObj.country;
+                if (country && country.trim()) {
+                    countriesSet.add(country.trim());
+                }
+            });
+        }
+    });
+
+    // Sort alphabetically
+    const sortedCountries = Array.from(countriesSet).sort((a, b) => a.localeCompare(b));
+
+    // Clear existing options (except "All")
+    select.innerHTML = '<option value="all">All Countries</option>';
+
+    // Add country options
+    sortedCountries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        select.appendChild(option);
+    });
 }
 
 function resetFilters() {
@@ -147,8 +196,10 @@ function resetFilters() {
     document.getElementById('intervention-model').value = 'all';
     document.getElementById('masking').value = 'all';
     document.getElementById('primary-purpose').value = 'all';
-    document.getElementById('condition-search').value = '';
-    document.getElementById('clear-condition').style.display = 'none';
+    document.getElementById('enrollment-type').value = 'all';
+    document.getElementById('healthy-volunteers').value = 'all';
+    document.getElementById('condition').value = 'all';
+    document.getElementById('country').value = 'all';
 
     renderDashboard();
     updateActiveFilters();
@@ -192,11 +243,19 @@ function updateActiveFilters() {
         }});
     }
 
-    const condition = document.getElementById('condition-search').value.trim();
-    if (condition) {
-        filters.push({ label: `Condition: ${condition}`, reset: () => {
-            document.getElementById('condition-search').value = '';
-            document.getElementById('clear-condition').style.display = 'none';
+    const condition = document.getElementById('condition').value;
+    if (condition !== 'all') {
+        // Truncate long condition names
+        const displayCondition = condition.length > 30 ? condition.substring(0, 30) + '...' : condition;
+        filters.push({ label: `Condition: ${displayCondition}`, reset: () => {
+            document.getElementById('condition').value = 'all';
+        }});
+    }
+
+    const country = document.getElementById('country').value;
+    if (country !== 'all') {
+        filters.push({ label: `Country: ${country}`, reset: () => {
+            document.getElementById('country').value = 'all';
         }});
     }
 
@@ -270,26 +329,44 @@ function getFilteredData() {
     const interventionModel = document.getElementById('intervention-model')?.value || 'all';
     const masking = document.getElementById('masking')?.value || 'all';
     const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
-    const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
+    const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
+    const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
+    const conditionFilter = document.getElementById('condition')?.value || 'all';
+    const countryFilter = document.getElementById('country')?.value || 'all';
 
     return data.filter(study => {
         const year = parseInt(study.results_date?.substring(0, 4));
         if (isNaN(year) || year < yearStart || year > yearEnd) return false;
         if (studyType !== 'all' && study.study_type !== studyType) return false;
         if (phase !== 'all') {
-            if (phase === 'N/A') {
-                if (study.phase && study.phase.trim() !== '') return false;
+            if (phase === 'NA') {
+                // Match "NA" or empty/missing phase
+                if (study.phase && study.phase !== 'NA') return false;
             } else {
-                if (!study.phase?.includes(phase)) return false;
+                // Check if the selected phase is included in the study's phase(s)
+                // Handles both single phases (e.g., "PHASE1") and combined (e.g., "PHASE1, PHASE2")
+                const studyPhases = study.phase?.split(',').map(p => p.trim()) || [];
+                if (!studyPhases.includes(phase)) return false;
             }
         }
         if (sponsorClass !== 'all' && study.sponsor_class !== sponsorClass) return false;
         if (interventionModel !== 'all' && study.intervention_model !== interventionModel) return false;
         if (masking !== 'all' && study.masking !== masking) return false;
         if (primaryPurpose !== 'all' && study.primary_purpose !== primaryPurpose) return false;
-        if (conditionSearch) {
-            const title = study.brief_title?.toLowerCase() || '';
-            if (!title.includes(conditionSearch)) return false;
+        if (enrollmentType !== 'all' && study.enrollment_type !== enrollmentType) return false;
+        if (healthyVolunteers !== 'all') {
+            const acceptsHealthy = study.healthy_volunteers === true;
+            if (healthyVolunteers === 'true' && !acceptsHealthy) return false;
+            if (healthyVolunteers === 'false' && acceptsHealthy) return false;
+        }
+        if (conditionFilter !== 'all') {
+            const conditions = study.conditions || [];
+            if (!conditions.includes(conditionFilter)) return false;
+        }
+        if (countryFilter !== 'all') {
+            const countries = study.countries || [];
+            const countryNames = countries.map(c => c.country);
+            if (!countryNames.includes(countryFilter)) return false;
         }
         return true;
     });
@@ -333,6 +410,155 @@ function renderDashboard() {
     }
 }
 
+/**
+ * Calculate days between two dates
+ * Handles partial dates (YYYY-MM or YYYY) by normalizing to first day
+ */
+function calculateDaysBetween(startDate, endDate) {
+    if (!startDate || !endDate) return null;
+
+    try {
+        // Normalize partial dates
+        function normalizeDate(dateStr) {
+            const parts = dateStr.split('-');
+            if (parts.length === 1) {
+                // YYYY only
+                return `${parts[0]}-01-01`;
+            } else if (parts.length === 2) {
+                // YYYY-MM
+                return `${parts[0]}-${parts[1]}-01`;
+            }
+            // YYYY-MM-DD already
+            return dateStr;
+        }
+
+        const start = new Date(normalizeDate(startDate));
+        const end = new Date(normalizeDate(endDate));
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return null;
+        }
+
+        const diffTime = end - start;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays >= 0 ? diffDays : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Get time to report for a study
+ * Tries completion_to_report_days field first, then calculates from dates
+ */
+function getTimeToReport(study) {
+    // First try the pre-calculated field
+    if (study.completion_to_report_days !== null && study.completion_to_report_days !== undefined) {
+        return study.completion_to_report_days;
+    }
+
+    // Fall back to calculating from dates
+    const completionDate = study.primary_completion_date || study.completion_date;
+    const resultsDate = study.results_date;
+
+    return calculateDaysBetween(completionDate, resultsDate);
+}
+
+/**
+ * Render sparkline for time-to-report metric
+ * Tufte principle: Small multiples allow micro/macro reading
+ */
+function renderSparkline(days) {
+    if (days === null || days === undefined || days < 0) {
+        return '<span class="text-muted">N/A</span>';
+    }
+
+    // Calculate bar width (0-100px range, max at 730 days = 2 years)
+    const maxDays = 730;
+    const widthPercent = Math.min((days / maxDays) * 100, 100);
+
+    // Determine color class based on thresholds
+    let colorClass = 'fast';
+    if (days > 365) {
+        colorClass = 'slow'; // > 1 year: red
+    } else if (days > 180) {
+        colorClass = 'medium'; // 6 months - 1 year: orange
+    } // < 6 months: green
+
+    return `
+        <div class="sparkline-cell">
+            <div class="sparkline-bar ${colorClass}" style="width: ${widthPercent}px" title="${days} days"></div>
+            <span class="sparkline-value">${days}d</span>
+        </div>
+    `;
+}
+
+/**
+ * Render publication icon(s) with links
+ */
+function renderPublications(study) {
+    const refs = study.references || [];
+
+    if (refs.length === 0) {
+        return '<span class="text-muted">-</span>';
+    }
+
+    if (refs.length === 1) {
+        const ref = refs[0];
+        const icon = ref.source === 'pubmed' ? '📄' : '📄';
+        const sourceClass = ref.source === 'pubmed' ? 'pubmed' : '';
+        const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
+        const title = ref.citation || 'View publication';
+
+        return `<a href="${url}" target="_blank" class="pub-icon ${sourceClass}" title="${escapeHtml(title)}">${icon}</a>`;
+    }
+
+    // Multiple publications
+    const pubmedCount = refs.filter(r => r.pmid).length;
+    return `<a href="#" onclick="showPublications('${study.nct_id}'); return false;"
+               class="pub-icon multiple"
+               title="${refs.length} publication(s)">📚</a>`;
+}
+
+/**
+ * Show publications modal
+ */
+function showPublications(nctId) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study || !study.references || study.references.length === 0) return;
+
+    let html = `<div class="breakdown-modal">
+        <h4>Publications - ${nctId}</h4>
+        <p class="modal-subtitle">Click outside to close</p>
+        <div style="max-height: 400px; overflow-y: auto;">`;
+
+    study.references.forEach((ref, idx) => {
+        const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
+        const source = ref.source === 'pubmed' ? 'PubMed' : 'ClinicalTrials.gov';
+
+        html += `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.25rem;">
+                <div style="font-weight: 600; margin-bottom: 0.25rem;">
+                    ${ref.pmid ? `<a href="${url}" target="_blank" style="color: var(--primary-color);">PMID: ${ref.pmid}</a>` : `Publication ${idx + 1}`}
+                    <span style="font-size: 0.75rem; color: #6b7280; margin-left: 0.5rem;">(${source})</span>
+                </div>
+                <div style="font-size: 0.875rem; color: #374151;">
+                    ${escapeHtml(ref.citation || ref.title || 'No citation available')}
+                </div>
+            </div>
+        `;
+    });
+
+    html += `</div>
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+
+    const overlay = document.getElementById('breakdown-overlay');
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
 function renderStudiesTable() {
     const tbody = document.getElementById('studies-table-body');
     const countSpan = document.getElementById('study-count');
@@ -356,9 +582,12 @@ function renderStudiesTable() {
             let bVal = b[currentSort.field];
 
             // Handle numeric fields
-            if (currentSort.field === 'enrollment') {
-                aVal = parseInt(aVal) || 0;
-                bVal = parseInt(bVal) || 0;
+            if (currentSort.field === 'enrollment' ||
+                currentSort.field === 'completion_to_report_days' ||
+                currentSort.field === 'start_to_report_days') {
+                // Treat null/undefined as very large numbers for sorting (put at end)
+                aVal = (aVal === null || aVal === undefined) ? 999999 : parseInt(aVal) || 0;
+                bVal = (bVal === null || bVal === undefined) ? 999999 : parseInt(bVal) || 0;
             }
 
             // Handle string comparison
@@ -380,7 +609,23 @@ function renderStudiesTable() {
     });
 
     // Render rows
-    tbody.innerHTML = filtered.map(study => `
+    tbody.innerHTML = filtered.map(study => {
+        // Format age range
+        const minAge = study.min_age || 'N/A';
+        const maxAge = study.max_age || 'N/A';
+        const ageRange = minAge === 'N/A' && maxAge === 'N/A' ? 'N/A' : `${minAge} - ${maxAge}`;
+
+        // Format enrollment with type indicator
+        const enrollmentText = `${(study.enrollment || 0).toLocaleString()}`;
+        const enrollmentBadge = study.enrollment_type === 'ANTICIPATED' ?
+            `<span class="enrollment-badge" title="Anticipated enrollment">${enrollmentText}*</span>` : enrollmentText;
+
+        // Format status with tooltip for stopped studies
+        const statusText = study.status || 'N/A';
+        const statusWithReason = study.why_stopped ?
+            `<span title="Reason: ${escapeHtml(study.why_stopped)}" class="status-stopped">${statusText}</span>` : statusText;
+
+        return `
         <tr>
             <td>
                 <a href="https://clinicaltrials.gov/study/${study.nct_id}"
@@ -389,17 +634,27 @@ function renderStudiesTable() {
             </td>
             <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
-            <td>${study.study_type || 'N/A'}</td>
-            <td>${study.intervention_model || 'N/A'}</td>
-            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
-            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
-            <td class="text-right">${(study.enrollment || 0).toLocaleString()}</td>
-            <td>${study.results_date || 'N/A'}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
             <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
+            <td class="text-center">
+                <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 4.5a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4.5z"/>
+                    </svg>
+                </button>
+            </td>
+            <td>${study.study_type || 'N/A'}</td>
+            <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
+            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
+            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td>${renderSparkline(getTimeToReport(study))}</td>
+            <td class="text-center">${renderPublications(study)}</td>
+            <td>${statusWithReason}</td>
         </tr>
-    `).join('');
+        `;
+    }).join('');
 
     // Update count
     if (countSpan) {
@@ -427,10 +682,27 @@ function renderDemographicCell(study, field) {
         return '<span class="x-mark">✗</span>';
     }
 
+    // Get raw categories for tooltip
+    const rawCategories = study[field]?.raw_categories || [];
+    let tooltipText = '';
+
+    if (rawCategories.length > 0) {
+        // Build tooltip showing raw labels and match quality
+        const summaries = rawCategories.slice(0, 3).map(rc => {
+            const confidence = rc.confidence === 'high' ? '✓' :
+                             rc.confidence === 'medium' ? '≈' : '⚠';
+            return `${confidence} "${rc.original}"`;
+        }).join('; ');
+
+        const moreCount = rawCategories.length > 3 ? ` +${rawCategories.length - 3} more` : '';
+        tooltipText = `Raw data: ${summaries}${moreCount}. Click for details.`;
+    } else {
+        tooltipText = 'Click to view breakdown';
+    }
+
     return `<button class="demo-check"
                     onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
-                    title="Click to view breakdown">
-                ✓
+                    title="${escapeHtml(tooltipText)}">
             </button>`;
 }
 
@@ -445,26 +717,54 @@ function showBreakdown(nctId, breakdownType) {
     const categoryName = breakdownType.replace('Breakdown', '');
     const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
+    // Get raw categories for transparency (if available)
+    const rawCategories = study[categoryName]?.raw_categories || [];
+
     // Build breakdown HTML
     let html = `<div class="breakdown-modal">
         <h4>${categoryDisplay} Distribution - ${nctId}</h4>
         <p class="modal-subtitle">Click outside to close</p>
         <table class="breakdown-table">
-            <thead><tr><th>Category</th><th>Count</th><th>Percent</th></tr></thead>
+            <thead><tr><th>NIH/OMB Category</th><th>Original Label</th><th>Match Quality</th><th>Count</th><th>Percent</th></tr></thead>
             <tbody>`;
 
     // Sort by count descending
     const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
 
     for (const [category, data] of entries) {
+        // Find matching raw category for this entry
+        const rawCat = rawCategories.find(rc =>
+            (rc.original === category ||
+             (rc.omb_category && formatOmbCategory(rc.omb_category) === category))
+        );
+
+        const originalLabel = rawCat?.original || category;
+        const confidence = rawCat?.confidence || 'n/a';
+        const isFuzzy = rawCat?.flags?.some(f => f.includes('fuzzy_match')) || false;
+        const isUnmapped = rawCat?.flags?.includes('unmapped') || false;
+
+        let matchQuality = '';
+        if (confidence === 'high') {
+            matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
+        } else if (confidence === 'medium' || isFuzzy) {
+            matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
+        } else if (isUnmapped) {
+            matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
+        } else {
+            matchQuality = '<span class="match-na">-</span>';
+        }
+
         html += `<tr>
             <td>${escapeHtml(category)}</td>
+            <td class="original-label">${escapeHtml(originalLabel)}</td>
+            <td class="text-center">${matchQuality}</td>
             <td>${data.count.toLocaleString()}</td>
             <td style="--percent: ${data.percent}">${data.percent.toFixed(1)}%</td>
         </tr>`;
     }
 
     html += `</tbody></table>
+        <p class="modal-note"><strong>About Match Quality:</strong> "Exact" means the label matched our NIH/OMB mappings directly. "Fuzzy" means approximate string matching was used. "Unmapped" means the original label couldn't be classified into standard categories.</p>
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;
 
@@ -474,6 +774,13 @@ function showBreakdown(nctId, breakdownType) {
     overlay.style.display = 'flex';
 }
 
+function formatOmbCategory(ombCat) {
+    // Convert snake_case to Title Case with spaces
+    return ombCat.split('_').map(word =>
+        word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+}
+
 function closeBreakdown() {
     document.getElementById('breakdown-overlay').style.display = 'none';
 }
@@ -481,6 +788,128 @@ function closeBreakdown() {
 // Make functions available globally
 window.showBreakdown = showBreakdown;
 window.closeBreakdown = closeBreakdown;
+
+function showStudyDetails(nctId) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study) return;
+
+    const overlay = document.getElementById('study-details-overlay');
+
+    // Format masking details
+    let maskingDetails = '';
+    if (study.masking && study.masking !== 'NONE') {
+        const masked = [];
+        if (study.subject_masked) masked.push('Participants');
+        if (study.caregiver_masked) masked.push('Care Providers');
+        if (study.investigator_masked) masked.push('Investigators');
+        if (study.outcomes_assessor_masked) masked.push('Outcomes Assessors');
+        maskingDetails = masked.length > 0 ? `<br><small>Masked: ${masked.join(', ')}</small>` : '';
+    }
+
+    // Format collaborators
+    let collaboratorsHtml = '';
+    if (study.collaborators && study.collaborators.length > 0) {
+        collaboratorsHtml = `
+            <div class="detail-section">
+                <h5>Collaborators</h5>
+                <ul class="collaborators-list">
+                    ${study.collaborators.map(c => `<li>${escapeHtml(c.name)} <span class="badge">${c.class}</span></li>`).join('')}
+                </ul>
+            </div>`;
+    }
+
+    // Format secondary outcomes
+    let secondaryOutcomesHtml = '';
+    if (study.secondary_outcomes && study.secondary_outcomes.length > 0) {
+        secondaryOutcomesHtml = `
+            <div class="detail-section">
+                <h5>Secondary Outcomes (${study.secondary_outcomes.length})</h5>
+                <ul class="outcomes-list">
+                    ${study.secondary_outcomes.slice(0, 5).map(o => `
+                        <li>
+                            <strong>${escapeHtml(o.measure)}</strong>
+                            ${o.time_frame ? `<br><small>Time Frame: ${escapeHtml(o.time_frame)}</small>` : ''}
+                        </li>
+                    `).join('')}
+                    ${study.secondary_outcomes.length > 5 ? `<li><em>... and ${study.secondary_outcomes.length - 5} more</em></li>` : ''}
+                </ul>
+            </div>`;
+    }
+
+    const html = `
+        <div class="study-details-modal">
+            <div class="modal-header">
+                <h3>${escapeHtml(study.brief_title)}</h3>
+                <button class="close-btn" onclick="closeStudyDetails()">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="detail-row">
+                    <strong>NCT ID:</strong>
+                    <a href="https://clinicaltrials.gov/study/${study.nct_id}" target="_blank" class="nct-link">${study.nct_id}</a>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Study Design</h5>
+                    <div class="detail-grid">
+                        <div><strong>Type:</strong> ${study.study_type || 'N/A'}</div>
+                        <div><strong>Phase:</strong> ${study.phase || 'N/A'}</div>
+                        <div><strong>Allocation:</strong> ${study.allocation || 'N/A'}</div>
+                        <div><strong>Model:</strong> ${study.intervention_model || study.observational_model || 'N/A'}</div>
+                        <div><strong>Masking:</strong> ${study.masking || 'N/A'}${maskingDetails}</div>
+                        <div><strong>Purpose:</strong> ${study.primary_purpose || 'N/A'}</div>
+                    </div>
+                    ${study.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(study.intervention_model_description)}</p>` : ''}
+                </div>
+
+                <div class="detail-section">
+                    <h5>Primary Outcome</h5>
+                    <p><strong>${escapeHtml(study.primary_endpoint || 'N/A')}</strong></p>
+                    ${study.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(study.primary_outcome_time_frame)}</small></p>` : ''}
+                    ${study.primary_outcome_description ? `<p class="description">${escapeHtml(study.primary_outcome_description)}</p>` : ''}
+                </div>
+
+                ${secondaryOutcomesHtml}
+
+                <div class="detail-section">
+                    <h5>Enrollment & Eligibility</h5>
+                    <div class="detail-grid">
+                        <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
+                        <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
+                        <div><strong>Gender:</strong> ${study.gender || 'ALL'}</div>
+                        <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
+                    </div>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Sponsor & Collaborators</h5>
+                    <p><strong>Lead Sponsor:</strong> ${escapeHtml(study.lead_sponsor_name || 'Unknown')} <span class="badge">${study.sponsor_class || 'N/A'}</span></p>
+                    ${collaboratorsHtml}
+                </div>
+
+                <div class="detail-section">
+                    <h5>Study Status</h5>
+                    <div class="detail-grid">
+                        <div><strong>Status:</strong> ${study.status || 'N/A'}</div>
+                        <div><strong>Results Posted:</strong> ${study.results_date || 'N/A'}</div>
+                        <div><strong>Completion Date:</strong> ${study.completion_date || study.primary_completion_date || 'N/A'}</div>
+                        <div><strong>Last Update:</strong> ${study.last_update || 'N/A'}</div>
+                    </div>
+                    ${study.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(study.why_stopped)}</p>` : ''}
+                </div>
+            </div>
+        </div>
+    `;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
+function closeStudyDetails() {
+    document.getElementById('study-details-overlay').style.display = 'none';
+}
+
+window.showStudyDetails = showStudyDetails;
+window.closeStudyDetails = closeStudyDetails;
 
 function formatCountries(countries) {
     if (!countries || !Array.isArray(countries) || countries.length === 0) {

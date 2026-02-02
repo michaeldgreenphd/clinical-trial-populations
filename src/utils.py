@@ -2,6 +2,63 @@
 import json
 from pathlib import Path
 from datetime import datetime
+from typing import Optional
+
+def calculate_days_between(start_date: str, end_date: str) -> Optional[int]:
+    """
+    Calculate days between two dates in YYYY-MM-DD format.
+    Returns None if either date is missing or invalid.
+
+    Note: ClinicalTrials.gov API sometimes returns partial dates (YYYY-MM or YYYY).
+    We normalize these by assuming the 1st day of the month/year.
+    """
+    if not start_date or not end_date:
+        return None
+
+    try:
+        # Normalize partial dates to full dates
+        # If date is YYYY-MM, append -01
+        # If date is YYYY, append -01-01
+        def normalize_date(date_str: str) -> str:
+            parts = date_str.split('-')
+            if len(parts) == 1:  # YYYY only
+                return f"{parts[0]}-01-01"
+            elif len(parts) == 2:  # YYYY-MM
+                return f"{parts[0]}-{parts[1]}-01"
+            else:  # YYYY-MM-DD already
+                return date_str
+
+        start_normalized = normalize_date(start_date)
+        end_normalized = normalize_date(end_date)
+
+        start = datetime.strptime(start_normalized, "%Y-%m-%d")
+        end = datetime.strptime(end_normalized, "%Y-%m-%d")
+        return (end - start).days
+    except (ValueError, TypeError):
+        return None
+
+def extract_references(study: dict) -> list:
+    """Extract publication references from a study."""
+    protocol = study.get("protocolSection", {})
+    refs_mod = protocol.get("referencesModule", {})
+
+    references = []
+
+    # Get references from the referencesModule
+    for ref in refs_mod.get("references", []):
+        pmid = ref.get("pmid")
+        citation = ref.get("citation", "")
+        ref_type = ref.get("type", "")
+
+        if pmid:
+            references.append({
+                "pmid": pmid,
+                "citation": citation,
+                "type": ref_type,
+                "source": "clinicaltrials.gov"
+            })
+
+    return references
 
 def get_baseline_measures(study: dict) -> list:
     """Extract baseline characteristic measures from a study."""
@@ -18,6 +75,8 @@ def get_study_metadata(study: dict) -> dict:
     design_mod = protocol.get("designModule", {})
     sponsor_mod = protocol.get("sponsorCollaboratorsModule", {})
     outcomes_mod = protocol.get("outcomesModule", {})
+    eligibility_mod = protocol.get("eligibilityModule", {})
+    conditions_mod = protocol.get("conditionsModule", {})
 
     # Extract unique country names from locations
     locations = protocol.get("contactsLocationsModule", {}).get("locations", [])
@@ -27,42 +86,138 @@ def get_study_metadata(study: dict) -> dict:
         if loc.get("country")
     ))]
 
+    # Extract conditions (diseases/medical conditions)
+    conditions = conditions_mod.get("conditions", [])
+    # Also get keywords which can provide additional condition information
+    keywords = conditions_mod.get("keywords", [])
+
     # Extract study design information
     design_info = design_mod.get("designInfo", {})
     allocation = design_info.get("allocation", "N/A")
     intervention_model = design_info.get("interventionModel", "N/A")
+    intervention_model_description = design_info.get("interventionModelDescription", "")
+    observational_model = design_info.get("observationalModel", "N/A")
+    time_perspective = design_info.get("timePerspective", "N/A")
     primary_purpose = design_info.get("primaryPurpose", "N/A")
+
+    # Extract masking information
     masking_info = design_info.get("maskingInfo", {})
     masking = masking_info.get("masking", "NONE")
+    masking_description = masking_info.get("maskingDescription", "")
+    who_masked = masking_info.get("whoMasked", [])
+    subject_masked = "PARTICIPANT" in who_masked
+    caregiver_masked = "CARE_PROVIDER" in who_masked
+    investigator_masked = "INVESTIGATOR" in who_masked
+    outcomes_assessor_masked = "OUTCOMES_ASSESSOR" in who_masked
 
-    # Extract primary outcomes
+    # Extract primary outcomes with full details
     primary_outcomes = outcomes_mod.get("primaryOutcomes", [])
-    primary_outcome_measures = [outcome.get("measure", "") for outcome in primary_outcomes]
-    primary_endpoint = primary_outcome_measures[0] if primary_outcome_measures else "N/A"
+    primary_outcome = primary_outcomes[0] if primary_outcomes else {}
+    primary_endpoint = primary_outcome.get("measure", "N/A")
+    primary_outcome_time_frame = primary_outcome.get("timeFrame", "")
+    primary_outcome_description = primary_outcome.get("description", "")
 
-    # Extract sponsor information
+    # Extract secondary outcomes
+    secondary_outcomes_raw = outcomes_mod.get("secondaryOutcomes", [])
+    secondary_outcomes = [
+        {
+            "measure": outcome.get("measure", ""),
+            "time_frame": outcome.get("timeFrame", ""),
+            "description": outcome.get("description", "")
+        }
+        for outcome in secondary_outcomes_raw
+    ] if secondary_outcomes_raw else []
+
+    # Extract sponsor and collaborator information
     lead_sponsor = sponsor_mod.get("leadSponsor", {})
     lead_sponsor_name = lead_sponsor.get("name", "Unknown")
     lead_sponsor_class = lead_sponsor.get("class", "Unknown")
+
+    collaborators_raw = sponsor_mod.get("collaborators", [])
+    collaborators = [
+        {
+            "name": collab.get("name", ""),
+            "class": collab.get("class", "")
+        }
+        for collab in collaborators_raw
+    ] if collaborators_raw else []
+
+    # Extract enrollment information
+    enrollment_info = design_mod.get("enrollmentInfo", {})
+    enrollment = enrollment_info.get("count", 0)
+    enrollment_type = enrollment_info.get("type", "N/A")  # ACTUAL or ANTICIPATED
+
+    # Extract eligibility criteria
+    min_age = eligibility_mod.get("minimumAge", "N/A")
+    max_age = eligibility_mod.get("maximumAge", "N/A")
+    gender = eligibility_mod.get("sex", "ALL")
+    healthy_volunteers = eligibility_mod.get("healthyVolunteers", False)
+
+    # Extract completion and status details
+    start_date_struct = status_mod.get("startDateStruct", {})
+    start_date = start_date_struct.get("date", "")
+    completion_date_struct = status_mod.get("completionDateStruct", {})
+    completion_date = completion_date_struct.get("date", "")
+    primary_completion_date_struct = status_mod.get("primaryCompletionDateStruct", {})
+    primary_completion_date = primary_completion_date_struct.get("date", "")
+    results_date = status_mod.get("resultsFirstPostDateStruct", {}).get("date", "")
+    why_stopped = status_mod.get("whyStopped", "")
+
+    # Calculate time metrics
+    completion_to_report = calculate_days_between(primary_completion_date, results_date)
+    start_to_report = calculate_days_between(start_date, results_date)
+
+    # Extract publication references
+    references = extract_references(study)
 
     return {
         "nct_id": id_mod.get("nctId", ""),
         "brief_title": id_mod.get("briefTitle", ""),
         "study_type": design_mod.get("studyType", ""),
         "phase": ", ".join(design_mod.get("phases", [])),
-        "enrollment": design_mod.get("enrollmentInfo", {}).get("count", 0),
+        "enrollment": enrollment,
+        "enrollment_type": enrollment_type,
         "status": status_mod.get("overallStatus", ""),
-        "results_date": status_mod.get("resultsFirstPostDateStruct", {}).get("date", ""),
+        "start_date": start_date,
+        "results_date": results_date,
         "last_update": status_mod.get("lastUpdatePostDateStruct", {}).get("date", ""),
+        "completion_date": completion_date,
+        "primary_completion_date": primary_completion_date,
+        "why_stopped": why_stopped,
         "sponsor_class": lead_sponsor_class,
         "lead_sponsor_name": lead_sponsor_name,
+        "collaborators": collaborators,
         "countries": countries,
+        "conditions": conditions,
+        "keywords": keywords,
         # Study design fields
         "allocation": allocation,
         "intervention_model": intervention_model,
+        "intervention_model_description": intervention_model_description,
+        "observational_model": observational_model,
+        "time_perspective": time_perspective,
         "primary_purpose": primary_purpose,
         "masking": masking,
-        "primary_endpoint": primary_endpoint
+        "masking_description": masking_description,
+        "subject_masked": subject_masked,
+        "caregiver_masked": caregiver_masked,
+        "investigator_masked": investigator_masked,
+        "outcomes_assessor_masked": outcomes_assessor_masked,
+        # Outcome fields
+        "primary_endpoint": primary_endpoint,
+        "primary_outcome_time_frame": primary_outcome_time_frame,
+        "primary_outcome_description": primary_outcome_description,
+        "secondary_outcomes": secondary_outcomes,
+        # Eligibility fields
+        "min_age": min_age,
+        "max_age": max_age,
+        "gender": gender,
+        "healthy_volunteers": healthy_volunteers,
+        # Time metrics
+        "completion_to_report_days": completion_to_report,
+        "start_to_report_days": start_to_report,
+        # Publications
+        "references": references
     }
 
 def extract_demographic_breakdown(measures: list, category_type: str) -> dict:

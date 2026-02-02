@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ClinicalTrials.gov Demographics Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <link rel="stylesheet" href="styles.css">
@@ -49,12 +52,12 @@
                     <label for="phase">Phase:</label>
                     <select id="phase">
                         <option value="all">All Phases</option>
-                        <option value="Early Phase 1">Early Phase 1</option>
-                        <option value="Phase 1">Phase 1</option>
-                        <option value="Phase 2">Phase 2</option>
-                        <option value="Phase 3">Phase 3</option>
-                        <option value="Phase 4">Phase 4</option>
-                        <option value="N/A">N/A</option>
+                        <option value="EARLY_PHASE1">Early Phase 1</option>
+                        <option value="PHASE1">Phase 1</option>
+                        <option value="PHASE2">Phase 2</option>
+                        <option value="PHASE3">Phase 3</option>
+                        <option value="PHASE4">Phase 4</option>
+                        <option value="NA">N/A</option>
                     </select>
                 </div>
             </div>
@@ -112,12 +115,42 @@
                     </select>
                 </div>
 
-                <div class="filter-group filter-search">
-                    <label for="condition-search">Condition/Disease:</label>
-                    <input type="text" id="condition-search" placeholder="Search conditions..." />
-                    <button id="clear-condition" class="clear-btn" style="display:none;">✕</button>
+                <div class="filter-group">
+                    <label for="enrollment-type">Enrollment Type:</label>
+                    <select id="enrollment-type">
+                        <option value="all">All</option>
+                        <option value="ACTUAL">Actual</option>
+                        <option value="ANTICIPATED">Anticipated/Estimated</option>
+                    </select>
                 </div>
 
+                <div class="filter-group">
+                    <label for="healthy-volunteers">Healthy Volunteers:</label>
+                    <select id="healthy-volunteers">
+                        <option value="all">All</option>
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="condition">Condition/Disease:</label>
+                    <select id="condition">
+                        <option value="all">All Conditions</option>
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="country">Country:</label>
+                    <select id="country">
+                        <option value="all">All Countries</option>
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
                 <div class="filter-group">
                     <button id="reset-filters" class="reset-btn">Reset All Filters</button>
                 </div>
@@ -165,17 +198,6 @@
                     <canvas id="race-trends-chart"></canvas>
                 </div>
             </div>
-
-            <div class="chart-container full-width" id="race-subcategory-container">
-                <h3>Detailed Subcategories</h3>
-                <p class="note">Note: Subcategory data (e.g., Chinese, Japanese, Korean under Asian) is only displayed when studies report this granular level of detail. The "Other" category represents race categories reported by ClinicalTrials.gov that are not standard NIH/OMB categories.</p>
-                <div class="subcategory-selector">
-                    <button class="subcat-btn active" data-category="asian">Asian</button>
-                    <button class="subcat-btn" data-category="black">Black/African American</button>
-                    <button class="subcat-btn" data-category="white">White</button>
-                </div>
-                <canvas id="race-subcategory-chart"></canvas>
-            </div>
         </section>
 
         <!-- Ethnicity Tab -->
@@ -183,18 +205,13 @@
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Ethnicity Distribution</h3>
+                    <p class="note">Note: The "Unknown or Not Reported" category is large (56.6% of participants) because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
                     <canvas id="ethnicity-distribution-chart"></canvas>
                 </div>
                 <div class="chart-container">
                     <h3>Ethnicity Reporting Over Time</h3>
                     <canvas id="ethnicity-trends-chart"></canvas>
                 </div>
-            </div>
-
-            <div class="chart-container full-width" id="ethnicity-subcategory-container">
-                <h3>Hispanic/Latino Subcategories</h3>
-                <p class="note">Note: Subcategory data (e.g., Mexican, Puerto Rican, Cuban) is only displayed when studies report this granular level of detail. Most studies report only aggregate Hispanic/Latino data.</p>
-                <canvas id="ethnicity-subcategory-chart"></canvas>
             </div>
         </section>
 
@@ -242,15 +259,18 @@
                                 <th data-sort="nct_id" class="sortable">NCT ID</th>
                                 <th data-sort="brief_title" class="sortable">Title</th>
                                 <th data-sort="phase" class="sortable">Phase</th>
+                                <th class="text-center">Race</th>
+                                <th class="text-center">Ethnicity</th>
+                                <th class="text-center">Sex</th>
+                                <th class="text-center">Details</th>
                                 <th data-sort="study_type" class="sortable">Type</th>
                                 <th data-sort="intervention_model" class="sortable">Design</th>
                                 <th data-sort="primary_endpoint" class="sortable">Primary Endpoint</th>
                                 <th data-sort="lead_sponsor_name" class="sortable">Lead Sponsor</th>
                                 <th data-sort="enrollment" class="sortable">Participants</th>
-                                <th data-sort="results_date" class="sortable">Results Date</th>
-                                <th class="text-center">Race</th>
-                                <th class="text-center">Ethnicity</th>
-                                <th class="text-center">Sex</th>
+                                <th data-sort="completion_to_report_days" class="sortable">Time to Report</th>
+                                <th class="text-center">Publications</th>
+                                <th data-sort="status" class="sortable">Status</th>
                             </tr>
                         </thead>
                         <tbody id="studies-table-body">
@@ -265,11 +285,13 @@
     <footer>
         <p>Data source: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a></p>
         <p>Methodology based on: <a href="https://www.medrxiv.org/content/10.1101/2025.07.21.25331865v1" target="_blank">Aziz et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</a></p>
-        <p><a href="https://github.com/michaeldgreenphd/clinical-trial-populations">GitHub Repository</a></p>
     </footer>
 
     <!-- Modal Overlay for Demographic Breakdown -->
     <div id="breakdown-overlay" class="modal-overlay" onclick="if(event.target===this) closeBreakdown()"></div>
+
+    <!-- Modal Overlay for Study Details -->
+    <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
 
     <script src="app.js"></script>
 </body>
