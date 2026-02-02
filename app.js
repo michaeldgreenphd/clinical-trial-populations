@@ -40,8 +40,22 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 async function loadData() {
     try {
-        const response = await fetch('data/demographics.json');
-        const json = await response.json();
+        // Fetch the gzipped data file
+        const response = await fetch('data/demographics.json.gz');
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Decompress the gzip data using the Compression Streams API
+        const decompressedStream = response.body.pipeThrough(
+            new DecompressionStream('gzip')
+        );
+
+        // Read the decompressed data
+        const decompressedResponse = new Response(decompressedStream);
+        const json = await decompressedResponse.json();
+
         data = json.data;
         document.getElementById('last-updated').textContent =
             new Date(json.extracted_at).toLocaleDateString();
