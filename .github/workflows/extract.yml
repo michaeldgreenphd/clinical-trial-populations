@@ -30,17 +30,29 @@ jobs:
       - name: Commit and push data
         run: |
           # Compress the JSON file to reduce size
+          echo "Compressing data file..."
           gzip -9 -f data/demographics.json
+          echo "Compressed size: $(du -h data/demographics.json.gz | cut -f1)"
 
           # Create a release with the data file
           RELEASE_TAG="data-$(date +'%Y-%m-%d-%H%M%S')"
+          echo "Creating release: $RELEASE_TAG"
+
           gh release create "$RELEASE_TAG" \
             data/demographics.json.gz \
             --title "Data Extract $(date +'%Y-%m-%d')" \
             --notes "Automated data extraction: All studies with results from 2009 forward. Extracted $(date +'%Y-%m-%d %H:%M:%S UTC')"
 
+          if [ $? -eq 0 ]; then
+            echo "✓ Release created successfully"
+          else
+            echo "✗ Release creation failed!"
+            exit 1
+          fi
+
           # Update pointer file to latest release
           echo "$RELEASE_TAG" > data/latest-release.txt
+          echo "✓ Updated pointer file to $RELEASE_TAG"
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
