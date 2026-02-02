@@ -37,5 +37,5 @@ jobs:
         run: |
           git fetch origin dashboard
           git checkout dashboard
-          git merge main --no-edit
+          git merge main --no-edit --allow-unrelated-histories
           git push
