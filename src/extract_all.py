@@ -7,6 +7,7 @@ from clinical trials and saves them to a unified JSON file.
 import argparse
 import logging
 from pathlib import Path
+from typing import Optional
 from tqdm import tqdm
 
 from src.api_client import CTGovAPIClient
