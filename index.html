@@ -133,12 +133,24 @@
                     </select>
                 </div>
 
-                <div class="filter-group filter-search">
-                    <label for="condition-search">Condition/Disease:</label>
-                    <input type="text" id="condition-search" placeholder="Search conditions..." />
-                    <button id="clear-condition" class="clear-btn" style="display:none;">✕</button>
+                <div class="filter-group">
+                    <label for="condition">Condition/Disease:</label>
+                    <select id="condition">
+                        <option value="all">All Conditions</option>
+                        <!-- Populated by JavaScript -->
+                    </select>
                 </div>
 
+                <div class="filter-group">
+                    <label for="country">Country:</label>
+                    <select id="country">
+                        <option value="all">All Countries</option>
+                        <!-- Populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+
+            <div class="filter-row">
                 <div class="filter-group">
                     <button id="reset-filters" class="reset-btn">Reset All Filters</button>
                 </div>

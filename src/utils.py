@@ -76,6 +76,7 @@ def get_study_metadata(study: dict) -> dict:
     sponsor_mod = protocol.get("sponsorCollaboratorsModule", {})
     outcomes_mod = protocol.get("outcomesModule", {})
     eligibility_mod = protocol.get("eligibilityModule", {})
+    conditions_mod = protocol.get("conditionsModule", {})
 
     # Extract unique country names from locations
     locations = protocol.get("contactsLocationsModule", {}).get("locations", [])
@@ -84,6 +85,11 @@ def get_study_metadata(study: dict) -> dict:
         for loc in locations
         if loc.get("country")
     ))]
+
+    # Extract conditions (diseases/medical conditions)
+    conditions = conditions_mod.get("conditions", [])
+    # Also get keywords which can provide additional condition information
+    keywords = conditions_mod.get("keywords", [])
 
     # Extract study design information
     design_info = design_mod.get("designInfo", {})
@@ -182,6 +188,8 @@ def get_study_metadata(study: dict) -> dict:
         "lead_sponsor_name": lead_sponsor_name,
         "collaborators": collaborators,
         "countries": countries,
+        "conditions": conditions,
+        "keywords": keywords,
         # Study design fields
         "allocation": allocation,
         "intervention_model": intervention_model,

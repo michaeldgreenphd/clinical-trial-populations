@@ -504,14 +504,14 @@ footer p {
     color: white;
     border: none;
     border-radius: 50%;
-    width: 28px;
-    height: 28px;
+    width: 34px;
+    height: 34px;
     cursor: pointer;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     transition: all 0.3s ease;
     padding: 0;
-    line-height: 28px;
+    line-height: 34px;
     box-shadow: 0 2px 4px rgba(27, 67, 50, 0.15);
     position: relative;
 }
@@ -525,13 +525,13 @@ footer p {
 }
 
 .demo-check:hover {
-    transform: translateY(-2px) scale(1.08);
+    transform: translateY(-2px) scale(1.1);
     box-shadow: 0 4px 12px rgba(82, 183, 136, 0.35);
     background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-color) 100%);
 }
 
 .demo-check:active {
-    transform: translateY(0) scale(1.02);
+    transform: translateY(0) scale(1.05);
     box-shadow: 0 2px 6px rgba(27, 67, 50, 0.25);
 }
 

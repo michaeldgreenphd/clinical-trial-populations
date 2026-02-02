@@ -80,10 +80,14 @@ function initTabs() {
 }
 
 function initFilters() {
+    // Populate condition and country dropdowns
+    populateConditionsDropdown();
+    populateCountriesDropdown();
+
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
-        'enrollment-type', 'healthy-volunteers'
+        'enrollment-type', 'healthy-volunteers', 'condition', 'country'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -111,33 +115,74 @@ function initFilters() {
         });
     }
 
-    // Condition search
-    const conditionSearch = document.getElementById('condition-search');
-    const clearCondition = document.getElementById('clear-condition');
-
-    if (conditionSearch) {
-        conditionSearch.addEventListener('input', (e) => {
-            const hasValue = e.target.value.trim().length > 0;
-            clearCondition.style.display = hasValue ? 'block' : 'none';
-            renderDashboard();
-            updateActiveFilters();
-        });
-    }
-
-    if (clearCondition) {
-        clearCondition.addEventListener('click', () => {
-            conditionSearch.value = '';
-            clearCondition.style.display = 'none';
-            renderDashboard();
-            updateActiveFilters();
-        });
-    }
-
     // Reset filters button
     const resetBtn = document.getElementById('reset-filters');
     if (resetBtn) {
         resetBtn.addEventListener('click', resetFilters);
     }
+}
+
+function populateConditionsDropdown() {
+    const select = document.getElementById('condition');
+    if (!select || !data) return;
+
+    // Extract all unique conditions from all studies
+    const conditionsSet = new Set();
+    data.forEach(study => {
+        if (study.conditions && Array.isArray(study.conditions)) {
+            study.conditions.forEach(condition => {
+                if (condition && condition.trim()) {
+                    conditionsSet.add(condition.trim());
+                }
+            });
+        }
+    });
+
+    // Sort alphabetically
+    const sortedConditions = Array.from(conditionsSet).sort((a, b) => a.localeCompare(b));
+
+    // Clear existing options (except "All")
+    select.innerHTML = '<option value="all">All Conditions</option>';
+
+    // Add condition options
+    sortedConditions.forEach(condition => {
+        const option = document.createElement('option');
+        option.value = condition;
+        option.textContent = condition;
+        select.appendChild(option);
+    });
+}
+
+function populateCountriesDropdown() {
+    const select = document.getElementById('country');
+    if (!select || !data) return;
+
+    // Extract all unique countries from all studies
+    const countriesSet = new Set();
+    data.forEach(study => {
+        if (study.countries && Array.isArray(study.countries)) {
+            study.countries.forEach(countryObj => {
+                const country = countryObj.country;
+                if (country && country.trim()) {
+                    countriesSet.add(country.trim());
+                }
+            });
+        }
+    });
+
+    // Sort alphabetically
+    const sortedCountries = Array.from(countriesSet).sort((a, b) => a.localeCompare(b));
+
+    // Clear existing options (except "All")
+    select.innerHTML = '<option value="all">All Countries</option>';
+
+    // Add country options
+    sortedCountries.forEach(country => {
+        const option = document.createElement('option');
+        option.value = country;
+        option.textContent = country;
+        select.appendChild(option);
+    });
 }
 
 function resetFilters() {
@@ -151,8 +196,10 @@ function resetFilters() {
     document.getElementById('intervention-model').value = 'all';
     document.getElementById('masking').value = 'all';
     document.getElementById('primary-purpose').value = 'all';
-    document.getElementById('condition-search').value = '';
-    document.getElementById('clear-condition').style.display = 'none';
+    document.getElementById('enrollment-type').value = 'all';
+    document.getElementById('healthy-volunteers').value = 'all';
+    document.getElementById('condition').value = 'all';
+    document.getElementById('country').value = 'all';
 
     renderDashboard();
     updateActiveFilters();
@@ -196,11 +243,19 @@ function updateActiveFilters() {
         }});
     }
 
-    const condition = document.getElementById('condition-search').value.trim();
-    if (condition) {
-        filters.push({ label: `Condition: ${condition}`, reset: () => {
-            document.getElementById('condition-search').value = '';
-            document.getElementById('clear-condition').style.display = 'none';
+    const condition = document.getElementById('condition').value;
+    if (condition !== 'all') {
+        // Truncate long condition names
+        const displayCondition = condition.length > 30 ? condition.substring(0, 30) + '...' : condition;
+        filters.push({ label: `Condition: ${displayCondition}`, reset: () => {
+            document.getElementById('condition').value = 'all';
+        }});
+    }
+
+    const country = document.getElementById('country').value;
+    if (country !== 'all') {
+        filters.push({ label: `Country: ${country}`, reset: () => {
+            document.getElementById('country').value = 'all';
         }});
     }
 
@@ -276,7 +331,8 @@ function getFilteredData() {
     const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
     const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
     const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
-    const conditionSearch = document.getElementById('condition-search')?.value?.toLowerCase().trim() || '';
+    const conditionFilter = document.getElementById('condition')?.value || 'all';
+    const countryFilter = document.getElementById('country')?.value || 'all';
 
     return data.filter(study => {
         const year = parseInt(study.results_date?.substring(0, 4));
@@ -303,9 +359,14 @@ function getFilteredData() {
             if (healthyVolunteers === 'true' && !acceptsHealthy) return false;
             if (healthyVolunteers === 'false' && acceptsHealthy) return false;
         }
-        if (conditionSearch) {
-            const title = study.brief_title?.toLowerCase() || '';
-            if (!title.includes(conditionSearch)) return false;
+        if (conditionFilter !== 'all') {
+            const conditions = study.conditions || [];
+            if (!conditions.includes(conditionFilter)) return false;
+        }
+        if (countryFilter !== 'all') {
+            const countries = study.countries || [];
+            const countryNames = countries.map(c => c.country);
+            if (!countryNames.includes(countryFilter)) return false;
         }
         return true;
     });
@@ -347,6 +408,61 @@ function renderDashboard() {
     if (studiesTab?.classList.contains('active')) {
         renderStudiesTable();
     }
+}
+
+/**
+ * Calculate days between two dates
+ * Handles partial dates (YYYY-MM or YYYY) by normalizing to first day
+ */
+function calculateDaysBetween(startDate, endDate) {
+    if (!startDate || !endDate) return null;
+
+    try {
+        // Normalize partial dates
+        function normalizeDate(dateStr) {
+            const parts = dateStr.split('-');
+            if (parts.length === 1) {
+                // YYYY only
+                return `${parts[0]}-01-01`;
+            } else if (parts.length === 2) {
+                // YYYY-MM
+                return `${parts[0]}-${parts[1]}-01`;
+            }
+            // YYYY-MM-DD already
+            return dateStr;
+        }
+
+        const start = new Date(normalizeDate(startDate));
+        const end = new Date(normalizeDate(endDate));
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return null;
+        }
+
+        const diffTime = end - start;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        return diffDays >= 0 ? diffDays : null;
+    } catch (e) {
+        return null;
+    }
+}
+
+/**
+ * Get time to report for a study
+ * Tries completion_to_report_days field first, then calculates from dates
+ */
+function getTimeToReport(study) {
+    // First try the pre-calculated field
+    if (study.completion_to_report_days !== null && study.completion_to_report_days !== undefined) {
+        return study.completion_to_report_days;
+    }
+
+    // Fall back to calculating from dates
+    const completionDate = study.primary_completion_date || study.completion_date;
+    const resultsDate = study.results_date;
+
+    return calculateDaysBetween(completionDate, resultsDate);
 }
 
 /**
@@ -533,7 +649,7 @@ function renderStudiesTable() {
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${enrollmentBadge}</td>
-            <td>${renderSparkline(study.completion_to_report_days)}</td>
+            <td>${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center">${renderPublications(study)}</td>
             <td>${statusWithReason}</td>
         </tr>
