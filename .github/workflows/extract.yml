@@ -41,9 +41,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/demographics.part*.json.gz
 
-          # Force remove the original JSON file
+          # Remove the original JSON file if it exists
           rm -f data/demographics.json
-          git add -u data/demographics.json
+          git rm --ignore-unmatch data/demographics.json
 
           TIMESTAMP=$(date +'%Y-%m-%d')
           git commit -m "Update demographics data $TIMESTAMP (Part1: $PART1_SIZE, Part2: $PART2_SIZE)" || exit 0
