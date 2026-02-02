@@ -40,7 +40,7 @@ class CTGovAPIClient:
         params = {
             "pageSize": self.page_size,
             "format": "json",
-            "fields": ",".join(self.DEFAULT_FIELDS),
+            # Don't specify fields - get the full study record with all protocol sections
             "filter.advanced": "AREA[ResultsFirstPostDate]RANGE[MIN,MAX]"  # Has results
         }
 
