@@ -3,6 +3,8 @@
 let data = null;
 let charts = {};
 let currentSort = { field: null, direction: 'asc' };
+let currentPage = 0;
+const PAGE_SIZE = 100;
 
 // Colors for charts
 const COLORS = {
@@ -101,6 +103,7 @@ function initTabs() {
 
             // Render table when Studies tab is selected
             if (tab.dataset.tab === 'studies') {
+                currentPage = 0;
                 renderStudiesTable();
             }
         });
@@ -328,7 +331,10 @@ function initTable() {
     // Table search
     const tableSearch = document.getElementById('study-table-search');
     if (tableSearch) {
-        tableSearch.addEventListener('input', renderStudiesTable);
+        tableSearch.addEventListener('input', () => {
+            currentPage = 0;
+            renderStudiesTable();
+        });
     }
 
     // Sortable headers
@@ -341,6 +347,7 @@ function initTable() {
                 currentSort.field = field;
                 currentSort.direction = 'asc';
             }
+            currentPage = 0;
             renderStudiesTable();
         });
     });
@@ -434,6 +441,7 @@ function renderDashboard() {
     // Update table if visible
     const studiesTab = document.querySelector('.tab[data-tab="studies"]');
     if (studiesTab?.classList.contains('active')) {
+        currentPage = 0;
         renderStudiesTable();
     }
 }
@@ -636,8 +644,15 @@ function renderStudiesTable() {
         }
     });
 
-    // Render rows
-    tbody.innerHTML = filtered.map(study => {
+    // Paginate
+    const totalCount = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
+    const pageStart = currentPage * PAGE_SIZE;
+    const pageData = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+
+    // Render rows for current page only
+    tbody.innerHTML = pageData.map(study => {
         // Format age range
         const minAge = study.min_age || 'N/A';
         const maxAge = study.max_age || 'N/A';
@@ -690,9 +705,59 @@ function renderStudiesTable() {
 
     // Update count
     if (countSpan) {
-        countSpan.textContent = `Showing ${filtered.length} ${filtered.length === 1 ? 'study' : 'studies'}`;
+        if (totalCount === 0) {
+            countSpan.textContent = 'No studies found';
+        } else {
+            const end = Math.min(pageStart + PAGE_SIZE, totalCount);
+            countSpan.textContent = `Showing ${(pageStart + 1).toLocaleString()}\u2013${end.toLocaleString()} of ${totalCount.toLocaleString()} studies`;
+        }
     }
+
+    renderPagination(totalCount);
 }
+
+function renderPagination(total) {
+    const container = document.getElementById('pagination');
+    if (!container) return;
+
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+
+    let html = '<div class="pagination-controls">';
+    html += `<button class="page-btn" ${currentPage === 0 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">Prev</button>`;
+
+    // Show page numbers with ellipsis for large ranges
+    const pages = [];
+    for (let i = 0; i < totalPages; i++) {
+        if (i === 0 || i === totalPages - 1 || Math.abs(i - currentPage) <= 2) {
+            pages.push(i);
+        }
+    }
+
+    let lastPage = -1;
+    for (const p of pages) {
+        if (lastPage !== -1 && p - lastPage > 1) {
+            html += '<span class="page-ellipsis">...</span>';
+        }
+        html += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goToPage(${p})">${p + 1}</button>`;
+        lastPage = p;
+    }
+
+    html += `<button class="page-btn" ${currentPage === totalPages - 1 ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">Next</button>`;
+    html += '</div>';
+    container.innerHTML = html;
+}
+
+function goToPage(page) {
+    currentPage = page;
+    renderStudiesTable();
+    document.getElementById('studies-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+window.goToPage = goToPage;
 
 function escapeHtml(text) {
     const div = document.createElement('div');
