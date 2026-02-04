@@ -1051,32 +1051,45 @@ footer p {
     z-index: 1000;
 }
 
-/* Publication icon styling */
-.pub-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: var(--primary-color);
-    color: white;
-    border-radius: 4px;
+/* Publication list styling */
+.pub-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    max-height: 4.5rem;          /* ~3 visible lines before fade */
+    overflow: hidden;
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    mask-image:         linear-gradient(to bottom, black 60%, transparent 100%);
+    text-align: left;
+}
+
+.pub-list-link {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--primary-color);
     text-decoration: none;
-    font-size: 0.875rem;
-    transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.35;
 }
 
-.pub-icon:hover {
-    background: #1d4ed8;
-    transform: translateY(-1px);
+.pub-list-link:hover {
+    color: var(--primary-light);
+    text-decoration: underline;
 }
 
-.pub-icon.multiple {
-    background: #059669;
+.pub-list-more {
+    display: inline-block;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-decoration: none;
+    margin-top: 0.15rem;
 }
 
-.pub-icon.pubmed {
-    background: #8b5cf6;
+.pub-list-more:hover {
+    color: var(--primary-color);
+    text-decoration: underline;
 }
 
 /* Pagination */

@@ -186,6 +186,17 @@ function initFilters() {
         }
     });
 
+    // Participant range inputs (fire on every keystroke)
+    ['min-participants', 'max-participants'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('input', () => {
+                renderDashboard();
+                updateActiveFilters();
+            });
+        }
+    });
+
     // Year range labels
     const yearStartInput = document.getElementById('year-start');
     const yearEndInput = document.getElementById('year-end');
@@ -287,6 +298,8 @@ function resetFilters() {
     document.getElementById('healthy-volunteers').value = 'all';
     document.getElementById('condition').value = 'all';
     document.getElementById('country').value = 'all';
+    document.getElementById('min-participants').value = '';
+    document.getElementById('max-participants').value = '';
 
     renderDashboard();
     updateActiveFilters();
@@ -343,6 +356,19 @@ function updateActiveFilters() {
     if (country !== 'all') {
         filters.push({ label: `Country: ${country}`, reset: () => {
             document.getElementById('country').value = 'all';
+        }});
+    }
+
+    const minPart = document.getElementById('min-participants').value;
+    const maxPart = document.getElementById('max-participants').value;
+    if (minPart !== '' || maxPart !== '') {
+        const label = minPart !== '' && maxPart !== ''
+            ? `Participants: ${minPart}–${maxPart}`
+            : minPart !== '' ? `Participants: ≥${minPart}`
+            : `Participants: ≤${maxPart}`;
+        filters.push({ label, reset: () => {
+            document.getElementById('min-participants').value = '';
+            document.getElementById('max-participants').value = '';
         }});
     }
 
@@ -459,6 +485,18 @@ function getFilteredData() {
             const countryNames = countries.map(c => c.country);
             if (!countryNames.includes(countryFilter)) return false;
         }
+
+        // Participant count range — null/undefined enrollment is excluded
+        // whenever either bound is active
+        const minPart = document.getElementById('min-participants')?.value;
+        const maxPart = document.getElementById('max-participants')?.value;
+        if (minPart !== '' || maxPart !== '') {
+            const enroll = study.enrollment;
+            if (enroll == null) return false;
+            if (minPart !== '' && enroll < parseInt(minPart, 10)) return false;
+            if (maxPart !== '' && enroll > parseInt(maxPart, 10)) return false;
+        }
+
         return true;
     });
 }
@@ -587,41 +625,53 @@ function renderSparkline(days) {
 }
 
 /**
- * Render publication icon(s) with links
+ * Build the display label for a single publication reference.
+ * Priority: "(Journal) Title" → citation → "Publication N"
+ */
+function pubLabel(ref, index) {
+    if (ref.title && ref.journal) {
+        return `(${ref.journal}) ${ref.title}`;
+    }
+    if (ref.title) {
+        return ref.title;
+    }
+    if (ref.citation) {
+        return ref.citation;
+    }
+    return `Publication ${index + 1}`;
+}
+
+/**
+ * Render an inline vertical list of publication links for a table cell.
  */
 function renderPublications(study) {
     const refs = study.references || [];
-
     if (refs.length === 0) {
         return '<span class="text-muted">-</span>';
     }
 
-    if (refs.length === 1) {
-        const ref = refs[0];
-        const icon = ref.source === 'pubmed' ? '📄' : '📄';
-        const sourceClass = ref.source === 'pubmed' ? 'pubmed' : '';
+    const items = refs.map((ref, i) => {
         const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
-        const title = ref.citation || 'View publication';
+        return `<a href="${url}" target="_blank" class="pub-list-link">${escapeHtml(pubLabel(ref, i))}</a>`;
+    });
 
-        return `<a href="${url}" target="_blank" class="pub-icon ${sourceClass}" title="${escapeHtml(title)}">${icon}</a>`;
-    }
+    const showAll = refs.length > 3
+        ? `<a href="#" class="pub-list-more" onclick="showPublications('${study.nct_id}'); return false;">${refs.length} total &rarr;</a>`
+        : '';
 
-    // Multiple publications
-    const pubmedCount = refs.filter(r => r.pmid).length;
-    return `<a href="#" onclick="showPublications('${study.nct_id}'); return false;"
-               class="pub-icon multiple"
-               title="${refs.length} publication(s)">📚</a>`;
+    return `<div class="pub-list">${items.join('')}</div>${showAll}`;
 }
 
 /**
- * Show publications modal
+ * Show full publications modal (used when the cell list is truncated
+ * and the user clicks "show all").
  */
 function showPublications(nctId) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study || !study.references || study.references.length === 0) return;
 
     let html = `<div class="breakdown-modal">
-        <h4>Publications - ${nctId}</h4>
+        <h4>Publications \u2014 ${nctId}</h4>
         <p class="modal-subtitle">Click outside to close</p>
         <div style="max-height: 400px; overflow-y: auto;">`;
 
@@ -632,11 +682,10 @@ function showPublications(nctId) {
         html += `
             <div style="margin-bottom: 1rem; padding: 0.75rem; background: #f9fafb; border-radius: 0.25rem;">
                 <div style="font-weight: 600; margin-bottom: 0.25rem;">
-                    ${ref.pmid ? `<a href="${url}" target="_blank" style="color: var(--primary-color);">PMID: ${ref.pmid}</a>` : `Publication ${idx + 1}`}
-                    <span style="font-size: 0.75rem; color: #6b7280; margin-left: 0.5rem;">(${source})</span>
-                </div>
-                <div style="font-size: 0.875rem; color: #374151;">
-                    ${escapeHtml(ref.citation || ref.title || 'No citation available')}
+                    <a href="${url}" target="_blank" style="color: var(--primary-color);">
+                        ${escapeHtml(pubLabel(ref, idx))}
+                    </a>
+                    <span style="font-size: 0.75rem; color: #6b7280; margin-left: 0.5rem;">(${source}${ref.pmid ? ' \u2022 PMID ' + ref.pmid : ''})</span>
                 </div>
             </div>
         `;
@@ -754,7 +803,7 @@ function renderStudiesTable() {
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${enrollmentBadge}</td>
-            <td class="text-center">${renderPublications(study)}</td>
+            <td>${renderPublications(study)}</td>
         </tr>
         `;
     }).join('');
