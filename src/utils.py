@@ -109,7 +109,7 @@ def sum_measurements(measurements: list, overall_group_id: Optional[str] = None)
                 val = m.get("value")
                 if val is not None:
                     try:
-                        return int(float(val))
+                        return int(float(str(val).replace(",", "")))
                     except (ValueError, TypeError):
                         pass
                 # Overall measurement exists but value is null/bad — fall through
@@ -122,7 +122,7 @@ def sum_measurements(measurements: list, overall_group_id: Optional[str] = None)
         if val is None:
             continue
         try:
-            total += int(float(val))
+            total += int(float(str(val).replace(",", "")))
         except (ValueError, TypeError):
             pass
     return total
