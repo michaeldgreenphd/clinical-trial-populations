@@ -40,15 +40,22 @@ ETHNICITY_MAPPINGS = {
     "Non Hispanic": ("not_hispanic_latino", None),
     "Not Hispanic": ("not_hispanic_latino", None),
 
-    # Unknown / Not Reported
+    # Unknown / Not Reported  (including slash-separated variants)
     "Unknown": ("unknown_not_reported", None),
     "Not Reported": ("unknown_not_reported", None),
     "Unknown or Not Reported": ("unknown_not_reported", None),
+    "Unknown/Not Reported": ("unknown_not_reported", None),
+    "Unknown/Not-reported": ("unknown_not_reported", None),
+    "Unknown/Not-Reported": ("unknown_not_reported", None),
     "Declined": ("unknown_not_reported", None),
     "Missing": ("unknown_not_reported", None),
 }
 
 ETHNICITY_TABLE_KEYWORDS = ["ethnicity", "ethnic", "hispanic", "latino"]
+
+# Translation table that strips invisible Unicode characters commonly
+# inserted by ClinicalTrials.gov (zero-width space, joiner, etc.)
+_ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
 
 # Category titles that represent measurement values, not ethnicity labels.
 # When a category has one of these titles the actual label is on its parent class.
@@ -66,7 +73,7 @@ def is_ethnicity_table(title: str) -> bool:
 
 def map_ethnicity_category(label: str, fuzzy_threshold: int = 85) -> Dict:
     """Map an ethnicity category label to NIH/OMB standard."""
-    label_clean = label.strip()
+    label_clean = label.strip().translate(_ZERO_WIDTH_CHARS)
     flags = []
 
     # Exact match
@@ -191,6 +198,16 @@ def extract_ethnicity_data(study: dict) -> Dict:
         result["reported"] = True
 
         categories = extract_ethnicity_from_measure(measure, overall_group_id)
+
+        # Combined "Race/Ethnicity" measures contain race labels (e.g.
+        # "White", "Non-white") that don't match any ethnicity keyword.
+        # Those end up as unmapped (confidence="low") and would corrupt
+        # ethnicity totals — drop them.  Genuine ethnicity labels
+        # (Hispanic, Not Hispanic, Unknown) map with high confidence and
+        # are kept.
+        if "race" in title.lower():
+            categories = [c for c in categories if c.get("confidence") != "low"]
+
         result["raw_categories"].extend(categories)
 
         for cat in categories:
