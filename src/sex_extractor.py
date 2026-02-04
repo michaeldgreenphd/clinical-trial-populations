@@ -22,6 +22,10 @@ SEX_MAPPINGS = {
 
 SEX_TABLE_KEYWORDS = ["sex", "biological sex"]
 
+# Category titles that represent measurement values, not sex labels.
+# When a category has one of these titles the actual label is on its parent class.
+_MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
+
 def is_sex_table(title: str) -> bool:
     """Check if a baseline measure is about sex."""
     title_lower = title.lower()
@@ -55,23 +59,46 @@ def map_sex_category(label: str) -> Dict:
 
     return {"category": "unknown", "confidence": "low", "original": label_clean, "flags": ["unmapped"]}
 
-def extract_sex_from_measure(measure: dict) -> List[Dict]:
-    """Extract sex data from a single baseline measure."""
+def extract_sex_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+    """Extract sex data from a single baseline measure.
+
+    Args:
+        measure: A single baseline measure dict from the API
+        overall_group_id: groupId of the Overall group (avoids double-counting arms)
+
+    Returns list of category records with counts.
+    """
+    from src.utils import sum_measurements
+
     results = []
 
     for cls in measure.get("classes", []):
-        for cat in cls.get("categories", []):
-            label = cat.get("title") or cls.get("title", "")
+        categories = cls.get("categories", [])
+
+        if categories:
+            for cat in categories:
+                cat_title = (cat.get("title") or "").strip()
+                # If the category title is a measurement label (e.g. "Count")
+                # the real sex label lives on the parent class
+                if cat_title.lower() in _MEASUREMENT_LABELS:
+                    label = cls.get("title", "").strip()
+                else:
+                    label = cat_title or cls.get("title", "").strip()
+                if not label:
+                    continue
+
+                count = sum_measurements(cat.get("measurements", []), overall_group_id)
+
+                mapping = map_sex_category(label)
+                mapping["count"] = count
+                results.append(mapping)
+        else:
+            # Fallback: class itself carries measurements with no categories
+            label = cls.get("title", "").strip()
             if not label:
                 continue
 
-            count = 0
-            for m in cat.get("measurements", []):
-                try:
-                    count = int(float(m.get("value", 0)))
-                    break
-                except (ValueError, TypeError):
-                    pass
+            count = sum_measurements(cls.get("measurements", []), overall_group_id)
 
             mapping = map_sex_category(label)
             mapping["count"] = count
@@ -81,9 +108,10 @@ def extract_sex_from_measure(measure: dict) -> List[Dict]:
 
 def extract_sex_data(study: dict) -> Dict:
     """Extract all sex data from a study."""
-    from src.utils import get_baseline_measures
+    from src.utils import get_baseline_measures, get_overall_group_id
 
     measures = get_baseline_measures(study)
+    overall_group_id = get_overall_group_id(study)
 
     result = {
         "reported": False,
@@ -104,7 +132,7 @@ def extract_sex_data(study: dict) -> Dict:
 
         result["reported"] = True
 
-        categories = extract_sex_from_measure(measure)
+        categories = extract_sex_from_measure(measure, overall_group_id)
         result["raw_categories"].extend(categories)
 
         for cat in categories:

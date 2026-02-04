@@ -77,6 +77,28 @@ def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMed
         logger.error(f"Error extracting from study {study.get('protocolSection', {}).get('identificationModule', {}).get('nctId', 'UNKNOWN')}: {str(e)}")
         return None
 
+def _measurements_present_in_search(study: dict) -> bool:
+    """True if any demographic measure in the raw study has at least one measurement entry.
+
+    The search endpoint may return category titles with empty measurement arrays
+    for studies whose baseline data hasn't been entered yet — these are genuine
+    data gaps, not truncation.  When measurements ARE present (even with 'NA' or
+    '0' values) the data is complete; a re-fetch would return the same result.
+    """
+    baseline = (study.get("resultsSection", {})
+                .get("baselineCharacteristicsModule", {}))
+    for m in baseline.get("measures", []):
+        title = m.get("title", "").lower()
+        if not any(kw in title for kw in ("race", "ethnicity", "sex")):
+            continue
+        for cls in m.get("classes", []):
+            for cat in cls.get("categories", []):
+                if cat.get("measurements"):
+                    return True
+            if cls.get("measurements"):
+                return True
+    return False
+
 def _reported_demographics_are_empty(result: dict) -> bool:
     """True when every reported demographic has all-zero counts.
 
@@ -182,12 +204,27 @@ def main():
 
     refetch_count = 0
     for study in tqdm(studies, desc="Extracting demographics"):
+        # Temporary debug: dump raw baseline for the study reported as problematic
+        _nct = (study.get("protocolSection", {})
+                .get("identificationModule", {})
+                .get("nctId", ""))
+        if _nct == "NCT02744846":
+            import json as _json
+            _bl = (study.get("resultsSection", {})
+                   .get("baselineCharacteristicsModule", {}))
+            for _m in _bl.get("measures", []):
+                logger.warning(f"[NCT02744846-RAW] {_json.dumps(_m)}")
+
         result = extract_demographics_from_study(study, pubmed_fetcher=pubmed_fetcher)
 
         # The search endpoint occasionally omits measurement values for large
         # studies while keeping category titles intact.  Detect this and
         # re-fetch the individual study to get the complete record.
-        if result and _reported_demographics_are_empty(result):
+        # Guard: if the search result already contains measurement entries
+        # (even 'NA' or '0') the data is present — skip the costly re-fetch.
+        if (result
+                and _reported_demographics_are_empty(result)
+                and not _measurements_present_in_search(study)):
             nct_id = result.get("nct_id")
             logger.warning(f"[{nct_id}] All reported demographics are zero — re-fetching individually")
             try:
@@ -197,6 +234,8 @@ def main():
                 if result and _reported_demographics_are_empty(result):
                     logger.warning(f"[{nct_id}] Still all-zero after individual fetch — logging raw baseline")
                     _log_raw_baseline(full_study, nct_id)
+                else:
+                    logger.info(f"[{nct_id}] Refetch populated demographics successfully")
             except Exception as e:
                 logger.error(f"[{nct_id}] Individual re-fetch failed: {e}")
 
