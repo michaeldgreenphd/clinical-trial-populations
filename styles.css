@@ -161,6 +161,13 @@ main {
     min-width: 200px;
 }
 
+/* Condition and Country dropdowns can have very long option text;
+   cap them so they don't blow out the filter row */
+#condition,
+#country {
+    max-width: 300px;
+}
+
 .filter-group input[type="range"] {
     width: 100px;
 }
@@ -404,6 +411,13 @@ main {
     padding: 0.75rem 1rem 0.75rem 0.5rem;
     border: none; /* No vertical borders - Tufte principle */
     border-bottom: 1px solid #f3f4f6; /* Very light horizontal guides only */
+}
+
+/* Publications column: allow wrapping so long link text doesn't stretch the table */
+.studies-table td.col-publications {
+    max-width: 260px;
+    white-space: normal;
+    word-wrap: break-word;
 }
 
 .studies-table tbody tr {

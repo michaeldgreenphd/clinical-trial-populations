@@ -780,15 +780,6 @@ function renderStudiesTable() {
                    target="_blank"
                    class="nct-link">${study.nct_id}</a>
             </td>
-            <td>${study.start_date || 'N/A'}</td>
-            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
-            <td>${statusWithReason}</td>
-            <td>${study.results_date || 'N/A'}</td>
-            <td>${study.last_update || 'N/A'}</td>
-            <td>${renderSparkline(getTimeToReport(study))}</td>
-            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
             <td class="text-center">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -796,6 +787,15 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
+            <td>${study.start_date || 'N/A'}</td>
+            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
+            <td>${renderSparkline(getTimeToReport(study))}</td>
+            <td>${statusWithReason}</td>
+            <td>${study.results_date || 'N/A'}</td>
+            <td>${study.last_update || 'N/A'}</td>
+            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
             <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
@@ -803,7 +803,7 @@ function renderStudiesTable() {
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
             <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td class="text-right">${enrollmentBadge}</td>
-            <td>${renderPublications(study)}</td>
+            <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
     }).join('');
@@ -1079,6 +1079,30 @@ function closeBreakdown() {
 window.showBreakdown = showBreakdown;
 window.closeBreakdown = closeBreakdown;
 
+/**
+ * Derive the top-level funding category from the lead sponsor class
+ * and the collaborators list.
+ *
+ * Hierarchy (first match wins):
+ *   Industry  – lead is INDUSTRY
+ *   NIH       – lead is NIH, OR lead is OTHER/NETWORK and any collaborator is NIH
+ *   Other Fed – lead is FED,  OR lead is OTHER/NETWORK and any collaborator is FED
+ *   Other     – everything else
+ */
+function deriveFundingSource(study) {
+    const lead = (study.sponsor_class || '').toUpperCase();
+    if (lead === 'INDUSTRY') return 'Industry';
+    if (lead === 'NIH')      return 'NIH';
+    if (lead === 'FED')      return 'Other U.S. Federal';
+
+    // Lead is OTHER or NETWORK — check collaborators for NIH / FED
+    const collabs = (study.collaborators || []).map(c => (c.class || '').toUpperCase());
+    if (collabs.includes('NIH')) return 'NIH';
+    if (collabs.includes('FED')) return 'Other U.S. Federal';
+
+    return 'Other';
+}
+
 function showStudyDetails(nctId) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
@@ -1165,7 +1189,12 @@ function showStudyDetails(nctId) {
                     <div class="detail-grid">
                         <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
                         <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
-                        <div><strong>Gender:</strong> ${study.gender || 'ALL'}</div>
+                        <div><strong>Gender:</strong> ${study.gender?.reported && study.gender?.totals
+                            ? Object.entries(study.gender.totals)
+                                .filter(([, v]) => v > 0)
+                                .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.toLocaleString()}`)
+                                .join(', ') || 'Not Reported'
+                            : 'Not Reported'}</div>
                         <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
                     </div>
                 </div>
@@ -1173,6 +1202,7 @@ function showStudyDetails(nctId) {
                 <div class="detail-section">
                     <h5>Sponsor & Collaborators</h5>
                     <p><strong>Lead Sponsor:</strong> ${escapeHtml(study.lead_sponsor_name || 'Unknown')} <span class="badge">${study.sponsor_class || 'N/A'}</span></p>
+                    <p><strong>Funding Source:</strong> <span class="badge">${deriveFundingSource(study)}</span></p>
                     ${collaboratorsHtml}
                 </div>
 
@@ -1345,7 +1375,16 @@ function renderRaceDistribution(filtered) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right' }
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
@@ -1520,7 +1559,16 @@ function renderEthnicityDistribution(filtered) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right' }
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
@@ -1665,7 +1713,16 @@ function renderSexDistribution(filtered) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { position: 'right' }
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
@@ -1762,7 +1819,16 @@ function renderGenderDistribution(filtered) {
                 }
             },
             plugins: {
-                legend: { display: false }
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed.y / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.parsed.y.toLocaleString()} participants (${pct}%)`;
+                        }
+                    }
+                }
             }
         }
     });
