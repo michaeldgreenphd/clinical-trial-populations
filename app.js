@@ -862,7 +862,7 @@ function showBreakdown(nctId, breakdownType) {
 
             // Aggregate original labels and best match quality from raw_categories
             const matching       = rawCategories.filter(rc => rc.omb_category === cat.key);
-            const originalLabels = matching.map(rc => rc.original).join(', ');
+            const originalLabels = [...new Set(matching.map(rc => rc.original))].join(', ');
             const bestConfidence = matching.some(rc => rc.confidence === 'high')   ? 'high'   :
                                    matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low';
             const hasFuzzy       = matching.some(rc => rc.flags?.some(f => f.includes('fuzzy_match')));
@@ -891,7 +891,7 @@ function showBreakdown(nctId, breakdownType) {
         // "Other" row only when unmapped labels contributed counts
         if (ombTotals.other > 0) {
             const otherRaw    = rawCategories.filter(rc => rc.omb_category === 'other');
-            const otherLabels = otherRaw.map(rc => rc.original).join(', ');
+            const otherLabels = [...new Set(otherRaw.map(rc => rc.original))].join(', ');
             const otherPct    = grandTotal > 0 ? ((ombTotals.other / grandTotal) * 100).toFixed(1) : '0.0';
             html += `<tr>
                 <td>Other</td>
@@ -938,7 +938,17 @@ function showBreakdown(nctId, breakdownType) {
         }
     }
 
-    html += `</tbody></table>
+    html += `</tbody></table>`;
+
+    // If any category came from a Customized or combined measure, add an
+    // explanatory note so the user understands why some labels differ from
+    // standard NIH/OMB categories
+    const allRaw = study[categoryName]?.raw_categories || [];
+    if (allRaw.some(rc => rc.flags?.includes('customized_table'))) {
+        html += `<p class="modal-note modal-note-custom"><strong>Note:</strong> This study used a customized measure for ${categoryDisplay.toLowerCase()} that does not follow standard NIH/OMB categories. Labels are mapped to the closest standard category where possible; categories that could not be mapped are shown as "Other / Unmapped" with their original label preserved.</p>`;
+    }
+
+    html += `
         <p class="modal-note"><strong>About Match Quality:</strong> "Exact" means the label matched our NIH/OMB mappings directly. "Fuzzy" means approximate string matching was used. "Unmapped" means the original label couldn't be classified into standard categories.</p>
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;

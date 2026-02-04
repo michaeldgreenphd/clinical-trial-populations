@@ -926,6 +926,11 @@ footer p {
     line-height: 1.5;
 }
 
+.modal-note-custom {
+    border-left-color: #f59e0b;
+    background: #fef9c3;
+}
+
 .modal-subtitle {
     color: #6b7280;
     font-size: 0.875rem;
