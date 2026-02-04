@@ -7,6 +7,10 @@ with granular subcategories preserved.
 from typing import Dict, List, Tuple, Optional
 from rapidfuzz import fuzz, process
 
+# Translation table that strips invisible Unicode characters commonly
+# inserted by ClinicalTrials.gov (zero-width space, joiner, etc.)
+_ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
+
 # NIH/OMB Race mappings with subcategories
 RACE_MAPPINGS = {
     # American Indian / Alaska Native
@@ -86,10 +90,14 @@ RACE_MAPPINGS = {
     "Mixed Race": ("more_than_one_race", None),
     "Biracial": ("more_than_one_race", None),
 
-    # Unknown / Not Reported
+    # Unknown / Not Reported  (including slash-separated variants that
+    # ClinicalTrials.gov returns for "Customized" measures)
     "Unknown": ("unknown_not_reported", None),
     "Not Reported": ("unknown_not_reported", None),
     "Unknown or Not Reported": ("unknown_not_reported", None),
+    "Unknown/Not Reported": ("unknown_not_reported", None),
+    "Unknown/Not-reported": ("unknown_not_reported", None),
+    "Unknown/Not-Reported": ("unknown_not_reported", None),
     "Declined": ("unknown_not_reported", None),
     "Not Specified": ("unknown_not_reported", None),
     "Missing": ("unknown_not_reported", None),
@@ -99,13 +107,14 @@ RACE_MAPPINGS = {
 RACE_TABLE_KEYWORDS = ["race", "racial"]
 
 def is_race_table(title: str) -> bool:
-    """Check if a baseline measure is about race."""
+    """Check if a baseline measure is about race.
+
+    Combined titles like "Race/Ethnicity, Customized" are accepted — the
+    race extractor will map whatever it can and flag unmapped labels as
+    "other".  The ethnicity extractor independently handles the same
+    measure and drops labels it cannot map.
+    """
     title_lower = title.lower()
-
-    # Exclude combined race/ethnicity tables (handle separately)
-    if "ethnicity" in title_lower and "race" in title_lower:
-        return False
-
     return any(kw in title_lower for kw in RACE_TABLE_KEYWORDS)
 
 def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
@@ -119,7 +128,9 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
         - original: Original label
         - flags: Any issues noted
     """
-    label_clean = label.strip()
+    # Strip invisible Unicode characters that ClinicalTrials.gov sometimes
+    # inserts (e.g. U+200B ZERO WIDTH SPACE between slash and next word)
+    label_clean = label.strip().translate(_ZERO_WIDTH_CHARS)
     flags = []
 
     # Exact match
@@ -264,6 +275,19 @@ def extract_race_data(study: dict) -> Dict:
         result["reported"] = True
 
         categories = extract_race_from_measure(measure, overall_group_id)
+
+        # Annotate categories from non-standard / combined measures so the
+        # dashboard can surface the match-quality signal to the user
+        title_lower = title.lower()
+        is_combined   = "ethnicity" in title_lower
+        is_customized = "customized" in title_lower
+        if is_combined or is_customized:
+            for cat in categories:
+                if is_combined:
+                    cat["flags"].append("combined_race_ethnicity")
+                if is_customized:
+                    cat["flags"].append("customized_table")
+
         result["raw_categories"].extend(categories)
 
         for cat in categories:

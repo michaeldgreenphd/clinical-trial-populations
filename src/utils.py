@@ -4,6 +4,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import Optional
 
+# Translation table that strips invisible Unicode characters commonly
+# inserted by ClinicalTrials.gov (zero-width space, joiner, etc.)
+_ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
+
 def calculate_days_between(start_date: str, end_date: str) -> Optional[int]:
     """
     Calculate days between two dates in YYYY-MM-DD format.
@@ -302,9 +306,9 @@ def extract_demographic_breakdown(measures: list, category_type: str, overall_gr
         if category_lower not in title:
             continue
 
-        # Skip combined race/ethnicity tables
-        if category_lower == "race" and "ethnicity" in title:
-            continue
+        # Combined "Race/Ethnicity" tables: process for race (the race
+        # extractor flags unmapped labels transparently) but skip for
+        # ethnicity (race labels like "White" would appear as noise).
         if category_lower == "ethnicity" and "race" in title:
             continue
 
@@ -318,11 +322,11 @@ def extract_demographic_breakdown(measures: list, category_type: str, overall_gr
 
             if categories:
                 for cat in categories:
-                    cat_title = (cat.get("title") or "").strip()
+                    cat_title = (cat.get("title") or "").strip().translate(_ZERO_WIDTH_CHARS)
                     # If the category title is a measurement label (e.g. "Count")
                     # the real demographic label lives on the parent class
                     if cat_title.lower() in _measurement_labels:
-                        cat_title = cls.get("title", "Unknown").strip()
+                        cat_title = cls.get("title", "Unknown").strip().translate(_ZERO_WIDTH_CHARS)
                     if not cat_title or cat_title == "Unknown":
                         continue
 
@@ -333,7 +337,7 @@ def extract_demographic_breakdown(measures: list, category_type: str, overall_gr
                     breakdown[cat_title]["count"] += total_count
             else:
                 # Fallback: class itself carries measurements with no categories
-                cat_title = cls.get("title", "Unknown").strip()
+                cat_title = cls.get("title", "Unknown").strip().translate(_ZERO_WIDTH_CHARS)
                 if not cat_title or cat_title == "Unknown":
                     continue
 
