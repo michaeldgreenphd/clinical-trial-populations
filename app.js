@@ -6,6 +6,11 @@ let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
 const PAGE_SIZE = 100;
 
+// GitHub release-asset URL base for historical snapshots
+const REPO_OWNER = 'michaeldgreenphd';
+const REPO_NAME  = 'clinical-trial-populations';
+const RELEASE_BASE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download`;
+
 // Colors for charts
 const COLORS = {
     race: {
@@ -38,35 +43,50 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSubcategoryButtons();
     initTable();
     renderDashboard();
+    initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
 });
 
-async function loadData() {
-    try {
-        // Fetch both parts of the split data file
-        const fetchAndDecompress = async (url) => {
-            console.log(`Fetching: ${url}`);
-            // Add cache-busting parameter
-            const cacheBust = new Date().getTime();
-            const response = await fetch(`${url}?v=${cacheBust}`);
-            console.log(`Response status for ${url}: ${response.status}`);
-            if (!response.ok) {
-                throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
-            }
-            const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
-            const decompressedResponse = new Response(decompressedStream);
-            const json = await decompressedResponse.json();
-            console.log(`Successfully loaded ${json.data.length} studies from ${url}`);
-            return json;
-        };
+// Decompress a single .json.gz response body and return parsed JSON.
+async function fetchAndDecompress(url) {
+    console.log(`Fetching: ${url}`);
+    const cacheBust = new Date().getTime();
+    const response = await fetch(`${url}?v=${cacheBust}`);
+    console.log(`Response status for ${url}: ${response.status}`);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+    }
+    const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
+    const decompressedResponse = new Response(decompressedStream);
+    const json = await decompressedResponse.json();
+    console.log(`Successfully loaded ${json.data.length} studies from ${url}`);
+    return json;
+}
 
-        // Fetch both parts in parallel
+// Return the two .json.gz URLs for a given date.
+// "latest" (or no argument) → relative paths served from the repo root.
+// A date string (YYYY-MM-DD) → absolute GitHub-Release asset URLs.
+function dataURLsForDate(date) {
+    if (!date || date === 'latest') {
+        return [
+            'data/demographics.part1.json.gz',
+            'data/demographics.part2.json.gz'
+        ];
+    }
+    return [
+        `${RELEASE_BASE}/${date}/demographics.part1.json.gz`,
+        `${RELEASE_BASE}/${date}/demographics.part2.json.gz`
+    ];
+}
+
+async function loadData(date) {
+    const [url1, url2] = dataURLsForDate(date);
+    try {
         console.log('Loading data parts...');
         const [part1, part2] = await Promise.all([
-            fetchAndDecompress('data/demographics.part1.json.gz'),
-            fetchAndDecompress('data/demographics.part2.json.gz')
+            fetchAndDecompress(url1),
+            fetchAndDecompress(url2)
         ]);
 
-        // Combine the data from both parts
         data = [...part1.data, ...part2.data];
         console.log(`Total studies loaded: ${data.length}`);
 
@@ -76,7 +96,6 @@ async function loadData() {
         console.error('Error loading data:', error);
         document.getElementById('last-updated').textContent = 'Error loading data';
 
-        // Show friendly error message with more details
         document.querySelector('main').innerHTML = `
             <div class="chart-container">
                 <h3>No Data Available</h3>
@@ -84,12 +103,49 @@ async function loadData() {
                 <p class="note">Error: ${error.message}</p>
                 <p class="note" style="font-size: 0.9em; color: #666;">
                     Trying to load:<br>
-                    - data/demographics.part1.json.gz<br>
-                    - data/demographics.part2.json.gz
+                    - ${url1}<br>
+                    - ${url2}
                 </p>
             </div>
         `;
     }
+}
+
+// Fetch history.json, populate the date-selector dropdown, and wire up
+// the change handler so selecting a historical date reloads + re-renders.
+async function initHistorySelector() {
+    const select = document.getElementById('history-date');
+    if (!select) return;
+
+    try {
+        const resp = await fetch('history.json');
+        if (!resp.ok) {
+            // No manifest yet — dropdown stays at "Latest" only
+            console.log('history.json not available; archive selector disabled.');
+            return;
+        }
+        const manifest = await resp.json();
+        const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
+
+        dates.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            select.appendChild(opt);
+        });
+    } catch (e) {
+        console.warn('Could not load history manifest:', e);
+    }
+
+    select.addEventListener('change', async () => {
+        const chosen = select.value;
+        console.log(`Switching to snapshot: ${chosen}`);
+        await loadData(chosen);
+        // Re-populate dynamic dropdowns whose options come from the dataset
+        populateConditionsDropdown();
+        populateCountriesDropdown();
+        renderDashboard();
+    });
 }
 
 function initTabs() {
