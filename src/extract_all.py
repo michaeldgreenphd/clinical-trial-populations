@@ -204,17 +204,6 @@ def main():
 
     refetch_count = 0
     for study in tqdm(studies, desc="Extracting demographics"):
-        # Temporary debug: dump raw baseline for the study reported as problematic
-        _nct = (study.get("protocolSection", {})
-                .get("identificationModule", {})
-                .get("nctId", ""))
-        if _nct == "NCT02744846":
-            import json as _json
-            _bl = (study.get("resultsSection", {})
-                   .get("baselineCharacteristicsModule", {}))
-            for _m in _bl.get("measures", []):
-                logger.warning(f"[NCT02744846-RAW] {_json.dumps(_m)}")
-
         result = extract_demographics_from_study(study, pubmed_fetcher=pubmed_fetcher)
 
         # The search endpoint occasionally omits measurement values for large
