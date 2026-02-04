@@ -171,12 +171,18 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
 # When a category has one of these titles the actual label is on its parent class.
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
 
-def extract_race_from_measure(measure: dict) -> List[Dict]:
+def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = None) -> List[Dict]:
     """
     Extract race data from a single baseline measure.
 
+    Args:
+        measure: A single baseline measure dict from the API
+        overall_group_id: groupId of the Overall group (avoids double-counting arms)
+
     Returns list of category records with counts.
     """
+    from src.utils import sum_measurements
+
     results = []
 
     for cls in measure.get("classes", []):
@@ -194,16 +200,7 @@ def extract_race_from_measure(measure: dict) -> List[Dict]:
                 if not label:
                     continue
 
-                # Sum counts across all measurement groups
-                count = 0
-                for m in cat.get("measurements", []):
-                    val = m.get("value")
-                    if val is None:
-                        continue
-                    try:
-                        count += int(float(val))
-                    except (ValueError, TypeError):
-                        pass
+                count = sum_measurements(cat.get("measurements", []), overall_group_id)
 
                 mapping = map_race_category(label)
                 mapping["count"] = count
@@ -214,15 +211,7 @@ def extract_race_from_measure(measure: dict) -> List[Dict]:
             if not label:
                 continue
 
-            count = 0
-            for m in cls.get("measurements", []):
-                val = m.get("value")
-                if val is None:
-                    continue
-                try:
-                    count += int(float(val))
-                except (ValueError, TypeError):
-                    pass
+            count = sum_measurements(cls.get("measurements", []), overall_group_id)
 
             mapping = map_race_category(label)
             mapping["count"] = count
@@ -241,9 +230,10 @@ def extract_race_data(study: dict) -> Dict:
         - raw_categories: List of all extracted categories
         - flags: List of any issues
     """
-    from src.utils import get_baseline_measures
+    from src.utils import get_baseline_measures, get_overall_group_id
 
     measures = get_baseline_measures(study)
+    overall_group_id = get_overall_group_id(study)
 
     result = {
         "reported": False,
@@ -273,7 +263,7 @@ def extract_race_data(study: dict) -> Dict:
         race_tables_found += 1
         result["reported"] = True
 
-        categories = extract_race_from_measure(measure)
+        categories = extract_race_from_measure(measure, overall_group_id)
         result["raw_categories"].extend(categories)
 
         for cat in categories:

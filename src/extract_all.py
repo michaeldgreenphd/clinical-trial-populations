@@ -11,7 +11,7 @@ from typing import Optional
 from tqdm import tqdm
 
 from src.api_client import CTGovAPIClient
-from src.utils import get_study_metadata, save_json, get_baseline_measures, extract_demographic_breakdown
+from src.utils import get_study_metadata, save_json, get_baseline_measures, get_overall_group_id, extract_demographic_breakdown
 from src.race_extractor import extract_race_data
 from src.ethnicity_extractor import extract_ethnicity_data
 from src.sex_extractor import extract_sex_data
@@ -45,9 +45,10 @@ def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMed
 
         # Extract demographic breakdowns for interactive display
         baseline_measures = get_baseline_measures(study)
-        race_breakdown = extract_demographic_breakdown(baseline_measures, "race")
-        ethnicity_breakdown = extract_demographic_breakdown(baseline_measures, "ethnicity")
-        sex_breakdown = extract_demographic_breakdown(baseline_measures, "sex")
+        overall_group_id = get_overall_group_id(study)
+        race_breakdown = extract_demographic_breakdown(baseline_measures, "race", overall_group_id)
+        ethnicity_breakdown = extract_demographic_breakdown(baseline_measures, "ethnicity", overall_group_id)
+        sex_breakdown = extract_demographic_breakdown(baseline_measures, "sex", overall_group_id)
 
         # If no references found and PubMed fetcher provided, try PubMed
         if pubmed_fetcher and not metadata.get("references"):
