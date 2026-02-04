@@ -249,22 +249,50 @@ def extract_demographic_breakdown(measures: list, category_type: str) -> dict:
 
         classes = measure.get("classes", [])
 
+        # Category titles that represent measurement values, not demographic labels
+        _measurement_labels = {"count", "number", "n", "total", "value", "mean", "median"}
+
         for cls in classes:
             categories = cls.get("categories", [])
 
-            for cat in categories:
-                cat_title = cat.get("title") or cls.get("title", "Unknown")
+            if categories:
+                for cat in categories:
+                    cat_title = (cat.get("title") or "").strip()
+                    # If the category title is a measurement label (e.g. "Count")
+                    # the real demographic label lives on the parent class
+                    if cat_title.lower() in _measurement_labels:
+                        cat_title = cls.get("title", "Unknown").strip()
+                    if not cat_title or cat_title == "Unknown":
+                        continue
+
+                    measurements = cat.get("measurements", [])
+
+                    # Sum across all arms/groups for total
+                    total_count = 0
+                    for m in measurements:
+                        value = m.get("value")
+                        if value is None:
+                            continue
+                        try:
+                            total_count += int(float(value))
+                        except (ValueError, TypeError):
+                            pass
+
+                    if cat_title not in breakdown:
+                        breakdown[cat_title] = {"count": 0}
+                    breakdown[cat_title]["count"] += total_count
+            else:
+                # Fallback: class itself carries measurements with no categories
+                cat_title = cls.get("title", "Unknown").strip()
                 if not cat_title or cat_title == "Unknown":
                     continue
 
-                measurements = cat.get("measurements", [])
-
-                # Sum across all arms/groups for total
                 total_count = 0
-                for m in measurements:
-                    value = m.get("value", "0")
+                for m in cls.get("measurements", []):
+                    value = m.get("value")
+                    if value is None:
+                        continue
                     try:
-                        # Handle both integer and string values
                         total_count += int(float(value))
                     except (ValueError, TypeError):
                         pass

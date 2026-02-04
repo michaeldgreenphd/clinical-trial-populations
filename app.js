@@ -814,9 +814,6 @@ function showBreakdown(nctId, breakdownType) {
     const categoryName = breakdownType.replace('Breakdown', '');
     const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
-    // Get raw categories for transparency (if available)
-    const rawCategories = study[categoryName]?.raw_categories || [];
-
     // Build breakdown HTML
     let html = `<div class="breakdown-modal">
         <h4>${categoryDisplay} Distribution - ${nctId}</h4>
@@ -825,39 +822,120 @@ function showBreakdown(nctId, breakdownType) {
             <thead><tr><th>NIH/OMB Category</th><th>Original Label</th><th>Match Quality</th><th>Count</th><th>Percent</th></tr></thead>
             <tbody>`;
 
-    // Sort by count descending
-    const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+    if (breakdownType === 'raceBreakdown') {
+        // Race: show every standard NIH/OMB category; mark unreported ones with ✗
+        const ombCategories = [
+            { key: 'american_indian_alaska_native',    display: 'American Indian or Alaska Native' },
+            { key: 'asian',                            display: 'Asian' },
+            { key: 'black_african_american',           display: 'Black or African American' },
+            { key: 'native_hawaiian_pacific_islander', display: 'Native Hawaiian or Pacific Islander' },
+            { key: 'white',                            display: 'White' },
+            { key: 'more_than_one_race',               display: 'More than one race' },
+            { key: 'unknown_not_reported',             display: 'Unknown or Not Reported' }
+        ];
 
-    for (const [category, data] of entries) {
-        // Find matching raw category for this entry
-        const rawCat = rawCategories.find(rc =>
-            (rc.original === category ||
-             (rc.omb_category && formatOmbCategory(rc.omb_category) === category))
-        );
+        const ombTotals     = study.race?.omb_totals    || {};
+        const rawCategories = study.race?.raw_categories || [];
 
-        const originalLabel = rawCat?.original || category;
-        const confidence = rawCat?.confidence || 'n/a';
-        const isFuzzy = rawCat?.flags?.some(f => f.includes('fuzzy_match')) || false;
-        const isUnmapped = rawCat?.flags?.includes('unmapped') || false;
+        // Which OMB categories actually appear in this study's baseline data
+        const reportedSet = new Set(rawCategories.map(rc => rc.omb_category));
 
-        let matchQuality = '';
-        if (confidence === 'high') {
-            matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
-        } else if (confidence === 'medium' || isFuzzy) {
-            matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
-        } else if (isUnmapped) {
-            matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
-        } else {
-            matchQuality = '<span class="match-na">-</span>';
+        // Denominator includes all standard categories + any "other" unmapped counts
+        const grandTotal = ombCategories.reduce((s, c) => s + (ombTotals[c.key] || 0), 0)
+                         + (ombTotals.other || 0);
+
+        for (const cat of ombCategories) {
+            if (!reportedSet.has(cat.key)) {
+                // Category not part of this study's reporting structure
+                html += `<tr class="not-reported-row">
+                    <td>${escapeHtml(cat.display)}</td>
+                    <td class="original-label">Not reported</td>
+                    <td class="text-center"><span class="match-low">✗</span></td>
+                    <td>—</td>
+                    <td>—</td>
+                </tr>`;
+                continue;
+            }
+
+            const count   = ombTotals[cat.key] || 0;
+            const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
+
+            // Aggregate original labels and best match quality from raw_categories
+            const matching       = rawCategories.filter(rc => rc.omb_category === cat.key);
+            const originalLabels = matching.map(rc => rc.original).join(', ');
+            const bestConfidence = matching.some(rc => rc.confidence === 'high')   ? 'high'   :
+                                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low';
+            const hasFuzzy       = matching.some(rc => rc.flags?.some(f => f.includes('fuzzy_match')));
+            const hasUnmapped    = matching.some(rc => rc.flags?.includes('unmapped'));
+
+            let matchQuality = '';
+            if (bestConfidence === 'high') {
+                matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
+            } else if (bestConfidence === 'medium' || hasFuzzy) {
+                matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
+            } else if (hasUnmapped) {
+                matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
+            } else {
+                matchQuality = '<span class="match-na">-</span>';
+            }
+
+            html += `<tr>
+                <td>${escapeHtml(cat.display)}</td>
+                <td class="original-label">${escapeHtml(originalLabels)}</td>
+                <td class="text-center">${matchQuality}</td>
+                <td>${count.toLocaleString()}</td>
+                <td style="--percent: ${percent}">${percent}%</td>
+            </tr>`;
         }
 
-        html += `<tr>
-            <td>${escapeHtml(category)}</td>
-            <td class="original-label">${escapeHtml(originalLabel)}</td>
-            <td class="text-center">${matchQuality}</td>
-            <td>${data.count.toLocaleString()}</td>
-            <td style="--percent: ${data.percent}">${data.percent.toFixed(1)}%</td>
-        </tr>`;
+        // "Other" row only when unmapped labels contributed counts
+        if (ombTotals.other > 0) {
+            const otherRaw    = rawCategories.filter(rc => rc.omb_category === 'other');
+            const otherLabels = otherRaw.map(rc => rc.original).join(', ');
+            const otherPct    = grandTotal > 0 ? ((ombTotals.other / grandTotal) * 100).toFixed(1) : '0.0';
+            html += `<tr>
+                <td>Other</td>
+                <td class="original-label">${escapeHtml(otherLabels)}</td>
+                <td class="text-center"><span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span></td>
+                <td>${ombTotals.other.toLocaleString()}</td>
+                <td style="--percent: ${otherPct}">${otherPct}%</td>
+            </tr>`;
+        }
+    } else {
+        // Generic path for ethnicity / sex — show only categories that were reported
+        const rawCategories = study[categoryName]?.raw_categories || [];
+        const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+
+        for (const [category, catData] of entries) {
+            const rawCat = rawCategories.find(rc =>
+                (rc.original === category ||
+                 (rc.omb_category && formatOmbCategory(rc.omb_category) === category))
+            );
+
+            const originalLabel = rawCat?.original || category;
+            const confidence    = rawCat?.confidence || 'n/a';
+            const isFuzzy       = rawCat?.flags?.some(f => f.includes('fuzzy_match')) || false;
+            const isUnmapped    = rawCat?.flags?.includes('unmapped') || false;
+
+            let matchQuality = '';
+            if (confidence === 'high') {
+                matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
+            } else if (confidence === 'medium' || isFuzzy) {
+                matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
+            } else if (isUnmapped) {
+                matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
+            } else {
+                matchQuality = '<span class="match-na">-</span>';
+            }
+
+            html += `<tr>
+                <td>${escapeHtml(category)}</td>
+                <td class="original-label">${escapeHtml(originalLabel)}</td>
+                <td class="text-center">${matchQuality}</td>
+                <td>${catData.count.toLocaleString()}</td>
+                <td style="--percent: ${catData.percent}">${catData.percent.toFixed(1)}%</td>
+            </tr>`;
+        }
     }
 
     html += `</tbody></table>

@@ -167,6 +167,10 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
         "flags": flags
     }
 
+# Category titles that represent measurement values, not race labels.
+# When a category has one of these titles the actual label is on its parent class.
+_MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
+
 def extract_race_from_measure(measure: dict) -> List[Dict]:
     """
     Extract race data from a single baseline measure.
@@ -176,21 +180,50 @@ def extract_race_from_measure(measure: dict) -> List[Dict]:
     results = []
 
     for cls in measure.get("classes", []):
-        for cat in cls.get("categories", []):
-            label = cat.get("title") or cls.get("title", "")
+        categories = cls.get("categories", [])
+
+        if categories:
+            for cat in categories:
+                cat_title = (cat.get("title") or "").strip()
+                # If the category title is a measurement label (e.g. "Count")
+                # the real race label lives on the parent class
+                if cat_title.lower() in _MEASUREMENT_LABELS:
+                    label = cls.get("title", "").strip()
+                else:
+                    label = cat_title or cls.get("title", "").strip()
+                if not label:
+                    continue
+
+                # Sum counts across all measurement groups
+                count = 0
+                for m in cat.get("measurements", []):
+                    val = m.get("value")
+                    if val is None:
+                        continue
+                    try:
+                        count += int(float(val))
+                    except (ValueError, TypeError):
+                        pass
+
+                mapping = map_race_category(label)
+                mapping["count"] = count
+                results.append(mapping)
+        else:
+            # Fallback: class itself carries measurements with no categories
+            label = cls.get("title", "").strip()
             if not label:
                 continue
 
-            # Get count from measurements
             count = 0
-            for m in cat.get("measurements", []):
+            for m in cls.get("measurements", []):
+                val = m.get("value")
+                if val is None:
+                    continue
                 try:
-                    count = int(float(m.get("value", 0)))
-                    break
+                    count += int(float(val))
                 except (ValueError, TypeError):
                     pass
 
-            # Map to standard
             mapping = map_race_category(label)
             mapping["count"] = count
             results.append(mapping)
