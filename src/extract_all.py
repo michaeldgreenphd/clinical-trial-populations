@@ -77,6 +77,49 @@ def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMed
         logger.error(f"Error extracting from study {study.get('protocolSection', {}).get('identificationModule', {}).get('nctId', 'UNKNOWN')}: {str(e)}")
         return None
 
+def _reported_demographics_are_empty(result: dict) -> bool:
+    """True when every reported demographic has all-zero counts.
+
+    The /studies search endpoint sometimes strips the measurements arrays
+    out of large or complex studies while keeping the class/category titles.
+    When that happens *every* reported demographic shows zero simultaneously.
+    Returning True triggers a per-study re-fetch via /studies/{nctId}.
+    """
+    reported = 0
+    empty = 0
+    for key in ("race", "ethnicity", "sex"):
+        demo = result.get(key, {})
+        if not demo.get("reported"):
+            continue
+        reported += 1
+        totals = demo.get("omb_totals") or demo.get("totals", {})
+        if totals and all(v == 0 for v in totals.values()):
+            empty += 1
+    return reported > 0 and reported == empty
+
+def _log_raw_baseline(study: dict, nct_id: str):
+    """Dump a diagnostic summary of demographic measures from the raw API response.
+
+    Only called when a study still shows all-zero counts after an individual
+    re-fetch; output appears in GitHub Actions logs for post-mortem analysis.
+    """
+    import json as _json
+    baseline = (study.get("resultsSection", {})
+                .get("baselineCharacteristicsModule", {}))
+    groups = baseline.get("groups", [])
+    logger.warning(f"[{nct_id}] Groups: {_json.dumps(groups)}")
+    for m in baseline.get("measures", []):
+        title = m.get("title", "")
+        if not any(kw in title.lower() for kw in ("race", "ethnicity", "sex")):
+            continue
+        logger.warning(f"[{nct_id}] Measure: {title} | paramType: {m.get('paramType')}")
+        for cls in m.get("classes", []):
+            for cat in cls.get("categories", []):
+                measurements = cat.get("measurements", [])
+                vals = [x.get("value") for x in measurements]
+                logger.warning(f"[{nct_id}]   {cls.get('title','')} > {cat.get('title','')}: "
+                               f"{len(measurements)} measurement(s), values={vals}")
+
 def main():
     parser = argparse.ArgumentParser(
         description="Extract demographics data from ClinicalTrials.gov"
@@ -137,8 +180,26 @@ def main():
         results_after=args.results_after
     )
 
+    refetch_count = 0
     for study in tqdm(studies, desc="Extracting demographics"):
         result = extract_demographics_from_study(study, pubmed_fetcher=pubmed_fetcher)
+
+        # The search endpoint occasionally omits measurement values for large
+        # studies while keeping category titles intact.  Detect this and
+        # re-fetch the individual study to get the complete record.
+        if result and _reported_demographics_are_empty(result):
+            nct_id = result.get("nct_id")
+            logger.warning(f"[{nct_id}] All reported demographics are zero — re-fetching individually")
+            try:
+                full_study = client.get_study(nct_id)
+                result = extract_demographics_from_study(full_study, pubmed_fetcher=pubmed_fetcher)
+                refetch_count += 1
+                if result and _reported_demographics_are_empty(result):
+                    logger.warning(f"[{nct_id}] Still all-zero after individual fetch — logging raw baseline")
+                    _log_raw_baseline(full_study, nct_id)
+            except Exception as e:
+                logger.error(f"[{nct_id}] Individual re-fetch failed: {e}")
+
         if result:
             results.append(result)
         else:
@@ -171,6 +232,9 @@ def main():
 
         both_race_ethnicity = sum(1 for r in results if r.get("race", {}).get("reported") and r.get("ethnicity", {}).get("reported"))
         logger.info(f"  Both race & ethnicity: {both_race_ethnicity} ({both_race_ethnicity/len(results)*100:.1f}%)")
+
+    if refetch_count:
+        logger.info(f"\nStudies re-fetched individually (empty measurements): {refetch_count}")
 
     logger.info("\nExtraction complete!")
 

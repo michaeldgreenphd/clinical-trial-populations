@@ -67,6 +67,28 @@ class CTGovAPIClient:
         response.raise_for_status()
         return response.json()
 
+    def get_study(self, nct_id: str) -> Dict[str, Any]:
+        """Fetch a single study by NCT ID.
+
+        The paginated /studies search endpoint occasionally returns the
+        category/class structure without the nested measurements arrays for
+        large or complex studies.  Fetching the study individually always
+        returns the complete record.
+        """
+        self._rate_limit()
+        response = self.session.get(
+            f"{self.BASE_URL}/studies/{nct_id}",
+            params={"format": "json"},
+            timeout=60
+        )
+        response.raise_for_status()
+        data = response.json()
+        # /studies/{nctId} returns the study object directly; guard against
+        # the unlikely case where it arrives wrapped in {"studies": [...]}
+        if "studies" in data:
+            return data["studies"][0]
+        return data
+
     def iter_all_studies_with_results(self, limit: Optional[int] = None, **filters) -> Iterator[Dict]:
         page_token = None
         count = 0
