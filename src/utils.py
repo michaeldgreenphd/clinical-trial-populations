@@ -323,9 +323,10 @@ def extract_demographic_breakdown(measures: list, category_type: str, overall_gr
             if categories:
                 for cat in categories:
                     cat_title = (cat.get("title") or "").strip().translate(_ZERO_WIDTH_CHARS)
-                    # If the category title is a measurement label (e.g. "Count")
-                    # the real demographic label lives on the parent class
-                    if cat_title.lower() in _measurement_labels:
+                    # If the category title is empty or is a measurement label
+                    # (e.g. "Count") the real demographic label lives on the
+                    # parent class — fall back to it.
+                    if not cat_title or cat_title.lower() in _measurement_labels:
                         cat_title = cls.get("title", "Unknown").strip().translate(_ZERO_WIDTH_CHARS)
                     if not cat_title or cat_title == "Unknown":
                         continue
