@@ -67,6 +67,66 @@ def get_baseline_measures(study: dict) -> list:
             .get("baselineCharacteristicsModule", {})
             .get("measures", []))
 
+def get_overall_group_id(study: dict) -> Optional[str]:
+    """
+    Find the groupId of the 'Overall' group in baseline characteristics.
+
+    Multi-arm studies have per-arm measurements AND an Overall measurement
+    in each category.  We need the Overall groupId so we can read that single
+    measurement instead of summing (which would double-count).
+
+    Returns None when there is only one group (no ambiguity) or when no
+    Overall group can be identified.
+    """
+    groups = (study.get("resultsSection", {})
+              .get("baselineCharacteristicsModule", {})
+              .get("groups", []))
+
+    if len(groups) <= 1:
+        return None          # single group — every measurement IS the overall
+
+    for group in groups:
+        title_lower = group.get("title", "").lower().strip()
+        if ("overall" in title_lower or
+            title_lower in {"total", "all participants", "all subjects", "all patients"}):
+            return group.get("groupId")
+
+    return None
+
+def sum_measurements(measurements: list, overall_group_id: Optional[str] = None) -> int:
+    """
+    Extract a single integer count from a measurements array.
+
+    Strategy:
+      1. If overall_group_id is set, look for that group's measurement and
+         return its value directly (avoids double-counting arms + overall).
+      2. Fall back to summing all non-null measurements (handles single-arm
+         studies or multi-arm studies that have no Overall group).
+    """
+    if overall_group_id:
+        for m in measurements:
+            if m.get("groupId") == overall_group_id:
+                val = m.get("value")
+                if val is not None:
+                    try:
+                        return int(float(val))
+                    except (ValueError, TypeError):
+                        pass
+                # Overall measurement exists but value is null/bad — fall through
+                break
+
+    # No Overall group, or Overall value was unusable — sum all groups
+    total = 0
+    for m in measurements:
+        val = m.get("value")
+        if val is None:
+            continue
+        try:
+            total += int(float(val))
+        except (ValueError, TypeError):
+            pass
+    return total
+
 def get_study_metadata(study: dict) -> dict:
     """Extract common study metadata."""
     protocol = study.get("protocolSection", {})
@@ -220,13 +280,14 @@ def get_study_metadata(study: dict) -> dict:
         "references": references
     }
 
-def extract_demographic_breakdown(measures: list, category_type: str) -> dict:
+def extract_demographic_breakdown(measures: list, category_type: str, overall_group_id: Optional[str] = None) -> dict:
     """
     Extract demographic breakdown with counts and percentages.
 
     Args:
         measures: List of baseline characteristic measures
         category_type: 'race', 'ethnicity', or 'sex'
+        overall_group_id: groupId of the Overall group (from get_overall_group_id)
 
     Returns:
         Dictionary mapping category names to {count, percent} dicts
@@ -265,18 +326,7 @@ def extract_demographic_breakdown(measures: list, category_type: str) -> dict:
                     if not cat_title or cat_title == "Unknown":
                         continue
 
-                    measurements = cat.get("measurements", [])
-
-                    # Sum across all arms/groups for total
-                    total_count = 0
-                    for m in measurements:
-                        value = m.get("value")
-                        if value is None:
-                            continue
-                        try:
-                            total_count += int(float(value))
-                        except (ValueError, TypeError):
-                            pass
+                    total_count = sum_measurements(cat.get("measurements", []), overall_group_id)
 
                     if cat_title not in breakdown:
                         breakdown[cat_title] = {"count": 0}
@@ -287,15 +337,7 @@ def extract_demographic_breakdown(measures: list, category_type: str) -> dict:
                 if not cat_title or cat_title == "Unknown":
                     continue
 
-                total_count = 0
-                for m in cls.get("measurements", []):
-                    value = m.get("value")
-                    if value is None:
-                        continue
-                    try:
-                        total_count += int(float(value))
-                    except (ValueError, TypeError):
-                        pass
+                total_count = sum_measurements(cls.get("measurements", []), overall_group_id)
 
                 if cat_title not in breakdown:
                     breakdown[cat_title] = {"count": 0}
