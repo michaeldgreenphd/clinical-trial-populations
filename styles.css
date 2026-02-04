@@ -52,6 +52,35 @@ header .last-updated {
     margin-top: 0.5rem;
 }
 
+.history-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+}
+
+.history-selector label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    color: white;
+}
+
+.history-selector select {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.875rem;
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 0.25rem;
+    background: rgba(255,255,255,0.12);
+    color: white;
+    cursor: pointer;
+    appearance: auto;
+}
+
+.history-selector select option {
+    background: var(--primary-color);
+    color: white;
+}
+
 .tabs {
     display: flex;
     justify-content: center;

@@ -51,3 +51,35 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
+      - name: Capture extraction date
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Create release and upload data snapshots
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.date.outputs.date }}
+          name: Demographics snapshot ${{ steps.date.outputs.date }}
+          files: |
+            data/demographics.part1.json.gz
+            data/demographics.part2.json.gz
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Update history manifest and push
+        run: |
+          DATE="${{ steps.date.outputs.date }}"
+
+          # Append date to history.json, creating the file if missing
+          if [ ! -f history.json ]; then
+            echo '{"dates":[]}' > history.json
+          fi
+          jq --arg d "$DATE" '.dates += [$d] | .dates |= unique' history.json > history.json.tmp
+          mv history.json.tmp history.json
+
+          git add history.json
+          git commit -m "Archive demographics snapshot $DATE in history manifest" || exit 0
+          git push
+        env:
+          GH_TOKEN: ${{ github.token }}
+
