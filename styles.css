@@ -909,6 +909,14 @@ footer p {
     color: #6b7280;
 }
 
+/* Categories not included in the study's reporting structure */
+.not-reported-row {
+    opacity: 0.5;
+}
+.not-reported-row .original-label {
+    color: #9ca3af;
+}
+
 .modal-note {
     margin-top: 1rem;
     padding: 0.75rem;
