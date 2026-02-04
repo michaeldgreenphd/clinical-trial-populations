@@ -52,10 +52,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
 
       - name: Capture extraction date
+        if: github.event_name == 'schedule'
         id: date
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Create release and upload data snapshots
+        if: github.event_name == 'schedule'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.date.outputs.date }}
@@ -67,6 +69,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
 
       - name: Update history manifest and push
+        if: github.event_name == 'schedule'
         run: |
           DATE="${{ steps.date.outputs.date }}"
 
