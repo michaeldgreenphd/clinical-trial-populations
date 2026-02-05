@@ -35,6 +35,18 @@ const COLORS = {
     }
 };
 
+// Hide loading overlay after initial render is complete
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loading-overlay');
+    if (overlay) {
+        overlay.classList.add('fade-out');
+        // Remove from DOM after animation completes
+        setTimeout(() => {
+            overlay.remove();
+        }, 400);
+    }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
@@ -43,6 +55,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSubcategoryButtons();
     initTable();
     renderDashboard();
+
+    // Hide loading overlay after everything is initialized and rendered
+    hideLoadingOverlay();
+
     initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
 });
 
@@ -1103,6 +1119,37 @@ function deriveFundingSource(study) {
     return 'Other';
 }
 
+// Format gender data for display - handles various data structures
+function formatGenderDisplay(study) {
+    // Check if gender data exists and is properly structured
+    if (!study.gender) return 'Not Reported';
+
+    // Handle if gender is not an object (could be a string or other primitive)
+    if (typeof study.gender !== 'object') return 'Not Reported';
+
+    // Check if reported flag exists and is false
+    if (study.gender.reported === false) return 'Not Reported';
+
+    // Check if totals exists and is an object
+    if (!study.gender.totals || typeof study.gender.totals !== 'object') return 'Not Reported';
+
+    // Format the totals
+    const entries = Object.entries(study.gender.totals)
+        .filter(([key, value]) => value > 0 && key !== 'unknown')
+        .map(([key, value]) => {
+            // Capitalize first letter
+            const label = key.charAt(0).toUpperCase() + key.slice(1);
+            return `${label}: ${value.toLocaleString()}`;
+        });
+
+    // Add unknown at the end if it exists
+    if (study.gender.totals.unknown > 0) {
+        entries.push(`Unknown: ${study.gender.totals.unknown.toLocaleString()}`);
+    }
+
+    return entries.length > 0 ? entries.join(', ') : 'Not Reported';
+}
+
 function showStudyDetails(nctId) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
@@ -1189,12 +1236,7 @@ function showStudyDetails(nctId) {
                     <div class="detail-grid">
                         <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
                         <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
-                        <div><strong>Gender:</strong> ${study.gender?.reported && study.gender?.totals
-                            ? Object.entries(study.gender.totals)
-                                .filter(([, v]) => v > 0)
-                                .map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v.toLocaleString()}`)
-                                .join(', ') || 'Not Reported'
-                            : 'Not Reported'}</div>
+                        <div><strong>Gender:</strong> ${formatGenderDisplay(study)}</div>
                         <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
                     </div>
                 </div>
