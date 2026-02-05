@@ -541,9 +541,13 @@ function renderDashboard() {
     renderRaceDistribution(filtered);
     renderRaceTrends(filtered);
     renderRaceSubcategories('asian');
+    renderRaceReportedParticipants(filtered);
+    renderRaceFullDistribution(filtered);
     renderEthnicityDistribution(filtered);
     renderEthnicityTrends(filtered);
     renderEthnicitySubcategories(filtered);
+    renderEthnicityReportedParticipants(filtered);
+    renderEthnicityFullDistribution(filtered);
     renderSexDistribution(filtered);
     renderSexTrends(filtered);
     renderGenderDistribution(filtered);
@@ -1722,6 +1726,393 @@ function renderEthnicitySubcategories(filtered) {
             },
             plugins: {
                 legend: { display: false }
+            }
+        }
+    });
+}
+
+/**
+ * Graph B for Race: Total Participants with Reported Race Data
+ * Shows total count of participants with explicitly reported race data per year
+ * Excludes "Unknown" and studies without race data
+ */
+function renderRaceReportedParticipants(filtered) {
+    const ctx = document.getElementById('race-reported-participants-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year || !study.race?.reported) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { knownParticipants: 0 };
+        }
+
+        const omb = study.race.omb_totals;
+        // Sum all known categories (excluding unknown_not_reported)
+        const knownTotal = (omb.american_indian_alaska_native || 0) +
+                          (omb.asian || 0) +
+                          (omb.black_african_american || 0) +
+                          (omb.native_hawaiian_pacific_islander || 0) +
+                          (omb.white || 0) +
+                          (omb.more_than_one_race || 0) +
+                          (omb.other || 0);
+
+        byYear[year].knownParticipants += knownTotal;
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    if (charts.raceReportedParticipants) charts.raceReportedParticipants.destroy();
+
+    charts.raceReportedParticipants = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Participants with Known Race',
+                data: years.map(y => byYear[y].knownParticipants),
+                backgroundColor: COLORS.race.asian,
+                borderColor: COLORS.race.asian,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Total Participants' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    title: { display: true, text: 'Year' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.parsed.y.toLocaleString()} participants with reported race`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Graph C for Race: Distribution Including Unknowns
+ * 100% stacked area chart showing true proportions including unknown/not reported
+ * Unknown = explicit unknowns + participants from studies without race data
+ */
+function renderRaceFullDistribution(filtered) {
+    const ctx = document.getElementById('race-full-distribution-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+
+        if (!byYear[year]) {
+            byYear[year] = {
+                american_indian_alaska_native: 0,
+                asian: 0,
+                black_african_american: 0,
+                native_hawaiian_pacific_islander: 0,
+                white: 0,
+                more_than_one_race: 0,
+                other: 0,
+                unknown_not_reported: 0,
+                totalEnrollment: 0
+            };
+        }
+
+        const enrollment = study.enrollment || 0;
+        byYear[year].totalEnrollment += enrollment;
+
+        if (study.race?.reported) {
+            const omb = study.race.omb_totals;
+            byYear[year].american_indian_alaska_native += omb.american_indian_alaska_native || 0;
+            byYear[year].asian += omb.asian || 0;
+            byYear[year].black_african_american += omb.black_african_american || 0;
+            byYear[year].native_hawaiian_pacific_islander += omb.native_hawaiian_pacific_islander || 0;
+            byYear[year].white += omb.white || 0;
+            byYear[year].more_than_one_race += omb.more_than_one_race || 0;
+            byYear[year].other += omb.other || 0;
+            byYear[year].unknown_not_reported += omb.unknown_not_reported || 0;
+        } else {
+            // Study has no race data - all enrollment goes to unknown
+            byYear[year].unknown_not_reported += enrollment;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    // Calculate percentages for each category
+    const categories = [
+        { key: 'white', label: 'White', color: COLORS.race.white },
+        { key: 'black_african_american', label: 'Black/African American', color: COLORS.race.black_african_american },
+        { key: 'asian', label: 'Asian', color: COLORS.race.asian },
+        { key: 'american_indian_alaska_native', label: 'American Indian/Alaska Native', color: COLORS.race.american_indian_alaska_native },
+        { key: 'native_hawaiian_pacific_islander', label: 'Native Hawaiian/Pacific Islander', color: COLORS.race.native_hawaiian_pacific_islander },
+        { key: 'more_than_one_race', label: 'More than One Race', color: COLORS.race.more_than_one_race },
+        { key: 'other', label: 'Other', color: COLORS.race.other },
+        { key: 'unknown_not_reported', label: 'Unknown/Not Reported', color: '#d1d5db' }
+    ];
+
+    const datasets = categories.map(cat => ({
+        label: cat.label,
+        data: years.map(y => {
+            const total = byYear[y].totalEnrollment;
+            return total > 0 ? (byYear[y][cat.key] / total) * 100 : 0;
+        }),
+        backgroundColor: cat.color,
+        borderColor: cat.color,
+        fill: true
+    }));
+
+    if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
+
+    charts.raceFullDistribution = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    stacked: true,
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: '% of Total Enrollment' }
+                },
+                x: {
+                    title: { display: true, text: 'Year' }
+                }
+            },
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const year = context.label;
+                            const yearData = byYear[year];
+                            const category = categories[context.datasetIndex];
+                            const count = yearData[category.key];
+                            const pct = context.parsed.y.toFixed(1);
+                            return ` ${category.label}: ${count.toLocaleString()} participants (${pct}%)`;
+                        },
+                        afterBody: function(contexts) {
+                            if (contexts.length > 0) {
+                                const year = contexts[0].label;
+                                const yearData = byYear[year];
+                                const known = yearData.totalEnrollment - yearData.unknown_not_reported;
+                                return `\nKnown: ${known.toLocaleString()}, Unknown: ${yearData.unknown_not_reported.toLocaleString()}`;
+                            }
+                            return '';
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
+            }
+        }
+    });
+}
+
+/**
+ * Graph B for Ethnicity: Total Participants with Reported Ethnicity Data
+ * Shows total count of participants with explicitly reported ethnicity data per year
+ * Excludes "Unknown" and studies without ethnicity data
+ */
+function renderEthnicityReportedParticipants(filtered) {
+    const ctx = document.getElementById('ethnicity-reported-participants-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year || !study.ethnicity?.reported) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { knownParticipants: 0 };
+        }
+
+        const omb = study.ethnicity.omb_totals;
+        // Sum known categories (excluding unknown_not_reported)
+        const knownTotal = (omb.hispanic_latino || 0) + (omb.not_hispanic_latino || 0);
+
+        byYear[year].knownParticipants += knownTotal;
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    if (charts.ethnicityReportedParticipants) charts.ethnicityReportedParticipants.destroy();
+
+    charts.ethnicityReportedParticipants = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Participants with Known Ethnicity',
+                data: years.map(y => byYear[y].knownParticipants),
+                backgroundColor: COLORS.ethnicity.hispanic_latino,
+                borderColor: COLORS.ethnicity.hispanic_latino,
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Total Participants' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                x: {
+                    title: { display: true, text: 'Year' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.parsed.y.toLocaleString()} participants with reported ethnicity`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Graph C for Ethnicity: Distribution Including Unknowns
+ * 100% stacked area chart showing true proportions including unknown/not reported
+ * Unknown = explicit unknowns + participants from studies without ethnicity data
+ */
+function renderEthnicityFullDistribution(filtered) {
+    const ctx = document.getElementById('ethnicity-full-distribution-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+
+        if (!byYear[year]) {
+            byYear[year] = {
+                hispanic_latino: 0,
+                not_hispanic_latino: 0,
+                unknown_not_reported: 0,
+                totalEnrollment: 0
+            };
+        }
+
+        const enrollment = study.enrollment || 0;
+        byYear[year].totalEnrollment += enrollment;
+
+        if (study.ethnicity?.reported) {
+            const omb = study.ethnicity.omb_totals;
+            byYear[year].hispanic_latino += omb.hispanic_latino || 0;
+            byYear[year].not_hispanic_latino += omb.not_hispanic_latino || 0;
+            byYear[year].unknown_not_reported += omb.unknown_not_reported || 0;
+        } else {
+            // Study has no ethnicity data - all enrollment goes to unknown
+            byYear[year].unknown_not_reported += enrollment;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    // Categories for ethnicity
+    const categories = [
+        { key: 'hispanic_latino', label: 'Hispanic/Latino', color: COLORS.ethnicity.hispanic_latino },
+        { key: 'not_hispanic_latino', label: 'Not Hispanic/Latino', color: COLORS.ethnicity.not_hispanic_latino },
+        { key: 'unknown_not_reported', label: 'Unknown/Not Reported', color: '#d1d5db' }
+    ];
+
+    const datasets = categories.map(cat => ({
+        label: cat.label,
+        data: years.map(y => {
+            const total = byYear[y].totalEnrollment;
+            return total > 0 ? (byYear[y][cat.key] / total) * 100 : 0;
+        }),
+        backgroundColor: cat.color,
+        borderColor: cat.color,
+        fill: true
+    }));
+
+    if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
+
+    charts.ethnicityFullDistribution = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: datasets
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    stacked: true,
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: '% of Total Enrollment' }
+                },
+                x: {
+                    title: { display: true, text: 'Year' }
+                }
+            },
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const year = context.label;
+                            const yearData = byYear[year];
+                            const category = categories[context.datasetIndex];
+                            const count = yearData[category.key];
+                            const pct = context.parsed.y.toFixed(1);
+                            return ` ${category.label}: ${count.toLocaleString()} participants (${pct}%)`;
+                        },
+                        afterBody: function(contexts) {
+                            if (contexts.length > 0) {
+                                const year = contexts[0].label;
+                                const yearData = byYear[year];
+                                const known = yearData.totalEnrollment - yearData.unknown_not_reported;
+                                return `\nKnown: ${known.toLocaleString()}, Unknown: ${yearData.unknown_not_reported.toLocaleString()}`;
+                            }
+                            return '';
+                        }
+                    }
+                }
+            },
+            interaction: {
+                mode: 'index',
+                intersect: false
             }
         }
     });

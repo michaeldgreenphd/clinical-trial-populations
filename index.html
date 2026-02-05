@@ -224,6 +224,18 @@
                     <canvas id="race-trends-chart"></canvas>
                 </div>
             </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Total Participants with Reported Race Data</h3>
+                    <p class="note">Shows the total number of participants with explicitly reported race data per year (excludes "Unknown" and studies without race data).</p>
+                    <canvas id="race-reported-participants-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Race Distribution Including Unknowns</h3>
+                    <p class="note">Shows the true proportions of the entire study population, including participants from studies where race was not reported.</p>
+                    <canvas id="race-full-distribution-chart"></canvas>
+                </div>
+            </div>
         </section>
 
         <!-- Ethnicity Tab -->
@@ -231,12 +243,24 @@
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Ethnicity Distribution</h3>
-                    <p class="note">Note: The "Unknown or Not Reported" category is large (56.6% of participants) because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
+                    <p class="note">Note: The "Unknown or Not Reported" category is large because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
                     <canvas id="ethnicity-distribution-chart"></canvas>
                 </div>
                 <div class="chart-container">
                     <h3>Ethnicity Reporting Over Time</h3>
                     <canvas id="ethnicity-trends-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Total Participants with Reported Ethnicity Data</h3>
+                    <p class="note">Shows the total number of participants with explicitly reported ethnicity data per year (excludes "Unknown" and studies without ethnicity data).</p>
+                    <canvas id="ethnicity-reported-participants-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Ethnicity Distribution Including Unknowns</h3>
+                    <p class="note">Shows the true proportions of the entire study population, including participants from studies where ethnicity was not reported.</p>
+                    <canvas id="ethnicity-full-distribution-chart"></canvas>
                 </div>
             </div>
         </section>
