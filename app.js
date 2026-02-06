@@ -1928,10 +1928,10 @@ function renderRaceReportedParticipants(filtered) {
 }
 
 /**
- * Graph C for Race: Distribution Including Unknowns
- * 100% stacked area chart showing true proportions including unknown/not reported
- * Unknown is CALCULATED as: Total Enrollment - Sum(Known Categories)
- * This ensures the chart always sums to exactly 100%
+ * Graph C for Race: Reported Distribution (Scaled by Confidence)
+ * 100% stacked area chart showing proportions of REPORTED race data
+ * Opacity encodes Visual Confidence (% of total enrollment that reported race)
+ * Faint colors = low reporting; Vivid colors = high reporting
  */
 function renderRaceFullDistribution(filtered) {
     const ctx = document.getElementById('race-full-distribution-chart');
@@ -1966,55 +1966,53 @@ function renderRaceFullDistribution(filtered) {
                                   (omb.other || 0) +
                                   (omb.unknown_not_reported || 0);
         }
-        // Note: Studies without race data contribute to enrollment but not to known categories
-        // This will be captured as "Unknown" in the calculation below
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Calculate percentages ensuring they sum to exactly 100%
+    // Calculate percentages - normalize ONLY reported categories to 100%
+    // Encode missingness as opacity (visual confidence)
     const whiteData = [];
     const blackData = [];
     const asianData = [];
     const otherData = [];
-    const unknownData = [];
+    const confidenceData = []; // Store confidence for each year
 
     years.forEach(y => {
         const data = byYear[y];
-        const total = data.totalEnrollment;
+        // Fix: Use max of (enrollment, knownSum) to prevent negative unknown
+        const knownSum = data.white + data.black + data.asian + data.other;
+        const effectiveTotal = Math.max(data.totalEnrollment, knownSum);
 
-        if (total === 0) {
+        if (knownSum === 0) {
             whiteData.push(0);
             blackData.push(0);
             asianData.push(0);
             otherData.push(0);
-            unknownData.push(0);
+            confidenceData.push(0.3); // Minimum opacity
             return;
         }
 
-        // Calculate known sum
-        const knownSum = data.white + data.black + data.asian + data.other;
+        // Normalize reported categories to 100% of REPORTED population
+        whiteData.push((data.white / knownSum) * 100);
+        blackData.push((data.black / knownSum) * 100);
+        asianData.push((data.asian / knownSum) * 100);
+        otherData.push((data.other / knownSum) * 100);
 
-        // Calculate unknown as the difference (ensures 100% total)
-        let unknownCount = total - knownSum;
-
-        // Handle data errors: if unknown is negative, normalize
-        if (unknownCount < 0) {
-            // Normalize known values to fit within total
-            const scaleFactor = total / knownSum;
-            whiteData.push((data.white * scaleFactor / total) * 100);
-            blackData.push((data.black * scaleFactor / total) * 100);
-            asianData.push((data.asian * scaleFactor / total) * 100);
-            otherData.push((data.other * scaleFactor / total) * 100);
-            unknownData.push(0);
-        } else {
-            whiteData.push((data.white / total) * 100);
-            blackData.push((data.black / total) * 100);
-            asianData.push((data.asian / total) * 100);
-            otherData.push((data.other / total) * 100);
-            unknownData.push((unknownCount / total) * 100);
-        }
+        // Visual confidence = proportion of total that was reported
+        // Minimum 0.3 so data is never invisible
+        const confidence = Math.max(0.3, knownSum / effectiveTotal);
+        confidenceData.push(confidence);
     });
+
+    // Helper to apply opacity to a hex color
+    const applyOpacity = (hexColor, opacityArray) => {
+        // Convert hex to RGB
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        return opacityArray.map(opacity => `rgba(${r}, ${g}, ${b}, ${opacity})`);
+    };
 
     if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
 
@@ -2026,37 +2024,34 @@ function renderRaceFullDistribution(filtered) {
                 {
                     label: 'White',
                     data: whiteData,
-                    backgroundColor: COLORS.race.white,
-                    borderColor: COLORS.race.white,
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.race.white, confidenceData),
+                    borderColor: applyOpacity(COLORS.race.white, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 },
                 {
                     label: 'Black/African American',
                     data: blackData,
-                    backgroundColor: COLORS.race.black_african_american,
-                    borderColor: COLORS.race.black_african_american,
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.race.black_african_american, confidenceData),
+                    borderColor: applyOpacity(COLORS.race.black_african_american, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 },
                 {
                     label: 'Asian',
                     data: asianData,
-                    backgroundColor: COLORS.race.asian,
-                    borderColor: COLORS.race.asian,
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.race.asian, confidenceData),
+                    borderColor: applyOpacity(COLORS.race.asian, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 },
                 {
                     label: 'Other Races',
                     data: otherData,
-                    backgroundColor: COLORS.race.other,
-                    borderColor: COLORS.race.other,
-                    fill: true
-                },
-                {
-                    label: 'Unknown/Not Reported',
-                    data: unknownData,
-                    backgroundColor: '#d1d5db',
-                    borderColor: '#9ca3af',
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.race.other, confidenceData),
+                    borderColor: applyOpacity(COLORS.race.other, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 }
             ]
         },
@@ -2068,7 +2063,7 @@ function renderRaceFullDistribution(filtered) {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Total Enrollment' }
+                    title: { display: true, text: '% of Reported Participants' }
                 },
                 x: {
                     stacked: true,
@@ -2082,6 +2077,14 @@ function renderRaceFullDistribution(filtered) {
                         label: function(context) {
                             const pct = context.parsed.y.toFixed(1);
                             return ` ${context.dataset.label}: ${pct}%`;
+                        },
+                        afterBody: function(tooltipItems) {
+                            if (tooltipItems.length === 0) return '';
+                            const yearIndex = tooltipItems[0].dataIndex;
+                            const confidence = (confidenceData[yearIndex] * 100).toFixed(0);
+                            const opacity = confidenceData[yearIndex] < 0.5 ? 'faint' :
+                                           confidenceData[yearIndex] < 0.75 ? 'moderate' : 'solid';
+                            return `\nVisual Confidence: ${confidence}%\n(Data is ${opacity} because ${confidence}% of participants reported race)`;
                         }
                     }
                 }
@@ -2160,10 +2163,9 @@ function renderEthnicityReportedParticipants(filtered) {
 }
 
 /**
- * Graph C for Ethnicity: Distribution Including Unknowns
- * 100% stacked area chart showing true proportions including unknown/not reported
- * Unknown is CALCULATED as: Total Enrollment - Sum(Known Categories)
- * This ensures the chart always sums to exactly 100%
+ * Graph C for Ethnicity: Reported Distribution (Scaled by Confidence)
+ * 100% stacked area chart showing proportions of REPORTED ethnicity data
+ * Opacity encodes Visual Confidence (% of total enrollment that reported ethnicity)
  */
 function renderEthnicityFullDistribution(filtered) {
     const ctx = document.getElementById('ethnicity-full-distribution-chart');
@@ -2189,52 +2191,48 @@ function renderEthnicityFullDistribution(filtered) {
             const omb = study.ethnicity.omb_totals;
             byYear[year].hispanic += omb.hispanic_latino || 0;
             byYear[year].notHispanic += omb.not_hispanic_latino || 0;
-            // Note: We include the explicit unknown in the known sum for ethnicity
-            // since we want Unknown to represent ONLY unreported data
-            byYear[year].hispanic += 0; // placeholder - unknown_not_reported goes to calculated unknown
-            byYear[year].notHispanic += 0;
         }
-        // Note: Studies without ethnicity data contribute to enrollment but not to known categories
-        // This will be captured as "Unknown" in the calculation below
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Calculate percentages ensuring they sum to exactly 100%
+    // Calculate percentages - normalize ONLY reported categories to 100%
+    // Encode missingness as opacity (visual confidence)
     const hispanicData = [];
     const notHispanicData = [];
-    const unknownData = [];
+    const confidenceData = []; // Store confidence for each year
 
     years.forEach(y => {
         const data = byYear[y];
-        const total = data.totalEnrollment;
+        // Fix: Use max of (enrollment, knownSum) to prevent negative unknown
+        const knownSum = data.hispanic + data.notHispanic;
+        const effectiveTotal = Math.max(data.totalEnrollment, knownSum);
 
-        if (total === 0) {
+        if (knownSum === 0) {
             hispanicData.push(0);
             notHispanicData.push(0);
-            unknownData.push(0);
+            confidenceData.push(0.3); // Minimum opacity
             return;
         }
 
-        // Calculate known sum
-        const knownSum = data.hispanic + data.notHispanic;
+        // Normalize reported categories to 100% of REPORTED population
+        hispanicData.push((data.hispanic / knownSum) * 100);
+        notHispanicData.push((data.notHispanic / knownSum) * 100);
 
-        // Calculate unknown as the difference (ensures 100% total)
-        let unknownCount = total - knownSum;
-
-        // Handle data errors: if unknown is negative, normalize
-        if (unknownCount < 0) {
-            // Normalize known values to fit within total
-            const scaleFactor = total / knownSum;
-            hispanicData.push((data.hispanic * scaleFactor / total) * 100);
-            notHispanicData.push((data.notHispanic * scaleFactor / total) * 100);
-            unknownData.push(0);
-        } else {
-            hispanicData.push((data.hispanic / total) * 100);
-            notHispanicData.push((data.notHispanic / total) * 100);
-            unknownData.push((unknownCount / total) * 100);
-        }
+        // Visual confidence = proportion of total that was reported
+        // Minimum 0.3 so data is never invisible
+        const confidence = Math.max(0.3, knownSum / effectiveTotal);
+        confidenceData.push(confidence);
     });
+
+    // Helper to apply opacity to a hex color
+    const applyOpacity = (hexColor, opacityArray) => {
+        // Convert hex to RGB
+        const r = parseInt(hexColor.slice(1, 3), 16);
+        const g = parseInt(hexColor.slice(3, 5), 16);
+        const b = parseInt(hexColor.slice(5, 7), 16);
+        return opacityArray.map(opacity => `rgba(${r}, ${g}, ${b}, ${opacity})`);
+    };
 
     if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
 
@@ -2246,23 +2244,18 @@ function renderEthnicityFullDistribution(filtered) {
                 {
                     label: 'Hispanic/Latino',
                     data: hispanicData,
-                    backgroundColor: COLORS.ethnicity.hispanic_latino,
-                    borderColor: COLORS.ethnicity.hispanic_latino,
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.ethnicity.hispanic_latino, confidenceData),
+                    borderColor: applyOpacity(COLORS.ethnicity.hispanic_latino, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 },
                 {
                     label: 'Not Hispanic/Latino',
                     data: notHispanicData,
-                    backgroundColor: COLORS.ethnicity.not_hispanic_latino,
-                    borderColor: COLORS.ethnicity.not_hispanic_latino,
-                    fill: true
-                },
-                {
-                    label: 'Unknown/Not Reported',
-                    data: unknownData,
-                    backgroundColor: '#d1d5db',
-                    borderColor: '#9ca3af',
-                    fill: true
+                    backgroundColor: applyOpacity(COLORS.ethnicity.not_hispanic_latino, confidenceData),
+                    borderColor: applyOpacity(COLORS.ethnicity.not_hispanic_latino, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    fill: true,
+                    tension: 0.1
                 }
             ]
         },
@@ -2274,7 +2267,7 @@ function renderEthnicityFullDistribution(filtered) {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Total Enrollment' }
+                    title: { display: true, text: '% of Reported Participants' }
                 },
                 x: {
                     stacked: true,
@@ -2288,6 +2281,14 @@ function renderEthnicityFullDistribution(filtered) {
                         label: function(context) {
                             const pct = context.parsed.y.toFixed(1);
                             return ` ${context.dataset.label}: ${pct}%`;
+                        },
+                        afterBody: function(tooltipItems) {
+                            if (tooltipItems.length === 0) return '';
+                            const yearIndex = tooltipItems[0].dataIndex;
+                            const confidence = (confidenceData[yearIndex] * 100).toFixed(0);
+                            const opacity = confidenceData[yearIndex] < 0.5 ? 'faint' :
+                                           confidenceData[yearIndex] < 0.75 ? 'moderate' : 'solid';
+                            return `\nVisual Confidence: ${confidence}%\n(Data is ${opacity} because ${confidence}% of participants reported ethnicity)`;
                         }
                     }
                 }
