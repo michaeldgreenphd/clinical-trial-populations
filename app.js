@@ -1928,10 +1928,13 @@ function renderRaceReportedParticipants(filtered) {
 }
 
 /**
- * Graph C for Race: Reported Distribution (Scaled by Confidence)
- * 100% stacked area chart showing proportions of REPORTED race data
- * Opacity encodes Visual Confidence (% of total enrollment that reported race)
- * Faint colors = low reporting; Vivid colors = high reporting
+ * Graph C for Race: Full Distribution with Data Quality Layers
+ * 100% stacked area chart distinguishing between:
+ * - Known Categories (White, Black, Asian, Other) - bottom layers
+ * - Explicit Unknown (NIH category) - middle layer, solid grey
+ * - Not Reported/Missing (implicit) - top layer, light translucent grey
+ *
+ * This visualization shows the "Great Reveal" as the light grey fog lifts over time.
  */
 function renderRaceFullDistribution(filtered) {
     const ctx = document.getElementById('race-full-distribution-chart');
@@ -1947,7 +1950,8 @@ function renderRaceFullDistribution(filtered) {
                 white: 0,
                 black: 0,
                 asian: 0,
-                other: 0,
+                otherRaces: 0,           // Other known races (NOT including unknown)
+                explicitUnknown: 0,       // Explicitly marked as "Unknown" in source
                 totalEnrollment: 0
             };
         }
@@ -1960,59 +1964,57 @@ function renderRaceFullDistribution(filtered) {
             byYear[year].white += omb.white || 0;
             byYear[year].black += omb.black_african_american || 0;
             byYear[year].asian += omb.asian || 0;
-            byYear[year].other += (omb.american_indian_alaska_native || 0) +
-                                  (omb.native_hawaiian_pacific_islander || 0) +
-                                  (omb.more_than_one_race || 0) +
-                                  (omb.other || 0) +
-                                  (omb.unknown_not_reported || 0);
+            // Other known races (excluding unknown_not_reported)
+            byYear[year].otherRaces += (omb.american_indian_alaska_native || 0) +
+                                       (omb.native_hawaiian_pacific_islander || 0) +
+                                       (omb.more_than_one_race || 0) +
+                                       (omb.other || 0);
+            // Explicit Unknown - the NIH category
+            byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
         }
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Calculate percentages - normalize ONLY reported categories to 100%
-    // Encode missingness as opacity (visual confidence)
+    // Calculate percentages for 100% stacked chart
     const whiteData = [];
     const blackData = [];
     const asianData = [];
-    const otherData = [];
-    const confidenceData = []; // Store confidence for each year
+    const otherRacesData = [];
+    const explicitUnknownData = [];
+    const notReportedData = [];
 
     years.forEach(y => {
         const data = byYear[y];
-        // Fix: Use max of (enrollment, knownSum) to prevent negative unknown
-        const knownSum = data.white + data.black + data.asian + data.other;
-        const effectiveTotal = Math.max(data.totalEnrollment, knownSum);
 
-        if (knownSum === 0) {
+        // Sum of all reported data (known + explicit unknown)
+        const knownSum = data.white + data.black + data.asian + data.otherRaces;
+        const allReported = knownSum + data.explicitUnknown;
+
+        // Fix 2023 spike: Use max of (enrollment, allReported) as denominator
+        const effectiveTotal = Math.max(data.totalEnrollment, allReported);
+
+        if (effectiveTotal === 0) {
             whiteData.push(0);
             blackData.push(0);
             asianData.push(0);
-            otherData.push(0);
-            confidenceData.push(0.3); // Minimum opacity
+            otherRacesData.push(0);
+            explicitUnknownData.push(0);
+            notReportedData.push(0);
             return;
         }
 
-        // Normalize reported categories to 100% of REPORTED population
-        whiteData.push((data.white / knownSum) * 100);
-        blackData.push((data.black / knownSum) * 100);
-        asianData.push((data.asian / knownSum) * 100);
-        otherData.push((data.other / knownSum) * 100);
+        // Calculate Not Reported (implicit missing) - clamped to 0
+        const notReported = Math.max(0, effectiveTotal - allReported);
 
-        // Visual confidence = proportion of total that was reported
-        // Minimum 0.3 so data is never invisible
-        const confidence = Math.max(0.3, knownSum / effectiveTotal);
-        confidenceData.push(confidence);
+        // Convert to percentages of effective total
+        whiteData.push((data.white / effectiveTotal) * 100);
+        blackData.push((data.black / effectiveTotal) * 100);
+        asianData.push((data.asian / effectiveTotal) * 100);
+        otherRacesData.push((data.otherRaces / effectiveTotal) * 100);
+        explicitUnknownData.push((data.explicitUnknown / effectiveTotal) * 100);
+        notReportedData.push((notReported / effectiveTotal) * 100);
     });
-
-    // Helper to apply opacity to a hex color
-    const applyOpacity = (hexColor, opacityArray) => {
-        // Convert hex to RGB
-        const r = parseInt(hexColor.slice(1, 3), 16);
-        const g = parseInt(hexColor.slice(3, 5), 16);
-        const b = parseInt(hexColor.slice(5, 7), 16);
-        return opacityArray.map(opacity => `rgba(${r}, ${g}, ${b}, ${opacity})`);
-    };
 
     if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
 
@@ -2021,35 +2023,60 @@ function renderRaceFullDistribution(filtered) {
         data: {
             labels: years,
             datasets: [
+                // Bottom layers: Known categories (stacked first)
                 {
                     label: 'White',
                     data: whiteData,
-                    backgroundColor: applyOpacity(COLORS.race.white, confidenceData),
-                    borderColor: applyOpacity(COLORS.race.white, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    backgroundColor: COLORS.race.white,
+                    borderColor: COLORS.race.white,
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 },
                 {
                     label: 'Black/African American',
                     data: blackData,
-                    backgroundColor: applyOpacity(COLORS.race.black_african_american, confidenceData),
-                    borderColor: applyOpacity(COLORS.race.black_african_american, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    backgroundColor: COLORS.race.black_african_american,
+                    borderColor: COLORS.race.black_african_american,
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 },
                 {
                     label: 'Asian',
                     data: asianData,
-                    backgroundColor: applyOpacity(COLORS.race.asian, confidenceData),
-                    borderColor: applyOpacity(COLORS.race.asian, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    backgroundColor: COLORS.race.asian,
+                    borderColor: COLORS.race.asian,
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 },
                 {
                     label: 'Other Races',
-                    data: otherData,
-                    backgroundColor: applyOpacity(COLORS.race.other, confidenceData),
-                    borderColor: applyOpacity(COLORS.race.other, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    data: otherRacesData,
+                    backgroundColor: COLORS.race.other,
+                    borderColor: COLORS.race.other,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // Middle layer: Explicit Unknown (solid grey)
+                {
+                    label: 'Explicitly Unknown',
+                    data: explicitUnknownData,
+                    backgroundColor: '#9ca3af',
+                    borderColor: '#6b7280',
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // Top layer: Not Reported/Missing (light translucent grey - the "fog")
+                {
+                    label: 'Not Reported (Missing)',
+                    data: notReportedData,
+                    backgroundColor: 'rgba(229, 231, 235, 0.7)',
+                    borderColor: 'rgba(209, 213, 219, 0.8)',
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 }
@@ -2063,7 +2090,7 @@ function renderRaceFullDistribution(filtered) {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Reported Participants' }
+                    title: { display: true, text: '% of Total Enrollment' }
                 },
                 x: {
                     stacked: true,
@@ -2071,20 +2098,18 @@ function renderRaceFullDistribution(filtered) {
                 }
             },
             plugins: {
-                legend: { position: 'right' },
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 12
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
                             const pct = context.parsed.y.toFixed(1);
                             return ` ${context.dataset.label}: ${pct}%`;
-                        },
-                        afterBody: function(tooltipItems) {
-                            if (tooltipItems.length === 0) return '';
-                            const yearIndex = tooltipItems[0].dataIndex;
-                            const confidence = (confidenceData[yearIndex] * 100).toFixed(0);
-                            const opacity = confidenceData[yearIndex] < 0.5 ? 'faint' :
-                                           confidenceData[yearIndex] < 0.75 ? 'moderate' : 'solid';
-                            return `\nVisual Confidence: ${confidence}%\n(Data is ${opacity} because ${confidence}% of participants reported race)`;
                         }
                     }
                 }
@@ -2163,9 +2188,13 @@ function renderEthnicityReportedParticipants(filtered) {
 }
 
 /**
- * Graph C for Ethnicity: Reported Distribution (Scaled by Confidence)
- * 100% stacked area chart showing proportions of REPORTED ethnicity data
- * Opacity encodes Visual Confidence (% of total enrollment that reported ethnicity)
+ * Graph C for Ethnicity: Full Distribution with Data Quality Layers
+ * 100% stacked area chart distinguishing between:
+ * - Known Categories (Hispanic/Latino, Not Hispanic/Latino) - bottom layers
+ * - Explicit Unknown (NIH category) - middle layer, solid grey
+ * - Not Reported/Missing (implicit) - top layer, light translucent grey
+ *
+ * This visualization shows the "Great Reveal" as the light grey fog lifts over time.
  */
 function renderEthnicityFullDistribution(filtered) {
     const ctx = document.getElementById('ethnicity-full-distribution-chart');
@@ -2180,6 +2209,7 @@ function renderEthnicityFullDistribution(filtered) {
             byYear[year] = {
                 hispanic: 0,
                 notHispanic: 0,
+                explicitUnknown: 0,       // Explicitly marked as "Unknown" in source
                 totalEnrollment: 0
             };
         }
@@ -2191,48 +2221,46 @@ function renderEthnicityFullDistribution(filtered) {
             const omb = study.ethnicity.omb_totals;
             byYear[year].hispanic += omb.hispanic_latino || 0;
             byYear[year].notHispanic += omb.not_hispanic_latino || 0;
+            // Explicit Unknown - the NIH category
+            byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
         }
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Calculate percentages - normalize ONLY reported categories to 100%
-    // Encode missingness as opacity (visual confidence)
+    // Calculate percentages for 100% stacked chart
     const hispanicData = [];
     const notHispanicData = [];
-    const confidenceData = []; // Store confidence for each year
+    const explicitUnknownData = [];
+    const notReportedData = [];
 
     years.forEach(y => {
         const data = byYear[y];
-        // Fix: Use max of (enrollment, knownSum) to prevent negative unknown
-        const knownSum = data.hispanic + data.notHispanic;
-        const effectiveTotal = Math.max(data.totalEnrollment, knownSum);
 
-        if (knownSum === 0) {
+        // Sum of all reported data (known + explicit unknown)
+        const knownSum = data.hispanic + data.notHispanic;
+        const allReported = knownSum + data.explicitUnknown;
+
+        // Fix 2023 spike: Use max of (enrollment, allReported) as denominator
+        const effectiveTotal = Math.max(data.totalEnrollment, allReported);
+
+        if (effectiveTotal === 0) {
             hispanicData.push(0);
             notHispanicData.push(0);
-            confidenceData.push(0.3); // Minimum opacity
+            explicitUnknownData.push(0);
+            notReportedData.push(0);
             return;
         }
 
-        // Normalize reported categories to 100% of REPORTED population
-        hispanicData.push((data.hispanic / knownSum) * 100);
-        notHispanicData.push((data.notHispanic / knownSum) * 100);
+        // Calculate Not Reported (implicit missing) - clamped to 0
+        const notReported = Math.max(0, effectiveTotal - allReported);
 
-        // Visual confidence = proportion of total that was reported
-        // Minimum 0.3 so data is never invisible
-        const confidence = Math.max(0.3, knownSum / effectiveTotal);
-        confidenceData.push(confidence);
+        // Convert to percentages of effective total
+        hispanicData.push((data.hispanic / effectiveTotal) * 100);
+        notHispanicData.push((data.notHispanic / effectiveTotal) * 100);
+        explicitUnknownData.push((data.explicitUnknown / effectiveTotal) * 100);
+        notReportedData.push((notReported / effectiveTotal) * 100);
     });
-
-    // Helper to apply opacity to a hex color
-    const applyOpacity = (hexColor, opacityArray) => {
-        // Convert hex to RGB
-        const r = parseInt(hexColor.slice(1, 3), 16);
-        const g = parseInt(hexColor.slice(3, 5), 16);
-        const b = parseInt(hexColor.slice(5, 7), 16);
-        return opacityArray.map(opacity => `rgba(${r}, ${g}, ${b}, ${opacity})`);
-    };
 
     if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
 
@@ -2241,19 +2269,42 @@ function renderEthnicityFullDistribution(filtered) {
         data: {
             labels: years,
             datasets: [
+                // Bottom layers: Known categories (stacked first)
                 {
                     label: 'Hispanic/Latino',
                     data: hispanicData,
-                    backgroundColor: applyOpacity(COLORS.ethnicity.hispanic_latino, confidenceData),
-                    borderColor: applyOpacity(COLORS.ethnicity.hispanic_latino, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    backgroundColor: COLORS.ethnicity.hispanic_latino,
+                    borderColor: COLORS.ethnicity.hispanic_latino,
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 },
                 {
                     label: 'Not Hispanic/Latino',
                     data: notHispanicData,
-                    backgroundColor: applyOpacity(COLORS.ethnicity.not_hispanic_latino, confidenceData),
-                    borderColor: applyOpacity(COLORS.ethnicity.not_hispanic_latino, confidenceData.map(c => Math.min(1, c + 0.2))),
+                    backgroundColor: COLORS.ethnicity.not_hispanic_latino,
+                    borderColor: COLORS.ethnicity.not_hispanic_latino,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // Middle layer: Explicit Unknown (solid grey)
+                {
+                    label: 'Explicitly Unknown',
+                    data: explicitUnknownData,
+                    backgroundColor: '#9ca3af',
+                    borderColor: '#6b7280',
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // Top layer: Not Reported/Missing (light translucent grey - the "fog")
+                {
+                    label: 'Not Reported (Missing)',
+                    data: notReportedData,
+                    backgroundColor: 'rgba(229, 231, 235, 0.7)',
+                    borderColor: 'rgba(209, 213, 219, 0.8)',
+                    borderWidth: 1,
                     fill: true,
                     tension: 0.1
                 }
@@ -2267,7 +2318,7 @@ function renderEthnicityFullDistribution(filtered) {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Reported Participants' }
+                    title: { display: true, text: '% of Total Enrollment' }
                 },
                 x: {
                     stacked: true,
@@ -2275,20 +2326,18 @@ function renderEthnicityFullDistribution(filtered) {
                 }
             },
             plugins: {
-                legend: { position: 'right' },
+                legend: {
+                    position: 'right',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 12
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
                             const pct = context.parsed.y.toFixed(1);
                             return ` ${context.dataset.label}: ${pct}%`;
-                        },
-                        afterBody: function(tooltipItems) {
-                            if (tooltipItems.length === 0) return '';
-                            const yearIndex = tooltipItems[0].dataIndex;
-                            const confidence = (confidenceData[yearIndex] * 100).toFixed(0);
-                            const opacity = confidenceData[yearIndex] < 0.5 ? 'faint' :
-                                           confidenceData[yearIndex] < 0.75 ? 'moderate' : 'solid';
-                            return `\nVisual Confidence: ${confidence}%\n(Data is ${opacity} because ${confidence}% of participants reported ethnicity)`;
                         }
                     }
                 }
