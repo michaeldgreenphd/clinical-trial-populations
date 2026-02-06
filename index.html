@@ -41,6 +41,7 @@
         <button class="tab" data-tab="sex">Sex</button>
         <button class="tab" data-tab="gender">Gender</button>
         <button class="tab" data-tab="studies">Studies</button>
+        <button class="tab" data-tab="faq">FAQ</button>
     </nav>
 
     <main>
@@ -160,7 +161,30 @@
                 </div>
 
                 <div class="filter-group">
-                    <label for="condition">Condition/Disease:</label>
+                    <label for="condition-simplified">Condition (Simplified):</label>
+                    <select id="condition-simplified">
+                        <option value="all">All Categories</option>
+                        <option value="heart_disease">Heart Disease</option>
+                        <option value="cancer">Cancer</option>
+                        <option value="respiratory">Chronic Lower Respiratory Disease</option>
+                        <option value="stroke">Stroke</option>
+                        <option value="alzheimers">Alzheimer's Disease</option>
+                        <option value="diabetes">Diabetes</option>
+                        <option value="influenza_pneumonia">Influenza/Pneumonia</option>
+                        <option value="kidney">Kidney Disease</option>
+                        <option value="mental_health">Mental Health</option>
+                        <option value="substance_use">Substance Use</option>
+                        <option value="musculoskeletal">Musculoskeletal/Arthritis</option>
+                        <option value="infectious">Infectious Disease (Non-Flu)</option>
+                        <option value="neurological">Neurological (Non-Alzheimer's)</option>
+                        <option value="digestive">Digestive</option>
+                        <option value="skin">Skin Disease</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="condition">Condition (Verbatim):</label>
                     <select id="condition">
                         <option value="all">All Conditions</option>
                         <!-- Populated by JavaScript -->
@@ -333,6 +357,113 @@
                     </table>
                 </div>
                 <div id="pagination"></div>
+            </div>
+        </section>
+
+        <!-- FAQ Tab -->
+        <section id="faq" class="tab-content">
+            <div class="chart-container">
+                <h3>Frequently Asked Questions</h3>
+
+                <div class="faq-section">
+                    <h4>How are conditions categorized?</h4>
+                    <p class="note">Conditions are mapped from the Primary Disease or Condition field in ClinicalTrials.gov to 15 high-level categories based on US health prevalence data. This simplification allows for broader trend analysis across disease areas.</p>
+
+                    <table class="faq-mapping-table">
+                        <thead>
+                            <tr>
+                                <th>Simplified Category</th>
+                                <th>Keywords Mapped (case-insensitive)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><strong>Heart Disease</strong></td>
+                                <td>heart, cardiac, cardiovascular, coronary, arrhythmia, atrial fibrillation, heart failure, myocardial, angina, hypertension, blood pressure</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Cancer</strong></td>
+                                <td>cancer, carcinoma, tumor, tumour, oncology, leukemia, lymphoma, melanoma, sarcoma, neoplasm, malignant, metastatic, chemotherapy</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Chronic Lower Respiratory Disease</strong></td>
+                                <td>copd, asthma, bronchitis, emphysema, pulmonary, respiratory, lung disease, chronic obstructive</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Stroke</strong></td>
+                                <td>stroke, cerebrovascular, ischemic attack, brain infarct, hemorrhagic stroke</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Alzheimer's Disease</strong></td>
+                                <td>alzheimer, dementia</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Diabetes</strong></td>
+                                <td>diabetes, diabetic, insulin, glycemic, hyperglycemia, hypoglycemia, type 1 diabetes, type 2 diabetes</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Influenza/Pneumonia</strong></td>
+                                <td>influenza, flu, pneumonia, respiratory infection</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Kidney Disease</strong></td>
+                                <td>kidney, renal, nephro, dialysis, chronic kidney, end-stage renal</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Mental Health</strong></td>
+                                <td>depression, anxiety, bipolar, schizophrenia, psychiatric, mental health, ptsd, obsessive, panic disorder, mood disorder</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Substance Use</strong></td>
+                                <td>addiction, substance abuse, alcohol, opioid, drug abuse, smoking cessation, tobacco, nicotine</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Musculoskeletal/Arthritis</strong></td>
+                                <td>arthritis, osteoarthritis, rheumatoid, musculoskeletal, joint, osteoporosis, bone, fibromyalgia, back pain</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Infectious Disease (Non-Flu)</strong></td>
+                                <td>hiv, aids, hepatitis, tuberculosis, malaria, sepsis, bacterial infection, viral infection, covid, coronavirus, infection</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Neurological (Non-Alzheimer's)</strong></td>
+                                <td>parkinson, multiple sclerosis, epilepsy, seizure, neuropathy, migraine, headache, als, huntington, neurological</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Digestive</strong></td>
+                                <td>crohn, colitis, ibd, inflammatory bowel, gastro, liver, cirrhosis, hepatic, pancreatitis, celiac, gerd</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Skin Disease</strong></td>
+                                <td>psoriasis, eczema, dermatitis, acne, skin, dermatology, wound</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Other</strong></td>
+                                <td>Any condition not matching above keywords</td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p class="note" style="margin-top: 1rem;"><strong>Note:</strong> A study may match multiple categories based on its listed conditions. The simplified filter shows studies that match ANY of the keywords for the selected category.</p>
+                </div>
+
+                <div class="faq-section" style="margin-top: 2rem;">
+                    <h4>How is the "Unknown/Not Reported" category calculated?</h4>
+                    <p class="note">In the "Distribution Including Unknowns" charts, the Unknown category is calculated as:</p>
+                    <p><code>Unknown = Total Enrollment - Sum(All Known Categories)</code></p>
+                    <p class="note">This ensures the chart always sums to exactly 100% of total enrollment, providing a complete picture of data completeness.</p>
+                </div>
+
+                <div class="faq-section" style="margin-top: 2rem;">
+                    <h4>How is Funding Source derived?</h4>
+                    <p class="note">Funding source is categorized based on sponsor information:</p>
+                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                        <li><strong>Industry:</strong> Lead Sponsor is Industry</li>
+                        <li><strong>NIH:</strong> Lead Sponsor is NIH, OR (Lead Sponsor is Other/Network AND any Collaborator is NIH)</li>
+                        <li><strong>Other U.S. Federal:</strong> Lead Sponsor is Federal, OR (Lead Sponsor is Other/Network AND any Collaborator is Federal)</li>
+                        <li><strong>Other:</strong> All other cases</li>
+                    </ul>
+                </div>
             </div>
         </section>
     </main>

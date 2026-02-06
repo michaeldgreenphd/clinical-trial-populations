@@ -1228,3 +1228,53 @@ footer p {
     padding: 0.5rem 0.25rem;
     color: var(--text-secondary);
 }
+
+/* FAQ Section Styles */
+.faq-section {
+    margin-bottom: 1.5rem;
+}
+
+.faq-section h4 {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    margin-bottom: 0.75rem;
+}
+
+.faq-mapping-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+}
+
+.faq-mapping-table th,
+.faq-mapping-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.faq-mapping-table th {
+    background: var(--primary-color);
+    color: white;
+    font-weight: 600;
+}
+
+.faq-mapping-table tbody tr:hover {
+    background: #f9fafb;
+}
+
+.faq-mapping-table td:first-child {
+    width: 25%;
+    white-space: nowrap;
+}
+
+.faq-mapping-table td:last-child {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+/* Simplified condition dropdown styling */
+#condition-simplified {
+    max-width: 250px;
+}
