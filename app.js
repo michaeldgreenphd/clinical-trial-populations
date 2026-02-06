@@ -47,6 +47,126 @@ function hideLoadingOverlay() {
     }
 }
 
+// Condition Category Mapping - maps raw condition strings to simplified categories
+const CONDITION_CATEGORY_KEYWORDS = {
+    heart_disease: [
+        'heart', 'cardiac', 'cardiovascular', 'coronary', 'arrhythmia', 'atrial fibrillation',
+        'heart failure', 'myocardial', 'cardiomyopathy', 'angina', 'hypertension', 'blood pressure',
+        'aortic', 'ventricular', 'pericardial', 'endocarditis', 'valve', 'congestive'
+    ],
+    cancer: [
+        'cancer', 'carcinoma', 'tumor', 'tumour', 'neoplasm', 'malignant', 'oncology', 'leukemia',
+        'lymphoma', 'melanoma', 'sarcoma', 'myeloma', 'metastatic', 'metastasis', 'adenocarcinoma',
+        'blastoma', 'glioma', 'mesothelioma', 'chemotherapy', 'oncologic'
+    ],
+    respiratory: [
+        'copd', 'chronic obstructive pulmonary', 'emphysema', 'chronic bronchitis', 'pulmonary fibrosis',
+        'interstitial lung', 'asthma', 'bronchiectasis', 'pulmonary hypertension', 'respiratory failure'
+    ],
+    stroke: [
+        'stroke', 'cerebrovascular', 'cerebral infarction', 'brain ischemia', 'intracranial hemorrhage',
+        'transient ischemic', 'tia', 'carotid', 'subarachnoid hemorrhage', 'cerebral thrombosis'
+    ],
+    alzheimers: [
+        'alzheimer', 'dementia', 'cognitive decline', 'memory impairment', 'mild cognitive impairment',
+        'senile dementia', 'cognitive dysfunction', 'amnestic'
+    ],
+    diabetes: [
+        'diabetes', 'diabetic', 'hyperglycemia', 'hypoglycemia', 'insulin resistance', 'type 1 diabetes',
+        'type 2 diabetes', 'glucose intolerance', 'prediabetes', 'hba1c', 'glycemic'
+    ],
+    influenza_pneumonia: [
+        'influenza', 'flu', 'pneumonia', 'respiratory syncytial', 'rsv', 'pneumococcal',
+        'viral respiratory infection'
+    ],
+    kidney: [
+        'kidney', 'renal', 'nephropathy', 'nephritis', 'chronic kidney disease', 'ckd', 'dialysis',
+        'end-stage renal', 'esrd', 'glomerular', 'polycystic kidney', 'nephrotic'
+    ],
+    mental_health: [
+        'depression', 'anxiety', 'bipolar', 'schizophrenia', 'psychosis', 'psychiatric', 'ptsd',
+        'post-traumatic stress', 'obsessive compulsive', 'ocd', 'panic disorder', 'phobia',
+        'mood disorder', 'major depressive', 'generalized anxiety', 'mental disorder', 'mental health'
+    ],
+    substance_use: [
+        'substance abuse', 'substance use', 'addiction', 'alcohol', 'alcoholism', 'drug abuse',
+        'opioid', 'cocaine', 'cannabis', 'marijuana', 'tobacco', 'smoking', 'nicotine',
+        'drug dependence', 'withdrawal'
+    ],
+    musculoskeletal: [
+        'arthritis', 'rheumatoid', 'osteoarthritis', 'osteoporosis', 'bone', 'joint', 'musculoskeletal',
+        'fibromyalgia', 'back pain', 'spine', 'spinal', 'gout', 'lupus', 'spondylitis',
+        'tendinitis', 'bursitis', 'fracture', 'orthopedic'
+    ],
+    infectious: [
+        'hiv', 'aids', 'hepatitis', 'tuberculosis', 'tb', 'malaria', 'sepsis', 'bacterial infection',
+        'viral infection', 'fungal infection', 'parasitic', 'meningitis', 'endocarditis',
+        'sexually transmitted', 'sti', 'std', 'covid', 'coronavirus', 'sars-cov', 'ebola', 'zika'
+    ],
+    neurological: [
+        'parkinson', 'epilepsy', 'seizure', 'multiple sclerosis', 'ms', 'neuropathy', 'migraine',
+        'headache', 'als', 'amyotrophic lateral', 'huntington', 'dystonia', 'tremor', 'ataxia',
+        'guillain-barre', 'myasthenia', 'peripheral neuropathy', 'nerve', 'spinal cord injury'
+    ],
+    digestive: [
+        'crohn', 'colitis', 'inflammatory bowel', 'ibd', 'irritable bowel', 'ibs', 'gastroesophageal',
+        'gerd', 'celiac', 'pancreatitis', 'liver', 'hepatic', 'cirrhosis', 'gallbladder',
+        'gastrointestinal', 'gastric', 'esophageal', 'intestinal', 'colon', 'colorectal', 'ulcer'
+    ],
+    skin: [
+        'dermatitis', 'eczema', 'psoriasis', 'acne', 'rosacea', 'skin', 'dermatologic', 'cutaneous',
+        'wound healing', 'burn', 'vitiligo', 'alopecia', 'urticaria', 'pruritus'
+    ]
+};
+
+/**
+ * Maps a raw condition string to one of the simplified categories.
+ * Uses case-insensitive keyword matching.
+ * @param {string} condition - The raw condition string from the study
+ * @returns {string} - The category key (e.g., 'heart_disease', 'cancer') or 'other' if no match
+ */
+function mapConditionToCategory(condition) {
+    if (!condition) return 'other';
+
+    const lowerCondition = condition.toLowerCase();
+
+    for (const [category, keywords] of Object.entries(CONDITION_CATEGORY_KEYWORDS)) {
+        for (const keyword of keywords) {
+            if (lowerCondition.includes(keyword.toLowerCase())) {
+                return category;
+            }
+        }
+    }
+
+    return 'other';
+}
+
+/**
+ * Checks if a study matches the selected simplified condition category.
+ * A study matches if ANY of its conditions map to the selected category.
+ * @param {Object} study - The study object with conditions array
+ * @param {string} selectedCategory - The selected category key
+ * @returns {boolean} - True if the study matches the category
+ */
+function studyMatchesSimplifiedCondition(study, selectedCategory) {
+    if (selectedCategory === 'all') return true;
+
+    const conditions = study.conditions || [];
+    if (conditions.length === 0) {
+        // Studies with no conditions only match 'other'
+        return selectedCategory === 'other';
+    }
+
+    for (const condition of conditions) {
+        const category = mapConditionToCategory(condition);
+        if (category === selectedCategory) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData();
@@ -190,7 +310,7 @@ function initFilters() {
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
-        'enrollment-type', 'healthy-volunteers', 'condition', 'country'
+        'enrollment-type', 'healthy-volunteers', 'condition', 'condition-simplified', 'country'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -465,6 +585,7 @@ function getFilteredData() {
     const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
     const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
     const conditionFilter = document.getElementById('condition')?.value || 'all';
+    const conditionSimplifiedFilter = document.getElementById('condition-simplified')?.value || 'all';
     const countryFilter = document.getElementById('country')?.value || 'all';
 
     return data.filter(study => {
@@ -495,6 +616,10 @@ function getFilteredData() {
         if (conditionFilter !== 'all') {
             const conditions = study.conditions || [];
             if (!conditions.includes(conditionFilter)) return false;
+        }
+        // Simplified condition category filter
+        if (conditionSimplifiedFilter !== 'all') {
+            if (!studyMatchesSimplifiedCondition(study, conditionSimplifiedFilter)) return false;
         }
         if (countryFilter !== 'all') {
             const countries = study.countries || [];
@@ -1805,7 +1930,8 @@ function renderRaceReportedParticipants(filtered) {
 /**
  * Graph C for Race: Distribution Including Unknowns
  * 100% stacked area chart showing true proportions including unknown/not reported
- * Unknown = explicit unknowns + participants from studies without race data
+ * Unknown is CALCULATED as: Total Enrollment - Sum(Known Categories)
+ * This ensures the chart always sums to exactly 100%
  */
 function renderRaceFullDistribution(filtered) {
     const ctx = document.getElementById('race-full-distribution-chart');
@@ -1822,13 +1948,12 @@ function renderRaceFullDistribution(filtered) {
                 black: 0,
                 asian: 0,
                 other: 0,
-                unknown: 0,
-                total: 0
+                totalEnrollment: 0
             };
         }
 
         const enrollment = study.enrollment || 0;
-        byYear[year].total += enrollment;
+        byYear[year].totalEnrollment += enrollment;
 
         if (study.race?.reported) {
             const omb = study.race.omb_totals;
@@ -1838,22 +1963,58 @@ function renderRaceFullDistribution(filtered) {
             byYear[year].other += (omb.american_indian_alaska_native || 0) +
                                   (omb.native_hawaiian_pacific_islander || 0) +
                                   (omb.more_than_one_race || 0) +
-                                  (omb.other || 0);
-            byYear[year].unknown += omb.unknown_not_reported || 0;
-        } else {
-            // Study has no race data - all enrollment goes to unknown
-            byYear[year].unknown += enrollment;
+                                  (omb.other || 0) +
+                                  (omb.unknown_not_reported || 0);
         }
+        // Note: Studies without race data contribute to enrollment but not to known categories
+        // This will be captured as "Unknown" in the calculation below
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Pre-calculate percentage data for each category
-    const whiteData = years.map(y => byYear[y].total > 0 ? (byYear[y].white / byYear[y].total) * 100 : 0);
-    const blackData = years.map(y => byYear[y].total > 0 ? (byYear[y].black / byYear[y].total) * 100 : 0);
-    const asianData = years.map(y => byYear[y].total > 0 ? (byYear[y].asian / byYear[y].total) * 100 : 0);
-    const otherData = years.map(y => byYear[y].total > 0 ? (byYear[y].other / byYear[y].total) * 100 : 0);
-    const unknownData = years.map(y => byYear[y].total > 0 ? (byYear[y].unknown / byYear[y].total) * 100 : 0);
+    // Calculate percentages ensuring they sum to exactly 100%
+    const whiteData = [];
+    const blackData = [];
+    const asianData = [];
+    const otherData = [];
+    const unknownData = [];
+
+    years.forEach(y => {
+        const data = byYear[y];
+        const total = data.totalEnrollment;
+
+        if (total === 0) {
+            whiteData.push(0);
+            blackData.push(0);
+            asianData.push(0);
+            otherData.push(0);
+            unknownData.push(0);
+            return;
+        }
+
+        // Calculate known sum
+        const knownSum = data.white + data.black + data.asian + data.other;
+
+        // Calculate unknown as the difference (ensures 100% total)
+        let unknownCount = total - knownSum;
+
+        // Handle data errors: if unknown is negative, normalize
+        if (unknownCount < 0) {
+            // Normalize known values to fit within total
+            const scaleFactor = total / knownSum;
+            whiteData.push((data.white * scaleFactor / total) * 100);
+            blackData.push((data.black * scaleFactor / total) * 100);
+            asianData.push((data.asian * scaleFactor / total) * 100);
+            otherData.push((data.other * scaleFactor / total) * 100);
+            unknownData.push(0);
+        } else {
+            whiteData.push((data.white / total) * 100);
+            blackData.push((data.black / total) * 100);
+            asianData.push((data.asian / total) * 100);
+            otherData.push((data.other / total) * 100);
+            unknownData.push((unknownCount / total) * 100);
+        }
+    });
 
     if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
 
@@ -2001,7 +2162,8 @@ function renderEthnicityReportedParticipants(filtered) {
 /**
  * Graph C for Ethnicity: Distribution Including Unknowns
  * 100% stacked area chart showing true proportions including unknown/not reported
- * Unknown = explicit unknowns + participants from studies without ethnicity data
+ * Unknown is CALCULATED as: Total Enrollment - Sum(Known Categories)
+ * This ensures the chart always sums to exactly 100%
  */
 function renderEthnicityFullDistribution(filtered) {
     const ctx = document.getElementById('ethnicity-full-distribution-chart');
@@ -2016,31 +2178,63 @@ function renderEthnicityFullDistribution(filtered) {
             byYear[year] = {
                 hispanic: 0,
                 notHispanic: 0,
-                unknown: 0,
-                total: 0
+                totalEnrollment: 0
             };
         }
 
         const enrollment = study.enrollment || 0;
-        byYear[year].total += enrollment;
+        byYear[year].totalEnrollment += enrollment;
 
         if (study.ethnicity?.reported) {
             const omb = study.ethnicity.omb_totals;
             byYear[year].hispanic += omb.hispanic_latino || 0;
             byYear[year].notHispanic += omb.not_hispanic_latino || 0;
-            byYear[year].unknown += omb.unknown_not_reported || 0;
-        } else {
-            // Study has no ethnicity data - all enrollment goes to unknown
-            byYear[year].unknown += enrollment;
+            // Note: We include the explicit unknown in the known sum for ethnicity
+            // since we want Unknown to represent ONLY unreported data
+            byYear[year].hispanic += 0; // placeholder - unknown_not_reported goes to calculated unknown
+            byYear[year].notHispanic += 0;
         }
+        // Note: Studies without ethnicity data contribute to enrollment but not to known categories
+        // This will be captured as "Unknown" in the calculation below
     });
 
     const years = Object.keys(byYear).sort();
 
-    // Pre-calculate percentage data for each category
-    const hispanicData = years.map(y => byYear[y].total > 0 ? (byYear[y].hispanic / byYear[y].total) * 100 : 0);
-    const notHispanicData = years.map(y => byYear[y].total > 0 ? (byYear[y].notHispanic / byYear[y].total) * 100 : 0);
-    const unknownData = years.map(y => byYear[y].total > 0 ? (byYear[y].unknown / byYear[y].total) * 100 : 0);
+    // Calculate percentages ensuring they sum to exactly 100%
+    const hispanicData = [];
+    const notHispanicData = [];
+    const unknownData = [];
+
+    years.forEach(y => {
+        const data = byYear[y];
+        const total = data.totalEnrollment;
+
+        if (total === 0) {
+            hispanicData.push(0);
+            notHispanicData.push(0);
+            unknownData.push(0);
+            return;
+        }
+
+        // Calculate known sum
+        const knownSum = data.hispanic + data.notHispanic;
+
+        // Calculate unknown as the difference (ensures 100% total)
+        let unknownCount = total - knownSum;
+
+        // Handle data errors: if unknown is negative, normalize
+        if (unknownCount < 0) {
+            // Normalize known values to fit within total
+            const scaleFactor = total / knownSum;
+            hispanicData.push((data.hispanic * scaleFactor / total) * 100);
+            notHispanicData.push((data.notHispanic * scaleFactor / total) * 100);
+            unknownData.push(0);
+        } else {
+            hispanicData.push((data.hispanic / total) * 100);
+            notHispanicData.push((data.notHispanic / total) * 100);
+            unknownData.push((unknownCount / total) * 100);
+        }
+    });
 
     if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
 
