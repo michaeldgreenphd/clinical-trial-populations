@@ -2023,25 +2023,8 @@ function renderRaceFullDistribution(filtered) {
         data: {
             labels: years,
             datasets: [
-                // Bottom layers: Known categories (stacked first)
-                {
-                    label: 'White',
-                    data: whiteData,
-                    backgroundColor: COLORS.race.white,
-                    borderColor: COLORS.race.white,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
-                },
-                {
-                    label: 'Black/African American',
-                    data: blackData,
-                    backgroundColor: COLORS.race.black_african_american,
-                    borderColor: COLORS.race.black_african_american,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
-                },
+                // Order: smallest to largest categories (bottom to top)
+                // 1. Asian (bottom)
                 {
                     label: 'Asian',
                     data: asianData,
@@ -2051,6 +2034,7 @@ function renderRaceFullDistribution(filtered) {
                     fill: true,
                     tension: 0.1
                 },
+                // 2. Other Races
                 {
                     label: 'Other Races',
                     data: otherRacesData,
@@ -2060,7 +2044,7 @@ function renderRaceFullDistribution(filtered) {
                     fill: true,
                     tension: 0.1
                 },
-                // Middle layer: Explicit Unknown (solid grey)
+                // 3. Explicitly Unknown (solid grey)
                 {
                     label: 'Explicitly Unknown',
                     data: explicitUnknownData,
@@ -2070,7 +2054,27 @@ function renderRaceFullDistribution(filtered) {
                     fill: true,
                     tension: 0.1
                 },
-                // Top layer: Not Reported/Missing (light translucent grey - the "fog")
+                // 4. Black/African American
+                {
+                    label: 'Black/African American',
+                    data: blackData,
+                    backgroundColor: COLORS.race.black_african_american,
+                    borderColor: COLORS.race.black_african_american,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // 5. White
+                {
+                    label: 'White',
+                    data: whiteData,
+                    backgroundColor: COLORS.race.white,
+                    borderColor: COLORS.race.white,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // 6. Not Reported/Missing (top layer - light translucent grey)
                 {
                     label: 'Not Reported (Missing)',
                     data: notReportedData,
@@ -2269,26 +2273,8 @@ function renderEthnicityFullDistribution(filtered) {
         data: {
             labels: years,
             datasets: [
-                // Bottom layers: Known categories (stacked first)
-                {
-                    label: 'Hispanic/Latino',
-                    data: hispanicData,
-                    backgroundColor: COLORS.ethnicity.hispanic_latino,
-                    borderColor: COLORS.ethnicity.hispanic_latino,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
-                },
-                {
-                    label: 'Not Hispanic/Latino',
-                    data: notHispanicData,
-                    backgroundColor: COLORS.ethnicity.not_hispanic_latino,
-                    borderColor: COLORS.ethnicity.not_hispanic_latino,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
-                },
-                // Middle layer: Explicit Unknown (solid grey)
+                // Order: smallest to largest categories (bottom to top)
+                // 1. Explicitly Unknown (bottom - solid grey)
                 {
                     label: 'Explicitly Unknown',
                     data: explicitUnknownData,
@@ -2298,7 +2284,27 @@ function renderEthnicityFullDistribution(filtered) {
                     fill: true,
                     tension: 0.1
                 },
-                // Top layer: Not Reported/Missing (light translucent grey - the "fog")
+                // 2. Hispanic/Latino
+                {
+                    label: 'Hispanic/Latino',
+                    data: hispanicData,
+                    backgroundColor: COLORS.ethnicity.hispanic_latino,
+                    borderColor: COLORS.ethnicity.hispanic_latino,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // 3. Not Hispanic/Latino
+                {
+                    label: 'Not Hispanic/Latino',
+                    data: notHispanicData,
+                    backgroundColor: COLORS.ethnicity.not_hispanic_latino,
+                    borderColor: COLORS.ethnicity.not_hispanic_latino,
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.1
+                },
+                // 4. Not Reported/Missing (top layer - light translucent grey)
                 {
                     label: 'Not Reported (Missing)',
                     data: notReportedData,
