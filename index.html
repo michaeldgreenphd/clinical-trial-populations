@@ -378,6 +378,17 @@
                         <button class="view-btn" data-view="international">International</button>
                     </div>
                 </div>
+                <!-- Reporting Layer Toggles (visible only for US view) -->
+                <div class="reporting-layer-controls" id="reporting-layer-controls">
+                    <span class="layer-label">Map Layer:</span>
+                    <div class="layer-toggle-group">
+                        <button class="layer-btn active" data-layer="volume">Trial Volume</button>
+                        <button class="layer-btn" data-layer="race">Race Reporting</button>
+                        <button class="layer-btn" data-layer="ethnicity">Ethnicity Reporting</button>
+                        <button class="layer-btn" data-layer="sex">Sex Reporting</button>
+                        <button class="layer-btn" data-layer="gender">Gender Reporting</button>
+                    </div>
+                </div>
             </div>
 
             <div class="geography-stats">
@@ -399,16 +410,59 @@
                 </div>
             </div>
 
-            <div class="chart-row">
+            <!-- US Map Container (visible for US view) -->
+            <div class="chart-row" id="us-map-row">
                 <div class="chart-container geography-chart-wide">
                     <h3 id="geography-chart-title">Trials by US State</h3>
-                    <p class="note" id="geography-chart-subtitle">Number of trials with at least one site in each state. Multi-site trials may appear in multiple states.</p>
+                    <p class="note" id="geography-chart-subtitle">Click a state to see city-level breakdown. Darker colors indicate higher values.</p>
+                    <div class="map-legend" id="map-legend">
+                        <span class="legend-label" id="legend-low">0</span>
+                        <div class="legend-gradient"></div>
+                        <span class="legend-label" id="legend-high">100</span>
+                    </div>
+                    <div id="us-map-container">
+                        <!-- SVG Map will be inserted by JavaScript -->
+                    </div>
+                    <div id="map-tooltip" class="map-tooltip"></div>
+                </div>
+            </div>
+
+            <!-- State Detail Section (shows cities when a state is clicked) -->
+            <div class="chart-row" id="state-detail-row" style="display: none;">
+                <div class="chart-container geography-chart-wide">
+                    <div class="state-detail-header">
+                        <h3 id="state-detail-title">Cities in Selected State</h3>
+                        <button class="close-detail-btn" id="close-state-detail">&times; Close</button>
+                    </div>
+                    <div id="state-detail-container">
+                        <table class="geography-table" id="city-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>City</th>
+                                    <th id="city-metric-header">Number of Trials</th>
+                                    <th>% of State Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="city-table-body">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- International Table (visible for international view) -->
+            <div class="chart-row" id="international-table-row" style="display: none;">
+                <div class="chart-container geography-chart-wide">
+                    <h3>Trials by Country</h3>
+                    <p class="note">Number of trials with at least one site in each country (excluding United States).</p>
                     <div id="geography-list-container">
                         <table class="geography-table" id="geography-table">
                             <thead>
                                 <tr>
                                     <th>Rank</th>
-                                    <th id="geo-location-header">State</th>
+                                    <th id="geo-location-header">Country</th>
                                     <th>Number of Trials</th>
                                     <th>% of Filtered Trials</th>
                                 </tr>
