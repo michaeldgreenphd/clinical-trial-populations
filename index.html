@@ -41,6 +41,7 @@
         <button class="tab" data-tab="sex">Sex</button>
         <button class="tab" data-tab="gender">Gender</button>
         <button class="tab" data-tab="studies">Studies</button>
+        <button class="tab" data-tab="geography">Geography</button>
         <button class="tab" data-tab="faq">FAQ</button>
         <button class="tab" data-tab="about">About</button>
     </nav>
@@ -361,6 +362,79 @@
             </div>
         </section>
 
+        <!-- Geography Tab -->
+        <section id="geography" class="tab-content">
+            <div class="geography-controls">
+                <div class="geography-filter-row">
+                    <div class="filter-group">
+                        <label for="geography-sponsor">Select Sponsor:</label>
+                        <select id="geography-sponsor">
+                            <option value="all">All Sponsors</option>
+                            <!-- Populated by JavaScript with top 50 sponsors -->
+                        </select>
+                    </div>
+                    <div class="geography-view-toggle">
+                        <button class="view-btn active" data-view="us">United States</button>
+                        <button class="view-btn" data-view="international">International</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="geography-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="geo-total-trials">0</div>
+                    <div class="stat-label">Total Trials</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="geo-single-site">0</div>
+                    <div class="stat-label">Single-site</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="geo-multi-site">0</div>
+                    <div class="stat-label">Multi-site</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="geo-not-reported">0</div>
+                    <div class="stat-label">Location Not Reported</div>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-container geography-chart-wide">
+                    <h3 id="geography-chart-title">Trials by US State</h3>
+                    <p class="note" id="geography-chart-subtitle">Number of trials with at least one site in each state. Multi-site trials may appear in multiple states.</p>
+                    <div id="geography-list-container">
+                        <table class="geography-table" id="geography-table">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th id="geo-location-header">State</th>
+                                    <th>Number of Trials</th>
+                                    <th>% of Filtered Trials</th>
+                                </tr>
+                            </thead>
+                            <tbody id="geography-table-body">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Site Distribution</h3>
+                    <p class="note">Breakdown of trials by number of sites.</p>
+                    <canvas id="site-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Geographic Reporting Over Time</h3>
+                    <p class="note">Percentage of trials reporting location data by year.</p>
+                    <canvas id="geo-reporting-trend-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
         <!-- FAQ Tab -->
         <section id="faq" class="tab-content">
             <div class="chart-container">
@@ -483,7 +557,12 @@
 
                 <div class="faq-section" style="margin-top: 2rem;">
                     <h4>What about searching for specific trials and summarizing the information in other ways?</h4>
-                    <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from clinicaltrials.gov . There is a great connector for ClaudeCode built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
+                    <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from clinicaltrials.gov. There is a great connector for ClaudeCode built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
+                </div>
+
+                <div class="faq-section" style="margin-top: 2rem;">
+                    <h4>How do you count trial sponsors?</h4>
+                    <p class="note">We take a broad approach to capturing trial involvement. In our "Sponsor" filter, we count an organization if they are listed as either the <strong>Lead Sponsor</strong> or a <strong>Collaborator</strong> in the trial record. This allows us to capture the full ecosystem of organizations supporting a trial, rather than just the primary administrative entity.</p>
                 </div>
             </div>
         </section>
@@ -505,7 +584,8 @@
                             <p class="team-bio">Maryam Aziz is a Ph.D. candidate in Population Health Sciences at the Duke University School of Medicine and M.S. in Computer Science from Columbia. Maryam researches the ethical application of AI in healthcare, with a focus on women's health.</p>
                         </div>
                         <div class="team-member">
-                            <div class="team-photo-placeholder"></div>
+                            <img src="Michael Headshot.jpg" alt="Michael D. Green, Ph.D." class="team-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div class="team-photo-placeholder" style="display: none;"></div>
                             <h4>Michael D. Green, Ph.D.</h4>
                             <p class="team-link"><a href="https://www.linkedin.com/in/michaeldgreenphd/">LinkedIn</a></p>
                             <p class="team-bio">Michael is a Postdoctoral Researcher at the Department of Health, Behavior, and Society at the Johns Hopkins School of Public Health. Michael got his Ph.D. in Population Health Sciences at the Duke University School of Medicine, and a BA in Anthropology w/ honors from Dartmouth College. Michael's research focuses on unequal treatment in healthcare, specifically discrimination faced in healthcare settings.</p>
