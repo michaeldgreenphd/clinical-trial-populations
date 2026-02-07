@@ -1278,3 +1278,94 @@ footer p {
 #condition-simplified {
     max-width: 250px;
 }
+
+/* ===== About Page Styles ===== */
+.about-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.about-intro {
+    margin-bottom: 3rem;
+    text-align: center;
+}
+
+.about-intro p {
+    font-size: 1.15rem;
+    line-height: 1.8;
+    color: var(--text-primary);
+}
+
+.about-team {
+    margin-bottom: 3rem;
+}
+
+.about-team h3 {
+    color: var(--primary-color);
+    font-size: 1.5rem;
+    margin-bottom: 2rem;
+    text-align: center;
+}
+
+.team-grid {
+    display: flex;
+    gap: 3rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.team-member {
+    flex: 1;
+    min-width: 280px;
+    max-width: 400px;
+    text-align: center;
+}
+
+.team-photo-placeholder {
+    width: 150px;
+    height: 150px;
+    background-color: #d1d5db;
+    border-radius: 50%;
+    margin: 0 auto 1.5rem auto;
+}
+
+.team-member h4 {
+    color: var(--primary-color);
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.team-link {
+    margin-bottom: 1rem;
+}
+
+.team-link a {
+    color: var(--accent-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.team-link a:hover {
+    text-decoration: underline;
+}
+
+.team-bio {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    text-align: left;
+}
+
+.about-mission {
+    text-align: center;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.about-mission p {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text-primary);
+    font-style: italic;
+}
