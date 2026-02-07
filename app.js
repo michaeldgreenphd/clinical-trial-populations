@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initFilters();
     initSubcategoryButtons();
     initTable();
+    initGeographyTab();
     renderDashboard();
 
     // Hide loading overlay after everything is initialized and rendered
@@ -676,6 +677,9 @@ function renderDashboard() {
     renderSexDistribution(filtered);
     renderSexTrends(filtered);
     renderGenderDistribution(filtered);
+
+    // Render Geography dashboard
+    renderGeographyDashboard();
 
     // Update table if visible
     const studiesTab = document.querySelector('.tab[data-tab="studies"]');
@@ -2503,4 +2507,367 @@ function renderGenderDistribution(filtered) {
             }
         }
     });
+}
+
+// ===== Geography Dashboard Functions =====
+
+let geographyView = 'us'; // 'us' or 'international'
+let geographySponsorFilter = 'all';
+let sponsorCounts = {};
+
+/**
+ * Extract and count all sponsors from data
+ * Counts organizations as either Lead Sponsor or Collaborator
+ */
+function getSponsorsFromData() {
+    if (!data) return {};
+
+    const counts = {};
+
+    data.forEach(study => {
+        // Count lead sponsor
+        if (study.lead_sponsor) {
+            const name = study.lead_sponsor;
+            counts[name] = (counts[name] || 0) + 1;
+        }
+
+        // Count collaborators
+        if (study.collaborators && Array.isArray(study.collaborators)) {
+            study.collaborators.forEach(collab => {
+                if (collab) {
+                    counts[collab] = (counts[collab] || 0) + 1;
+                }
+            });
+        }
+    });
+
+    return counts;
+}
+
+/**
+ * Populate the geography sponsor dropdown with top 50 sponsors
+ */
+function populateGeographySponsorDropdown() {
+    const dropdown = document.getElementById('geography-sponsor');
+    if (!dropdown) return;
+
+    sponsorCounts = getSponsorsFromData();
+
+    // Sort by count and take top 50
+    const sortedSponsors = Object.entries(sponsorCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 50);
+
+    // Clear existing options except "All Sponsors"
+    dropdown.innerHTML = '<option value="all">All Sponsors</option>';
+
+    sortedSponsors.forEach(([name, count]) => {
+        const option = document.createElement('option');
+        option.value = name;
+        option.textContent = `${name} (${count.toLocaleString()} trials)`;
+        dropdown.appendChild(option);
+    });
+}
+
+/**
+ * Filter trials by selected sponsor
+ */
+function filterByGeographySponsor(studies) {
+    if (geographySponsorFilter === 'all') return studies;
+
+    return studies.filter(study => {
+        // Check if lead sponsor matches
+        if (study.lead_sponsor === geographySponsorFilter) return true;
+
+        // Check if any collaborator matches
+        if (study.collaborators && Array.isArray(study.collaborators)) {
+            return study.collaborators.includes(geographySponsorFilter);
+        }
+
+        return false;
+    });
+}
+
+/**
+ * Classify trials by site count
+ * @returns {Object} { singleSite: [], multiSite: [], notReported: [] }
+ */
+function classifyTrialsBySiteCount(studies) {
+    const result = {
+        singleSite: [],
+        multiSite: [],
+        notReported: []
+    };
+
+    studies.forEach(study => {
+        const locations = study.countries || [];
+
+        if (!locations || locations.length === 0) {
+            result.notReported.push(study);
+        } else if (locations.length === 1) {
+            result.singleSite.push(study);
+        } else {
+            result.multiSite.push(study);
+        }
+    });
+
+    return result;
+}
+
+/**
+ * Aggregate geography data
+ * @param {string} view - 'us' or 'international'
+ * @returns {Object} { [location]: count }
+ */
+function aggregateGeography(studies, view) {
+    const counts = {};
+
+    studies.forEach(study => {
+        const locations = study.countries || [];
+
+        locations.forEach(loc => {
+            if (!loc || !loc.country) return;
+
+            if (view === 'us') {
+                // For US view, only count US locations and aggregate by state
+                if (loc.country === 'United States' && loc.state) {
+                    const state = loc.state;
+                    counts[state] = (counts[state] || 0) + 1;
+                }
+            } else {
+                // For international view, count non-US countries
+                if (loc.country !== 'United States') {
+                    counts[loc.country] = (counts[loc.country] || 0) + 1;
+                }
+            }
+        });
+    });
+
+    return counts;
+}
+
+/**
+ * Render the geography table
+ */
+function renderGeographyTable(geoCounts, totalTrials) {
+    const tbody = document.getElementById('geography-table-body');
+    const header = document.getElementById('geo-location-header');
+    const title = document.getElementById('geography-chart-title');
+    const subtitle = document.getElementById('geography-chart-subtitle');
+
+    if (!tbody) return;
+
+    // Update header and title based on view
+    if (header) {
+        header.textContent = geographyView === 'us' ? 'State' : 'Country';
+    }
+    if (title) {
+        title.textContent = geographyView === 'us' ? 'Trials by US State' : 'Trials by Country';
+    }
+    if (subtitle) {
+        subtitle.textContent = geographyView === 'us'
+            ? 'Number of trials with at least one site in each state. Multi-site trials may appear in multiple states.'
+            : 'Number of trials with at least one site in each country (excluding United States).';
+    }
+
+    // Sort by count
+    const sorted = Object.entries(geoCounts)
+        .sort((a, b) => b[1] - a[1]);
+
+    tbody.innerHTML = '';
+
+    if (sorted.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">No location data available for current filters.</td></tr>';
+        return;
+    }
+
+    sorted.forEach(([location, count], index) => {
+        const pct = totalTrials > 0 ? ((count / totalTrials) * 100).toFixed(1) : '0.0';
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${location}</td>
+            <td>${count.toLocaleString()}</td>
+            <td>${pct}%</td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+/**
+ * Render site distribution chart (pie/doughnut)
+ */
+function renderSiteDistributionChart(classification) {
+    const ctx = document.getElementById('site-distribution-chart');
+    if (!ctx) return;
+
+    const chartData = {
+        'Single-site': classification.singleSite.length,
+        'Multi-site': classification.multiSite.length,
+        'Not Reported': classification.notReported.length
+    };
+
+    if (charts.siteDistribution) charts.siteDistribution.destroy();
+
+    charts.siteDistribution = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(chartData),
+            datasets: [{
+                data: Object.values(chartData),
+                backgroundColor: ['#10b981', '#3b82f6', '#9ca3af'],
+                borderWidth: 2,
+                borderColor: '#ffffff'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.label}: ${context.parsed.toLocaleString()} (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Render geographic reporting trend over time
+ */
+function renderGeoReportingTrendChart(studies) {
+    const ctx = document.getElementById('geo-reporting-trend-chart');
+    if (!ctx) return;
+
+    // Aggregate by year
+    const byYear = {};
+    studies.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { total: 0, reported: 0 };
+        }
+
+        byYear[year].total++;
+
+        const locations = study.countries || [];
+        if (locations.length > 0) {
+            byYear[year].reported++;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+    const reportingPct = years.map(y => {
+        const d = byYear[y];
+        return d.total > 0 ? (d.reported / d.total) * 100 : 0;
+    });
+
+    if (charts.geoReportingTrend) charts.geoReportingTrend.destroy();
+
+    charts.geoReportingTrend = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: [{
+                label: '% Reporting Location',
+                data: reportingPct,
+                borderColor: '#1b4332',
+                backgroundColor: 'rgba(27, 67, 50, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    min: 0,
+                    max: 100,
+                    title: { display: true, text: '% of Trials' }
+                },
+                x: {
+                    title: { display: true, text: 'Year' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.parsed.y.toFixed(1)}% reporting location data`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Main render function for Geography dashboard
+ */
+function renderGeographyDashboard() {
+    if (!data) return;
+
+    // Get filtered data (respects global filters)
+    let filtered = getFilteredData();
+
+    // Apply sponsor filter
+    filtered = filterByGeographySponsor(filtered);
+
+    // Classify by site count
+    const classification = classifyTrialsBySiteCount(filtered);
+
+    // Update stats
+    document.getElementById('geo-total-trials').textContent = filtered.length.toLocaleString();
+    document.getElementById('geo-single-site').textContent = classification.singleSite.length.toLocaleString();
+    document.getElementById('geo-multi-site').textContent = classification.multiSite.length.toLocaleString();
+    document.getElementById('geo-not-reported').textContent = classification.notReported.length.toLocaleString();
+
+    // Aggregate geography based on view
+    const geoCounts = aggregateGeography(filtered, geographyView);
+
+    // Render table
+    renderGeographyTable(geoCounts, filtered.length);
+
+    // Render charts
+    renderSiteDistributionChart(classification);
+    renderGeoReportingTrendChart(filtered);
+}
+
+/**
+ * Initialize Geography tab event listeners
+ */
+function initGeographyTab() {
+    // View toggle buttons
+    const viewBtns = document.querySelectorAll('.view-btn');
+    viewBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            viewBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            geographyView = btn.dataset.view;
+            renderGeographyDashboard();
+        });
+    });
+
+    // Sponsor dropdown
+    const sponsorDropdown = document.getElementById('geography-sponsor');
+    if (sponsorDropdown) {
+        sponsorDropdown.addEventListener('change', (e) => {
+            geographySponsorFilter = e.target.value;
+            renderGeographyDashboard();
+        });
+    }
+
+    // Populate sponsor dropdown
+    populateGeographySponsorDropdown();
 }
