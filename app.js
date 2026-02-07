@@ -2615,69 +2615,462 @@ function classifyTrialsBySiteCount(studies) {
 }
 
 /**
- * Aggregate geography data
+ * Aggregate geography data with city-level details
  * @param {string} view - 'us' or 'international'
- * @returns {Object} { [location]: count }
+ * @returns {Object} For US: { [state]: { count, cities: { [city]: count } } }
+ *                   For international: { [country]: count }
  */
 function aggregateGeography(studies, view) {
-    const counts = {};
+    if (view === 'us') {
+        const stateData = {};
 
-    studies.forEach(study => {
-        const locations = study.countries || [];
+        studies.forEach(study => {
+            const locations = study.countries || [];
 
-        locations.forEach(loc => {
-            if (!loc || !loc.country) return;
+            locations.forEach(loc => {
+                if (!loc || !loc.country) return;
 
-            if (view === 'us') {
-                // For US view, only count US locations and aggregate by state
                 if (loc.country === 'United States' && loc.state) {
                     const state = loc.state;
-                    counts[state] = (counts[state] || 0) + 1;
+                    const city = loc.city || 'Unknown City';
+
+                    if (!stateData[state]) {
+                        stateData[state] = { count: 0, cities: {}, trials: [] };
+                    }
+                    stateData[state].count++;
+                    stateData[state].cities[city] = (stateData[state].cities[city] || 0) + 1;
+                    stateData[state].trials.push(study);
                 }
-            } else {
-                // For international view, count non-US countries
+            });
+        });
+
+        return stateData;
+    } else {
+        const counts = {};
+
+        studies.forEach(study => {
+            const locations = study.countries || [];
+
+            locations.forEach(loc => {
+                if (!loc || !loc.country) return;
+
                 if (loc.country !== 'United States') {
                     counts[loc.country] = (counts[loc.country] || 0) + 1;
                 }
-            }
+            });
         });
-    });
 
-    return counts;
+        return counts;
+    }
+}
+
+// Current map layer selection
+let currentMapLayer = 'volume';
+let currentStateData = {};
+let selectedState = null;
+
+/**
+ * Check if a trial reports race data
+ */
+function trialReportsRace(study) {
+    if (!study.baseline_data || !study.baseline_data.race) return false;
+    const race = study.baseline_data.race;
+    // Check if any race category has data
+    return Object.values(race).some(val => val && val > 0);
 }
 
 /**
- * Render the geography table
+ * Check if a trial reports ethnicity data
  */
-function renderGeographyTable(geoCounts, totalTrials) {
+function trialReportsEthnicity(study) {
+    if (!study.baseline_data || !study.baseline_data.ethnicity) return false;
+    const eth = study.baseline_data.ethnicity;
+    return Object.values(eth).some(val => val && val > 0);
+}
+
+/**
+ * Check if a trial reports sex data
+ */
+function trialReportsSex(study) {
+    if (!study.baseline_data || !study.baseline_data.sex) return false;
+    const sex = study.baseline_data.sex;
+    return Object.values(sex).some(val => val && val > 0);
+}
+
+/**
+ * Check if a trial reports gender data
+ */
+function trialReportsGender(study) {
+    if (!study.baseline_data || !study.baseline_data.gender) return false;
+    const gender = study.baseline_data.gender;
+    return Object.values(gender).some(val => val && val > 0);
+}
+
+/**
+ * Calculate reporting percentage for a set of trials
+ */
+function calculateReportingPercentage(trials, reportingFn) {
+    if (trials.length === 0) return 0;
+    const reporting = trials.filter(reportingFn).length;
+    return (reporting / trials.length) * 100;
+}
+
+/**
+ * Get value for a state based on current layer
+ */
+function getStateValue(stateInfo) {
+    if (!stateInfo || !stateInfo.trials) return 0;
+
+    switch (currentMapLayer) {
+        case 'volume':
+            return stateInfo.count || 0;
+        case 'race':
+            return calculateReportingPercentage(stateInfo.trials, trialReportsRace);
+        case 'ethnicity':
+            return calculateReportingPercentage(stateInfo.trials, trialReportsEthnicity);
+        case 'sex':
+            return calculateReportingPercentage(stateInfo.trials, trialReportsSex);
+        case 'gender':
+            return calculateReportingPercentage(stateInfo.trials, trialReportsGender);
+        default:
+            return stateInfo.count || 0;
+    }
+}
+
+/**
+ * Get color for choropleth based on value and range
+ */
+function getChoroplethColor(value, minVal, maxVal) {
+    if (value === 0) return '#f3f4f6'; // Light gray for no data
+
+    // Normalize value to 0-1 range
+    const range = maxVal - minVal;
+    const normalized = range > 0 ? (value - minVal) / range : 0;
+
+    // Green gradient: light to dark
+    const colors = [
+        { r: 232, g: 245, b: 233 }, // #e8f5e9 - lightest
+        { r: 165, g: 214, b: 167 }, // #a5d6a7
+        { r: 102, g: 187, b: 106 }, // #66bb6a
+        { r: 56, g: 142, b: 60 },   // #388e3c
+        { r: 27, g: 67, b: 50 }     // #1b4332 - darkest
+    ];
+
+    // Find the two colors to interpolate between
+    const segment = normalized * (colors.length - 1);
+    const index = Math.min(Math.floor(segment), colors.length - 2);
+    const t = segment - index;
+
+    const c1 = colors[index];
+    const c2 = colors[index + 1];
+
+    const r = Math.round(c1.r + (c2.r - c1.r) * t);
+    const g = Math.round(c1.g + (c2.g - c1.g) * t);
+    const b = Math.round(c1.b + (c2.b - c1.b) * t);
+
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// US State abbreviation to name mapping
+const stateNameToAbbr = {
+    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+    'District of Columbia': 'DC', 'Puerto Rico': 'PR'
+};
+
+const abbrToStateName = Object.fromEntries(Object.entries(stateNameToAbbr).map(([k, v]) => [v, k]));
+
+// US Map SVG paths (simplified for main continental states)
+const usMapPaths = {
+    'AL': 'M628.5,466.8l-2.2-24.1l-2.4-22.6l-15.8,1.8l-11.4,1.2l0.3,3.3l1.8,7.6l3.3,13.6l3.7,11.3l1.3,7.1l3.6,9.5l3.1,4.9l-0.5,5.9l2.6,4.9l0.7,3.5l2.2,0.7l0.6-2.5l-0.5-2.1l2-4.3l2.7-3.3l-0.1-2l3.5,0.6l0.7-10.9z',
+    'AK': 'M158.1,573.9l-0.3,86.2l2.5,1.5l3.9-1l2.5,2.2l5,0.2l1.3-1.5l-1.5-3.2l2-4.7l4.2-4l3.2,0.7l0.5,2.5l2.2-0.5l3.7-3.5l1.2-0.5l0.7-2.7l3.7-1.2l5.5,2.5l1.7,2.7l0.3,3.2l4.5,0.7l5-2.5l0.7,2l3.5-0.2l4-3.2l0.2-1.7l3.5-0.7l2.7-3.2l2-0.7l3,3l4.5,0.2l3.2-2.7l2.5,0.5l0.5-0.5l5,1l2-1.7l2.7-0.7l1.5-2.5l3.5,1l1.2,2.7l2.2-1l-0.7-2l1.7-0.7l4-0.7l2.2,0.7l1.2,2.5l3.5-2.7l2,1.5l2-5l5.5-3.2l0.7-2.7l-2.5-3l-2.5-1l-3.5,1l-3-0.5l-2.2,0.7l-2.2-1.2l2.2-2.5l-0.7-2.7l3.7-1l-1.2-2.2l-3-0.7l-1-1.7l-3.7,1l-3.2-2.2l-0.7-2.5l-4.2,0.7l-4.5-1.7l-2.5,0.7l-0.7-2.5l-3.5,0.2l-4.5-3l-5-0.2l-3.5-3.7l-5.2-3.5l-1-2.5l-4.7-4l-3.7,0.2l-2.2-3.7l-5,0.7l-2-2.7l-3,1l-3-0.5l-1.7-2.2l-3.5-0.5l-2.5,1l-0.5-2l-4-0.7l-1.5-4l-2.5,1.5l-3.5-2.7l0.2-2l-2.5-0.5l-3.5-3.7l-2.2,0.7l-5.2-4.2l-1.2,1l-4.2-0.7l-1.7-2.7l-2,0.5l-0.7-1.5l-3.5,2.5z',
+    'AZ': 'M213.9,412.5l-1.8,1.1l-1.1,2.8l0.4,1.4l-18.3,10.1l-26.6,14.3l-21.7,11.1l-18.5,9.5l6.8,13.4l13.5,25.8l11.5,22.2l14.2,27.4l10.9,21.1l4.5,3.9l2.4,0.2l0.9-1.7l3.9-0.8l2.5,0.5l1.4,3l7.6,0.8l3.5,2.1l0.2-1.7l-0.4-4.6l1.7-0.4l0.7-0.5l0.1-8.8l0.5-2l2.7-1.7l1-2.7l-0.6-1.7l1.1-2.7l0.5-2.3l0.5-4.6l2.5-2.2l2.7-0.1l2.6-3l0.7-4.7l-0.2-3.6l1.1-0.6l-0.2-4l3-5.5l0.9-5.7l0.2-2.7l-1-2l0.7-2.9l-0.6-1.9l1.7-2.9l0.7-6.8l2-2.2l0.2-1.2l-1.3-2.5l0.9-5.2l0.2-4.6l1.3-1.5l-0.5-2.9l1.4-3l-0.2-1l-1.5-1l-0.6-2.9l1.5-2.6l-0.6-0.9l-24.3,3.3l-24.9,2.7z',
+    'AR': 'M568.5,394.5l-7.3,0.4l-3.9-2.4l-3.1,1.5l-2.9-0.5l-35.1,1.3l-0.9,4.2l1.9,2.4l-0.6,3.9l-2.7,3l-0.3,3.3l1.7,3.7l-0.7,2.2l-2.1,3l0.7,1.3l-0.7,2l0.2,3.2l1.9,3l-0.2,2.4l-1.1,4.1l0.3,1.7l0.1,4.1l4.3,2l2.7-0.6l1-2l3.5-0.4l0.1-3.4l4.7,0.2l44.5-0.8l0.9-5l1.2-2.9l-0.9-3.4l1.7-5.9l-1.5-3.4l1.9-2.1l-0.5-4.4l-2.3-2.2l0.7-2.7l-1-3.5l1.9-1.7l-1.1-4.3z',
+    'CA': 'M135.2,335.9l-2.7,0.3l-2,2.3l0.2,2.9l2.7,3.6l1.2,3.9l2.9,2.1l2.6,0.5l1.9,4.2l0.5,6.9l1.2,3.7l1.7,1.2l0.7,3.1l-1.5,1.5l-1,3.9l1.2,1.7l3.6,2.9l2.4,4.1l2,5.4l1.7,6.9l2.2,1.2l3.4,0.5l1.5,1.5l0,3.9l-1,3.4l1.7,4.1l2.6,3.5l0.2,2.6l-0.5,1l0.2,1.9l7.8,9.4l1.7,3.4l1.5,4.6l-0.2,2.6l3.4,4.4l3.6,2.6l-0.5,1.9l1.2,2.2l2.2,0.7l3.6,3.1l4.6,0.5l2.6,2.9l0.2,1.2l3.4,2.4l2.2,2.4l-0.5,3.1l0.7,2.6l-0.5,4.4l1.5,4.4l21.7-11.1l26.6-14.3l18.3-10.1l-0.4-1.4l1.1-2.8l1.8-1.1l-5.9-17.2l-6.3-17.9l-14.2-38.7l-15.2-42.1l-1-1.7l-2.1-0.2l-2.3-1.5l-1.4,1l-2.6-0.4l-3.9-2l-2.9,0.1l-2.5,2.3l-1.2-0.2l-2.7-2.7l-2.6-0.6l0.7-1.3l-2-1.7l-1.6-3.1l-1.2-4.9l1.1-1.5l-1.9-0.9l-0.7-1.6l-0.7,0.5l-1.1-1.9l0.5-1.4l-2.9-3.1l-0.1-2l-2.1-2.2l-1.5-4.2l-2.2-1.6l-2.4-2.7l0.1-2.5l-1.9-1.1l-0.6-2.5l-2.6-1l-2.6-2.5l-0.1-4l-2.1-2.7l0.2-3.7l-3.6-0.7l-0.9-2.9l-2.1,0.9l-2.6,3.3l-0.3,2.2l-2.7,3.5l-1.9,4.1l-1.9,2.4l-0.2,2.6l-1.8,3l-3.7,3.5l-1.3,3.2l-2.9,4l-0.9,4.8l-3.1,4.3l-0.5,3.2l-1.9,3.3l0.7,3.8l1.1,1.8l-0.2,3.7l-1.5,2l-0.5,5.9l-2.3,2.9l-0.2,2.2l1.2,4l-1.2,5.3z',
+    'CO': 'M378.6,296.5l-46.5,3.3l-49.9,2.6l-7.2,0.2l2.6,17.2l3.3,18.6l3.7,18.5l3.6,21l53.1-4.5l53.7-6.2l-2.9-23.2l-3.7-24.9l-2.9-22.6z',
+    'CT': 'M852.6,205.3l-4.9-18.4l-1.9,0.2l-21.9,5.4l1.7,6.7l1.4,8.3l-0.1,5.7l3.1,0.1l2.3-2.1l1.4,1.2l4.7-3.2l11.9-2.7z',
+    'DE': 'M820.3,266.7l0.3-3.2l-1.9-0.1l-1.9-3.1l-3.7-0.9l-2.6,2.6l0.7,5.3l2.8,9.7l4.2,13l5.3-1.1l-0.9-6.2l-0.2-8.2l-2.4-0.3l0.3-7.5z',
+    'FL': 'M702.9,470l-0.3,3.3l4.4,6.5l5.2,6.6l3.4,6l3.7,10.5l4,7.5l0.5,4.7l3.7,7.2l4.5,5.2l2.2,4l-0.5,2l1,1.7l-0.2,4.2l-2.2,1.2l0.5,2.2l-1.2,3.2l-0.5,5.5l-3,1.2l-1.5,3.5l-0.2,2.2l-2.5,0.2l0.5,5l-1.2,3.2l-1.5,0l-0.2,3.5l2.2,4l1.2,5l3.7,4.7l1.7-0.5l0.5-2.5l-0.7-3l0.2-3l-2.5-4.7l1.5-1.2l3.5,2l1.5,3.5l3,3l1,3.7l-0.5,2l2.7,5.5l4.2,2.2l2.2,0l0.7-3.5l-1.5-1l0.2-2.7l2.5-3.7l2-7l-0.2-2.5l2.2-4.5l-0.7-6l2.5-5.2l0.2-4.7l1.7-3.2l-1.2-5l-1.7,0.7l0-7.2l1-2.7l-0.2-1.7l1.7-2.7l0.2-2.5l-3-4.7l-4-3.2l-3.7-5l-2.5-1.7l-1-3.5l-3.7-2.5l-1.7-2.2l-3.2-1.7l-0.7-1.5l-3-1l-3.5-3.2l-5.2-1l-2.7-2l-5.2-0.7l-0.8-2l-4.9,1.5z',
+    'GA': 'M703.2,469.8l-5.2,0.8l-4.5-0.1l-4.1-1.4l-1.2,0.2l-0.3,1.7l-2.7-1.7l-0.4,0.8l-4.9-0.2l-3.3,0.6l-4.7-0.3l-15.6,1.8l-0.3-3.1l1.7-2.2l1-3.7l-0.8-2.2l1.6-5.2l0.5-2.9l2.9-4.5l-0.3-3.1l-1.9-1.9l0.2-2l-3.3-5.7l-0.6-4.1l-2.2-4.3l0.5-2.3l-1.9-0.5l-1.9-2.7l0.7-5.5l-1.3-4.9l-2.9-5.6l-0.2-2.5l2-2.9l-1.1-4.2l27.4-3.6l14.7-1.7l5.9,36.7l1.9,10.9l4.7,0.4l6.9,0.6l-0.8,6.2l2.3,4.3l4.2,2.9l0.7,4.3l2.9,4.9l2.9,2.4l0.7,2.3l-3.9,0.1l-0.9-2.9l-2.2-0.6l-0.9,1.6z',
+    'HI': 'M233.1,578.5l1.9-3.1l0.4-1.9l-0.8-2.6l-2.5-0.5l-1.3,0.8l-0.3,3.5l0.8,2.9zm18.8-5.9l3.6-0.8l0.8-1.1l-1-3l-3.2-0.3l-2.6,1.3l-0.3,2.1zm16.9,0.3l1.1,2.4l2.9,0.3l0.5-0.8l-0.3-2.1l-2.6-1.1l-1.6,1.3zm5.4,6.1l1.6-0.5l1.6-2.4l-0.5-1.9l-3.4,1.3zm13-7.4l-0.5,2.9l2.4,2.1l2.6-1.1l2.9-3.7l-0.3-1.6l-2.7-0.8zm10.7,8.2l-0.3-2.4l2.9-1.6l1.5-3.1l1.8-1.5l1.9,0.3l2.4,2.4l-0.3,2.6l-4,2.4l-2.6,0.3z',
+    'ID': 'M224.1,205.6l-7.4,34.5l-4.2,18.8l-0.6,4.6l1.6,3.2l-1.5,3.2l0.7,2.6l2.3,2.6l1.9,0.7l2.7,5.5l-0.6,3.2l2.7,2l-0.2,3l1.2,2.4l-1.3,3.5l-1.4-0.6l-3.9,1.8l0.6,3.5l-4.3,0.3l-2.9,3.4l-0.5,3.7l2.6,2.8l-36.3,6.3l-1.3-7.7l3.5-14l0.2-5.2l2.7-5l-0.2-2.8l3.2-5l0.2-3.3l0.2-1.3l-3.3-3.5l-1.5-5l1.5-7.5l-1.3-2.2l0.8-5.3l3.3-4.5l0.2-2.5l-3.5-3l-2.3-5.3l2.2-9l-2.2-4.8l1.5-6l-0.7-3.5l2-6.3l4.9,1.2l8.7,2l8.6,1.8l8.3,1.5l7.9,1.3l7.9,1.2l8.9,1.2z',
+    'IL': 'M584.2,282.5l0.7-2.2l0.1-3.7l-0.9-2.7l0.9-2.2l2.7-2.5l0.3-3.7l-0.7-6l-2.1-5.9l-0.3-5.6l1.4-2.7l-1.1-2l-1.9-1.7l-0.3-5.6l-1.4,0.5l-3.2,2.5l-4.5,0.2l-1.7-1.2l-3.2,1.5l-2.9-1.2l-1.3,0.8l-7.7-3.1l-1-2.7l-7.7,0.8l0.7,3.6l-1.2,2.9l0.7,4.7l-0.8,2.7l2.3,4.5l4.9,4.7l-0.3,6l3,3.6l-0.3,1.7l1.7,4.5l-0.2,7.1l2,4.5l5.9,5l1,4.5l-0.6,7.3l-2.7,4.5l-0.9,4.7l1.4,4.1l4.9,4.1l3.3,0.3l0.9-2.7l2.8-2.2l0.4-1.2l2.9,1.1l2-1.2l0.9,0.5l2.2-2.8l1.1-4l-1.9-2.1l-0.2-3l1.2-3.3l2.9-3.5l-1.7-2.7l-0.6-2l1.4-3.1z',
+    'IN': 'M619.5,267.5l0.6-1.7l-0.1-3.4l-2.3-2.2l-0.5-4.9l-1.9-5.5l0.2-2.3l-1.5-2.6l0.1-2.7l-0.6-3.6l-21.4,2.1l-4.9,0.2l0.7,3.6l-1.2,2.9l0.7,4.7l-0.8,2.7l2.3,4.5l4.9,4.7l-0.3,6l3,3.6l-0.3,1.7l1.7,4.5l-0.2,7.1l2,4.5l5.9,5l1.1,4.6l1.9-1l3.2-4l1.2,0.3l1,3.2l1.7,1.5l2.5-2.7l0.3-1.7l-1.3-1.3l1.1-2.5l-0.5-2.6l1.6-3.6l0.3-3.9l-1.2-0.8l0.4-2.3l2.2-2.5l-0.4-2.7l0.3-2.7l-1.7-2.7l1.2-1.3z',
+    'IA': 'M558.1,224.5l-0.6-3l-2.2-1.7l-0.5-1.9l-2.9-1.9l-1.4-3.7l0.3-4.2l-1.4-3.5l-2.9-2.2l-0.3-1.5l-56.9,2.4l-1.1,3.1l2.3,4.3l3.1,3.7l0.1,3.2l2.3,3.2l0.6,3l-1.9,4.1l-0.7,4.1l-2,1.9l0.1,2.5l2.4,2.4l2.7,0.7l0.8,2.5l-1.1,2.7l-0.2,2.7l2.2,2l1.7-0.8l3.2,1.2l2.4-1l3.4,0.7l4.9-1.7l6.7,1.5l4.4-1.2l5.4,0.5l4,1.5l1.2-1.7l-0.5-3.5l2.5-0.8l1.2-3.9l2.2-1.9l1-2.7l3-1.7l0.5-3.5l3.5-4l0.8-1.7l-0.8-3.2l3.5-3.5l0.6-2z',
+    'KS': 'M490.3,313.5l-73.4,1.9l-32.5,0.5l2.9,22.6l3.7,24.9l2.9,23.2l35.9-1.6l63.3-4.6l1.2-24.1l-0.3-25.2l-1.5-1.2l-0.7-2.7l-1.3-0.8l1.2-3.2l-0.9-1.7z',
+    'KY': 'M686.6,344.8l-2.9,2.9l-4.5,4.4l-5.2,3.3l1.3,3.2l-3.4,4.5l0.5,2.7l-3.5,1l-0.5,2.5l-3.4,0.5l-3.2,2l-0.2,2.3l-0.7,2.9l-3.2,0.5l-0.7-1.5l-4.5,3.7l1,2.9l-5.5,4.5l-1.5,0.2l-1.5,2.5l-3.9-0.2l-3-2l-3.4,1.2l-0.7,2.9l-3.7-0.5l-0.5,4.9l-2.7-0.7l-5.7,2.7l-3-0.7l-2.7-1.2l-4.7,1.5l-1.5-2.7l-2.7,0.2l-1.8-1.1l-1.6,1l-1.6-1l0.6-2.5l-2.9-0.5l0.1-2.5l-3.4-2.2l-5.4,4.2l-4.9,0.2l-2.4-2.5l0.5-5.2l-2.2-3.5l4.6-5.2l3.2-0.3l0.6-2l10.9-1l22.7-2.5l8.3-1.2l14.7-1.7l22.3-2.6l6.9-0.7l3.5-5.2l3.7-2.6l3.7-3.6l2.9,0l3.6,2.2l0,3.4l2.7-0.9z',
+    'LA': 'M569.7,521.5l-1.7-7.5l-2.5-6.4l0.1-5.6l-1.8-3.2l0.9-5.5l2.4-3.7l-2.2-1.2l1.1-2.2l-2.1-2.4l0.6-4.5l-0.9-3.2l-0.3-2.9l-11.9,0.5l-13.9,0.5l-0.3,3.6l1.2,4.3l4.4,5.7l0.2,4.2l-0.2,3.2l-3,1.5l0.8,3l-0.2,2.5l-2.8,3.5l-1.4-0.3l-1-3.3l-3.4-2.3l-5-0.3l-1.3-2.5l0.2-3l-3.5,0.5l-3.5,2l-0.2-3.2l-4.5,1.2l-4,2.7l0.3,4.7l3.7,2.2l0.2,2.2l-2,1.5l1.8,2.2l-0.8,5.2l3.5,1.2l4.5-1l4-2l1.3,1.7l-3,3.2l2,1.7l0.2,1.5l4.8,1.2l2.2-2.5l1.5,0.7l-0.2,4l3.2,0.2l1.5-2l3.7,0.7l1.5,1.7l3.7-0.5l3.8-3.7l-0.5-3.2l2.7-0.2l0.2,2.7l4,1.5l2.8-0.5l0.5-2.5l2-0.5l2.7,2.2l0.2,3.5l3.5,0.7l1.7-1.5l0.7,1l-0.7,3.2l4.2,1.7l0.2-1.5l1.7-0.5l0.2,2l4.4-0.5l0.7-2l-1.8-1.2l3.5-2.3z',
+    'ME': 'M900.6,105.7l1.5-1.8l1.8-4.1l-1.2-4.9l1.7-4.2l-1.8-4.8l-2-0.9l-1.5,2l-0.5,4.1l-1.1-0.5l-0.5-3.9l-0.8,0l-1.7,3.9l-0.6,0.3l0.5,3.7l-3.2-2l-0.3-2.4l1.3-1.2l0.3-3.3l-1.3-3.2l-1.7,0.7l-1-3l-2.3,0.2l-0.7-3.3l-1.8-3.8l-2.2-1.5l-2.1,0.6l-0.8,2l-0.9-1.5l-1.9,3.3l-3.9,6.3l-2.1,1.2l-3.9,0.2l-1.7-0.3l-0.8-1.2l-2.3,2.3l-1.9,0.5l4.9,19.4l0.9,2.5l5.1,16.7l3.4-0.3l1.6,2.2l2.2-2.2l0.3-1.9l2.2,0.3l1.9-3.1l2.2,2.2l0.9-0.6l-0.3-2.8l2.2-1.5l0.3-4.4l0.9-4.4l2.2-3.8l2.8-4.1l1.9,1.2l1.2-0.9l0.6-2.7z',
+    'MD': 'M823.9,291.3l-3.2-9.9l-2.5-8.1l-4.9,1l-5.7,0.3l-5.8,1.7l-4.9,0.3l-1.7-3.1l-2.1-0.2l-4.2,2.1l-2.7-0.7l-8.9,2l-18.9,3.9l-12.6,2.3l0.6,4.9l0.2,2l0.7,3.5l4.7-5.3l2.9-0.7l2.2,1.5l3,0.2l2.2-3.5l3-0.2l3.2,2.7l-4,4.2l-1.2,2.2l-0.5,2.2l2.9,0.7l1.5,2.2l-1.7,0.7l0.6,5.4l5.3-0.2l1.8-2.1l1.8,1.1l2.6-0.2l1-2.7l2.5-1l1.2,2.8l5,0.3l3.9-0.3l0-2.7l1.7-1.4l0.5-4.3l3.2-1.2l0.9,1.7l-0.7,3.7l0.5,1l1.7-2.5l1.9,1.2l-0.2,2l-0.7,1.7l1.4,1.7l2.2-0.5l3.4-2.9l3.9-0.2l2.7,1l1.4-1l0.8-3.3l-0.8-2.2l1.4-1.5l0.5,1.5z',
+    'MA': 'M889.8,176.6l-0.2-1.7l2-0.3l0.5,1l-2.3,1zm12.6-3.6l-2.1-0.5l-1.3,0.8l-1.4-2.5l1.7-0.5l1.6,0.8l2.1,0.5l-0.6,1.4zm-23.7,13.7l2.2-0.8l0.9-1.7l2.2,1.5l-0.3,1.5l-1.7,0.8l-3.3-0.2v-1.1zm-38.6-7.9l1.7-3.2l2.9-4.9l2.7-0.5l1.5-2.2l5.5-2l0.3,2l4.2,0.2l3.7,3l7.5,1.5l2.2-0.2l3.2-3l1.5,3l-2.7,0.7l-4.2,1.2l-2.7,2.2l-0.5,1.5l3.5,0.5l0.2,1l-4.5,1.7l-5.7,1.5l-1.5,0.7l-3.5-3.7l0.5-2.5l-3.2-0.5l-4.9,1.7l-0.5-2l-5.7,1l-1.4-1.7zm-1.5,9.9l2.9,0.5l1.5-0.5l1.2,1.2l4.4-0.2l0.5,1l-4.4,1.5l-4.4-0.5l-1.9-1l0.2-2z',
+    'MI': 'M548.6,135.7l2.6-3.8l3.6-3.3l3.1-1.5l-0.3-4.1l1.2-1.7l0.2-3.9l1.3-0.9l3.6,2.5l5.9,1.7l3.6,0.5l2.5-0.7l6.5,1.7l1,1.5l-0.2,2.6l0.7,0.7l7.8-3l2.4-0.5l-0.2-2.2l1.2-0.7l0.5,0.5l2.7-1l5.5-4l2.7-3.8l-0.7-17.8l-1.5-1.2l-2.2-0.2l-1-1.5l-2.9-0.5l-2.2,0.7l-3,1.8l-0.5,2.5l1.2,1.5l0.2,1l-2.7,2l-3.2-0.2l-1.2-1.7l-0.7-2.7l-2.2-0.5l-5,1.2l-1.3-0.8l-7.8,2.5l-2,3.3l0.2,2l-2.2,3.7l-2.7,0.5l-0.7,2.7l0.2,3.7l3,1.5l3.4,0.2l0.8,1l0.3,6l-2.8,1.2l-1.2,1.5l-0.5,2.7l-3.1,5l-0.3,4.6zm8.9,3l1.9-2.7l1.7-1.2l5.4-2.2l1.5-1.5l0-1.7l-3.4,1.2l-3.4,2.9l-2.4,1.7l-1,3.5zm65.6,84l-1.9-12l-2.9-13.2l-1.5-3l-1.7-0.5l-0.9-4.1l-3.1-5.2l-1.2-1.6l0.9-0.4l-0.2-2.1l-2.3-1.7l-2.5-4.5l-0.6-6.3l1.1-4.1l-0.3-4.5l-1-2l0.3-6.7l2.1-3.4l0.3-2.9l-0.7-1.1l1.2-4.5l-0.9-3.6l-1.4-0.5l-0.3-3.4l-3.5-1l-3.4-2.8l-6.5-3.6l-7-1.2l-3.1-1.3l-5.9-0.3l-0.7,1.2l-4.4,1l-2.4-1.7l-8.2-1.5l-6.6,0.3l-0.2,2.2l2.5,1.5l0.2,2l-1.2,2.2l-0.2,1.7l2.7,3.6l3.7,3.5l-0.2,4.6l1,0.7l3.7-2.9l2.9,0.5l0.5,0.7l-2.9,2.5l-4.7,6l-1.2,3.6l0.2,4.1l-1.7,1.7l0,1.6l2.7,2.3l4.5,0.8l0.7-1.5l-0.3-2.3l1.7-1.5l3.9,0.8l1,3.6l-1.2,5.1l-0.3,5.6l1.5,3.5l-0.5,6.8l-1.2,5.6l1,4.5l0,3.6l-1.2,4.9l0,3.8l22.2-2.5l21.4-2.9z',
+    'MN': 'M487.9,125.7l-0.7-10.9l-1-10.2l-1.9-4.9l-0.5-8.4l0.7-4.5l-1.5-4l-0.4-8.9l-0.9-1.2l-0.2-4.2l43.9-1l0.2,3.7l2.3,5.4l3.9,4l0.5,5.8l2.9,6l0.2,4.5l3.1,4l0.2,7.3l-2.3,5l0.5,3.8l2.9,2l-0.2,6.2l-2.5,0.2l-0.2,5.3l0.7,5l-0.2,4.3l-4.3,0.2l-1.1,3.9l-5.1,0.2l-0.7,5.2l-2.4,0.2l-0.7,2.3l0.5,2.5l-1.1,2.1l-3.6-0.7l-2.3,2.9l-3.2-0.5l-5.3,3.8l-2.3-0.2l-1.4-3l-3.9,0.5l-3.6,3.2l-2.1-0.9l-1.1-4.5l-2.9-1.4l-4.3-3.4l-8.2-1.1l-1.8-3.6l-3.7-0.2l-0.5-1.6l2.6-2.5l1.5-2.8l1-4.5l2.2-3.1l0.8-5.7l-1.7-2.7l-0.1-3.2l2-1z',
+    'MS': 'M591.7,523.2l-23.5,1.7l-12.6,0.2l-4.4,3.1l-2.9-1.5l0.2-4.7l5.2-0.5l1.5-1.7l0.7-4.4l-1.7-1.2l1-2.5l-2-1.6l-0.2-2.9l-1.9-2.3l1.1-2.2l-2.1-2.4l0.6-4.5l-0.9-3.2l-0.3-2.7l-11.9,0.5l-14,0.5l-0.3,3.6l1.2,4.3l4.4,5.7l0.2,4.2l-0.2,3.2l-3,1.5l0.8,3l-0.2,2.5l-2.8,3.5l-1.4-0.3l-1-3.3l-3.4-2.3l-5-0.3l-1.3-2.5l0.2-3l-3.5,0.5l-1.2,0.2l1.9,9.9l2.7,9l0.3,4.2l3.4,5.9l0.7,5.5l3,5.4l0.5,3.7l-1,5.9l0.9,2l37.9-1.9l3.3-0.3l1.2-3.8l2.4-1.5l-0.2-3.2l2.2-4l0.9-5.9l3.6-3.4l-0.8-2.7l1.6-4.4l-0.5-3.9l2.9-4.4z',
+    'MO': 'M568.2,308.3l-1.8-2.5l-3.2-0.7l-2.3,0.7l-2.4-3l-0.2-3.2l-1.7-1.5l-3.2,2.2l-0.7-1.5l-0.8-6.2l-2.6-3.1l-1.6,1l-1.7-0.7l-1.9,1.2l-2-2.3l-2-4.6l-2.3-2.2l-52.1,1.4l0,8l1,4.7l3.1,3.7l2.4,1.7l2.3,3.9l3.5,1.5l1.9,1.7l1.1,5.3l-1.1,4.9l0.6,1.6l-1,1.7l0.1,1.3l-1.5,1.2l0.7,2.7l1.5,1.2l0.3,25.2l-1.2,24.1l28.3-0.6l28.9-1.3l8.7-0.5l-0.1-4.1l-0.3-1.7l1.1-4.1l0.2-2.4l-1.9-3l-0.2-3.2l0.7-2l-0.7-1.3l2.1-3l0.7-2.2l-1.7-3.7l0.3-3.3l2.7-3l0.6-3.9l-1.9-2.4l0.9-4.2l35.1-1.3l2.9,0.5l3.1-1.5l3.9,2.4l7.3-0.4l0.2-1.5l-2.3-4.1l0.8-3l-3.9-5.1l-3.3-4.1l-5.7-1l-2.3-2l-0.9-3.6l-3.4,0.3l-5.9-2.1z',
+    'MT': 'M330.9,99.7l-0.9,15.9l1.7,10.2l0.3,16.4l1.8,18.2l-42.7,3l-42.9,1.5l-26.1,0.3l7.4-34.5l-8.9-1.2l-7.9-1.2l-7.9-1.3l-8.3-1.5l-8.6-1.8l-8.7-2l-4.9-1.2l4.9-22.7l3.4-16.7l50.9,10.9l48.2,8.2l50.2,6.9z',
+    'NE': 'M380.8,235.9l-24.9-0.5l-34.5-1.4l1.9-25l-36.6,0.3l-3.6,0.3l1.4,3.3l4.7,5.7l4.6,4.6l5.5,4l1.7,3.6l3.9,2.7l1.9,3.7l-0.2,5.2l3,3l1.2,3.4l2.8,0.3l1.5,2.3l2.1-0.3l1.4,1.2l39.6-1l46.5-3.3l-2.2-18.9l-2.9-20l-16.3,0.5z',
+    'NV': 'M175.8,318.9l15.2,42.1l14.2,38.7l6.3,17.9l5.9,17.2l24.9-2.7l24.3-3.3l-8.6-39.3l-10.1-45.9l-6.2-29.7l-3.9-17.9l-36.3,6.3l-2.6-2.8l0.5-3.7l2.9-3.4l4.3-0.3l-0.6-3.5l3.9-1.8l1.4,0.6l1.3-3.5l-1.2-2.4l0.2-3l-2.7-2l0.6-3.2l-2.7-5.5l-1.9-0.7l-2.3-2.6l-0.7-2.6l1.5-3.2l-1.6-3.2l0.6-4.6l4.2-18.8l-27.6,4.7l-3.5,54.2l-4.9,72.7z',
+    'NH': 'M868.7,147.2l0.5-3.1l3.2-0.5l0.8-2.7l-0.4-5.9l-2.9-1.5l-0.2-2.5l1.3-3.7l-1.9-4.7l0.5-3l-0.4-5.9l-2-6.6l0.5-2.5l-0.8-3.7l0.6-5.7l-1.3-5.3l-5.1,1.4l-0.7,4.7l-2.4,0.7l-2.5,0.2l-1.9,3.3l-3.9,6.3l-2.1,1.2l-3.9,0.2l-1.2-0.4l0.5,3.9l2.7,1.3l1,2.8l0.3,11.9l-1.6,2.9l0.8,2.3l-0.3,5.9l0.3,7.9l3.2,0.3l1.8-1.6l2,1.8l4.7-0.5l0.3-2.5l1.9-0.6l3.9,0l1.3,3.3l5.2,1.7z',
+    'NJ': 'M836.3,229l-2.9-0.5l-2.9,2.7l-1,3.7l0.7,1.2l-0.9,3.4l-2.2,3l-0.2,1.7l2.2,2.5l-1,2.5l-1.9,1l1.7,1.5l1.2,3.7l2.2,2.5l2.7,5.4l4.5,6.7l2.5,1.5l1-0.5l1.5-3.5l-0.9-1.7l-2.9-0.2l-2.5-4l0.5-1.5l1.2,0.2l0.7-2.2l-0.2-7l0.5-4l-1.7-3l0.5-2.7l0.2-5.2l-1.2-3.2l-0.3-3z',
+    'NM': 'M300.4,384.5l-4.3,0.5l-7.2,0.2l2.6,17.2l3.3,18.6l3.7,18.5l3.6,21l9.9-0.8l24.5-2.8l24.2-2.8l9-1.3l-0.7-6.2l-7.1-66.3l-27,2.3l-4-0.1l0,5.9l-28.3,2.6l-2.2-6.3z',
+    'NY': 'M846.4,193.2l-1.9-0.1l-2.1,2.4l-2.3,0l-1.7-2.4l-1.4,0.6l-2.5,2.9l-2.5,0.6l-3.7,3.6l-3,3.8l-2.5,1.2l-5.6,1.4l-5.6,0l-0.2-2.9l0.5-2.2l1.2-0.7l1.2-2.2l-0.5-1.2l-3.3-0.2l-3.2-3.6l-9.2-30.9l-4.5-1.5l-37.2,9.1l3.4,13l2.7,2.5l0.3,6.4l4.9,5.7l0.7,3.3l-0.9,4.2l2,4.4l-0.3,5.5l-0.9,1.7l0.3,2.3l-2.4,2.7l1.6,2.9l-0.3,1.7l-2.4,2l-3.9,1.4l-2.9,3.7l-3.3,3.2l-2.4,0.7l-2.5,2.7l-1.9-0.3l-0.3-5.5l1-3.9l1.9-2.4l0-3.2l-3.1-2.9l0.3-2.5l1.6-2.7l1.1-7.7l3.5-6.6l5.4-6.1l2.4-3.5l-0.6-0.6l-4.9,2.5l-3.6,3.8l-4.3,5.9l-2.4,5.9l-2.9,4.9l-0.7,3.5l0.2,8.5l-2.7,3.2l-0.3,1.5l2.3,2.8l-0.7,2.5l-3.7,3.8l-1.3,3.7l7.7,0.3l59.1-12l18.9-3.9l8.9-2l2.7,0.7l4.2-2.1l2.1,0.2l1.7,3.1l4.9-0.3l5.8-1.7l5.7-0.3l4.9-1l1.4-8.3z',
+    'NC': 'M818.9,359l2-2.9l3.4-1.7l1-3l1.4-0.3l0.7,2.1l3.2-2.4l3.4-3.6l1.5-3.6l2.2-2l-0.2-1.4l-4.3-0.1l0-2.3l1.2-0.4l1.5-3l1.8-0.3l-0.2-1.8l-3-1.7l-0.5-2.4l1.9-0.4l0.2-2l-3.6,1.2l-7.2,0.6l-22.2,2.7l-22.7,2.3l-21.9,1.7l-22.7,2.5l-10.9,1l-0.6,2l-3.2,0.3l-4.6,5.2l2.2,3.5l-0.5,5.2l2.4,2.5l4.9-0.2l5.4-4.2l3.4,2.2l-0.1,2.5l2.9,0.5l-0.6,2.5l1.6,1l1.6-1l1.8,1.1l2.7-0.2l1.5,2.7l4.7-1.5l2.7,1.2l3,0.7l5.7-2.7l2.7,0.7l0.5-4.9l3.7,0.5l0.7-2.9l3.4-1.2l3,2l3.9,0.2l1.5-2.5l1.5-0.2l5.5-4.5l-1-2.9l4.5-3.7l0.7,1.5l3.2-0.5l0.7-2.9l0.2-2.3l3.2-2l3.4-0.5l0.5-2.5l3.5-1l-0.5-2.7l3.4-4.5l-1.3-3.2l5.2-3.3l4.5-4.4l2.9-2.9l4.2,8.7l3.1,11.3l2.4,5.2l4.4,5.3z',
+    'ND': 'M430.7,118.7l0.1-2.1l-0.7-6.3l-0.7-8.6l-0.5-4.6l-2.2-8.2l0.2-6.1l-0.7-6.4l-0.5-6.7l-43.8,1.5l-50.2-1.1l-0.3,16.4l1.8,18.2l1.5,18.9l0.8,16.3l56.2-1.7l38.9-2.2z',
+    'OH': 'M692.5,265l-3.2-3.4l-4.2-1.2l-2.5,0.7l-3.4,3.3l-3.1,0.5l-4.2,2.5l-7.5,3.2l-3.1,0.5l-2.9,1.7l-14.6,1.5l-10.9,1.7l-14.9,1.3l0.6,3.6l-0.1,2.7l1.5,2.6l-0.2,2.3l1.9,5.5l0.5,4.9l2.3,2.2l0.1,3.4l-0.6,1.7l-1.2,1.3l1.7,2.7l-0.3,2.7l0.4,2.7l-2.2,2.5l-0.4,2.3l1.2,0.8l-0.3,3.9l-1.6,3.6l0.5,2.6l-1.1,2.5l1.3,1.3l-0.3,1.7l-2.5,2.7l-1.7-1.5l-1-3.2l-1.2-0.3l-3.2,4l-1.9,1l4.9,4.3l4.4,3.8l6.2,5.3l9.5,7l3.6,0.8l2.8-3.7l3.4,1.2l2.9-2.9l2.4,1.2l3.5-3.6l5.4-4.8l1.9-2.8l1.2-4.6l4.4-4.4l-0.7-1.9l3.4-4.4l5.8-5.4l1.9-4.6l4-2.4l-0.5-5.6l1.9-4.2l3.1-3.5l3.4-5.5l3-7.2l3.7-3.4z',
+    'OK': 'M438.7,403.5l-26.5,0.2l-0.6-11.6l-47.8,0.6l-0.7-5.2l0-0.6l-0.9-1.7l1.2-3.2l-0.7-2.7l1.5-1.2l-0.1-1.3l1-1.7l-0.6-1.6l1.1-4.9l-1.1-5.3l-1.9-1.7l-3.5-1.5l-2.3-3.9l-2.4-1.7l-3.1-3.7l-1-4.7l0-8l52.1-1.4l2,4.6l2,2.3l1.9-1.2l1.7,0.7l1.6-1l2.6,3.1l0.8,6.2l0.7,1.5l3.2-2.2l1.7,1.5l0.2,3.2l2.4,3l2.3-0.7l3.2,0.7l1.8,2.5l6.7-0.8l0.5,10.7l34.3-1l29.9-2.5l-1.9,1.7l1,3.5l-0.7,2.7l2.3,2.2l0.5,4.4l-1.9,2.1l1.5,3.4l-1.7,5.9l0.9,3.4l-1.2,2.9l-0.9,5l-0.4,0.7z',
+    'OR': 'M173.3,189.2l-2.2,9l2.3,5.3l3.5,3l-0.2,2.5l-3.3,4.5l-0.8,5.3l1.3,2.2l-1.5,7.5l1.5,5l3.3,3.5l-0.2,1.3l-0.2,3.3l-3.2,5l0.2,2.8l-2.7,5l-0.2,5.2l-3.5,14l1.3,7.7l27.6-4.7l3.5-54.2l4.9-72.7l-26.5,5.5l-27.3,4.5l-4.9-0.5l-2.2-2.2l-3.2-0.3l-0.5,3.3l-5.7,1.8l-4.4,2.2l-1.6-0.4l-2.5,1.8l-0.5-0.5l2.8-5.8l4.5-4.3l1.4-4.7l-1.5-3l2.5-4.2l0.5-6.5l2-3.5l-0.4-1.4l-2.7,0.4l-2.5,4.5l-2.2,1.2l-4.3,1.4l-2.2,2.3l-4.7,1.7l-2-0.5l-3.5,3.8l-0.2,2.7l3.5,2.6l0.3,3.9l-2.8,4.2l-0.2,3.3l1.2,4.7l-2.8,6.7l-0.2,5.6l2.3,5.1l0.4,5l-0.9,2.9l3.7,4.6l-0.5,4.5l4.5-0.3l5.9-0.8l4.7,2.2l3.7,1.2l2.7-0.2l6.4,3.3l4.5,1l4.4,0.3l3.6,2l3.7-0.2l2.9-1.7l4,0.5l3.4,2.8l3.1-0.3z',
+    'PA': 'M825.4,230.7l-3.2-12.6l-34.8,7.9l-37.2,7.1l-3.4-13l-2.7-2.5l0.9-4.2l-0.7-3.3l-4.9-5.7l-0.3-6.4l4.5,1.5l9.2,30.9l3.2,3.6l3.3,0.2l0.5,1.2l-1.2,2.2l-1.2,0.7l-0.5,2.2l0.2,2.9l5.6,0l5.6-1.4l2.5-1.2l3-3.8l3.7-3.6l2.5-0.6l2.5-2.9l1.4-0.6l1.7,2.4l2.3,0l2.1-2.4l1.9,0.1l1.9-0.2l4.9,18.4l2.7,10.6l1,5l5.7-0.3l22.5-4.5l6.2-1.1z',
+    'RI': 'M867.2,197.7l-1.1-6.3l-0.6-4l-5.2-1.7l-1.3-3.3l-3.9,0l-1.9,0.6l-0.3,2.5l-4.7,0.5l0.8,2.5l3.5,4.3l3.2,4.5l1,3l5.1,1.9l0.5-3.3l2.2,0l2.7-1.2z',
+    'SC': 'M732.9,416.4l-3.6-2.7l-4.1-1.1l-1.3-2.4l-2.7-1.3l-3.2,1.8l-4.5,5.3l-2.9-1.2l-1.1-2.3l-5.7,0.5l-2.1,0.9l-4.4-2l-9.7,2.7l-9.3,4.6l-6,4.9l-2.9,0.5l-0.7,2.9l-3.2,3.3l0.3,4.8l2,2.5l-0.3,4.1l2.2,0.6l0.9,2.9l3.9-0.1l-0.7-2.3l-2.9-2.4l-2.9-4.9l-0.7-4.3l-4.2-2.9l-2.3-4.3l0.8-6.2l-6.9-0.6l-4.7-0.4l-1.9-10.9l-5.9-36.7l22.7-2.5l21.9-1.7l3.4,10.1l8.3,15l7.3,8l6,4l4.7,0.2l1.5,5.7l6.4,3l4.9,5l3.7,2.3l1.7,4l4.7,4.6z',
+    'SD': 'M431.1,213.7l-0.5-5.6l-0.1-12.9l-56.2,1.7l-38.9,2.2l0.5,10.7l2.2,6.9l-1.6,4l1.3,3l3.1,6.2l1.3,1.7l0.2,3.3l5.7,7.1l0.7,3.4l-1.6,4.5l0.5,0.6l34.5,1.4l24.9,0.5l16.3-0.5l2.9,20l2.2,18.9l4.3,0.2l4-1.5l0.2-3l3.9-1.4l1.3-2.8l-0.2-2.7l-2.4-2.2l-0.3-2.5l0.4-5.7l-0.2-9l2.3-0.5l0.4-7.2l-1.2-3.4l-3-3l0.2-5.2l-1.9-3.7l-3.9-2.7l-1.7-3.6l-5.5-4l-4.6-4.6l-4.7-5.7l-1.4-3.3l3.6-0.3z',
+    'TN': 'M664.9,378l-3.1,2.8l-5.4,1.2l-2.8,2l-1.3-0.2l-5.2,3.5l-1.5,2.4l-2.5,1.4l-3.6-0.3l-2.3-2.3l-3.5,2.5l-4.7,1.6l-0.3,1.9l-4.3,2.7l-3.4,3.3l-3.1,1.6l-6.2,1.1l-6.7,3.9l-3.9,0.9l-2.6,1.7l-24,2.2l-7.2,0.9l-3.7,0.4l-11.6,1.4l-12.9,0.5l-9.5,1l0.9-4.3l-1.9-2.9l4.9-4.9l1.1-2.5l8.4-0.4l24.9-2.3l8.7-0.5l1.2-2.4l2.7-2l2.2-2.6l3.5,0.5l4.3-4.5l4.1,0.7l2.5-3.7l2.1-0.2l2.3-2.8l-0.2-2.6l2.9-1.7l4.7-1.9l4.6-1.5l0.7,2.5l2.4-2.1l-0.4-4.5l3.1-2l1.9,1l1.5-3.1l3.6-0.2l1.7-3.2l1.4,0.5l0.7-1.7l2.9-1l22.3-2.6l14.7-1.7l7.9-1.2l-2.7,0.9l0,3.4l-2.7,0.9l0,3.4l-3.6-2.2l-2.9,0l-3.7,3.6l-3.7,2.6l-3.5,5.2z',
+    'TX': 'M438.3,404.2l29.9-2.5l34.3-1l-0.5-10.7l-6.7,0.8l-1.8-2.5l5.9-0.5l5.9,2.1l3.4-0.3l0.9,3.6l2.3,2l5.7,1l3.3,4.1l3.9,5.1l-0.8,3l2.3,4.1l-0.2,1.5l-7.3,0.4l-0.9,5l1.1,4.3l0.8,4.4l1.1,2.2l0.7,2l0.3,2.7l0.9,3.2l-0.6,4.5l2.1,2.4l-1.1,2.2l1.9,2.3l0.2,2.9l2,1.6l-1,2.5l1.7,1.2l-0.7,4.4l-1.5,1.7l-5.2,0.5l-0.2,4.7l2.9,1.5l4.4-3.1l12.6-0.2l23.5-1.7l-2.9,4.4l0.5,3.9l-1.6,4.4l0.8,2.7l-3.6,3.4l-0.9,5.9l-2.2,4l0.2,3.2l-2.4,1.5l-1.2,3.8l-1.4,0.5l-0.9,3.4l0.8,1.5l-3,6.3l1.7,2.7l-0.2,2.2l0.7,3.5l1.5,3.5l0.7,4.2l2.5,2l0.7,2.7l2.2,2.2l0.2,1.5l2.5,4.3l3.4,3.4l1,2.5l2,2l-0.7,2.8l-3.4,0.3l-4.7,2.2l-0.7,2l-4.2,4.5l-1.2,2.2l2.5,1.2l-2,4.7l-2.5,3l0,2l-2.5,1.7l-4.2,0.5l-4.2,2.2l-5.2,1l-2,2.7l-2.5,1l-3,2.9l-4,1.7l-5.7,4.7l-4.7,2.7l-3.7,3.5l-1.2,4l-5,4.2l-1.2,0.5l-0.2,2.5l-3.4,1.5l-2.5-1.3l-4.5,1.8l-5.1,0.3l-3.5-2.9l-1.5-4.2l-4.2-5.9l-1.3-1l-0.3-2.7l-2.8-2.5l-0.5-3l-1.2-1.2l-0.2-2.2l-2.2-2.2l-0.3-5.2l-4.5-8.2l-0.3-3.5l-2-2.5l0.2-5.5l-0.7-3.5l0.2-2.5l0.7-1.8l-1.2-3l0-2.2l-1.5-5l-1.8-2.3l-0.8-3.7l-2.4-3.5l0.1-2.2l-2.2-1.7l-0.5-5.2l-2.5-5.2l0.2-1.9l-2.8-2.5l-5.7-15.2l-1.9-1.7l0.3-1l-6.9-14.4l-7.5-3.5l-3.4-0.3l-1.8,0.3l-1.8-1.5l-3.1,0.8l-3.4-2.2l-3.2,0.6l-3.4,2.9l-3.7,0.7l-1.4,1.4l-1.7-0.8l-2.1,1.1l-2.7-0.3l-2.1-1.5l-0.5-2.7l0.8-3.7l-0.1-4.1l-2-1l-3.1-4.5l-5.7-2.2l-0.5-1l-3.2-1.5l-2.4-3.3l-0.1-4.7l-2.7-4.4l2.4,0l6.4,3l3.4-0.3l0.6-3.7l2.7-0.2l1-3l3.7-2.7l1.7-1l2.5-2.2l-0.8-1.6l-2.9-0.3l-2.4-3l-1-2.9l-3.9-0.7l0.5-3l-2.4-2.2l-0.2-4.7l26.5-0.2z',
+    'UT': 'M283.7,283l-5.6,0.5l-27.5,2.8l-2.2-18l-3.2-19.5l-1.2-6.1l-3.9-19.4l27.5-5.3l-1.8-9l32.6-5.5l7.2,40.7l6.2,35.9l-28.1,2.9z',
+    'VT': 'M838.2,148.7l2.5-0.6l0.4-2.9l1.7-4l0.5-3.7l-3.1-8.6l1.6-3.5l-1.7-4.5l-0.5-7.6l2.3-5.4l-0.5-1.7l-0.8,0l-0.3-7.9l0.3-5.9l-0.8-2.3l1.6-2.9l-0.3-11.9l-1-2.8l-2.7-1.3l-0.5-3.9l1.2,0.4l-24.3,6.6l2.1,8.9l0.6,27l0.7,15.7l-0.7,6.3l0.3,2.2l1.7,0.5l0.8,2l3.6,0.5l1.9,3l4,0.2l0.5,2.2l2.1,0.8l3.2,4.7l3.7,1.7z',
+    'VA': 'M821.6,322.9l-0.5-1.5l-1.4,1.5l0.8,2.2l-0.8,3.3l-1.4,1l-2.7-1l-3.9,0.2l-3.4,2.9l-2.2,0.5l-1.4-1.7l0.7-1.7l0.2-2l-1.9-1.2l-1.7,2.5l-0.5-1l0.7-3.7l-0.9-1.7l-3.2,1.2l-0.5,4.3l-1.7,1.4l0-2.7l-3.9,0.3l-5-0.3l-1.2-2.8l-2.5,1l-1,2.7l-2.6,0.2l-1.8-1.1l-1.8,2.1l-5.3,0.2l-0.6-5.4l1.7-0.7l-1.5-2.2l-2.9-0.7l0.5-2.2l1.2-2.2l4-4.2l-3.2-2.7l-3,0.2l-2.2,3.5l-3-0.2l-2.2-1.5l-2.9,0.7l-4.7,5.3l-0.7-3.5l-0.2-2l-0.6-4.9l-10.7,4.4l2.6,3.5l-1.7,6l0.2,9l-0.2,4.7l0.5,2.7l-0.3,1.8l-0.3,6.9l-2.7,0l-1.4-2.2l-2.9,2.3l-0.3,2.4l1.6,1.4l0.3,2.8l1.9,2.4l0.1,3.9l0.7,2.3l25.9-7l25.2-6l5.7-1.2l5.1,10.1l2.5-1.9l3.9-0.9l2.2,0.3l2.2,0.5l2-2.5l0.3-3.5l3.3,0.2l2.5-1.4l3-3.1l4.2,3.2l3.2,0.2l2-0.9l-4.4-5.3l-2.4-5.2l-3.1-11.3l-4.2-8.7z',
+    'WA': 'M173.2,61.7l-2.5,0.2l-1.2,1.5l-3.2,0.2l-0.7-0.7l-3.5,2.2l-0.2,2.2l-1.5,0.5l-2.5,3l-3,1.5l1.2,2.3l-0.2,5.7l0.7,2l-2,2.2l0.2,3l1.5,1.7l0.5,4.5l0.5,6.5l-2.5,4.2l1.5,3l-1.4,4.7l-4.5,4.3l-2.8,5.8l0.5,0.5l2.5-1.8l1.6,0.4l4.4-2.2l5.7-1.8l0.5-3.3l3.2,0.3l2.2,2.2l4.9,0.5l27.3-4.5l26.5-5.5l-4.9-22.7l-3.4-16.7l-2.2,0.4l-1.5-3.7l-3.7-0.5l-1.7-3l-1.2,1.2l-2.4-2.5l-0.8,1.5l-0.8-2l-2.5-0.5l0.3-1.5l-2-0.7l-0.3,1.2l-2.5-1.2l0.8,3.7l-1.8,0.2l-0.8-1.5l-0.3-3.2l-3.4,0.7l-0.2,2.4l-1.2-3l-2.9,2.7l-1.3-0.5l-1.2,3z',
+    'WV': 'M732.9,290l-2.4,1.7l-1.7,4l0.3,2.2l-1.4,2.6l0.2,1.3l-1.5,3.7l0.5,2.5l-2.2,1l-2.2,2.3l-2.9,0.6l-4.1,4.2l-2.9,4.6l0.1,1.9l-1.7,1.3l-0.5,2.8l-2.1,0.7l-0.5,1.6l-3.5,0.5l-0.7,3.6l-2.4,0.5l-2,2l-1.2-0.7l-0.7,2.5l-1.7-0.3l-0.5,1l-2.1,0.2l-1.7-3.9l-2.4,2.5l-2.2-1.8l-1.5,0.5l-0.2-2.4l1.4-1.1l0.2-2.9l1-2l-1.2-1.5l0.5-2.5l-1.5-3.2l3.7-2.4l0.7-2.4l1.9-2.3l-0.5-3l1.9-4l2.2-2l0.3-4.2l1.2-3.6l-1-4l2.4-0.7l3.3-3.2l2.9-3.7l3.9-1.4l2.4-2l-1.6-2.9l2.4-2.7l-0.3-2.3l0.9-1.7l0.3-5.5l-2-4.4l0.9-4.2l2.9-1.7l3.1-0.5l7.5-3.2l4.2-2.5l3.1-0.5l3.4-3.3l2.5-0.7l4.2,1.2l3.2,3.4l-3.7,3.4l-3,7.2l-3.4,5.5l-3.1,3.5l-1.9,4.2l0.5,5.6l-4,2.4l-1.9,4.6l-5.8,5.4l-3.4,4.4l0.7,1.9l-4.4,4.4z',
+    'WI': 'M558.9,202.3l-0.2-2.5l1.2-2.5l1-5.2l-1.2-2.2l-0.2-3.5l1.2-3.7l0.5-4.2l-1.5-4.9l-0.5-5.2l-0.5-1.9l-1.4-1.1l1.1-2l-0.6-1.7l0.7-2.2l-0.4-3l0.9-4.1l1.7-3l-0.5-1.9l0.7-2.7l1.5-2l0-3.2l-0.7-2.2l2.4-4.9l3.1-4.4l-0.5-1l-1.8,0.5l-4.8,2.9l-1.7,0l-4.6,2.2l-2,3.2l-4.4,2.7l-0.7-0.2l-2.9,1.7l-3.4,0.5l-3.4-0.5l-0.2-2.7l-3.1-0.2l-2.4-1.5l-9-1.2l-5.3-0.2l-1.2-1.7l-4.3-3.6l-0.2-7.3l-3.1-4l-0.2-4.5l-2.9-6l-0.5-5.8l-3.9-4l-2.3-5.4l-0.2-3.7l-3.1,0.4l0.5,3.2l-3.3,0.5l-4.2,1.2l0.2,4.7l-0.5,3.2l-2,1.7l-0.2,4l1.2,3l-1.7,2l-0.2,2.7l1.2,4.2l1.2,2.5l-0.9,5.7l-2.2,3.1l-1,4.5l-1.5,2.8l-2.6,2.5l0.5,1.6l3.7,0.2l1.8,3.6l8.2,1.1l4.3,3.4l2.9,1.4l1.1,4.5l2.1,0.9l3.6-3.2l3.9-0.5l1.4,3l2.3,0.2l5.3-3.8l3.2,0.5l2.3-2.9l3.6,0.7l-1.1-2.1l-0.5-2.5l0.7-2.3l2.4-0.2l0.7-5.2l5.1-0.2l1.1-3.9l4.3-0.2l0.2-4.3l-0.7-5l0.2-5.3l2.5-0.2l0.2-6.2l-2.9-2l-0.5-3.8l2.3-5l-0.2-7.3l5.3,1.9l1.2,0.3l7.2,2.1l1.3,7.9l1.5,3.8l-0.5,4.5l1,4.8l-0.6,5.9l1.7,5l-0.9,3.4l0.5,2.6l-1.3,2.6l1.2,2.3l-0.2,4.7l4.6,5.2l0.4,3l-0.3,3.4l0.5,3.9l3.4,4.4l0.5,1.9l-1.5,2.7l0.2,2z',
+    'WY': 'M335.1,219.6l-4.3-0.2l-39.6,1l-1.4-1.2l-2.1,0.3l-1.5-2.3l-2.8-0.3l-1.2-3.4l-7.2-40.7l42.7-6.1l42.9-5.2l5.1,36.6l5.7,43.9l-46.5,4.1l7.2,0.2l4.3-0.5l-1.3-25.9z'
+};
+
+/**
+ * Render the US Map with choropleth coloring
+ */
+function renderUSMap() {
+    const container = document.getElementById('us-map-container');
+    if (!container) return;
+
+    // Calculate min/max values for current layer
+    const values = Object.keys(currentStateData).map(state => getStateValue(currentStateData[state]));
+    const minVal = Math.min(...values.filter(v => v > 0), 0);
+    const maxVal = Math.max(...values, 1);
+
+    // Update legend
+    const legendLow = document.getElementById('legend-low');
+    const legendHigh = document.getElementById('legend-high');
+    if (legendLow && legendHigh) {
+        if (currentMapLayer === 'volume') {
+            legendLow.textContent = '0';
+            legendHigh.textContent = maxVal.toLocaleString();
+        } else {
+            legendLow.textContent = '0%';
+            legendHigh.textContent = '100%';
+        }
+    }
+
+    // Build SVG
+    let pathsHtml = '';
+    for (const [abbr, path] of Object.entries(usMapPaths)) {
+        const stateName = abbrToStateName[abbr];
+        const stateInfo = currentStateData[stateName];
+        const value = stateInfo ? getStateValue(stateInfo) : 0;
+        const color = getChoroplethColor(value, minVal, maxVal);
+        const isSelected = selectedState === stateName;
+
+        pathsHtml += `<path
+            id="state-${abbr}"
+            d="${path}"
+            fill="${color}"
+            data-state="${stateName}"
+            data-abbr="${abbr}"
+            class="${isSelected ? 'selected' : ''}"
+        />`;
+    }
+
+    container.innerHTML = `
+        <svg viewBox="100 50 750 520" xmlns="http://www.w3.org/2000/svg">
+            ${pathsHtml}
+        </svg>
+    `;
+
+    // Add event listeners
+    const paths = container.querySelectorAll('path');
+    const tooltip = document.getElementById('map-tooltip');
+
+    paths.forEach(path => {
+        path.addEventListener('mouseenter', (e) => showMapTooltip(e, tooltip));
+        path.addEventListener('mousemove', (e) => moveMapTooltip(e, tooltip));
+        path.addEventListener('mouseleave', () => hideMapTooltip(tooltip));
+        path.addEventListener('click', (e) => handleStateClick(e));
+    });
+}
+
+/**
+ * Show tooltip on state hover
+ */
+function showMapTooltip(e, tooltip) {
+    if (!tooltip) return;
+
+    const stateName = e.target.dataset.state;
+    const stateInfo = currentStateData[stateName];
+    const value = stateInfo ? getStateValue(stateInfo) : 0;
+    const trialCount = stateInfo ? stateInfo.count : 0;
+
+    let valueLabel, valueDisplay;
+    if (currentMapLayer === 'volume') {
+        valueLabel = 'Trials';
+        valueDisplay = value.toLocaleString();
+    } else {
+        const layerNames = {
+            'race': 'Race Reporting',
+            'ethnicity': 'Ethnicity Reporting',
+            'sex': 'Sex Reporting',
+            'gender': 'Gender Reporting'
+        };
+        valueLabel = layerNames[currentMapLayer];
+        valueDisplay = `${value.toFixed(1)}%`;
+    }
+
+    tooltip.innerHTML = `
+        <div class="tooltip-title">${stateName}</div>
+        <div class="tooltip-value">${valueLabel}: ${valueDisplay}</div>
+        ${currentMapLayer !== 'volume' ? `<div>Total Trials: ${trialCount.toLocaleString()}</div>` : ''}
+    `;
+    tooltip.classList.add('visible');
+}
+
+/**
+ * Move tooltip with cursor
+ */
+function moveMapTooltip(e, tooltip) {
+    if (!tooltip) return;
+    const rect = e.target.closest('#us-map-container').getBoundingClientRect();
+    const x = e.clientX - rect.left + 15;
+    const y = e.clientY - rect.top + 15;
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
+}
+
+/**
+ * Hide tooltip
+ */
+function hideMapTooltip(tooltip) {
+    if (!tooltip) return;
+    tooltip.classList.remove('visible');
+}
+
+/**
+ * Handle state click to show city breakdown
+ */
+function handleStateClick(e) {
+    const stateName = e.target.dataset.state;
+    const stateInfo = currentStateData[stateName];
+
+    // Update selected state
+    selectedState = stateName;
+
+    // Re-render map to show selection
+    renderUSMap();
+
+    // Show city breakdown
+    showCityBreakdown(stateName, stateInfo);
+}
+
+/**
+ * Show city breakdown for selected state
+ */
+function showCityBreakdown(stateName, stateInfo) {
+    const detailRow = document.getElementById('state-detail-row');
+    const title = document.getElementById('state-detail-title');
+    const tbody = document.getElementById('city-table-body');
+    const metricHeader = document.getElementById('city-metric-header');
+
+    if (!detailRow || !tbody) return;
+
+    if (!stateInfo || !stateInfo.cities) {
+        detailRow.style.display = 'none';
+        return;
+    }
+
+    // Update title
+    if (title) {
+        title.textContent = `Cities in ${stateName}`;
+    }
+
+    // Update metric header based on layer
+    if (metricHeader) {
+        if (currentMapLayer === 'volume') {
+            metricHeader.textContent = 'Number of Trials';
+        } else {
+            const layerNames = {
+                'race': 'Race Reporting %',
+                'ethnicity': 'Ethnicity Reporting %',
+                'sex': 'Sex Reporting %',
+                'gender': 'Gender Reporting %'
+            };
+            metricHeader.textContent = layerNames[currentMapLayer];
+        }
+    }
+
+    // Sort cities by count
+    const sortedCities = Object.entries(stateInfo.cities)
+        .sort((a, b) => b[1] - a[1]);
+
+    const totalInState = stateInfo.count;
+
+    tbody.innerHTML = '';
+
+    sortedCities.forEach(([city, count], index) => {
+        const pct = totalInState > 0 ? ((count / totalInState) * 100).toFixed(1) : '0.0';
+
+        // For reporting layers, we'd need city-level trial data
+        // For simplicity, showing trial counts for now
+        let metricValue = count.toLocaleString();
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${index + 1}</td>
+            <td>${city}</td>
+            <td>${metricValue}</td>
+            <td>${pct}%</td>
+        `;
+        tbody.appendChild(row);
+    });
+
+    // Show detail section
+    detailRow.style.display = 'block';
+
+    // Scroll to detail section
+    detailRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/**
+ * Close state detail section
+ */
+function closeStateDetail() {
+    const detailRow = document.getElementById('state-detail-row');
+    if (detailRow) {
+        detailRow.style.display = 'none';
+    }
+    selectedState = null;
+    renderUSMap();
+}
+
+/**
+ * Render the international geography table
+ */
+function renderInternationalTable(geoCounts, totalTrials) {
     const tbody = document.getElementById('geography-table-body');
-    const header = document.getElementById('geo-location-header');
-    const title = document.getElementById('geography-chart-title');
-    const subtitle = document.getElementById('geography-chart-subtitle');
 
     if (!tbody) return;
 
-    // Update header and title based on view
-    if (header) {
-        header.textContent = geographyView === 'us' ? 'State' : 'Country';
-    }
-    if (title) {
-        title.textContent = geographyView === 'us' ? 'Trials by US State' : 'Trials by Country';
-    }
-    if (subtitle) {
-        subtitle.textContent = geographyView === 'us'
-            ? 'Number of trials with at least one site in each state. Multi-site trials may appear in multiple states.'
-            : 'Number of trials with at least one site in each country (excluding United States).';
-    }
-
-    // Sort by count
+    // Sort by count (for international view, geoCounts is { country: count })
     const sorted = Object.entries(geoCounts)
         .sort((a, b) => b[1] - a[1]);
 
     tbody.innerHTML = '';
 
     if (sorted.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">No location data available for current filters.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; padding: 2rem;">No international location data available for current filters.</td></tr>';
         return;
     }
 
@@ -2836,8 +3229,56 @@ function renderGeographyDashboard() {
     // Aggregate geography based on view
     const geoCounts = aggregateGeography(filtered, geographyView);
 
-    // Render table
-    renderGeographyTable(geoCounts, filtered.length);
+    // Update chart title and subtitle based on layer
+    const title = document.getElementById('geography-chart-title');
+    const subtitle = document.getElementById('geography-chart-subtitle');
+
+    if (geographyView === 'us') {
+        // Show US map, hide international table
+        document.getElementById('us-map-row').style.display = 'block';
+        document.getElementById('international-table-row').style.display = 'none';
+        document.getElementById('reporting-layer-controls').classList.remove('hidden');
+
+        // Store state data for map rendering
+        currentStateData = geoCounts;
+
+        // Update title based on layer
+        const layerTitles = {
+            'volume': 'Trials by US State',
+            'race': 'Race Reporting by US State',
+            'ethnicity': 'Ethnicity Reporting by US State',
+            'sex': 'Sex Reporting by US State',
+            'gender': 'Gender Reporting by US State'
+        };
+
+        const layerSubtitles = {
+            'volume': 'Click a state to see city-level breakdown. Darker colors indicate more trials.',
+            'race': 'Percentage of trials reporting race data. Click a state for details.',
+            'ethnicity': 'Percentage of trials reporting ethnicity data. Click a state for details.',
+            'sex': 'Percentage of trials reporting sex data. Click a state for details.',
+            'gender': 'Percentage of trials reporting gender data. Click a state for details.'
+        };
+
+        if (title) title.textContent = layerTitles[currentMapLayer];
+        if (subtitle) subtitle.textContent = layerSubtitles[currentMapLayer];
+
+        // Render the US map
+        renderUSMap();
+
+        // Update state detail if a state is selected
+        if (selectedState && currentStateData[selectedState]) {
+            showCityBreakdown(selectedState, currentStateData[selectedState]);
+        }
+    } else {
+        // Show international table, hide US map
+        document.getElementById('us-map-row').style.display = 'none';
+        document.getElementById('international-table-row').style.display = 'block';
+        document.getElementById('reporting-layer-controls').classList.add('hidden');
+        document.getElementById('state-detail-row').style.display = 'none';
+
+        // Render international table
+        renderInternationalTable(geoCounts, filtered.length);
+    }
 
     // Render charts
     renderSiteDistributionChart(classification);
@@ -2848,22 +3289,41 @@ function renderGeographyDashboard() {
  * Initialize Geography tab event listeners
  */
 function initGeographyTab() {
-    // View toggle buttons
+    // View toggle buttons (US / International)
     const viewBtns = document.querySelectorAll('.view-btn');
     viewBtns.forEach(btn => {
         btn.addEventListener('click', () => {
             viewBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             geographyView = btn.dataset.view;
+            selectedState = null; // Reset state selection when switching views
             renderGeographyDashboard();
         });
     });
+
+    // Layer toggle buttons (Volume, Race, Ethnicity, Sex, Gender)
+    const layerBtns = document.querySelectorAll('.layer-btn');
+    layerBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            layerBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentMapLayer = btn.dataset.layer;
+            renderGeographyDashboard();
+        });
+    });
+
+    // Close state detail button
+    const closeBtn = document.getElementById('close-state-detail');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeStateDetail);
+    }
 
     // Sponsor dropdown
     const sponsorDropdown = document.getElementById('geography-sponsor');
     if (sponsorDropdown) {
         sponsorDropdown.addEventListener('change', (e) => {
             geographySponsorFilter = e.target.value;
+            selectedState = null; // Reset state selection when changing sponsor
             renderGeographyDashboard();
         });
     }

@@ -1508,3 +1508,177 @@ footer p {
     min-width: 300px;
     max-width: 400px;
 }
+
+/* Reporting Layer Toggle Controls */
+.reporting-layer-controls {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.layer-label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.layer-toggle-group {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.layer-btn {
+    padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border-color);
+    background: var(--card-background);
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.layer-btn:hover {
+    background: #f3f4f6;
+    border-color: var(--primary-color);
+}
+
+.layer-btn.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* US Map Container */
+#us-map-container {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    position: relative;
+}
+
+#us-map-container svg {
+    width: 100%;
+    height: auto;
+}
+
+#us-map-container svg path {
+    stroke: #fff;
+    stroke-width: 1;
+    cursor: pointer;
+    transition: fill 0.2s, stroke-width 0.2s;
+}
+
+#us-map-container svg path:hover {
+    stroke-width: 2;
+    stroke: var(--primary-color);
+}
+
+#us-map-container svg path.selected {
+    stroke-width: 3;
+    stroke: var(--primary-color);
+}
+
+/* Map Legend */
+.map-legend {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.legend-gradient {
+    width: 200px;
+    height: 12px;
+    background: linear-gradient(to right, #e8f5e9, #1b4332);
+    border-radius: 2px;
+    border: 1px solid var(--border-color);
+}
+
+.legend-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    min-width: 40px;
+}
+
+.legend-label:first-child {
+    text-align: right;
+}
+
+.legend-label:last-child {
+    text-align: left;
+}
+
+/* Map Tooltip */
+.map-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.85);
+    color: white;
+    padding: 0.6rem 0.9rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 1000;
+    display: none;
+    max-width: 250px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.map-tooltip.visible {
+    display: block;
+}
+
+.map-tooltip .tooltip-title {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+}
+
+.map-tooltip .tooltip-value {
+    color: #a5d6a7;
+}
+
+/* State Detail Section */
+.state-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.state-detail-header h3 {
+    margin: 0;
+}
+
+.close-detail-btn {
+    background: none;
+    border: 1px solid var(--border-color);
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.close-detail-btn:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+#state-detail-container {
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+}
+
+/* Hide layer controls for international view */
+.reporting-layer-controls.hidden {
+    display: none;
+}
