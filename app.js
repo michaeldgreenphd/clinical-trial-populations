@@ -3092,7 +3092,7 @@ async function initUSMap() {
     // Fetch TopoJSON if not already loaded
     if (!usTopology) {
         try {
-            usTopology = await d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json');
+            usTopology = await d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json');
             const statesGeo = topojson.feature(usTopology, usTopology.objects.states);
 
             // Attach state name and abbreviation to each feature
