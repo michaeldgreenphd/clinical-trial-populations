@@ -2777,31 +2777,96 @@ function classifyTrialsBySiteCount(studies) {
  * @returns {Object} For US: { [state]: { count, cities: { [city]: count }, trials: [] } }
  *                   For international: { [country]: count }
  */
+
+// US State abbreviation to name mapping (moved here for use by normalizeStateName)
+const stateNameToAbbr = {
+    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
+    'District of Columbia': 'DC', 'Puerto Rico': 'PR'
+};
+
+const abbrToStateName = Object.fromEntries(Object.entries(stateNameToAbbr).map(([k, v]) => [v, k]));
+
+/**
+ * Normalize state name - handles both abbreviations and full names
+ */
+function normalizeStateName(stateInput) {
+    if (!stateInput) return null;
+    const trimmed = stateInput.trim();
+
+    // Check if it's already a full state name
+    if (stateNameToAbbr[trimmed]) {
+        return trimmed;
+    }
+
+    // Check if it's an abbreviation
+    const upperAbbr = trimmed.toUpperCase();
+    if (abbrToStateName[upperAbbr]) {
+        return abbrToStateName[upperAbbr];
+    }
+
+    // Try case-insensitive match for full state names
+    const lowerInput = trimmed.toLowerCase();
+    for (const [fullName, abbr] of Object.entries(stateNameToAbbr)) {
+        if (fullName.toLowerCase() === lowerInput) {
+            return fullName;
+        }
+    }
+
+    return null; // Not a recognized US state
+}
+
 function aggregateGeography(studies, view) {
     if (view === 'us') {
         const stateData = {};
+        const seenStudyStates = new Map(); // Track study-state pairs to avoid duplicates
 
         studies.forEach(study => {
             // Prefer study_sites (new format) over countries (old format)
             const locations = study.study_sites || study.countries || [];
+            const studyId = study.nct_id || study.brief_title || JSON.stringify(study).slice(0, 100);
 
             locations.forEach(loc => {
                 if (!loc || !loc.country) return;
 
-                if (loc.country === 'United States' && loc.state) {
-                    const state = loc.state;
+                // Handle both "United States" and "USA" country names
+                const isUS = loc.country === 'United States' || loc.country === 'USA' || loc.country === 'US';
+
+                if (isUS && loc.state) {
+                    // Normalize state name (handles abbreviations and full names)
+                    const stateName = normalizeStateName(loc.state);
+                    if (!stateName) return; // Skip unrecognized states
+
                     const city = loc.city || 'Unknown City';
 
-                    if (!stateData[state]) {
-                        stateData[state] = { count: 0, cities: {}, trials: [], facilities: {} };
+                    // Create unique key for this study-state combination
+                    const studyStateKey = `${studyId}-${stateName}`;
+
+                    if (!stateData[stateName]) {
+                        stateData[stateName] = { count: 0, cities: {}, trials: [], facilities: {} };
                     }
-                    stateData[state].count++;
-                    stateData[state].cities[city] = (stateData[state].cities[city] || 0) + 1;
-                    stateData[state].trials.push(study);
+
+                    // Only count each study once per state (avoid duplicate counting from multiple sites)
+                    if (!seenStudyStates.has(studyStateKey)) {
+                        seenStudyStates.set(studyStateKey, true);
+                        stateData[stateName].count++;
+                        stateData[stateName].trials.push(study);
+                    }
+
+                    // Always count cities (a study can have multiple sites in different cities)
+                    stateData[stateName].cities[city] = (stateData[stateName].cities[city] || 0) + 1;
 
                     // Track facilities if available
                     if (loc.facility) {
-                        stateData[state].facilities[loc.facility] = (stateData[state].facilities[loc.facility] || 0) + 1;
+                        stateData[stateName].facilities[loc.facility] = (stateData[stateName].facilities[loc.facility] || 0) + 1;
                     }
                 }
             });
@@ -2935,23 +3000,6 @@ function getChoroplethColor(value, minVal, maxVal) {
     return `rgb(${r}, ${g}, ${b})`;
 }
 
-// US State abbreviation to name mapping
-const stateNameToAbbr = {
-    'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
-    'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
-    'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
-    'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
-    'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
-    'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
-    'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
-    'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
-    'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
-    'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY',
-    'District of Columbia': 'DC', 'Puerto Rico': 'PR'
-};
-
-const abbrToStateName = Object.fromEntries(Object.entries(stateNameToAbbr).map(([k, v]) => [v, k]));
-
 // US Map SVG paths (simplified for main continental states)
 const usMapPaths = {
     'AL': 'M628.5,466.8l-2.2-24.1l-2.4-22.6l-15.8,1.8l-11.4,1.2l0.3,3.3l1.8,7.6l3.3,13.6l3.7,11.3l1.3,7.1l3.6,9.5l3.1,4.9l-0.5,5.9l2.6,4.9l0.7,3.5l2.2,0.7l0.6-2.5l-0.5-2.1l2-4.3l2.7-3.3l-0.1-2l3.5,0.6l0.7-10.9z',
@@ -3051,7 +3099,7 @@ function renderUSMap() {
     }
 
     container.innerHTML = `
-        <svg viewBox="100 50 750 520" xmlns="http://www.w3.org/2000/svg">
+        <svg viewBox="0 0 959 593" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
             ${pathsHtml}
         </svg>
     `;
