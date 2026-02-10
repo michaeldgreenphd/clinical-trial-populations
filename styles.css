@@ -1750,7 +1750,7 @@ footer p {
 
 /* Map Tooltip */
 .map-tooltip {
-    position: absolute;
+    position: fixed;
     background: rgba(0, 0, 0, 0.85);
     color: white;
     padding: 0.6rem 0.9rem;

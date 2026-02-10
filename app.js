@@ -2919,12 +2919,14 @@ function aggregateGeography(studies, view) {
                         stateData[stateName].cities[city] = { count: 0, studies: [] };
                     }
                     stateData[stateName].cities[city].count++;
-                    stateData[stateName].cities[city].studies.push({
-                        nctId: study.nct_id,
-                        briefTitle: study.brief_title || 'Untitled Study',
-                        enrollment: study.enrollment || 0,
-                        studyUrl: `https://clinicaltrials.gov/study/${study.nct_id}`
-                    });
+                    if (study.nct_id) {
+                        stateData[stateName].cities[city].studies.push({
+                            nctId: study.nct_id,
+                            briefTitle: study.brief_title || 'Untitled Study',
+                            enrollment: study.enrollment || 0,
+                            studyUrl: `https://clinicaltrials.gov/study/${study.nct_id}`
+                        });
+                    }
 
                     // Track facilities if available
                     if (loc.facility) {
@@ -3261,15 +3263,13 @@ function handleStateMouseMove(event) {
     const tooltip = document.getElementById('map-tooltip');
     if (!tooltip) return;
 
-    const container = document.getElementById('us-map-container');
-    const rect = container.getBoundingClientRect();
-    const x = event.clientX - rect.left + 15;
-    const y = event.clientY - rect.top + 15;
+    const x = event.clientX + 15;
+    const y = event.clientY + 15;
 
-    // Keep tooltip within container
+    // Keep tooltip within viewport
     const tooltipRect = tooltip.getBoundingClientRect();
-    const maxX = rect.width - tooltipRect.width - 10;
-    const maxY = rect.height - tooltipRect.height - 10;
+    const maxX = window.innerWidth - tooltipRect.width - 10;
+    const maxY = window.innerHeight - tooltipRect.height - 10;
 
     tooltip.style.left = `${Math.min(x, maxX)}px`;
     tooltip.style.top = `${Math.min(y, maxY)}px`;
@@ -3470,10 +3470,15 @@ function showCityTooltip(event, d) {
     `;
     tooltip.classList.add('visible');
 
-    const container = document.getElementById('us-map-container');
-    const rect = container.getBoundingClientRect();
-    tooltip.style.left = `${event.clientX - rect.left + 15}px`;
-    tooltip.style.top = `${event.clientY - rect.top + 15}px`;
+    const x = event.clientX + 15;
+    const y = event.clientY + 15;
+
+    // Keep tooltip within viewport
+    const maxX = window.innerWidth - 260;
+    const maxY = window.innerHeight - 60;
+
+    tooltip.style.left = `${Math.min(x, maxX)}px`;
+    tooltip.style.top = `${Math.min(y, maxY)}px`;
 }
 
 /**
@@ -3591,7 +3596,7 @@ function updateCityTable(stateName, stateInfo) {
 
         // Deduplicate and sort studies by enrollment descending, take top 5
         const seen = new Set();
-        const topStudies = cityInfo.studies
+        const topStudies = (cityInfo.studies || [])
             .filter(s => {
                 if (seen.has(s.nctId)) return false;
                 seen.add(s.nctId);
@@ -3600,13 +3605,15 @@ function updateCityTable(stateName, stateInfo) {
             .sort((a, b) => b.enrollment - a.enrollment)
             .slice(0, 5);
 
-        const studyRows = topStudies.map(s => `
-            <tr>
-                <td><a href="${s.studyUrl}" target="_blank" rel="noopener" class="nct-link">${escapeHtml(s.nctId)}</a></td>
-                <td class="detail-title">${escapeHtml(s.briefTitle)}</td>
-                <td class="text-right">${s.enrollment.toLocaleString()}</td>
-            </tr>
-        `).join('');
+        const studyRows = topStudies.length > 0
+            ? topStudies.map(s => `
+                <tr>
+                    <td><a href="${s.studyUrl}" target="_blank" rel="noopener" class="nct-link">${escapeHtml(s.nctId)}</a></td>
+                    <td class="detail-title">${escapeHtml(s.briefTitle)}</td>
+                    <td class="text-right">${s.enrollment.toLocaleString()}</td>
+                </tr>
+            `).join('')
+            : '<tr><td colspan="3" style="text-align:center;color:#6b7280;">No study details available</td></tr>';
 
         detailTr.innerHTML = `
             <td colspan="4" class="detail-cell">
