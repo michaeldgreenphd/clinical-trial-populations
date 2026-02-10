@@ -1559,37 +1559,105 @@ footer p {
     max-width: 900px;
     margin: 0 auto;
     position: relative;
+    min-height: 400px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f8fafc;
 }
 
 #us-map-container svg {
     width: 100%;
     height: auto;
+    display: block;
 }
 
-#us-map-container svg path {
+#us-map-container svg .states-group {
+    transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#us-map-container svg path.state {
     stroke: #fff;
     stroke-width: 1;
     cursor: pointer;
-    transition: fill 0.2s, stroke-width 0.2s;
+    transition: fill 0.3s ease, stroke-width 0.2s ease, opacity 0.3s ease;
 }
 
-#us-map-container svg path:hover {
+#us-map-container svg path.state:hover {
     stroke-width: 2;
     stroke: var(--primary-color);
+    filter: brightness(0.95);
 }
 
-#us-map-container svg path.selected {
+#us-map-container svg path.state.selected {
     stroke-width: 3;
     stroke: var(--primary-color);
+}
+
+#us-map-container svg path.state.dimmed {
+    opacity: 0.3;
+}
+
+/* City markers */
+#us-map-container .city-marker {
+    cursor: pointer;
+}
+
+#us-map-container .city-marker circle {
+    transition: r 0.3s ease, fill-opacity 0.2s ease;
+}
+
+#us-map-container .city-marker:hover circle {
+    fill-opacity: 1;
+    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+#us-map-container .city-label {
+    pointer-events: none;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
+}
+
+/* Map Controls Row */
+.map-controls-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Reset Zoom Button */
+.reset-zoom-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    background: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.reset-zoom-btn:hover {
+    background: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.reset-zoom-btn .reset-icon {
+    font-size: 1rem;
 }
 
 /* Map Legend */
 .map-legend {
     display: flex;
     align-items: center;
-    justify-content: center;
     gap: 0.5rem;
-    margin-bottom: 1rem;
 }
 
 .legend-gradient {
@@ -1640,6 +1708,70 @@ footer p {
 
 .map-tooltip .tooltip-value {
     color: #a5d6a7;
+}
+
+.map-tooltip .tooltip-hint {
+    margin-top: 0.4rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid rgba(255,255,255,0.2);
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Regional Chart Container */
+.geography-chart-narrow {
+    flex: 0 0 280px;
+    max-width: 320px;
+}
+
+#regional-chart-container {
+    height: 180px;
+    position: relative;
+}
+
+.region-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.region-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+}
+
+.region-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+}
+
+.region-name {
+    color: var(--text-secondary);
+}
+
+.region-count {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* Adjust chart row for side-by-side layout */
+#us-map-row {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+#us-map-row .geography-chart-wide {
+    flex: 1;
+    min-width: 500px;
 }
 
 /* State Detail Section */
@@ -1755,4 +1887,65 @@ footer p {
 .badge-gray {
     background: #f3f4f6;
     color: #6b7280;
+}
+
+/* ===== Geography Tab Responsive Styles ===== */
+@media (max-width: 900px) {
+    #us-map-row {
+        flex-direction: column;
+    }
+
+    #us-map-row .geography-chart-wide {
+        min-width: 100%;
+    }
+
+    .geography-chart-narrow {
+        flex: 1 1 100%;
+        max-width: 100%;
+    }
+
+    #regional-chart-container {
+        height: 150px;
+    }
+
+    .region-legend {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 600px) {
+    #us-map-container {
+        min-height: 280px;
+    }
+
+    .map-controls-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .map-legend {
+        justify-content: center;
+    }
+
+    .reset-zoom-btn {
+        align-self: center;
+    }
+
+    .geography-view-toggle {
+        flex-wrap: wrap;
+    }
+
+    .reporting-layer-controls {
+        flex-wrap: wrap;
+    }
+
+    .layer-toggle-group {
+        flex-wrap: wrap;
+        gap: 0.25rem;
+    }
+
+    .layer-btn {
+        padding: 0.3rem 0.6rem;
+        font-size: 0.75rem;
+    }
 }

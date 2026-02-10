@@ -2795,6 +2795,55 @@ const stateNameToAbbr = {
 
 const abbrToStateName = Object.fromEntries(Object.entries(stateNameToAbbr).map(([k, v]) => [v, k]));
 
+// US Census Regions mapping
+const stateToRegion = {
+    // Northeast
+    'Connecticut': 'Northeast', 'Maine': 'Northeast', 'Massachusetts': 'Northeast',
+    'New Hampshire': 'Northeast', 'Rhode Island': 'Northeast', 'Vermont': 'Northeast',
+    'New Jersey': 'Northeast', 'New York': 'Northeast', 'Pennsylvania': 'Northeast',
+    // Midwest
+    'Illinois': 'Midwest', 'Indiana': 'Midwest', 'Michigan': 'Midwest', 'Ohio': 'Midwest',
+    'Wisconsin': 'Midwest', 'Iowa': 'Midwest', 'Kansas': 'Midwest', 'Minnesota': 'Midwest',
+    'Missouri': 'Midwest', 'Nebraska': 'Midwest', 'North Dakota': 'Midwest', 'South Dakota': 'Midwest',
+    // South
+    'Delaware': 'South', 'Florida': 'South', 'Georgia': 'South', 'Maryland': 'South',
+    'North Carolina': 'South', 'South Carolina': 'South', 'Virginia': 'South',
+    'District of Columbia': 'South', 'West Virginia': 'South', 'Alabama': 'South',
+    'Kentucky': 'South', 'Mississippi': 'South', 'Tennessee': 'South', 'Arkansas': 'South',
+    'Louisiana': 'South', 'Oklahoma': 'South', 'Texas': 'South',
+    // West
+    'Arizona': 'West', 'Colorado': 'West', 'Idaho': 'West', 'Montana': 'West',
+    'Nevada': 'West', 'New Mexico': 'West', 'Utah': 'West', 'Wyoming': 'West',
+    'Alaska': 'West', 'California': 'West', 'Hawaii': 'West', 'Oregon': 'West', 'Washington': 'West',
+    // Territories
+    'Puerto Rico': 'Territories'
+};
+
+const regionColors = {
+    'Northeast': '#0d9488',  // Teal
+    'Midwest': '#6366f1',    // Indigo
+    'South': '#f59e0b',      // Amber
+    'West': '#ef4444',       // Red
+    'Territories': '#8b5cf6' // Violet
+};
+
+// State centroids for city positioning (approximate pixel coordinates)
+const stateCentroids = {
+    'AL': [619, 445], 'AK': [213, 590], 'AZ': [226, 430], 'AR': [545, 420],
+    'CA': [155, 385], 'CO': [340, 340], 'CT': [835, 200], 'DE': [815, 275],
+    'FL': [720, 505], 'GA': [680, 435], 'HI': [280, 580], 'ID': [220, 245],
+    'IL': [570, 310], 'IN': [615, 300], 'IA': [520, 250], 'KS': [450, 345],
+    'KY': [650, 355], 'LA': [545, 485], 'ME': [875, 100], 'MD': [785, 290],
+    'MA': [850, 180], 'MI': [610, 210], 'MN': [500, 170], 'MS': [575, 455],
+    'MO': [540, 345], 'MT': [280, 145], 'NE': [420, 280], 'NV': [190, 335],
+    'NH': [850, 145], 'NJ': [825, 245], 'NM': [310, 415], 'NY': [800, 195],
+    'NC': [745, 370], 'ND': [420, 145], 'OH': [670, 295], 'OK': [455, 400],
+    'OR': [165, 200], 'PA': [775, 250], 'RI': [860, 195], 'SC': [710, 410],
+    'SD': [420, 200], 'TN': [630, 385], 'TX': [420, 480], 'UT': [265, 330],
+    'VT': [838, 135], 'VA': [755, 325], 'WA': [185, 110], 'WV': [715, 315],
+    'WI': [545, 195], 'WY': [320, 245], 'DC': [795, 300], 'PR': [755, 545]
+};
+
 /**
  * Normalize state name - handles both abbreviations and full names
  */
@@ -3054,12 +3103,65 @@ const usMapPaths = {
     'WY': 'M335.1,219.6l-4.3-0.2l-39.6,1l-1.4-1.2l-2.1,0.3l-1.5-2.3l-2.8-0.3l-1.2-3.4l-7.2-40.7l42.7-6.1l42.9-5.2l5.1,36.6l5.7,43.9l-46.5,4.1l7.2,0.2l4.3-0.5l-1.3-25.9z'
 };
 
+// D3 map state variables
+let mapSvg = null;
+let mapG = null;
+let cityG = null;
+let currentZoomTransform = null;
+let isZoomedIn = false;
+let regionalChart = null;
+
 /**
- * Render the US Map with choropleth coloring
+ * Initialize the US Map with D3
  */
-function renderUSMap() {
+function initUSMap() {
     const container = document.getElementById('us-map-container');
     if (!container) return;
+
+    // Clear any existing content
+    container.innerHTML = '';
+
+    // Get container dimensions
+    const width = container.clientWidth || 900;
+    const height = Math.min(width * 0.62, 560);
+
+    // Create SVG with D3
+    mapSvg = d3.select(container)
+        .append('svg')
+        .attr('viewBox', '0 0 959 593')
+        .attr('preserveAspectRatio', 'xMidYMid meet')
+        .attr('class', 'us-map-svg');
+
+    // Create main group for states (will be transformed on zoom)
+    mapG = mapSvg.append('g').attr('class', 'states-group');
+
+    // Create group for city markers (on top of states)
+    cityG = mapSvg.append('g').attr('class', 'cities-group');
+
+    // Initial render
+    renderUSMap();
+
+    // Setup reset button listener
+    const resetBtn = document.getElementById('reset-zoom-btn');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', resetMapZoom);
+    }
+
+    // Setup close detail button
+    const closeBtn = document.getElementById('close-state-detail');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeStateDetail);
+    }
+}
+
+/**
+ * Render the US Map with choropleth coloring using D3
+ */
+function renderUSMap() {
+    if (!mapG) {
+        initUSMap();
+        return;
+    }
 
     // Calculate min/max values for current layer
     const values = Object.keys(currentStateData).map(state => getStateValue(currentStateData[state]));
@@ -3067,6 +3169,50 @@ function renderUSMap() {
     const maxVal = Math.max(...values, 1);
 
     // Update legend
+    updateMapLegend(minVal, maxVal);
+
+    // Bind data and render state paths
+    const stateData = Object.entries(usMapPaths).map(([abbr, path]) => ({
+        abbr,
+        path,
+        stateName: abbrToStateName[abbr],
+        stateInfo: currentStateData[abbrToStateName[abbr]]
+    }));
+
+    const paths = mapG.selectAll('path.state')
+        .data(stateData, d => d.abbr);
+
+    // Enter + Update
+    paths.enter()
+        .append('path')
+        .attr('class', 'state')
+        .attr('id', d => `state-${d.abbr}`)
+        .attr('d', d => d.path)
+        .attr('data-state', d => d.stateName)
+        .attr('data-abbr', d => d.abbr)
+        .on('mouseenter', handleStateMouseEnter)
+        .on('mousemove', handleStateMouseMove)
+        .on('mouseleave', handleStateMouseLeave)
+        .on('click', handleStateClick)
+        .merge(paths)
+        .transition()
+        .duration(300)
+        .attr('fill', d => {
+            const value = d.stateInfo ? getStateValue(d.stateInfo) : 0;
+            return getChoroplethColor(value, minVal, maxVal);
+        })
+        .attr('class', d => `state ${selectedState === d.stateName ? 'selected' : ''}`);
+
+    paths.exit().remove();
+
+    // Render regional diversity chart
+    renderRegionalChart();
+}
+
+/**
+ * Update map legend values
+ */
+function updateMapLegend(minVal, maxVal) {
     const legendLow = document.getElementById('legend-low');
     const legendHigh = document.getElementById('legend-high');
     if (legendLow && legendHigh) {
@@ -3078,52 +3224,17 @@ function renderUSMap() {
             legendHigh.textContent = '100%';
         }
     }
-
-    // Build SVG
-    let pathsHtml = '';
-    for (const [abbr, path] of Object.entries(usMapPaths)) {
-        const stateName = abbrToStateName[abbr];
-        const stateInfo = currentStateData[stateName];
-        const value = stateInfo ? getStateValue(stateInfo) : 0;
-        const color = getChoroplethColor(value, minVal, maxVal);
-        const isSelected = selectedState === stateName;
-
-        pathsHtml += `<path
-            id="state-${abbr}"
-            d="${path}"
-            fill="${color}"
-            data-state="${stateName}"
-            data-abbr="${abbr}"
-            class="${isSelected ? 'selected' : ''}"
-        />`;
-    }
-
-    container.innerHTML = `
-        <svg viewBox="0 0 959 593" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-            ${pathsHtml}
-        </svg>
-    `;
-
-    // Add event listeners
-    const paths = container.querySelectorAll('path');
-    const tooltip = document.getElementById('map-tooltip');
-
-    paths.forEach(path => {
-        path.addEventListener('mouseenter', (e) => showMapTooltip(e, tooltip));
-        path.addEventListener('mousemove', (e) => moveMapTooltip(e, tooltip));
-        path.addEventListener('mouseleave', () => hideMapTooltip(tooltip));
-        path.addEventListener('click', (e) => handleStateClick(e));
-    });
 }
 
 /**
- * Show tooltip on state hover
+ * Handle state mouse enter - show tooltip
  */
-function showMapTooltip(e, tooltip) {
+function handleStateMouseEnter(event, d) {
+    const tooltip = document.getElementById('map-tooltip');
     if (!tooltip) return;
 
-    const stateName = e.target.dataset.state;
-    const stateInfo = currentStateData[stateName];
+    const stateName = d.stateName;
+    const stateInfo = d.stateInfo;
     const value = stateInfo ? getStateValue(stateInfo) : 0;
     const trialCount = stateInfo ? stateInfo.count : 0;
 
@@ -3142,55 +3253,280 @@ function showMapTooltip(e, tooltip) {
         valueDisplay = `${value.toFixed(1)}%`;
     }
 
+    const cityCount = stateInfo && stateInfo.cities ? Object.keys(stateInfo.cities).length : 0;
+
     tooltip.innerHTML = `
         <div class="tooltip-title">${stateName}</div>
         <div class="tooltip-value">${valueLabel}: ${valueDisplay}</div>
         ${currentMapLayer !== 'volume' ? `<div>Total Trials: ${trialCount.toLocaleString()}</div>` : ''}
+        ${cityCount > 0 ? `<div class="tooltip-hint">Click to zoom & see ${cityCount} cities</div>` : ''}
     `;
     tooltip.classList.add('visible');
 }
 
 /**
- * Move tooltip with cursor
+ * Handle state mouse move - update tooltip position
  */
-function moveMapTooltip(e, tooltip) {
+function handleStateMouseMove(event) {
+    const tooltip = document.getElementById('map-tooltip');
     if (!tooltip) return;
-    const rect = e.target.closest('#us-map-container').getBoundingClientRect();
-    const x = e.clientX - rect.left + 15;
-    const y = e.clientY - rect.top + 15;
-    tooltip.style.left = `${x}px`;
-    tooltip.style.top = `${y}px`;
+
+    const container = document.getElementById('us-map-container');
+    const rect = container.getBoundingClientRect();
+    const x = event.clientX - rect.left + 15;
+    const y = event.clientY - rect.top + 15;
+
+    // Keep tooltip within container
+    const tooltipRect = tooltip.getBoundingClientRect();
+    const maxX = rect.width - tooltipRect.width - 10;
+    const maxY = rect.height - tooltipRect.height - 10;
+
+    tooltip.style.left = `${Math.min(x, maxX)}px`;
+    tooltip.style.top = `${Math.min(y, maxY)}px`;
 }
 
 /**
- * Hide tooltip
+ * Handle state mouse leave - hide tooltip
  */
-function hideMapTooltip(tooltip) {
-    if (!tooltip) return;
-    tooltip.classList.remove('visible');
+function handleStateMouseLeave() {
+    const tooltip = document.getElementById('map-tooltip');
+    if (tooltip) {
+        tooltip.classList.remove('visible');
+    }
 }
 
 /**
- * Handle state click to show city breakdown
+ * Handle state click - zoom to state and show cities
  */
-function handleStateClick(e) {
-    const stateName = e.target.dataset.state;
-    const stateInfo = currentStateData[stateName];
+function handleStateClick(event, d) {
+    const stateName = d.stateName;
+    const stateAbbr = d.abbr;
+    const stateInfo = d.stateInfo;
+
+    // If clicking the same state while zoomed, reset
+    if (selectedState === stateName && isZoomedIn) {
+        resetMapZoom();
+        return;
+    }
 
     // Update selected state
     selectedState = stateName;
 
-    // Re-render map to show selection
-    renderUSMap();
+    // Update state styling
+    mapG.selectAll('path.state')
+        .classed('selected', p => p.stateName === stateName)
+        .classed('dimmed', p => p.stateName !== stateName);
 
-    // Show city breakdown
-    showCityBreakdown(stateName, stateInfo);
+    // Calculate zoom transform to center on the clicked state
+    const statePath = document.getElementById(`state-${stateAbbr}`);
+    if (statePath) {
+        const bbox = statePath.getBBox();
+        const viewBoxWidth = 959;
+        const viewBoxHeight = 593;
+
+        // Calculate scale to fill ~80% of view
+        const scale = Math.min(
+            (viewBoxWidth * 0.8) / bbox.width,
+            (viewBoxHeight * 0.8) / bbox.height,
+            4 // Max zoom level
+        );
+
+        // Calculate center of state
+        const centerX = bbox.x + bbox.width / 2;
+        const centerY = bbox.y + bbox.height / 2;
+
+        // Calculate translation to center the state
+        const translateX = viewBoxWidth / 2 - centerX * scale;
+        const translateY = viewBoxHeight / 2 - centerY * scale;
+
+        // Animate zoom with D3 transition
+        const transform = d3.zoomIdentity
+            .translate(translateX, translateY)
+            .scale(scale);
+
+        currentZoomTransform = transform;
+        isZoomedIn = true;
+
+        // Apply zoom transition to states group
+        mapG.transition()
+            .duration(750)
+            .ease(d3.easeCubicInOut)
+            .attr('transform', transform.toString());
+
+        // Show city markers after zoom completes
+        setTimeout(() => {
+            renderCityMarkers(stateName, stateAbbr, stateInfo, transform);
+        }, 750);
+
+        // Show reset button
+        const resetBtn = document.getElementById('reset-zoom-btn');
+        if (resetBtn) {
+            resetBtn.style.display = 'inline-flex';
+        }
+    }
+
+    // Update city breakdown table (without scroll)
+    updateCityTable(stateName, stateInfo);
 }
 
 /**
- * Show city breakdown for selected state
+ * Render city markers on the zoomed state
  */
-function showCityBreakdown(stateName, stateInfo) {
+function renderCityMarkers(stateName, stateAbbr, stateInfo, transform) {
+    if (!cityG || !stateInfo || !stateInfo.cities) {
+        cityG.selectAll('*').remove();
+        return;
+    }
+
+    // Get state centroid as base position
+    const centroid = stateCentroids[stateAbbr] || [480, 300];
+
+    // Prepare city data with positions
+    const cities = Object.entries(stateInfo.cities)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20); // Limit to top 20 cities
+
+    const maxCount = cities.length > 0 ? cities[0][1] : 1;
+
+    // Generate positions for cities around the centroid
+    const cityData = cities.map(([cityName, count], i) => {
+        // Distribute cities in a spiral pattern from centroid
+        const angle = (i / cities.length) * Math.PI * 2;
+        const radius = 20 + (i * 8); // Increasing radius
+        const x = centroid[0] + Math.cos(angle) * radius;
+        const y = centroid[1] + Math.sin(angle) * radius;
+
+        return {
+            name: cityName,
+            count,
+            x,
+            y,
+            radius: Math.max(3, Math.sqrt(count / maxCount) * 12)
+        };
+    });
+
+    // Clear existing markers
+    cityG.selectAll('*').remove();
+
+    // Apply same transform as states
+    cityG.attr('transform', transform.toString());
+
+    // Add city markers with animation
+    const markers = cityG.selectAll('g.city-marker')
+        .data(cityData)
+        .enter()
+        .append('g')
+        .attr('class', 'city-marker')
+        .attr('transform', d => `translate(${d.x}, ${d.y})`)
+        .style('opacity', 0);
+
+    // Add circles
+    markers.append('circle')
+        .attr('r', 0)
+        .attr('fill', '#0d9488')
+        .attr('fill-opacity', 0.7)
+        .attr('stroke', '#fff')
+        .attr('stroke-width', 1.5 / transform.k) // Adjust stroke for zoom level
+        .transition()
+        .duration(400)
+        .delay((d, i) => i * 30)
+        .attr('r', d => d.radius / transform.k); // Adjust size for zoom level
+
+    // Add labels for larger cities
+    markers.filter(d => d.count >= maxCount * 0.2)
+        .append('text')
+        .attr('class', 'city-label')
+        .attr('y', d => -(d.radius / transform.k) - 4)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', `${10 / transform.k}px`)
+        .attr('fill', '#1e293b')
+        .attr('font-weight', '500')
+        .text(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name);
+
+    // Animate in
+    markers.transition()
+        .duration(400)
+        .delay((d, i) => i * 30)
+        .style('opacity', 1);
+
+    // Add hover tooltips
+    markers
+        .on('mouseenter', (event, d) => showCityTooltip(event, d))
+        .on('mouseleave', hideCityTooltip);
+}
+
+/**
+ * Show tooltip for city marker
+ */
+function showCityTooltip(event, d) {
+    const tooltip = document.getElementById('map-tooltip');
+    if (!tooltip) return;
+
+    tooltip.innerHTML = `
+        <div class="tooltip-title">${d.name}</div>
+        <div class="tooltip-value">Trials: ${d.count.toLocaleString()}</div>
+    `;
+    tooltip.classList.add('visible');
+
+    const container = document.getElementById('us-map-container');
+    const rect = container.getBoundingClientRect();
+    tooltip.style.left = `${event.clientX - rect.left + 15}px`;
+    tooltip.style.top = `${event.clientY - rect.top + 15}px`;
+}
+
+/**
+ * Hide city tooltip
+ */
+function hideCityTooltip() {
+    const tooltip = document.getElementById('map-tooltip');
+    if (tooltip) {
+        tooltip.classList.remove('visible');
+    }
+}
+
+/**
+ * Reset map zoom to full US view
+ */
+function resetMapZoom() {
+    if (!mapG) return;
+
+    // Reset state selection
+    selectedState = null;
+    isZoomedIn = false;
+    currentZoomTransform = null;
+
+    // Animate back to original view
+    mapG.transition()
+        .duration(750)
+        .ease(d3.easeCubicInOut)
+        .attr('transform', '');
+
+    // Remove city markers
+    cityG.selectAll('*')
+        .transition()
+        .duration(300)
+        .style('opacity', 0)
+        .remove();
+
+    // Reset state styling
+    mapG.selectAll('path.state')
+        .classed('selected', false)
+        .classed('dimmed', false);
+
+    // Hide reset button
+    const resetBtn = document.getElementById('reset-zoom-btn');
+    if (resetBtn) {
+        resetBtn.style.display = 'none';
+    }
+
+    // Hide detail table
+    closeStateDetail();
+}
+
+/**
+ * Update city breakdown table (without scrolling)
+ */
+function updateCityTable(stateName, stateInfo) {
     const detailRow = document.getElementById('state-detail-row');
     const title = document.getElementById('state-detail-title');
     const tbody = document.getElementById('city-table-body');
@@ -3198,7 +3534,7 @@ function showCityBreakdown(stateName, stateInfo) {
 
     if (!detailRow || !tbody) return;
 
-    if (!stateInfo || !stateInfo.cities) {
+    if (!stateInfo || !stateInfo.cities || Object.keys(stateInfo.cities).length === 0) {
         detailRow.style.display = 'none';
         return;
     }
@@ -3227,32 +3563,25 @@ function showCityBreakdown(stateName, stateInfo) {
     const sortedCities = Object.entries(stateInfo.cities)
         .sort((a, b) => b[1] - a[1]);
 
-    const totalInState = stateInfo.count;
+    const totalInState = sortedCities.reduce((sum, [, count]) => sum + count, 0);
 
     tbody.innerHTML = '';
 
     sortedCities.forEach(([city, count], index) => {
         const pct = totalInState > 0 ? ((count / totalInState) * 100).toFixed(1) : '0.0';
 
-        // For reporting layers, we'd need city-level trial data
-        // For simplicity, showing trial counts for now
-        let metricValue = count.toLocaleString();
-
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${index + 1}</td>
             <td>${city}</td>
-            <td>${metricValue}</td>
+            <td>${count.toLocaleString()}</td>
             <td>${pct}%</td>
         `;
         tbody.appendChild(row);
     });
 
-    // Show detail section
+    // Show detail section (no scroll - table updates silently)
     detailRow.style.display = 'block';
-
-    // Scroll to detail section
-    detailRow.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /**
@@ -3263,8 +3592,131 @@ function closeStateDetail() {
     if (detailRow) {
         detailRow.style.display = 'none';
     }
-    selectedState = null;
-    renderUSMap();
+}
+
+/**
+ * Aggregate data by region for the regional chart
+ */
+function aggregateByRegion() {
+    const regionData = {
+        'Northeast': { count: 0, trials: [] },
+        'Midwest': { count: 0, trials: [] },
+        'South': { count: 0, trials: [] },
+        'West': { count: 0, trials: [] }
+    };
+
+    for (const [stateName, stateInfo] of Object.entries(currentStateData)) {
+        const region = stateToRegion[stateName];
+        if (region && regionData[region] && stateInfo) {
+            regionData[region].count += stateInfo.count || 0;
+            if (stateInfo.trials) {
+                regionData[region].trials.push(...stateInfo.trials);
+            }
+        }
+    }
+
+    return regionData;
+}
+
+/**
+ * Render the Regional Diversity bar chart
+ */
+function renderRegionalChart() {
+    const canvas = document.getElementById('regional-diversity-chart');
+    if (!canvas) return;
+
+    const regionData = aggregateByRegion();
+    const totalTrials = Object.values(regionData).reduce((sum, r) => sum + r.count, 0);
+
+    const labels = ['Northeast', 'Midwest', 'South', 'West'];
+    const data = labels.map(r => regionData[r].count);
+    const percentages = labels.map(r => totalTrials > 0 ? ((regionData[r].count / totalTrials) * 100).toFixed(1) : 0);
+    const colors = labels.map(r => regionColors[r]);
+
+    // Destroy existing chart if present
+    if (regionalChart) {
+        regionalChart.destroy();
+    }
+
+    // Create new chart
+    regionalChart = new Chart(canvas, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Trials',
+                data: data,
+                backgroundColor: colors,
+                borderColor: colors.map(c => c),
+                borderWidth: 1,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const idx = context.dataIndex;
+                            return `${data[idx].toLocaleString()} trials (${percentages[idx]}%)`;
+                        }
+                    }
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'end',
+                    color: '#64748b',
+                    font: {
+                        size: 11,
+                        weight: '500'
+                    },
+                    formatter: function(value, context) {
+                        const idx = context.dataIndex;
+                        return `${percentages[idx]}%`;
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: {
+                        display: true,
+                        color: 'rgba(0,0,0,0.05)'
+                    },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    }
+                },
+                y: {
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
+    });
+
+    // Update region legend with counts
+    const legendContainer = document.getElementById('region-legend');
+    if (legendContainer) {
+        legendContainer.innerHTML = labels.map(region => `
+            <div class="region-legend-item">
+                <span class="region-color" style="background: ${regionColors[region]}"></span>
+                <span class="region-name">${region}</span>
+                <span class="region-count">${regionData[region].count.toLocaleString()}</span>
+            </div>
+        `).join('');
+    }
 }
 
 /**
@@ -3447,7 +3899,7 @@ function renderGeographyDashboard() {
 
     if (geographyView === 'us') {
         // Show US map, hide international table
-        document.getElementById('us-map-row').style.display = 'block';
+        document.getElementById('us-map-row').style.display = 'flex';
         document.getElementById('international-table-row').style.display = 'none';
         document.getElementById('reporting-layer-controls').classList.remove('hidden');
 
@@ -3479,7 +3931,7 @@ function renderGeographyDashboard() {
 
         // Update state detail if a state is selected
         if (selectedState && currentStateData[selectedState]) {
-            showCityBreakdown(selectedState, currentStateData[selectedState]);
+            updateCityTable(selectedState, currentStateData[selectedState]);
         }
     } else {
         // Show international table, hide US map
