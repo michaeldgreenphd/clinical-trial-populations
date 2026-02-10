@@ -9,6 +9,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Crimson+Pro:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -415,15 +416,31 @@
                 <div class="chart-container geography-chart-wide">
                     <h3 id="geography-chart-title">Trials by US State</h3>
                     <p class="note" id="geography-chart-subtitle">Click a state to see city-level breakdown. Darker colors indicate higher values.</p>
-                    <div class="map-legend" id="map-legend">
-                        <span class="legend-label" id="legend-low">0</span>
-                        <div class="legend-gradient"></div>
-                        <span class="legend-label" id="legend-high">100</span>
+                    <div class="map-controls-row">
+                        <div class="map-legend" id="map-legend">
+                            <span class="legend-label" id="legend-low">0</span>
+                            <div class="legend-gradient"></div>
+                            <span class="legend-label" id="legend-high">100</span>
+                        </div>
+                        <button class="reset-zoom-btn" id="reset-zoom-btn" style="display: none;">
+                            <span class="reset-icon">↩</span> Reset View
+                        </button>
                     </div>
                     <div id="us-map-container">
-                        <!-- SVG Map will be inserted by JavaScript -->
+                        <!-- SVG Map will be rendered by D3.js -->
                     </div>
                     <div id="map-tooltip" class="map-tooltip"></div>
+                </div>
+                <!-- Regional Diversity Chart -->
+                <div class="chart-container geography-chart-narrow">
+                    <h3>Regional Distribution</h3>
+                    <p class="note">Trials by US Census Region</p>
+                    <div id="regional-chart-container">
+                        <canvas id="regional-diversity-chart"></canvas>
+                    </div>
+                    <div class="region-legend" id="region-legend">
+                        <!-- Legend populated by JS -->
+                    </div>
                 </div>
             </div>
 
