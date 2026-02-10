@@ -1497,6 +1497,72 @@ footer p {
     text-align: right;
 }
 
+/* Master-Detail city rows */
+.city-master-row {
+    cursor: pointer;
+    user-select: none;
+}
+
+.city-master-row:hover {
+    background: #eef2ff;
+}
+
+.city-master-row .expand-chevron {
+    display: inline-block;
+    font-size: 0.65rem;
+    color: var(--text-secondary);
+    margin-left: 0.35rem;
+    transition: transform 0.2s ease;
+    vertical-align: middle;
+}
+
+.city-master-row.expanded .expand-chevron {
+    transform: rotate(180deg);
+}
+
+.city-detail-row .detail-cell {
+    padding: 0;
+    background: #f8fafc;
+    border-left: 3px solid var(--primary-color);
+}
+
+.detail-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.detail-table th {
+    background: #eef2ff;
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detail-table td {
+    padding: 0.45rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.detail-table .detail-title {
+    max-width: 340px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-table .text-right,
+.detail-table th.text-right {
+    text-align: right;
+}
+
+.detail-table .nct-link {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+}
+
 #geography-list-container {
     max-height: 500px;
     overflow-y: auto;

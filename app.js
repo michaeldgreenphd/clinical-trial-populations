@@ -2914,8 +2914,17 @@ function aggregateGeography(studies, view) {
                         stateData[stateName].trials.push(study);
                     }
 
-                    // Always count cities (a study can have multiple sites in different cities)
-                    stateData[stateName].cities[city] = (stateData[stateName].cities[city] || 0) + 1;
+                    // Track cities: store count and trial objects
+                    if (!stateData[stateName].cities[city]) {
+                        stateData[stateName].cities[city] = { count: 0, studies: [] };
+                    }
+                    stateData[stateName].cities[city].count++;
+                    stateData[stateName].cities[city].studies.push({
+                        nctId: study.nct_id,
+                        briefTitle: study.brief_title || 'Untitled Study',
+                        enrollment: study.enrollment || 0,
+                        studyUrl: `https://clinicaltrials.gov/study/${study.nct_id}`
+                    });
 
                     // Track facilities if available
                     if (loc.facility) {
@@ -3375,13 +3384,14 @@ function renderCityMarkers(stateName, stateAbbr, stateInfo, transform) {
 
     // Prepare city data with positions
     const cities = Object.entries(stateInfo.cities)
-        .sort((a, b) => b[1] - a[1])
+        .sort((a, b) => b[1].count - a[1].count)
         .slice(0, 20); // Limit to top 20 cities
 
-    const maxCount = cities.length > 0 ? cities[0][1] : 1;
+    const maxCount = cities.length > 0 ? cities[0][1].count : 1;
 
     // Generate positions for cities around the centroid
-    const cityData = cities.map(([cityName, count], i) => {
+    const cityData = cities.map(([cityName, cityInfo], i) => {
+        const count = cityInfo.count;
         // Distribute cities in a spiral pattern from centroid
         const angle = (i / cities.length) * Math.PI * 2;
         const radius = 20 + (i * 8); // Increasing radius
@@ -3553,23 +3563,73 @@ function updateCityTable(stateName, stateInfo) {
 
     // Sort cities by count
     const sortedCities = Object.entries(stateInfo.cities)
-        .sort((a, b) => b[1] - a[1]);
+        .sort((a, b) => b[1].count - a[1].count);
 
-    const totalInState = sortedCities.reduce((sum, [, count]) => sum + count, 0);
+    const totalInState = sortedCities.reduce((sum, [, info]) => sum + info.count, 0);
 
     tbody.innerHTML = '';
 
-    sortedCities.forEach(([city, count], index) => {
+    sortedCities.forEach(([city, cityInfo], index) => {
+        const count = cityInfo.count;
         const pct = totalInState > 0 ? ((count / totalInState) * 100).toFixed(1) : '0.0';
 
+        // Master row
         const row = document.createElement('tr');
+        row.classList.add('city-master-row');
         row.innerHTML = `
             <td>${index + 1}</td>
-            <td>${city}</td>
+            <td>${escapeHtml(city)} <span class="expand-chevron">&#9660;</span></td>
             <td>${count.toLocaleString()}</td>
             <td>${pct}%</td>
         `;
         tbody.appendChild(row);
+
+        // Detail row (hidden by default)
+        const detailTr = document.createElement('tr');
+        detailTr.classList.add('city-detail-row');
+        detailTr.style.display = 'none';
+
+        // Deduplicate and sort studies by enrollment descending, take top 5
+        const seen = new Set();
+        const topStudies = cityInfo.studies
+            .filter(s => {
+                if (seen.has(s.nctId)) return false;
+                seen.add(s.nctId);
+                return true;
+            })
+            .sort((a, b) => b.enrollment - a.enrollment)
+            .slice(0, 5);
+
+        const studyRows = topStudies.map(s => `
+            <tr>
+                <td><a href="${s.studyUrl}" target="_blank" rel="noopener" class="nct-link">${escapeHtml(s.nctId)}</a></td>
+                <td class="detail-title">${escapeHtml(s.briefTitle)}</td>
+                <td class="text-right">${s.enrollment.toLocaleString()}</td>
+            </tr>
+        `).join('');
+
+        detailTr.innerHTML = `
+            <td colspan="4" class="detail-cell">
+                <table class="detail-table">
+                    <thead>
+                        <tr>
+                            <th>NCT ID</th>
+                            <th>Title</th>
+                            <th class="text-right">Enrollment</th>
+                        </tr>
+                    </thead>
+                    <tbody>${studyRows}</tbody>
+                </table>
+            </td>
+        `;
+        tbody.appendChild(detailTr);
+
+        // Toggle detail on master row click
+        row.addEventListener('click', () => {
+            const isVisible = detailTr.style.display !== 'none';
+            detailTr.style.display = isVisible ? 'none' : 'table-row';
+            row.classList.toggle('expanded', !isVisible);
+        });
     });
 
     // Show detail section (no scroll - table updates silently)
