@@ -3071,14 +3071,15 @@ async function initUSMap() {
     // Clear any existing content
     container.innerHTML = '';
 
-    // Get container dimensions
-    const width = container.clientWidth || 900;
-    const height = Math.min(width * 0.62, 560);
+    // Use a fixed viewBox so the map scales consistently via CSS (width:100%; height:auto)
+    // The aspect ratio ~1.6:1 matches the Albers USA projection bounding box
+    const viewW = 975;
+    const viewH = 610;
 
     // Create SVG with D3
     mapSvg = d3.select(container)
         .append('svg')
-        .attr('viewBox', `0 0 ${width} ${height}`)
+        .attr('viewBox', `0 0 ${viewW} ${viewH}`)
         .attr('preserveAspectRatio', 'xMidYMid meet')
         .attr('class', 'us-map-svg');
 
@@ -3102,19 +3103,18 @@ async function initUSMap() {
             });
 
             usGeoFeatures = statesGeo;
-
-            // Pre-projected data (Albers USA) - use geoIdentity to fit to our SVG
-            const projection = d3.geoIdentity().reflectY(true).fitSize([width, height], statesGeo);
-            geoPathGenerator = d3.geoPath(projection);
         } catch (err) {
             console.error('Failed to load US TopoJSON:', err);
             return;
         }
-    } else {
-        // Recalculate projection for current container size
-        const projection = d3.geoIdentity().reflectY(true).fitSize([width, height], usGeoFeatures);
-        geoPathGenerator = d3.geoPath(projection);
     }
+
+    // Build projection: reflectY fixes the upside-down issue,
+    // fitSize scales pre-projected Albers coordinates to fill the viewBox
+    const projection = d3.geoIdentity()
+        .reflectY(true)
+        .fitSize([viewW, viewH], usGeoFeatures);
+    geoPathGenerator = d3.geoPath(projection);
 
     // Initial render
     renderUSMap();
