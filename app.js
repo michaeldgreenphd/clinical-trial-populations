@@ -205,89 +205,120 @@ async function fetchAndDecompress(url) {
     return json;
 }
 
-// Fetch with fallback: try jsDelivr first, then direct GitHub release URL
-async function fetchWithFallback(primaryUrl, fallbackUrl) {
-    try {
-        return await fetchAndDecompress(primaryUrl);
-    } catch (primaryError) {
-        console.warn(`Primary fetch failed for ${primaryUrl}: ${primaryError.message}`);
-        if (fallbackUrl) {
-            console.log(`Trying fallback URL: ${fallbackUrl}`);
-            return await fetchAndDecompress(fallbackUrl);
-        }
-        throw primaryError;
-    }
-}
-
-// Return the two .json.gz URLs for a given date.
-// "latest" (or no argument) → relative paths served from the repo root.
-// A date string (YYYY-MM-DD) → jsDelivr CDN URLs for historical snapshots.
-// jsDelivr has proper CORS headers and caches GitHub releases effectively.
-function dataURLsForDate(date) {
+// Build list of URL strategies to try for fetching data
+// Returns array of { name, urls } objects in priority order
+function getUrlStrategies(date) {
+    // Latest data: just use local relative paths
     if (!date || date === 'latest') {
-        return [
-            'data/demographics.part1.json.gz',
-            'data/demographics.part2.json.gz'
-        ];
+        return [{
+            name: 'Local',
+            urls: ['data/demographics.part1.json.gz', 'data/demographics.part2.json.gz']
+        }];
     }
-    // Use jsDelivr CDN which mirrors GitHub tags/releases with proper CORS
-    // The @{tag} syntax fetches from the specific release tag
+
+    // Historical data: try multiple strategies
     return [
-        `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
-        `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
+        // Strategy 1: jsDelivr CDN (works on GitHub Pages, proper CORS)
+        {
+            name: 'jsDelivr CDN',
+            urls: [
+                `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
+                `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
+            ]
+        },
+        // Strategy 2: GitHub Release assets (may have CORS issues)
+        {
+            name: 'GitHub Release',
+            urls: [
+                `${RELEASE_BASE}/${date}/demographics.part1.json.gz`,
+                `${RELEASE_BASE}/${date}/demographics.part2.json.gz`
+            ]
+        },
+        // Strategy 3: raw.githubusercontent.com (works if file exists at tag)
+        {
+            name: 'Raw GitHub',
+            urls: [
+                `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${date}/data/demographics.part1.json.gz`,
+                `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${date}/data/demographics.part2.json.gz`
+            ]
+        },
+        // Strategy 4: Fall back to latest local data (for development/testing)
+        {
+            name: 'Local (fallback)',
+            urls: ['data/demographics.part1.json.gz', 'data/demographics.part2.json.gz']
+        }
     ];
 }
 
 async function loadData(date) {
-    const [url1, url2] = dataURLsForDate(date);
+    const strategies = getUrlStrategies(date);
+    let lastError = null;
 
-    // For historical data, prepare fallback URLs (direct GitHub release)
-    let fallback1 = null, fallback2 = null;
-    if (date && date !== 'latest') {
-        fallback1 = `${RELEASE_BASE}/${date}/demographics.part1.json.gz`;
-        fallback2 = `${RELEASE_BASE}/${date}/demographics.part2.json.gz`;
+    for (const strategy of strategies) {
+        try {
+            console.log(`Trying ${strategy.name} strategy...`);
+            const [part1, part2] = await Promise.all([
+                fetchAndDecompress(strategy.urls[0]),
+                fetchAndDecompress(strategy.urls[1])
+            ]);
+
+            data = [...part1.data, ...part2.data];
+            console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
+
+            // Show which snapshot is loaded
+            let dateLabel = '';
+            if (date && date !== 'latest') {
+                // Check if we fell back to local data
+                if (strategy.name === 'Local (fallback)') {
+                    dateLabel = ` (showing latest - ${date} unavailable)`;
+                } else {
+                    dateLabel = ` (${date} snapshot)`;
+                }
+            }
+            document.getElementById('last-updated').textContent =
+                new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
+            return; // Success!
+
+        } catch (error) {
+            console.warn(`✗ ${strategy.name} failed:`, error.message);
+            lastError = error;
+        }
     }
 
-    try {
-        console.log('Loading data parts...');
-        const [part1, part2] = await Promise.all([
-            fallback1 ? fetchWithFallback(url1, fallback1) : fetchAndDecompress(url1),
-            fallback2 ? fetchWithFallback(url2, fallback2) : fetchAndDecompress(url2)
-        ]);
+    // All strategies failed
+    console.error('All fetch strategies failed:', lastError);
+    document.getElementById('last-updated').textContent = 'Error loading data';
 
-        data = [...part1.data, ...part2.data];
-        console.log(`Total studies loaded: ${data.length}`);
-
-        // Show which snapshot is loaded
-        const dateLabel = date && date !== 'latest' ? ` (${date} snapshot)` : '';
-        document.getElementById('last-updated').textContent =
-            new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
-    } catch (error) {
-        console.error('Error loading data:', error);
-        document.getElementById('last-updated').textContent = 'Error loading data';
-
-        const fallbackInfo = fallback1 ? `
+    document.querySelector('main').innerHTML = `
+        <div class="chart-container">
+            <h3>No Data Available</h3>
+            <p class="note">Could not load data for ${date || 'latest'}.</p>
+            <p class="note">Error: ${lastError?.message || 'Unknown error'}</p>
             <p class="note" style="font-size: 0.9em; color: #666;">
-                Also tried fallback URLs:<br>
-                - ${fallback1}<br>
-                - ${fallback2}
-            </p>` : '';
+                Tried the following sources:<br>
+                ${strategies.map(s => `- ${s.name}: ${s.urls[0]}`).join('<br>')}
+            </p>
+            ${date && date !== 'latest' ? `
+            <p class="note">
+                <button onclick="loadDataAndRender('latest')" style="padding: 0.5rem 1rem; cursor: pointer; background: var(--primary-color); color: white; border: none; border-radius: 4px;">
+                    Load Latest Data Instead
+                </button>
+            </p>` : ''}
+        </div>
+    `;
+}
 
-        document.querySelector('main').innerHTML = `
-            <div class="chart-container">
-                <h3>No Data Available</h3>
-                <p class="note">Error loading data files. Please check the browser console for details.</p>
-                <p class="note">Error: ${error.message}</p>
-                <p class="note" style="font-size: 0.9em; color: #666;">
-                    Trying to load:<br>
-                    - ${url1}<br>
-                    - ${url2}
-                </p>
-                ${fallbackInfo}
-            </div>
-        `;
+// Wrapper function to reload with a specific date
+async function loadDataAndRender(date) {
+    document.getElementById('history-date').value = date;
+    await loadData(date);
+    if (data && data.length > 0) {
+        populateConditionsDropdown();
+        populateCountriesDropdown();
+        renderDashboard();
     }
 }
+window.loadDataAndRender = loadDataAndRender;
 
 // Fetch history.json, populate the date-selector dropdown, and wire up
 // the change handler so selecting a historical date reloads + re-renders.
