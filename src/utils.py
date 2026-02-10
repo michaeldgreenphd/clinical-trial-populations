@@ -142,13 +142,58 @@ def get_study_metadata(study: dict) -> dict:
     eligibility_mod = protocol.get("eligibilityModule", {})
     conditions_mod = protocol.get("conditionsModule", {})
 
-    # Extract unique country names from locations
-    locations = protocol.get("contactsLocationsModule", {}).get("locations", [])
+    # Extract detailed location information from study sites
+    raw_locations = protocol.get("contactsLocationsModule", {}).get("locations", [])
+
+    # Build detailed location list with geo_identification_method
+    detailed_locations = []
+    for loc in raw_locations:
+        country = loc.get("country", "")
+        if not country:
+            continue
+
+        state = loc.get("state", "")
+        city = loc.get("city", "")
+        zip_code = loc.get("zip", "")
+        facility = loc.get("facility", "")
+
+        # Determine geo_identification_method based on available precision
+        if zip_code:
+            geo_method = "High Precision (Zip)"
+        elif city and state:
+            geo_method = "Medium Precision (City)"
+        elif city or state:
+            geo_method = "Medium Precision (City)"
+        else:
+            geo_method = "Low Precision (Country)"
+
+        detailed_locations.append({
+            "facility": facility,
+            "city": city,
+            "state": state,
+            "zip": zip_code,
+            "country": country,
+            "geo_identification_method": geo_method
+        })
+
+    # Also create simplified countries list for backward compatibility
     countries = [{"country": c} for c in sorted(set(
         loc.get("country", "")
-        for loc in locations
+        for loc in raw_locations
         if loc.get("country")
     ))]
+
+    # Calculate overall geo_identification_method for the study
+    if detailed_locations:
+        methods = [loc["geo_identification_method"] for loc in detailed_locations]
+        if all(m == "High Precision (Zip)" for m in methods):
+            study_geo_method = "High Precision (Zip)"
+        elif any("High" in m or "Medium" in m for m in methods):
+            study_geo_method = "Medium Precision (City)"
+        else:
+            study_geo_method = "Low Precision (Country)"
+    else:
+        study_geo_method = "Not Reported"
 
     # Extract conditions (diseases/medical conditions)
     conditions = conditions_mod.get("conditions", [])
@@ -252,6 +297,8 @@ def get_study_metadata(study: dict) -> dict:
         "lead_sponsor_name": lead_sponsor_name,
         "collaborators": collaborators,
         "countries": countries,
+        "study_sites": detailed_locations,  # Full location details with facility, city, state, zip
+        "geo_identification_method": study_geo_method,  # Overall precision level for the study
         "conditions": conditions,
         "keywords": keywords,
         # Study design fields

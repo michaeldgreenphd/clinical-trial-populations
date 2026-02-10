@@ -6,9 +6,15 @@ let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
 const PAGE_SIZE = 100;
 
-// GitHub release-asset URL base for historical snapshots
+// GitHub repository details for fetching historical snapshots
 const REPO_OWNER = 'michaeldgreenphd';
 const REPO_NAME  = 'clinical-trial-populations';
+
+// Use jsDelivr CDN for historical data - it mirrors GitHub releases with proper CORS headers
+// Format: https://cdn.jsdelivr.net/gh/{owner}/{repo}@{tag}/path/to/file
+const JSDELIVR_BASE = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}`;
+
+// Fallback: direct GitHub release URL (may have CORS issues in some browsers)
 const RELEASE_BASE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download`;
 
 // Colors for charts
@@ -199,9 +205,24 @@ async function fetchAndDecompress(url) {
     return json;
 }
 
+// Fetch with fallback: try jsDelivr first, then direct GitHub release URL
+async function fetchWithFallback(primaryUrl, fallbackUrl) {
+    try {
+        return await fetchAndDecompress(primaryUrl);
+    } catch (primaryError) {
+        console.warn(`Primary fetch failed for ${primaryUrl}: ${primaryError.message}`);
+        if (fallbackUrl) {
+            console.log(`Trying fallback URL: ${fallbackUrl}`);
+            return await fetchAndDecompress(fallbackUrl);
+        }
+        throw primaryError;
+    }
+}
+
 // Return the two .json.gz URLs for a given date.
 // "latest" (or no argument) → relative paths served from the repo root.
-// A date string (YYYY-MM-DD) → absolute GitHub-Release asset URLs.
+// A date string (YYYY-MM-DD) → jsDelivr CDN URLs for historical snapshots.
+// jsDelivr has proper CORS headers and caches GitHub releases effectively.
 function dataURLsForDate(date) {
     if (!date || date === 'latest') {
         return [
@@ -209,29 +230,48 @@ function dataURLsForDate(date) {
             'data/demographics.part2.json.gz'
         ];
     }
+    // Use jsDelivr CDN which mirrors GitHub tags/releases with proper CORS
+    // The @{tag} syntax fetches from the specific release tag
     return [
-        `${RELEASE_BASE}/${date}/demographics.part1.json.gz`,
-        `${RELEASE_BASE}/${date}/demographics.part2.json.gz`
+        `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
+        `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
     ];
 }
 
 async function loadData(date) {
     const [url1, url2] = dataURLsForDate(date);
+
+    // For historical data, prepare fallback URLs (direct GitHub release)
+    let fallback1 = null, fallback2 = null;
+    if (date && date !== 'latest') {
+        fallback1 = `${RELEASE_BASE}/${date}/demographics.part1.json.gz`;
+        fallback2 = `${RELEASE_BASE}/${date}/demographics.part2.json.gz`;
+    }
+
     try {
         console.log('Loading data parts...');
         const [part1, part2] = await Promise.all([
-            fetchAndDecompress(url1),
-            fetchAndDecompress(url2)
+            fallback1 ? fetchWithFallback(url1, fallback1) : fetchAndDecompress(url1),
+            fallback2 ? fetchWithFallback(url2, fallback2) : fetchAndDecompress(url2)
         ]);
 
         data = [...part1.data, ...part2.data];
         console.log(`Total studies loaded: ${data.length}`);
 
+        // Show which snapshot is loaded
+        const dateLabel = date && date !== 'latest' ? ` (${date} snapshot)` : '';
         document.getElementById('last-updated').textContent =
-            new Date(part1.extracted_at).toLocaleDateString();
+            new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
     } catch (error) {
         console.error('Error loading data:', error);
         document.getElementById('last-updated').textContent = 'Error loading data';
+
+        const fallbackInfo = fallback1 ? `
+            <p class="note" style="font-size: 0.9em; color: #666;">
+                Also tried fallback URLs:<br>
+                - ${fallback1}<br>
+                - ${fallback2}
+            </p>` : '';
 
         document.querySelector('main').innerHTML = `
             <div class="chart-container">
@@ -243,6 +283,7 @@ async function loadData(date) {
                     - ${url1}<br>
                     - ${url2}
                 </p>
+                ${fallbackInfo}
             </div>
         `;
     }
@@ -1391,12 +1432,96 @@ function showStudyDetails(nctId) {
                     </div>
                     ${study.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(study.why_stopped)}</p>` : ''}
                 </div>
+
+                ${renderStudySites(study)}
             </div>
         </div>
     `;
 
     overlay.innerHTML = html;
     overlay.style.display = 'flex';
+}
+
+/**
+ * Render study sites section for the detail modal
+ */
+function renderStudySites(study) {
+    // Prefer study_sites (new format) over countries (old format)
+    const sites = study.study_sites || [];
+    const countries = study.countries || [];
+
+    if (sites.length === 0 && countries.length === 0) {
+        return `
+            <div class="detail-section">
+                <h5>Study Sites</h5>
+                <p class="note">Location data not available for this study.</p>
+                <p><strong>Geo Identification:</strong> <span class="badge badge-gray">Not Reported</span></p>
+            </div>`;
+    }
+
+    // If we have detailed sites, show them
+    if (sites.length > 0) {
+        const geoMethod = study.geo_identification_method || 'Unknown';
+        const geoMethodClass = geoMethod.includes('High') ? 'badge-green' :
+                               geoMethod.includes('Medium') ? 'badge-yellow' :
+                               geoMethod.includes('Low') ? 'badge-orange' : 'badge-gray';
+
+        // Group sites by country
+        const sitesByCountry = {};
+        sites.forEach(site => {
+            const country = site.country || 'Unknown';
+            if (!sitesByCountry[country]) {
+                sitesByCountry[country] = [];
+            }
+            sitesByCountry[country].push(site);
+        });
+
+        let sitesHtml = '';
+        for (const [country, countrySites] of Object.entries(sitesByCountry)) {
+            sitesHtml += `<div class="country-sites">
+                <strong>${escapeHtml(country)}</strong> (${countrySites.length} site${countrySites.length > 1 ? 's' : ''})
+                <ul class="sites-list">`;
+
+            // Show up to 5 sites per country
+            const displaySites = countrySites.slice(0, 5);
+            displaySites.forEach(site => {
+                const locationParts = [site.city, site.state, site.zip].filter(Boolean);
+                const locationStr = locationParts.length > 0 ? locationParts.join(', ') : 'Location details not available';
+                const facilityStr = site.facility ? escapeHtml(site.facility) : 'Facility not specified';
+
+                sitesHtml += `<li>
+                    <span class="facility-name">${facilityStr}</span>
+                    <span class="location-details">${escapeHtml(locationStr)}</span>
+                    <span class="badge ${site.geo_identification_method?.includes('High') ? 'badge-green' : site.geo_identification_method?.includes('Medium') ? 'badge-yellow' : 'badge-orange'}">${site.geo_identification_method || 'Unknown'}</span>
+                </li>`;
+            });
+
+            if (countrySites.length > 5) {
+                sitesHtml += `<li class="more-sites"><em>... and ${countrySites.length - 5} more sites</em></li>`;
+            }
+
+            sitesHtml += `</ul></div>`;
+        }
+
+        return `
+            <div class="detail-section">
+                <h5>Study Sites (${sites.length} total)</h5>
+                <p><strong>Overall Geo Identification:</strong> <span class="badge ${geoMethodClass}">${geoMethod}</span></p>
+                <div class="sites-container">
+                    ${sitesHtml}
+                </div>
+            </div>`;
+    }
+
+    // Fallback: just show countries (old format)
+    const countryList = countries.map(c => c.country).join(', ');
+    return `
+        <div class="detail-section">
+            <h5>Study Locations</h5>
+            <p><strong>Countries:</strong> ${escapeHtml(countryList) || 'Not specified'}</p>
+            <p><strong>Geo Identification:</strong> <span class="badge badge-orange">Low Precision (Country)</span></p>
+            <p class="note">Detailed site information not available for this study.</p>
+        </div>`;
 }
 
 function closeStudyDetails() {
@@ -2616,8 +2741,9 @@ function classifyTrialsBySiteCount(studies) {
 
 /**
  * Aggregate geography data with city-level details
+ * Uses study_sites (new format) if available, falls back to countries (old format)
  * @param {string} view - 'us' or 'international'
- * @returns {Object} For US: { [state]: { count, cities: { [city]: count } } }
+ * @returns {Object} For US: { [state]: { count, cities: { [city]: count }, trials: [] } }
  *                   For international: { [country]: count }
  */
 function aggregateGeography(studies, view) {
@@ -2625,7 +2751,8 @@ function aggregateGeography(studies, view) {
         const stateData = {};
 
         studies.forEach(study => {
-            const locations = study.countries || [];
+            // Prefer study_sites (new format) over countries (old format)
+            const locations = study.study_sites || study.countries || [];
 
             locations.forEach(loc => {
                 if (!loc || !loc.country) return;
@@ -2635,11 +2762,16 @@ function aggregateGeography(studies, view) {
                     const city = loc.city || 'Unknown City';
 
                     if (!stateData[state]) {
-                        stateData[state] = { count: 0, cities: {}, trials: [] };
+                        stateData[state] = { count: 0, cities: {}, trials: [], facilities: {} };
                     }
                     stateData[state].count++;
                     stateData[state].cities[city] = (stateData[state].cities[city] || 0) + 1;
                     stateData[state].trials.push(study);
+
+                    // Track facilities if available
+                    if (loc.facility) {
+                        stateData[state].facilities[loc.facility] = (stateData[state].facilities[loc.facility] || 0) + 1;
+                    }
                 }
             });
         });
@@ -2649,7 +2781,8 @@ function aggregateGeography(studies, view) {
         const counts = {};
 
         studies.forEach(study => {
-            const locations = study.countries || [];
+            // Prefer study_sites (new format) over countries (old format)
+            const locations = study.study_sites || study.countries || [];
 
             locations.forEach(loc => {
                 if (!loc || !loc.country) return;
