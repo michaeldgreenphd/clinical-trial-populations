@@ -3104,7 +3104,7 @@ async function initUSMap() {
             usGeoFeatures = statesGeo;
 
             // Pre-projected data (Albers USA) - use geoIdentity to fit to our SVG
-            const projection = d3.geoIdentity().fitSize([width, height], statesGeo);
+            const projection = d3.geoIdentity().reflectY(true).fitSize([width, height], statesGeo);
             geoPathGenerator = d3.geoPath(projection);
         } catch (err) {
             console.error('Failed to load US TopoJSON:', err);
@@ -3112,7 +3112,7 @@ async function initUSMap() {
         }
     } else {
         // Recalculate projection for current container size
-        const projection = d3.geoIdentity().fitSize([width, height], usGeoFeatures);
+        const projection = d3.geoIdentity().reflectY(true).fitSize([width, height], usGeoFeatures);
         geoPathGenerator = d3.geoPath(projection);
     }
 
