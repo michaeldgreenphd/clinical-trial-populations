@@ -2881,6 +2881,7 @@ function aggregateGeography(studies, view) {
     if (view === 'us') {
         const stateData = {};
         const seenStudyStates = new Map(); // Track study-state pairs to avoid duplicates
+        const seenStudyCities = new Map(); // Track study-city pairs to avoid duplicates
 
         studies.forEach(study => {
             // Prefer study_sites (new format) over countries (old format)
@@ -2914,18 +2915,22 @@ function aggregateGeography(studies, view) {
                         stateData[stateName].trials.push(study);
                     }
 
-                    // Track cities: store count and trial objects
+                    // Track cities: deduplicate so each study is counted once per city
                     if (!stateData[stateName].cities[city]) {
                         stateData[stateName].cities[city] = { count: 0, studies: [] };
                     }
-                    stateData[stateName].cities[city].count++;
-                    if (study.nct_id) {
-                        stateData[stateName].cities[city].studies.push({
-                            nctId: study.nct_id,
-                            briefTitle: study.brief_title || 'Untitled Study',
-                            enrollment: study.enrollment || 0,
-                            studyUrl: `https://clinicaltrials.gov/study/${study.nct_id}`
-                        });
+                    const studyCityKey = `${studyId}-${stateName}-${city}`;
+                    if (!seenStudyCities.has(studyCityKey)) {
+                        seenStudyCities.set(studyCityKey, true);
+                        stateData[stateName].cities[city].count++;
+                        if (study.nct_id) {
+                            stateData[stateName].cities[city].studies.push({
+                                nctId: study.nct_id,
+                                briefTitle: study.brief_title || 'Untitled Study',
+                                enrollment: study.enrollment || 0,
+                                studyUrl: `https://clinicaltrials.gov/study/${study.nct_id}`
+                            });
+                        }
                     }
 
                     // Track facilities if available
@@ -2966,37 +2971,28 @@ let selectedState = null;
  * Check if a trial reports race data
  */
 function trialReportsRace(study) {
-    if (!study.baseline_data || !study.baseline_data.race) return false;
-    const race = study.baseline_data.race;
-    // Check if any race category has data
-    return Object.values(race).some(val => val && val > 0);
+    return !!study.race?.reported;
 }
 
 /**
  * Check if a trial reports ethnicity data
  */
 function trialReportsEthnicity(study) {
-    if (!study.baseline_data || !study.baseline_data.ethnicity) return false;
-    const eth = study.baseline_data.ethnicity;
-    return Object.values(eth).some(val => val && val > 0);
+    return !!study.ethnicity?.reported;
 }
 
 /**
  * Check if a trial reports sex data
  */
 function trialReportsSex(study) {
-    if (!study.baseline_data || !study.baseline_data.sex) return false;
-    const sex = study.baseline_data.sex;
-    return Object.values(sex).some(val => val && val > 0);
+    return !!study.sex?.reported;
 }
 
 /**
  * Check if a trial reports gender data
  */
 function trialReportsGender(study) {
-    if (!study.baseline_data || !study.baseline_data.gender) return false;
-    const gender = study.baseline_data.gender;
-    return Object.values(gender).some(val => val && val > 0);
+    return !!study.gender?.reported;
 }
 
 /**
@@ -3425,7 +3421,11 @@ function updateCityTable(stateName, stateInfo) {
     const sortedCities = Object.entries(stateInfo.cities)
         .sort((a, b) => b[1].count - a[1].count);
 
-    const totalInState = sortedCities.reduce((sum, [, info]) => sum + info.count, 0);
+    // Use the deduplicated state trial count as denominator.
+    // A trial can appear in multiple cities (multi-site), so city counts may
+    // sum to more than the state total — each city's % reflects share of
+    // unique state trials that have at least one site in that city.
+    const totalInState = stateInfo.count || sortedCities.reduce((sum, [, info]) => sum + info.count, 0);
 
     tbody.innerHTML = '';
 
