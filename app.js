@@ -53,134 +53,213 @@ function hideLoadingOverlay() {
     }
 }
 
-// Condition Category Mapping - maps raw condition strings to simplified categories
-const CONDITION_CATEGORY_KEYWORDS = {
-    heart_disease: [
-        'heart', 'cardiac', 'cardiovascular', 'coronary', 'arrhythmia', 'atrial fibrillation',
-        'heart failure', 'myocardial', 'cardiomyopathy', 'angina', 'hypertension', 'blood pressure',
-        'aortic', 'ventricular', 'pericardial', 'endocarditis', 'valve', 'congestive'
-    ],
-    cancer: [
-        'cancer', 'carcinoma', 'tumor', 'tumour', 'neoplasm', 'malignant', 'oncology', 'leukemia',
-        'lymphoma', 'melanoma', 'sarcoma', 'myeloma', 'metastatic', 'metastasis', 'adenocarcinoma',
-        'blastoma', 'glioma', 'mesothelioma', 'chemotherapy', 'oncologic'
-    ],
-    respiratory: [
-        'copd', 'chronic obstructive pulmonary', 'emphysema', 'chronic bronchitis', 'pulmonary fibrosis',
-        'interstitial lung', 'asthma', 'bronchiectasis', 'pulmonary hypertension', 'respiratory failure'
-    ],
-    stroke: [
-        'stroke', 'cerebrovascular', 'cerebral infarction', 'brain ischemia', 'intracranial hemorrhage',
-        'transient ischemic', 'tia', 'carotid', 'subarachnoid hemorrhage', 'cerebral thrombosis'
-    ],
-    alzheimers: [
-        'alzheimer', 'dementia', 'cognitive decline', 'memory impairment', 'mild cognitive impairment',
-        'senile dementia', 'cognitive dysfunction', 'amnestic'
-    ],
-    diabetes: [
-        'diabetes', 'diabetic', 'hyperglycemia', 'hypoglycemia', 'insulin resistance', 'type 1 diabetes',
-        'type 2 diabetes', 'glucose intolerance', 'prediabetes', 'hba1c', 'glycemic'
-    ],
-    influenza_pneumonia: [
-        'influenza', 'flu', 'pneumonia', 'respiratory syncytial', 'rsv', 'pneumococcal',
-        'viral respiratory infection'
-    ],
-    kidney: [
-        'kidney', 'renal', 'nephropathy', 'nephritis', 'chronic kidney disease', 'ckd', 'dialysis',
-        'end-stage renal', 'esrd', 'glomerular', 'polycystic kidney', 'nephrotic'
-    ],
-    mental_health: [
-        'depression', 'anxiety', 'bipolar', 'schizophrenia', 'psychosis', 'psychiatric', 'ptsd',
-        'post-traumatic stress', 'obsessive compulsive', 'ocd', 'panic disorder', 'phobia',
-        'mood disorder', 'major depressive', 'generalized anxiety', 'mental disorder', 'mental health'
-    ],
-    substance_use: [
-        'substance abuse', 'substance use', 'addiction', 'alcohol', 'alcoholism', 'drug abuse',
-        'opioid', 'cocaine', 'cannabis', 'marijuana', 'tobacco', 'smoking', 'nicotine',
-        'drug dependence', 'withdrawal'
-    ],
-    musculoskeletal: [
-        'arthritis', 'rheumatoid', 'osteoarthritis', 'osteoporosis', 'bone', 'joint', 'musculoskeletal',
-        'fibromyalgia', 'back pain', 'spine', 'spinal', 'gout', 'lupus', 'spondylitis',
-        'tendinitis', 'bursitis', 'fracture', 'orthopedic'
-    ],
-    infectious: [
-        'hiv', 'aids', 'hepatitis', 'tuberculosis', 'tb', 'malaria', 'sepsis', 'bacterial infection',
-        'viral infection', 'fungal infection', 'parasitic', 'meningitis', 'endocarditis',
-        'sexually transmitted', 'sti', 'std', 'covid', 'coronavirus', 'sars-cov', 'ebola', 'zika'
-    ],
-    neurological: [
-        'parkinson', 'epilepsy', 'seizure', 'multiple sclerosis', 'ms', 'neuropathy', 'migraine',
-        'headache', 'als', 'amyotrophic lateral', 'huntington', 'dystonia', 'tremor', 'ataxia',
-        'guillain-barre', 'myasthenia', 'peripheral neuropathy', 'nerve', 'spinal cord injury'
-    ],
-    digestive: [
-        'crohn', 'colitis', 'inflammatory bowel', 'ibd', 'irritable bowel', 'ibs', 'gastroesophageal',
-        'gerd', 'celiac', 'pancreatitis', 'liver', 'hepatic', 'cirrhosis', 'gallbladder',
-        'gastrointestinal', 'gastric', 'esophageal', 'intestinal', 'colon', 'colorectal', 'ulcer'
-    ],
-    skin: [
-        'dermatitis', 'eczema', 'psoriasis', 'acne', 'rosacea', 'skin', 'dermatologic', 'cutaneous',
-        'wound healing', 'burn', 'vitiligo', 'alopecia', 'urticaria', 'pruritus'
-    ]
-};
+// ---------------------------------------------------------------------------
+// Hierarchical Condition Ontology
+// Primary Category -> Secondary Category -> keywords[]
+// Loaded from condition_ontology.json at build time; embedded here for the
+// GitHub-Pages frontend so no extra fetch is needed.
+// ---------------------------------------------------------------------------
+let CONDITION_ONTOLOGY = null;   // { primary: { secondary: [keywords] } }
+let _conditionKeywordIndex = []; // [{keyword, primary, secondary}] sorted longest-first
 
-/**
- * Maps a raw condition string to one of the simplified categories.
- * Uses case-insensitive keyword matching.
- * @param {string} condition - The raw condition string from the study
- * @returns {string} - The category key (e.g., 'heart_disease', 'cancer') or 'other' if no match
- */
-function mapConditionToCategory(condition) {
-    if (!condition) return 'other';
+async function loadConditionOntology() {
+    try {
+        const resp = await fetch('condition_ontology.json');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const json = await resp.json();
+        CONDITION_ONTOLOGY = json.categories;
+    } catch (e) {
+        console.warn('Could not load condition_ontology.json, using inline fallback', e);
+        CONDITION_ONTOLOGY = _INLINE_ONTOLOGY;
+    }
+    _buildKeywordIndex();
+}
 
-    const lowerCondition = condition.toLowerCase();
-
-    for (const [category, keywords] of Object.entries(CONDITION_CATEGORY_KEYWORDS)) {
-        for (const keyword of keywords) {
-            if (lowerCondition.includes(keyword.toLowerCase())) {
-                return category;
+function _buildKeywordIndex() {
+    _conditionKeywordIndex = [];
+    for (const [primary, secondaries] of Object.entries(CONDITION_ONTOLOGY)) {
+        for (const [secondary, keywords] of Object.entries(secondaries)) {
+            for (const kw of keywords) {
+                _conditionKeywordIndex.push({ keyword: kw.toLowerCase(), primary, secondary });
             }
         }
     }
+    // Sort longest-first so "heart failure" matches before "heart"
+    _conditionKeywordIndex.sort((a, b) => b.keyword.length - a.keyword.length);
+}
 
-    return 'other';
+// Minimal inline fallback in case the JSON fails to load
+const _INLINE_ONTOLOGY = {
+    "Cardiovascular": { "Other Cardiovascular": ["heart", "cardiac", "cardiovascular", "coronary", "hypertension", "myocardial", "ventricular"] },
+    "Oncology": { "Other Oncology": ["cancer", "carcinoma", "tumor", "tumour", "neoplasm", "malignant", "leukemia", "lymphoma", "melanoma", "sarcoma", "myeloma", "metastatic"] },
+    "Neurology": { "Other Neurological": ["neurological", "parkinson", "epilepsy", "multiple sclerosis", "alzheimer", "dementia", "migraine", "stroke", "neuropathy"] },
+    "Respiratory": { "Other Respiratory": ["copd", "asthma", "pulmonary", "respiratory", "lung", "pneumonia"] },
+    "Mental Health": { "Other Mental Health": ["depression", "anxiety", "bipolar", "schizophrenia", "psychiatric", "ptsd", "mental health"] },
+    "Endocrine and Metabolic": { "Diabetes (General)": ["diabetes", "diabetic", "insulin", "glycemic", "obesity"] },
+    "Infectious Disease": { "Other Infectious": ["hiv", "hepatitis", "tuberculosis", "covid", "coronavirus", "infection", "sepsis", "malaria"] },
+    "Autoimmune and Inflammatory": { "Other Autoimmune": ["autoimmune", "lupus", "rheumatoid", "crohn", "colitis", "psoriasis", "celiac"] },
+    "Gastrointestinal": { "Other Gastrointestinal": ["gastrointestinal", "liver", "cirrhosis", "hepatic", "gastric", "ibd", "gerd"] },
+    "Kidney and Urological": { "Other Kidney": ["kidney", "renal", "nephropathy", "dialysis", "ckd"] },
+    "Musculoskeletal": { "Other Musculoskeletal": ["arthritis", "osteoarthritis", "osteoporosis", "musculoskeletal", "fibromyalgia", "fracture", "bone", "joint"] },
+    "Dermatology": { "Other Dermatology": ["dermatitis", "eczema", "psoriasis", "acne", "skin", "wound"] },
+    "Substance Use Disorders": { "Other Substance Use": ["substance abuse", "addiction", "alcohol", "opioid", "smoking", "tobacco", "nicotine"] },
+    "Hematology": { "Other Hematology": ["anemia", "sickle cell", "hemophilia", "thrombosis", "blood disorder"] },
+    "Ophthalmology": { "Other Ophthalmology": ["macular degeneration", "glaucoma", "retinal", "cataract", "eye", "ocular"] },
+    "Reproductive and Sexual Health": { "Other Reproductive": ["infertility", "pregnancy", "menopause", "endometriosis", "contraception"] },
+    "Transplant and Immunology": { "Other Immunology": ["transplant", "graft", "immunosuppression", "allergy"] },
+    "Rare Diseases": { "Other Rare Diseases": ["cystic fibrosis", "huntington", "amyloidosis", "rare disease"] },
+    "Pain": { "Other Pain": ["chronic pain", "neuropathic pain", "pain management", "pain"] }
+};
+
+/**
+ * Classify a single condition string into {primary, secondary}.
+ * Uses the Python-side classification if available, else JS keyword match.
+ */
+function classifyCondition(condition) {
+    if (!condition) return { primary: 'Other', secondary: 'Uncategorized' };
+    const lower = condition.toLowerCase();
+    for (const entry of _conditionKeywordIndex) {
+        if (lower.includes(entry.keyword)) {
+            return { primary: entry.primary, secondary: entry.secondary };
+        }
+    }
+    return { primary: 'Other', secondary: 'Uncategorized' };
 }
 
 /**
- * Checks if a study matches the selected simplified condition category.
- * A study matches if ANY of its conditions map to the selected category.
- * @param {Object} study - The study object with conditions array
- * @param {string} selectedCategory - The selected category key
- * @returns {boolean} - True if the study matches the category
+ * Get the primary + secondary classification for a study.
+ * Prefers pre-computed fields from the Python pipeline; falls back to JS-side
+ * keyword classification of the raw conditions array.
  */
-function studyMatchesSimplifiedCondition(study, selectedCategory) {
-    if (selectedCategory === 'all') return true;
-
-    const conditions = study.conditions || [];
-    if (conditions.length === 0) {
-        // Studies with no conditions only match 'other'
-        return selectedCategory === 'other';
+function getStudyClassification(study) {
+    // If the Python pipeline already classified this study, use those values
+    if (study.primary_condition && study.primary_condition !== 'Other') {
+        return { primary: study.primary_condition, secondary: study.secondary_condition || 'Uncategorized' };
     }
 
-    for (const condition of conditions) {
-        const category = mapConditionToCategory(condition);
-        if (category === selectedCategory) {
-            return true;
+    // Fall back to JS-side classification
+    const conditions = study.conditions || [];
+    if (conditions.length === 0) return { primary: 'Other', secondary: 'Uncategorized' };
+
+    // Pick the most common primary across all conditions (same logic as Python)
+    const primaryCounts = {};
+    const primaryToSecondary = {};
+    for (const cond of conditions) {
+        const { primary, secondary } = classifyCondition(cond);
+        primaryCounts[primary] = (primaryCounts[primary] || 0) + 1;
+        if (!primaryToSecondary[primary]) primaryToSecondary[primary] = secondary;
+    }
+    let bestPrimary = 'Other';
+    let bestCount = 0;
+    for (const [p, count] of Object.entries(primaryCounts)) {
+        if (count > bestCount || (count === bestCount && p < bestPrimary)) {
+            bestPrimary = p;
+            bestCount = count;
+        }
+    }
+    return { primary: bestPrimary, secondary: primaryToSecondary[bestPrimary] || 'Uncategorized' };
+}
+
+/**
+ * Check if a study matches the selected primary and/or secondary category.
+ * A study matches if ANY of its conditions map to the selected categories.
+ */
+function studyMatchesConditionFilter(study, primaryFilter, secondaryFilter) {
+    if (primaryFilter === 'all' && secondaryFilter === 'all') return true;
+
+    const conditions = study.conditions || [];
+
+    // Use all_classifications from Python if available
+    let classifications = study.condition_classifications;
+    if (!classifications || classifications.length === 0) {
+        // Fallback: classify in JS
+        classifications = conditions.map(c => {
+            const cls = classifyCondition(c);
+            return { primary: cls.primary, secondary: cls.secondary };
+        });
+        if (classifications.length === 0) {
+            // Study has no conditions — only matches "Other"
+            return primaryFilter === 'Other' || primaryFilter === 'all';
         }
     }
 
+    for (const cls of classifications) {
+        const priMatch = primaryFilter === 'all' || cls.primary === primaryFilter;
+        const secMatch = secondaryFilter === 'all' || cls.secondary === secondaryFilter;
+        if (priMatch && secMatch) return true;
+    }
     return false;
+}
+
+/**
+ * Populate the primary condition dropdown from the ontology.
+ */
+function populatePrimaryConditionDropdown() {
+    const select = document.getElementById('condition-primary');
+    if (!select || !CONDITION_ONTOLOGY) return;
+
+    // Preserve current selection
+    const current = select.value;
+
+    // Clear existing options except "All"
+    select.innerHTML = '<option value="all">All Categories</option>';
+
+    const primaries = Object.keys(CONDITION_ONTOLOGY).sort();
+    primaries.push('Other'); // Always include "Other" at the end
+
+    for (const primary of primaries) {
+        const opt = document.createElement('option');
+        opt.value = primary;
+        opt.textContent = primary;
+        select.appendChild(opt);
+    }
+
+    // Restore selection if still valid
+    if (current && select.querySelector(`option[value="${CSS.escape(current)}"]`)) {
+        select.value = current;
+    }
+}
+
+/**
+ * Populate the secondary condition dropdown based on the selected primary.
+ */
+function populateSecondaryConditionDropdown(selectedPrimary) {
+    const select = document.getElementById('condition-secondary');
+    if (!select) return;
+
+    select.innerHTML = '<option value="all">All Subcategories</option>';
+
+    if (!selectedPrimary || selectedPrimary === 'all' || !CONDITION_ONTOLOGY) {
+        select.disabled = true;
+        return;
+    }
+
+    const secondaries = CONDITION_ONTOLOGY[selectedPrimary];
+    if (!secondaries) {
+        select.disabled = true;
+        return;
+    }
+
+    select.disabled = false;
+    const keys = Object.keys(secondaries).sort();
+    for (const sec of keys) {
+        const opt = document.createElement('option');
+        opt.value = sec;
+        opt.textContent = sec;
+        select.appendChild(opt);
+    }
 }
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    await loadConditionOntology();
     await loadData();
     initTabs();
     initFilters();
     initSubcategoryButtons();
     initTable();
     initGeographyTab();
+    populatePrimaryConditionDropdown();
     renderDashboard();
 
     // Hide loading overlay after everything is initialized and rendered
@@ -315,6 +394,7 @@ async function loadDataAndRender(date) {
     if (data && data.length > 0) {
         populateConditionsDropdown();
         populateCountriesDropdown();
+        populatePrimaryConditionDropdown();
         renderDashboard();
     }
 }
@@ -383,12 +463,16 @@ function initFilters() {
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
-        'enrollment-type', 'healthy-volunteers', 'condition', 'condition-simplified', 'country'
+        'enrollment-type', 'healthy-volunteers', 'condition', 'condition-primary', 'condition-secondary', 'country'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
         if (element) {
             element.addEventListener('change', () => {
+                // When primary changes, update secondary dropdown options
+                if (id === 'condition-primary') {
+                    populateSecondaryConditionDropdown(element.value);
+                }
                 renderDashboard();
                 updateActiveFilters();
             });
@@ -506,6 +590,9 @@ function resetFilters() {
     document.getElementById('enrollment-type').value = 'all';
     document.getElementById('healthy-volunteers').value = 'all';
     document.getElementById('condition').value = 'all';
+    document.getElementById('condition-primary').value = 'all';
+    const secSelect = document.getElementById('condition-secondary');
+    if (secSelect) { secSelect.value = 'all'; secSelect.disabled = true; }
     document.getElementById('country').value = 'all';
     document.getElementById('min-participants').value = '';
     document.getElementById('max-participants').value = '';
@@ -549,6 +636,22 @@ function updateActiveFilters() {
     if (sponsor !== 'all') {
         filters.push({ label: `Sponsor: ${sponsor}`, reset: () => {
             document.getElementById('sponsor-class').value = 'all';
+        }});
+    }
+
+    const conditionPrimary = document.getElementById('condition-primary')?.value;
+    if (conditionPrimary && conditionPrimary !== 'all') {
+        filters.push({ label: `Category: ${conditionPrimary}`, reset: () => {
+            document.getElementById('condition-primary').value = 'all';
+            const sec = document.getElementById('condition-secondary');
+            if (sec) { sec.value = 'all'; sec.disabled = true; }
+        }});
+    }
+
+    const conditionSecondary = document.getElementById('condition-secondary')?.value;
+    if (conditionSecondary && conditionSecondary !== 'all') {
+        filters.push({ label: `Subcategory: ${conditionSecondary}`, reset: () => {
+            document.getElementById('condition-secondary').value = 'all';
         }});
     }
 
@@ -658,7 +761,8 @@ function getFilteredData() {
     const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
     const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
     const conditionFilter = document.getElementById('condition')?.value || 'all';
-    const conditionSimplifiedFilter = document.getElementById('condition-simplified')?.value || 'all';
+    const conditionPrimaryFilter = document.getElementById('condition-primary')?.value || 'all';
+    const conditionSecondaryFilter = document.getElementById('condition-secondary')?.value || 'all';
     const countryFilter = document.getElementById('country')?.value || 'all';
 
     return data.filter(study => {
@@ -690,9 +794,9 @@ function getFilteredData() {
             const conditions = study.conditions || [];
             if (!conditions.includes(conditionFilter)) return false;
         }
-        // Simplified condition category filter
-        if (conditionSimplifiedFilter !== 'all') {
-            if (!studyMatchesSimplifiedCondition(study, conditionSimplifiedFilter)) return false;
+        // Hierarchical condition category filter
+        if (conditionPrimaryFilter !== 'all' || conditionSecondaryFilter !== 'all') {
+            if (!studyMatchesConditionFilter(study, conditionPrimaryFilter, conditionSecondaryFilter)) return false;
         }
         if (countryFilter !== 'all') {
             const countries = study.countries || [];
