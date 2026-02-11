@@ -250,6 +250,46 @@ function populateSecondaryConditionDropdown(selectedPrimary) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Pediatric status helper — works with pre-computed field or falls back to
+// std_ages / min_age / max_age from the raw data.
+// ---------------------------------------------------------------------------
+function getStudyPediatricStatus(study) {
+    if (study.pediatric_status) return study.pediatric_status;
+
+    const stdAges = study.std_ages || [];
+    if (stdAges.length > 0) {
+        const hasChild = stdAges.includes('CHILD');
+        const hasAdult = stdAges.includes('ADULT') || stdAges.includes('OLDER_ADULT');
+        if (hasChild && !hasAdult) return 'Pediatric Only';
+        if (hasChild && hasAdult) return 'Pediatric Included';
+        if (!hasChild) return 'Adult Only';
+    }
+
+    // Last-resort fallback: parse min_age / max_age strings
+    const parseAgeYears = (ageStr) => {
+        if (!ageStr || ageStr === 'N/A') return null;
+        const match = ageStr.match(/(\d+)/);
+        if (!match) return null;
+        const num = parseInt(match[1], 10);
+        const lower = ageStr.toLowerCase();
+        if (lower.includes('month')) return num / 12;
+        if (lower.includes('week')) return num / 52;
+        if (lower.includes('day')) return num / 365;
+        return num; // assume years
+    };
+
+    const minYears = parseAgeYears(study.min_age);
+    const maxYears = parseAgeYears(study.max_age);
+
+    if (minYears === null && maxYears === null) return 'Not Specified';
+    if (maxYears !== null && maxYears < 18) return 'Pediatric Only';
+    if (minYears !== null && minYears >= 18) return 'Adult Only';
+    if ((minYears !== null && minYears < 18) || (maxYears !== null && maxYears >= 18)) return 'Pediatric Included';
+
+    return 'Not Specified';
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     await loadConditionOntology();
@@ -463,7 +503,7 @@ function initFilters() {
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
-        'enrollment-type', 'healthy-volunteers', 'condition', 'condition-primary', 'condition-secondary', 'country'
+        'enrollment-type', 'healthy-volunteers', 'population-age', 'condition', 'condition-primary', 'condition-secondary', 'country'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -589,6 +629,7 @@ function resetFilters() {
     document.getElementById('primary-purpose').value = 'all';
     document.getElementById('enrollment-type').value = 'all';
     document.getElementById('healthy-volunteers').value = 'all';
+    document.getElementById('population-age').value = 'all';
     document.getElementById('condition').value = 'all';
     document.getElementById('condition-primary').value = 'all';
     const secSelect = document.getElementById('condition-secondary');
@@ -636,6 +677,13 @@ function updateActiveFilters() {
     if (sponsor !== 'all') {
         filters.push({ label: `Sponsor: ${sponsor}`, reset: () => {
             document.getElementById('sponsor-class').value = 'all';
+        }});
+    }
+
+    const popAge = document.getElementById('population-age')?.value;
+    if (popAge && popAge !== 'all') {
+        filters.push({ label: `Age: ${popAge}`, reset: () => {
+            document.getElementById('population-age').value = 'all';
         }});
     }
 
@@ -760,6 +808,7 @@ function getFilteredData() {
     const primaryPurpose = document.getElementById('primary-purpose')?.value || 'all';
     const enrollmentType = document.getElementById('enrollment-type')?.value || 'all';
     const healthyVolunteers = document.getElementById('healthy-volunteers')?.value || 'all';
+    const populationAge = document.getElementById('population-age')?.value || 'all';
     const conditionFilter = document.getElementById('condition')?.value || 'all';
     const conditionPrimaryFilter = document.getElementById('condition-primary')?.value || 'all';
     const conditionSecondaryFilter = document.getElementById('condition-secondary')?.value || 'all';
@@ -789,6 +838,9 @@ function getFilteredData() {
             const acceptsHealthy = study.healthy_volunteers === true;
             if (healthyVolunteers === 'true' && !acceptsHealthy) return false;
             if (healthyVolunteers === 'false' && acceptsHealthy) return false;
+        }
+        if (populationAge !== 'all') {
+            if (getStudyPediatricStatus(study) !== populationAge) return false;
         }
         if (conditionFilter !== 'all') {
             const conditions = study.conditions || [];
@@ -1545,6 +1597,7 @@ function showStudyDetails(nctId) {
                     <div class="detail-grid">
                         <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
                         <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
+                        <div><strong>Population:</strong> ${getStudyPediatricStatus(study)}</div>
                         <div><strong>Gender:</strong> ${formatGenderDisplay(study)}</div>
                         <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
                     </div>
