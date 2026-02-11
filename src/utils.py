@@ -259,8 +259,21 @@ def get_study_metadata(study: dict) -> dict:
     # Extract eligibility criteria
     min_age = eligibility_mod.get("minimumAge", "N/A")
     max_age = eligibility_mod.get("maximumAge", "N/A")
+    std_ages = eligibility_mod.get("stdAges", [])
     gender = eligibility_mod.get("sex", "ALL")
     healthy_volunteers = eligibility_mod.get("healthyVolunteers", False)
+
+    # Compute pediatric status from stdAges
+    has_child = "CHILD" in std_ages
+    has_adult = "ADULT" in std_ages or "OLDER_ADULT" in std_ages
+    if not std_ages:
+        pediatric_status = "Not Specified"
+    elif has_child and not has_adult:
+        pediatric_status = "Pediatric Only"
+    elif has_child and has_adult:
+        pediatric_status = "Pediatric Included"
+    else:
+        pediatric_status = "Adult Only"
 
     # Extract completion and status details
     start_date_struct = status_mod.get("startDateStruct", {})
@@ -322,6 +335,8 @@ def get_study_metadata(study: dict) -> dict:
         # Eligibility fields
         "min_age": min_age,
         "max_age": max_age,
+        "std_ages": std_ages,
+        "pediatric_status": pediatric_status,
         "gender": gender,
         "healthy_volunteers": healthy_volunteers,
         # Time metrics
