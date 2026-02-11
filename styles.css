@@ -1663,25 +1663,6 @@ footer p {
     opacity: 0.3;
 }
 
-/* City markers */
-#us-map-container .city-marker {
-    cursor: pointer;
-}
-
-#us-map-container .city-marker circle {
-    transition: r 0.3s ease, fill-opacity 0.2s ease;
-}
-
-#us-map-container .city-marker:hover circle {
-    fill-opacity: 1;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
-}
-
-#us-map-container .city-label {
-    pointer-events: none;
-    text-shadow: 0 1px 2px rgba(255,255,255,0.8);
-}
-
 /* Map Controls Row */
 .map-controls-row {
     display: flex;

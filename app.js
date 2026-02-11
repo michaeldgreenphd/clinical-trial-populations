@@ -3067,7 +3067,6 @@ function getChoroplethColor(value, minVal, maxVal) {
 // D3 map state variables
 let mapSvg = null;
 let mapG = null;
-let cityG = null;
 let currentZoomTransform = null;
 let isZoomedIn = false;
 let regionalChart = null;
@@ -3097,9 +3096,6 @@ async function initUSMap() {
     // Create main group for states (will be transformed on zoom)
     mapG = mapSvg.append('g').attr('class', 'states-group');
 
-    // Create group for city markers (on top of states)
-    cityG = mapSvg.append('g').attr('class', 'cities-group');
-
     // Fetch TopoJSON if not already loaded
     if (!usTopology) {
         try {
@@ -3120,10 +3116,9 @@ async function initUSMap() {
         }
     }
 
-    // Build projection: reflectY fixes the upside-down issue,
-    // fitSize scales pre-projected Albers coordinates to fill the viewBox
+    // Pre-projected Albers TopoJSON already has Y in screen space (top-down),
+    // so no reflectY needed. fitSize scales coordinates to fill the viewBox.
     const projection = d3.geoIdentity()
-        .reflectY(true)
         .fitSize([viewW, viewH], usGeoFeatures);
     geoPathGenerator = d3.geoPath(projection);
 
@@ -3345,10 +3340,7 @@ function handleStateClick(event, d) {
             .ease(d3.easeCubicInOut)
             .attr('transform', transform.toString());
 
-        // Show city markers after zoom completes
-        setTimeout(() => {
-            renderCityMarkers(stateName, stateAbbr, stateInfo, transform);
-        }, 750);
+
 
         // Show reset button
         const resetBtn = document.getElementById('reset-zoom-btn');
@@ -3359,136 +3351,6 @@ function handleStateClick(event, d) {
 
     // Update city breakdown table (without scroll)
     updateCityTable(stateName, stateInfo);
-}
-
-/**
- * Render city markers on the zoomed state
- */
-function renderCityMarkers(stateName, stateAbbr, stateInfo, transform) {
-    if (!cityG || !stateInfo || !stateInfo.cities) {
-        cityG.selectAll('*').remove();
-        return;
-    }
-
-    // Calculate centroid dynamically from the GeoJSON feature
-    let centroid = [480, 300]; // fallback
-    if (usGeoFeatures && geoPathGenerator) {
-        const feature = usGeoFeatures.features.find(f => f.properties.abbr === stateAbbr);
-        if (feature) {
-            const c = geoPathGenerator.centroid(feature);
-            if (c && isFinite(c[0]) && isFinite(c[1])) {
-                centroid = c;
-            }
-        }
-    }
-
-    // Prepare city data with positions
-    const cities = Object.entries(stateInfo.cities)
-        .sort((a, b) => b[1].count - a[1].count)
-        .slice(0, 20); // Limit to top 20 cities
-
-    const maxCount = cities.length > 0 ? cities[0][1].count : 1;
-
-    // Generate positions for cities around the centroid
-    const cityData = cities.map(([cityName, cityInfo], i) => {
-        const count = cityInfo.count;
-        // Distribute cities in a spiral pattern from centroid
-        const angle = (i / cities.length) * Math.PI * 2;
-        const radius = 20 + (i * 8); // Increasing radius
-        const x = centroid[0] + Math.cos(angle) * radius;
-        const y = centroid[1] + Math.sin(angle) * radius;
-
-        return {
-            name: cityName,
-            count,
-            x,
-            y,
-            radius: Math.max(3, Math.sqrt(count / maxCount) * 12)
-        };
-    });
-
-    // Clear existing markers
-    cityG.selectAll('*').remove();
-
-    // Apply same transform as states
-    cityG.attr('transform', transform.toString());
-
-    // Add city markers with animation
-    const markers = cityG.selectAll('g.city-marker')
-        .data(cityData)
-        .enter()
-        .append('g')
-        .attr('class', 'city-marker')
-        .attr('transform', d => `translate(${d.x}, ${d.y})`)
-        .style('opacity', 0);
-
-    // Add circles
-    markers.append('circle')
-        .attr('r', 0)
-        .attr('fill', '#0d9488')
-        .attr('fill-opacity', 0.7)
-        .attr('stroke', '#fff')
-        .attr('stroke-width', 1.5 / transform.k) // Adjust stroke for zoom level
-        .transition()
-        .duration(400)
-        .delay((d, i) => i * 30)
-        .attr('r', d => d.radius / transform.k); // Adjust size for zoom level
-
-    // Add labels for larger cities
-    markers.filter(d => d.count >= maxCount * 0.2)
-        .append('text')
-        .attr('class', 'city-label')
-        .attr('y', d => -(d.radius / transform.k) - 4)
-        .attr('text-anchor', 'middle')
-        .attr('font-size', `${10 / transform.k}px`)
-        .attr('fill', '#1e293b')
-        .attr('font-weight', '500')
-        .text(d => d.name.length > 15 ? d.name.substring(0, 15) + '...' : d.name);
-
-    // Animate in
-    markers.transition()
-        .duration(400)
-        .delay((d, i) => i * 30)
-        .style('opacity', 1);
-
-    // Add hover tooltips
-    markers
-        .on('mouseenter', (event, d) => showCityTooltip(event, d))
-        .on('mouseleave', hideCityTooltip);
-}
-
-/**
- * Show tooltip for city marker
- */
-function showCityTooltip(event, d) {
-    const tooltip = document.getElementById('map-tooltip');
-    if (!tooltip) return;
-
-    tooltip.innerHTML = `
-        <div class="tooltip-title">${d.name}</div>
-        <div class="tooltip-value">Trials: ${d.count.toLocaleString()}</div>
-    `;
-    tooltip.classList.add('visible');
-
-    const x = event.clientX + 15;
-    const y = event.clientY + 15;
-
-    // Keep tooltip within viewport
-    const maxX = window.innerWidth - 260;
-    const maxY = window.innerHeight - 60;
-
-    tooltip.style.left = `${Math.min(x, maxX)}px`;
-    tooltip.style.top = `${Math.min(y, maxY)}px`;
-}
-
-/**
- * Hide city tooltip
- */
-function hideCityTooltip() {
-    const tooltip = document.getElementById('map-tooltip');
-    if (tooltip) {
-        tooltip.classList.remove('visible');
-    }
 }
 
 /**
@@ -3507,13 +3369,6 @@ function resetMapZoom() {
         .duration(750)
         .ease(d3.easeCubicInOut)
         .attr('transform', '');
-
-    // Remove city markers
-    cityG.selectAll('*')
-        .transition()
-        .duration(300)
-        .style('opacity', 0)
-        .remove();
 
     // Reset state styling
     mapG.selectAll('path.state')
