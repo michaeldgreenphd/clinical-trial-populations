@@ -165,25 +165,18 @@
                 </div>
 
                 <div class="filter-group">
-                    <label for="condition-simplified">Condition (Simplified):</label>
-                    <select id="condition-simplified">
+                    <label for="condition-primary">Condition (Primary):</label>
+                    <select id="condition-primary">
                         <option value="all">All Categories</option>
-                        <option value="heart_disease">Heart Disease</option>
-                        <option value="cancer">Cancer</option>
-                        <option value="respiratory">Chronic Lower Respiratory Disease</option>
-                        <option value="stroke">Stroke</option>
-                        <option value="alzheimers">Alzheimer's Disease</option>
-                        <option value="diabetes">Diabetes</option>
-                        <option value="influenza_pneumonia">Influenza/Pneumonia</option>
-                        <option value="kidney">Kidney Disease</option>
-                        <option value="mental_health">Mental Health</option>
-                        <option value="substance_use">Substance Use</option>
-                        <option value="musculoskeletal">Musculoskeletal/Arthritis</option>
-                        <option value="infectious">Infectious Disease (Non-Flu)</option>
-                        <option value="neurological">Neurological (Non-Alzheimer's)</option>
-                        <option value="digestive">Digestive</option>
-                        <option value="skin">Skin Disease</option>
-                        <option value="other">Other</option>
+                        <!-- Populated by JavaScript from ontology -->
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="condition-secondary">Condition (Secondary):</label>
+                    <select id="condition-secondary">
+                        <option value="all">All Subcategories</option>
+                        <!-- Populated by JavaScript when a primary category is selected -->
                     </select>
                 </div>
 
@@ -507,84 +500,106 @@
 
                 <div class="faq-section">
                     <h4>How are conditions categorized?</h4>
-                    <p class="note">Conditions are mapped from the Primary Disease or Condition field in ClinicalTrials.gov to 15 high-level categories based on US health prevalence data. This simplification allows for broader trend analysis across disease areas.</p>
+                    <p class="note">Conditions are categorized using a standardized medical hierarchy. We group specific conditions (e.g., "Congenital Heart Disease") into broader <strong>Primary Categories</strong> (e.g., "Cardiovascular"), with more granular <strong>Secondary Categories</strong> underneath. This reduces redundancy from synonyms (e.g., "congenital heart defect" and "congenital heart disease" map to the same secondary category) and allows for both broad and granular filtering.</p>
+
+                    <p class="note">The classification uses a two-step process:</p>
+                    <ol class="note" style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                        <li><strong>Exact/Substring Match:</strong> Each condition is checked against a curated list of keywords and synonyms, matched longest-first so specific terms (e.g., "heart failure") take priority over general ones (e.g., "heart").</li>
+                        <li><strong>Fuzzy Match:</strong> If no exact match is found, lightweight fuzzy string matching (via rapidfuzz) catches typos and minor variations (e.g., "Type II Diabetes" vs "Type 2 Diabetes").</li>
+                    </ol>
 
                     <table class="faq-mapping-table">
                         <thead>
                             <tr>
-                                <th>Simplified Category</th>
-                                <th>Keywords Mapped (case-insensitive)</th>
+                                <th>Primary Category</th>
+                                <th>Example Secondary Categories</th>
                             </tr>
                         </thead>
                         <tbody>
                             <tr>
-                                <td><strong>Heart Disease</strong></td>
-                                <td>heart, cardiac, cardiovascular, coronary, arrhythmia, atrial fibrillation, heart failure, myocardial, angina, hypertension, blood pressure</td>
+                                <td><strong>Cardiovascular</strong></td>
+                                <td>Heart Failure, Coronary Artery Disease, Arrhythmia, Hypertension, Congenital Heart Disease, Valvular Heart Disease, Cardiomyopathy, Peripheral Vascular Disease</td>
                             </tr>
                             <tr>
-                                <td><strong>Cancer</strong></td>
-                                <td>cancer, carcinoma, tumor, tumour, oncology, leukemia, lymphoma, melanoma, sarcoma, neoplasm, malignant, metastatic, chemotherapy</td>
+                                <td><strong>Oncology</strong></td>
+                                <td>Breast Cancer, Lung Cancer, Colorectal Cancer, Prostate Cancer, Hematologic Malignancy, Brain and CNS Tumors, Skin Cancer, Sarcoma</td>
                             </tr>
                             <tr>
-                                <td><strong>Chronic Lower Respiratory Disease</strong></td>
-                                <td>copd, asthma, bronchitis, emphysema, pulmonary, respiratory, lung disease, chronic obstructive</td>
+                                <td><strong>Neurology</strong></td>
+                                <td>Alzheimer's Disease and Dementia, Parkinson's Disease, Epilepsy and Seizure Disorders, Multiple Sclerosis, Stroke and Cerebrovascular, Headache and Migraine</td>
                             </tr>
                             <tr>
-                                <td><strong>Stroke</strong></td>
-                                <td>stroke, cerebrovascular, ischemic attack, brain infarct, hemorrhagic stroke</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Alzheimer's Disease</strong></td>
-                                <td>alzheimer, dementia</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Diabetes</strong></td>
-                                <td>diabetes, diabetic, insulin, glycemic, hyperglycemia, hypoglycemia, type 1 diabetes, type 2 diabetes</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Influenza/Pneumonia</strong></td>
-                                <td>influenza, flu, pneumonia, respiratory infection</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Kidney Disease</strong></td>
-                                <td>kidney, renal, nephro, dialysis, chronic kidney, end-stage renal</td>
+                                <td><strong>Respiratory</strong></td>
+                                <td>COPD, Asthma, Pulmonary Fibrosis, Pneumonia, Pulmonary Hypertension, Sleep Apnea</td>
                             </tr>
                             <tr>
                                 <td><strong>Mental Health</strong></td>
-                                <td>depression, anxiety, bipolar, schizophrenia, psychiatric, mental health, ptsd, obsessive, panic disorder, mood disorder</td>
+                                <td>Depression, Anxiety Disorders, Bipolar Disorder, Schizophrenia and Psychotic Disorders, PTSD and Trauma, ADHD, Autism Spectrum, Eating Disorders</td>
                             </tr>
                             <tr>
-                                <td><strong>Substance Use</strong></td>
-                                <td>addiction, substance abuse, alcohol, opioid, drug abuse, smoking cessation, tobacco, nicotine</td>
+                                <td><strong>Endocrine and Metabolic</strong></td>
+                                <td>Type 1 Diabetes, Type 2 Diabetes, Obesity, Thyroid Disorders, Lipid Disorders</td>
                             </tr>
                             <tr>
-                                <td><strong>Musculoskeletal/Arthritis</strong></td>
-                                <td>arthritis, osteoarthritis, rheumatoid, musculoskeletal, joint, osteoporosis, bone, fibromyalgia, back pain</td>
+                                <td><strong>Infectious Disease</strong></td>
+                                <td>HIV/AIDS, Hepatitis, COVID-19, Tuberculosis, Influenza, Bacterial Infections, Parasitic Diseases</td>
                             </tr>
                             <tr>
-                                <td><strong>Infectious Disease (Non-Flu)</strong></td>
-                                <td>hiv, aids, hepatitis, tuberculosis, malaria, sepsis, bacterial infection, viral infection, covid, coronavirus, infection</td>
+                                <td><strong>Autoimmune and Inflammatory</strong></td>
+                                <td>Rheumatoid Arthritis, Systemic Lupus Erythematosus, Inflammatory Bowel Disease, Psoriasis and Psoriatic Arthritis, Vasculitis</td>
                             </tr>
                             <tr>
-                                <td><strong>Neurological (Non-Alzheimer's)</strong></td>
-                                <td>parkinson, multiple sclerosis, epilepsy, seizure, neuropathy, migraine, headache, als, huntington, neurological</td>
+                                <td><strong>Gastrointestinal</strong></td>
+                                <td>GERD and Esophageal, Liver Disease, Irritable Bowel Syndrome, Pancreatic Disorders</td>
                             </tr>
                             <tr>
-                                <td><strong>Digestive</strong></td>
-                                <td>crohn, colitis, ibd, inflammatory bowel, gastro, liver, cirrhosis, hepatic, pancreatitis, celiac, gerd</td>
+                                <td><strong>Kidney and Urological</strong></td>
+                                <td>Chronic Kidney Disease, End-Stage Renal Disease, Glomerular Diseases, Kidney Transplant, Urological Disorders</td>
                             </tr>
                             <tr>
-                                <td><strong>Skin Disease</strong></td>
-                                <td>psoriasis, eczema, dermatitis, acne, skin, dermatology, wound</td>
+                                <td><strong>Musculoskeletal</strong></td>
+                                <td>Osteoarthritis, Osteoporosis, Back and Spine, Fibromyalgia, Gout, Fractures and Trauma</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Dermatology</strong></td>
+                                <td>Eczema and Dermatitis, Psoriasis, Acne and Rosacea, Wound and Ulcer, Hair and Nail Disorders</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Substance Use Disorders</strong></td>
+                                <td>Alcohol Use Disorder, Opioid Use Disorder, Tobacco and Nicotine</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Hematology</strong></td>
+                                <td>Anemia, Coagulation Disorders, Thrombosis</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Ophthalmology</strong></td>
+                                <td>Macular Degeneration, Glaucoma, Diabetic Eye Disease</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Reproductive and Sexual Health</strong></td>
+                                <td>Infertility, Pregnancy Complications, Menopause and Hormonal</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Transplant and Immunology</strong></td>
+                                <td>Solid Organ Transplant, Bone Marrow Transplant, Allergy</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Rare Diseases</strong></td>
+                                <td>Cystic Fibrosis, Amyloidosis, Lysosomal Storage Disorders</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Pain</strong></td>
+                                <td>Chronic Pain, Acute Pain, Cancer Pain</td>
                             </tr>
                             <tr>
                                 <td><strong>Other</strong></td>
-                                <td>Any condition not matching above keywords</td>
+                                <td>Any condition not matching the above categories</td>
                             </tr>
                         </tbody>
                     </table>
 
-                    <p class="note" style="margin-top: 1rem;"><strong>Note:</strong> A study may match multiple categories based on its listed conditions. The simplified filter shows studies that match ANY of the keywords for the selected category.</p>
+                    <p class="note" style="margin-top: 1rem;"><strong>Note:</strong> A study may have conditions spanning multiple categories. The dashboard filters show studies that match ANY of the keywords for the selected primary and/or secondary category. You can filter by primary category alone for broad analysis, or drill down to a specific secondary category for more targeted results.</p>
                 </div>
 
                 <div class="faq-section" style="margin-top: 2rem;">

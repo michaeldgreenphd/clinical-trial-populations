@@ -16,6 +16,7 @@ from src.race_extractor import extract_race_data
 from src.ethnicity_extractor import extract_ethnicity_data
 from src.sex_extractor import extract_sex_data
 from src.gender_extractor import extract_gender_data
+from src.condition_classifier import classify_conditions
 from src.pubmed_fetcher import PubMedFetcher
 
 # Set up logging
@@ -62,8 +63,14 @@ def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMed
                 except Exception as e:
                     logger.warning(f"PubMed fetch failed for {nct_id}: {str(e)}")
 
+        # Classify conditions into hierarchical categories
+        condition_info = classify_conditions(metadata.get("conditions", []))
+
         return {
             **metadata,
+            "primary_condition": condition_info["primary_condition"],
+            "secondary_condition": condition_info["secondary_condition"],
+            "condition_classifications": condition_info["all_classifications"],
             "race": race_data,
             "ethnicity": ethnicity_data,
             "sex": sex_data,
