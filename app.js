@@ -27,7 +27,7 @@ const COLORS = {
         white: '#8b5cf6',
         more_than_one_race: '#ec4899',
         unknown_not_reported: '#6b7280',
-        other: '#94a3b8'
+        other: '#1d1d1d'
     },
     ethnicity: {
         hispanic_latino: '#f59e0b',
