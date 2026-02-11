@@ -551,6 +551,17 @@ function initFilters() {
     if (resetBtn) {
         resetBtn.addEventListener('click', resetFilters);
     }
+
+    // Toggle expanded filters
+    const toggleBtn = document.getElementById('toggle-more-filters');
+    const expandedSection = document.getElementById('expanded-filters');
+    if (toggleBtn && expandedSection) {
+        toggleBtn.addEventListener('click', () => {
+            const isHidden = expandedSection.style.display === 'none';
+            expandedSection.style.display = isHidden ? '' : 'none';
+            toggleBtn.innerHTML = isHidden ? 'Show Fewer Filters &#9650;' : 'Show More Filters &#9660;';
+        });
+    }
 }
 
 function populateConditionsDropdown() {

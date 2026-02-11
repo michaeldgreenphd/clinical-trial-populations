@@ -289,6 +289,29 @@ main {
     border-color: var(--primary-color);
 }
 
+.toggle-filters-btn {
+    padding: 0.5rem 1rem;
+    background: var(--background);
+    border: 1px solid var(--border-color);
+    border-radius: 0.25rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    transition: background 0.2s, color 0.2s;
+}
+
+.toggle-filters-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.expanded-filters {
+    border-top: 1px dashed var(--border-color);
+    padding-top: 0.75rem;
+    margin-top: 0.25rem;
+}
+
 .active-filters {
     display: flex;
     gap: 0.5rem;
