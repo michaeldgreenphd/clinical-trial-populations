@@ -50,6 +50,7 @@
 
     <main>
         <section id="filters">
+            <!-- Primary filters — always visible -->
             <div class="filter-row">
                 <div class="filter-group">
                     <label for="year-range">Year Range:</label>
@@ -70,21 +71,6 @@
                 </div>
 
                 <div class="filter-group">
-                    <label for="phase">Phase:</label>
-                    <select id="phase">
-                        <option value="all">All Phases</option>
-                        <option value="EARLY_PHASE1">Early Phase 1</option>
-                        <option value="PHASE1">Phase 1</option>
-                        <option value="PHASE2">Phase 2</option>
-                        <option value="PHASE3">Phase 3</option>
-                        <option value="PHASE4">Phase 4</option>
-                        <option value="NA">N/A</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="filter-row">
-                <div class="filter-group">
                     <label for="sponsor-class">Sponsor:</label>
                     <select id="sponsor-class">
                         <option value="all">All Sponsors</option>
@@ -93,30 +79,6 @@
                         <option value="FED">Federal (Non-NIH)</option>
                         <option value="OTHER">Other</option>
                         <option value="NETWORK">Network</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="intervention-model">Design:</label>
-                    <select id="intervention-model">
-                        <option value="all">All Designs</option>
-                        <option value="PARALLEL">Parallel</option>
-                        <option value="CROSSOVER">Crossover</option>
-                        <option value="SINGLE_GROUP">Single Group</option>
-                        <option value="SEQUENTIAL">Sequential</option>
-                        <option value="FACTORIAL">Factorial</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="masking">Masking:</label>
-                    <select id="masking">
-                        <option value="all">All</option>
-                        <option value="NONE">None (Open Label)</option>
-                        <option value="SINGLE">Single</option>
-                        <option value="DOUBLE">Double</option>
-                        <option value="TRIPLE">Triple</option>
-                        <option value="QUADRUPLE">Quadruple</option>
                     </select>
                 </div>
             </div>
@@ -137,44 +99,6 @@
                 </div>
 
                 <div class="filter-group">
-                    <label for="enrollment-type">Enrollment Type:</label>
-                    <select id="enrollment-type">
-                        <option value="all">All</option>
-                        <option value="ACTUAL">Actual</option>
-                        <option value="ANTICIPATED">Anticipated/Estimated</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="healthy-volunteers">Healthy Volunteers:</label>
-                    <select id="healthy-volunteers">
-                        <option value="all">All</option>
-                        <option value="true">Yes</option>
-                        <option value="false">No</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="population-age">Population Age:</label>
-                    <select id="population-age">
-                        <option value="all">All</option>
-                        <option value="Pediatric Only">Pediatric Only (Children &lt; 18)</option>
-                        <option value="Pediatric Included">Pediatric Included (Children + Adults)</option>
-                        <option value="Adult Only">Adults Only (18+)</option>
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="min-participants">Min Participants:</label>
-                    <input type="number" id="min-participants" min="0" placeholder="0">
-                </div>
-
-                <div class="filter-group">
-                    <label for="max-participants">Max Participants:</label>
-                    <input type="number" id="max-participants" min="0" placeholder="Any">
-                </div>
-
-                <div class="filter-group">
                     <label for="condition-primary">Condition (Primary):</label>
                     <select id="condition-primary">
                         <option value="all">All Categories</option>
@@ -189,25 +113,114 @@
                         <!-- Populated by JavaScript when a primary category is selected -->
                     </select>
                 </div>
+            </div>
 
-                <div class="filter-group">
-                    <label for="condition">Condition (Verbatim):</label>
-                    <select id="condition">
-                        <option value="all">All Conditions</option>
-                        <!-- Populated by JavaScript -->
-                    </select>
+            <!-- Expandable filters — hidden by default -->
+            <div id="expanded-filters" class="expanded-filters" style="display: none;">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="phase">Phase:</label>
+                        <select id="phase">
+                            <option value="all">All Phases</option>
+                            <option value="EARLY_PHASE1">Early Phase 1</option>
+                            <option value="PHASE1">Phase 1</option>
+                            <option value="PHASE2">Phase 2</option>
+                            <option value="PHASE3">Phase 3</option>
+                            <option value="PHASE4">Phase 4</option>
+                            <option value="NA">N/A</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="intervention-model">Design:</label>
+                        <select id="intervention-model">
+                            <option value="all">All Designs</option>
+                            <option value="PARALLEL">Parallel</option>
+                            <option value="CROSSOVER">Crossover</option>
+                            <option value="SINGLE_GROUP">Single Group</option>
+                            <option value="SEQUENTIAL">Sequential</option>
+                            <option value="FACTORIAL">Factorial</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="masking">Masking:</label>
+                        <select id="masking">
+                            <option value="all">All</option>
+                            <option value="NONE">None (Open Label)</option>
+                            <option value="SINGLE">Single</option>
+                            <option value="DOUBLE">Double</option>
+                            <option value="TRIPLE">Triple</option>
+                            <option value="QUADRUPLE">Quadruple</option>
+                        </select>
+                    </div>
                 </div>
 
-                <div class="filter-group">
-                    <label for="country">Country:</label>
-                    <select id="country">
-                        <option value="all">All Countries</option>
-                        <!-- Populated by JavaScript -->
-                    </select>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="enrollment-type">Enrollment Type:</label>
+                        <select id="enrollment-type">
+                            <option value="all">All</option>
+                            <option value="ACTUAL">Actual</option>
+                            <option value="ANTICIPATED">Anticipated/Estimated</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="healthy-volunteers">Healthy Volunteers:</label>
+                        <select id="healthy-volunteers">
+                            <option value="all">All</option>
+                            <option value="true">Yes</option>
+                            <option value="false">No</option>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="population-age">Population Age:</label>
+                        <select id="population-age">
+                            <option value="all">All</option>
+                            <option value="Pediatric Only">Pediatric Only (Children &lt; 18)</option>
+                            <option value="Pediatric Included">Pediatric Included (Children + Adults)</option>
+                            <option value="Adult Only">Adults Only (18+)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="min-participants">Min Participants:</label>
+                        <input type="number" id="min-participants" min="0" placeholder="0">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="max-participants">Max Participants:</label>
+                        <input type="number" id="max-participants" min="0" placeholder="Any">
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="condition">Condition (Verbatim):</label>
+                        <select id="condition">
+                            <option value="all">All Conditions</option>
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="country">Country:</label>
+                        <select id="country">
+                            <option value="all">All Countries</option>
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
                 </div>
             </div>
 
             <div class="filter-row">
+                <div class="filter-group">
+                    <button id="toggle-more-filters" class="toggle-filters-btn">Show More Filters &#9660;</button>
+                </div>
                 <div class="filter-group">
                     <button id="reset-filters" class="reset-btn">Reset All Filters</button>
                 </div>
