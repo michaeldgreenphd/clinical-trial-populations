@@ -523,152 +523,170 @@
             <div class="chart-container">
                 <h3>Frequently Asked Questions</h3>
 
-                <div class="faq-section">
-                    <h4>How are conditions categorized?</h4>
-                    <p class="note">Conditions are categorized using a standardized medical hierarchy. We group specific conditions (e.g., "Congenital Heart Disease") into broader <strong>Primary Categories</strong> (e.g., "Cardiovascular"), with more granular <strong>Secondary Categories</strong> underneath. This reduces redundancy from synonyms (e.g., "congenital heart defect" and "congenital heart disease" map to the same secondary category) and allows for both broad and granular filtering.</p>
+                <!-- Priority questions first -->
+                <details class="faq-section">
+                    <summary><h4>How is Funding Source derived?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Funding source is categorized based on sponsor information:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Industry:</strong> Lead Sponsor is Industry</li>
+                            <li><strong>NIH:</strong> Lead Sponsor is NIH, OR (Lead Sponsor is Other/Network AND any Collaborator is NIH)</li>
+                            <li><strong>Other U.S. Federal:</strong> Lead Sponsor is Federal, OR (Lead Sponsor is Other/Network AND any Collaborator is Federal)</li>
+                            <li><strong>Other:</strong> All other cases</li>
+                        </ul>
+                    </div>
+                </details>
 
-                    <p class="note">The classification uses a two-step process:</p>
-                    <ol class="note" style="margin-left: 1.5rem; margin-bottom: 1rem;">
-                        <li><strong>Exact/Substring Match:</strong> Each condition is checked against a curated list of keywords and synonyms, matched longest-first so specific terms (e.g., "heart failure") take priority over general ones (e.g., "heart").</li>
-                        <li><strong>Fuzzy Match:</strong> If no exact match is found, lightweight fuzzy string matching (via rapidfuzz) catches typos and minor variations (e.g., "Type II Diabetes" vs "Type 2 Diabetes").</li>
-                    </ol>
+                <details class="faq-section">
+                    <summary><h4>Is this work currently funded?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">No, but we are open to conversations about supporting this work. Shoot us an email <a href="mailto:info@civictrial.com">info@civictrial.com</a></p>
+                    </div>
+                </details>
 
-                    <table class="faq-mapping-table">
-                        <thead>
-                            <tr>
-                                <th>Primary Category</th>
-                                <th>Example Secondary Categories</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td><strong>Cardiovascular</strong></td>
-                                <td>Heart Failure, Coronary Artery Disease, Arrhythmia, Hypertension, Congenital Heart Disease, Valvular Heart Disease, Cardiomyopathy, Peripheral Vascular Disease</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Oncology</strong></td>
-                                <td>Breast Cancer, Lung Cancer, Colorectal Cancer, Prostate Cancer, Hematologic Malignancy, Brain and CNS Tumors, Skin Cancer, Sarcoma</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Neurology</strong></td>
-                                <td>Alzheimer's Disease and Dementia, Parkinson's Disease, Epilepsy and Seizure Disorders, Multiple Sclerosis, Stroke and Cerebrovascular, Headache and Migraine</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Respiratory</strong></td>
-                                <td>COPD, Asthma, Pulmonary Fibrosis, Pneumonia, Pulmonary Hypertension, Sleep Apnea</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Mental Health</strong></td>
-                                <td>Depression, Anxiety Disorders, Bipolar Disorder, Schizophrenia and Psychotic Disorders, PTSD and Trauma, ADHD, Autism Spectrum, Eating Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Endocrine and Metabolic</strong></td>
-                                <td>Type 1 Diabetes, Type 2 Diabetes, Obesity, Thyroid Disorders, Lipid Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Infectious Disease</strong></td>
-                                <td>HIV/AIDS, Hepatitis, COVID-19, Tuberculosis, Influenza, Bacterial Infections, Parasitic Diseases</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Autoimmune and Inflammatory</strong></td>
-                                <td>Rheumatoid Arthritis, Systemic Lupus Erythematosus, Inflammatory Bowel Disease, Psoriasis and Psoriatic Arthritis, Vasculitis</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Gastrointestinal</strong></td>
-                                <td>GERD and Esophageal, Liver Disease, Irritable Bowel Syndrome, Pancreatic Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Kidney and Urological</strong></td>
-                                <td>Chronic Kidney Disease, End-Stage Renal Disease, Glomerular Diseases, Kidney Transplant, Urological Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Musculoskeletal</strong></td>
-                                <td>Osteoarthritis, Osteoporosis, Back and Spine, Fibromyalgia, Gout, Fractures and Trauma</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Dermatology</strong></td>
-                                <td>Eczema and Dermatitis, Psoriasis, Acne and Rosacea, Wound and Ulcer, Hair and Nail Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Substance Use Disorders</strong></td>
-                                <td>Alcohol Use Disorder, Opioid Use Disorder, Tobacco and Nicotine</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Hematology</strong></td>
-                                <td>Anemia, Coagulation Disorders, Thrombosis</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Ophthalmology</strong></td>
-                                <td>Macular Degeneration, Glaucoma, Diabetic Eye Disease</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Reproductive and Sexual Health</strong></td>
-                                <td>Infertility, Pregnancy Complications, Menopause and Hormonal</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Transplant and Immunology</strong></td>
-                                <td>Solid Organ Transplant, Bone Marrow Transplant, Allergy</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Rare Diseases</strong></td>
-                                <td>Cystic Fibrosis, Amyloidosis, Lysosomal Storage Disorders</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Pain</strong></td>
-                                <td>Chronic Pain, Acute Pain, Cancer Pain</td>
-                            </tr>
-                            <tr>
-                                <td><strong>Other</strong></td>
-                                <td>Any condition not matching the above categories</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <details class="faq-section">
+                    <summary><h4>What led you to do this?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Many people claim that trials are not diverse. There are also many on-going initiatives to increase diversity in clinical trials. There are not many publicly available tools to assess the progress of those initiatives, or get a holistic view of trial diversity. We thought this would be a great start.</p>
+                    </div>
+                </details>
 
-                    <p class="note" style="margin-top: 1rem;"><strong>Note:</strong> A study may have conditions spanning multiple categories. The dashboard filters show studies that match ANY of the keywords for the selected primary and/or secondary category. You can filter by primary category alone for broad analysis, or drill down to a specific secondary category for more targeted results.</p>
-                </div>
+                <details class="faq-section">
+                    <summary><h4>Where do you get this data from?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">We used the clinicaltrials.gov API, it is a great resource and should be more widely used. Programs like the Aggregate Analysis of ClinicalTrials.gov (AACT) Database from the clinical trials transformation initiative. The demographic variables we display here are more difficult to parse compared to some of the more standardized variables (e.g. trial phase, total participants, etc.). We designed this dashboard based on our experience parsing some of these sociodemographic characteristics (namely race and ethnicity (pre-print <a href="https://www.medrxiv.org/content/10.1101/2025.07.21.25331865v1">here</a>), and on-going projects examining sex, gender, and geography.</p>
+                    </div>
+                </details>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>How is the "Unknown/Not Reported" category calculated?</h4>
-                    <p class="note">In the "Distribution Including Unknowns" charts, the Unknown category is calculated as:</p>
-                    <p><code>Unknown = Total Enrollment - Sum(All Known Categories)</code></p>
-                    <p class="note">This ensures the chart always sums to exactly 100% of total enrollment, providing a complete picture of data completeness.</p>
-                </div>
+                <!-- Remaining questions -->
+                <details class="faq-section">
+                    <summary><h4>How are conditions categorized?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Conditions are categorized using a standardized medical hierarchy. We group specific conditions (e.g., "Congenital Heart Disease") into broader <strong>Primary Categories</strong> (e.g., "Cardiovascular"), with more granular <strong>Secondary Categories</strong> underneath. This reduces redundancy from synonyms (e.g., "congenital heart defect" and "congenital heart disease" map to the same secondary category) and allows for both broad and granular filtering.</p>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>How is Funding Source derived?</h4>
-                    <p class="note">Funding source is categorized based on sponsor information:</p>
-                    <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                        <li><strong>Industry:</strong> Lead Sponsor is Industry</li>
-                        <li><strong>NIH:</strong> Lead Sponsor is NIH, OR (Lead Sponsor is Other/Network AND any Collaborator is NIH)</li>
-                        <li><strong>Other U.S. Federal:</strong> Lead Sponsor is Federal, OR (Lead Sponsor is Other/Network AND any Collaborator is Federal)</li>
-                        <li><strong>Other:</strong> All other cases</li>
-                    </ul>
-                </div>
+                        <p class="note">The classification uses a two-step process:</p>
+                        <ol class="note" style="margin-left: 1.5rem; margin-bottom: 1rem;">
+                            <li><strong>Exact/Substring Match:</strong> Each condition is checked against a curated list of keywords and synonyms, matched longest-first so specific terms (e.g., "heart failure") take priority over general ones (e.g., "heart").</li>
+                            <li><strong>Fuzzy Match:</strong> If no exact match is found, lightweight fuzzy string matching (via rapidfuzz) catches typos and minor variations (e.g., "Type II Diabetes" vs "Type 2 Diabetes").</li>
+                        </ol>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>Is this work currently funded?</h4>
-                    <p class="note">No, but we are open to conversations about supporting this work. Shoot us an email <a href="mailto:info@civictrial.com">info@civictrial.com</a></p>
-                </div>
+                        <table class="faq-mapping-table">
+                            <thead>
+                                <tr>
+                                    <th>Primary Category</th>
+                                    <th>Example Secondary Categories</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><strong>Cardiovascular</strong></td>
+                                    <td>Heart Failure, Coronary Artery Disease, Arrhythmia, Hypertension, Congenital Heart Disease, Valvular Heart Disease, Cardiomyopathy, Peripheral Vascular Disease</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Oncology</strong></td>
+                                    <td>Breast Cancer, Lung Cancer, Colorectal Cancer, Prostate Cancer, Hematologic Malignancy, Brain and CNS Tumors, Skin Cancer, Sarcoma</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Neurology</strong></td>
+                                    <td>Alzheimer's Disease and Dementia, Parkinson's Disease, Epilepsy and Seizure Disorders, Multiple Sclerosis, Stroke and Cerebrovascular, Headache and Migraine</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Respiratory</strong></td>
+                                    <td>COPD, Asthma, Pulmonary Fibrosis, Pneumonia, Pulmonary Hypertension, Sleep Apnea</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Mental Health</strong></td>
+                                    <td>Depression, Anxiety Disorders, Bipolar Disorder, Schizophrenia and Psychotic Disorders, PTSD and Trauma, ADHD, Autism Spectrum, Eating Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Endocrine and Metabolic</strong></td>
+                                    <td>Type 1 Diabetes, Type 2 Diabetes, Obesity, Thyroid Disorders, Lipid Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Infectious Disease</strong></td>
+                                    <td>HIV/AIDS, Hepatitis, COVID-19, Tuberculosis, Influenza, Bacterial Infections, Parasitic Diseases</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Autoimmune and Inflammatory</strong></td>
+                                    <td>Rheumatoid Arthritis, Systemic Lupus Erythematosus, Inflammatory Bowel Disease, Psoriasis and Psoriatic Arthritis, Vasculitis</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Gastrointestinal</strong></td>
+                                    <td>GERD and Esophageal, Liver Disease, Irritable Bowel Syndrome, Pancreatic Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Kidney and Urological</strong></td>
+                                    <td>Chronic Kidney Disease, End-Stage Renal Disease, Glomerular Diseases, Kidney Transplant, Urological Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Musculoskeletal</strong></td>
+                                    <td>Osteoarthritis, Osteoporosis, Back and Spine, Fibromyalgia, Gout, Fractures and Trauma</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Dermatology</strong></td>
+                                    <td>Eczema and Dermatitis, Psoriasis, Acne and Rosacea, Wound and Ulcer, Hair and Nail Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Substance Use Disorders</strong></td>
+                                    <td>Alcohol Use Disorder, Opioid Use Disorder, Tobacco and Nicotine</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Hematology</strong></td>
+                                    <td>Anemia, Coagulation Disorders, Thrombosis</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Ophthalmology</strong></td>
+                                    <td>Macular Degeneration, Glaucoma, Diabetic Eye Disease</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Reproductive and Sexual Health</strong></td>
+                                    <td>Infertility, Pregnancy Complications, Menopause and Hormonal</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Transplant and Immunology</strong></td>
+                                    <td>Solid Organ Transplant, Bone Marrow Transplant, Allergy</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Rare Diseases</strong></td>
+                                    <td>Cystic Fibrosis, Amyloidosis, Lysosomal Storage Disorders</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Pain</strong></td>
+                                    <td>Chronic Pain, Acute Pain, Cancer Pain</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Other</strong></td>
+                                    <td>Any condition not matching the above categories</td>
+                                </tr>
+                            </tbody>
+                        </table>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>What led you to do this?</h4>
-                    <p class="note">Many people claim that trials are not diverse. There are also many on-going initiatives to increase diversity in clinical trials. There are not many publicly available tools to assess the progress of those initiatives, or get a holistic view of trial diversity. We thought this would be a great start.</p>
-                </div>
+                        <p class="note" style="margin-top: 1rem;"><strong>Note:</strong> A study may have conditions spanning multiple categories. The dashboard filters show studies that match ANY of the keywords for the selected primary and/or secondary category. You can filter by primary category alone for broad analysis, or drill down to a specific secondary category for more targeted results.</p>
+                    </div>
+                </details>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>Where do you get this data from?</h4>
-                    <p class="note">We used the clinicaltrials.gov API, it is a great resource and should be more widely used. Programs like the Aggregate Analysis of ClinicalTrials.gov (AACT) Database from the clinical trials transformation initiative. The demographic variables we display here are more difficult to parse compared to some of the more standardized variables (e.g. trial phase, total participants, etc.). We designed this dashboard based on our experience parsing some of these sociodemographic characteristics (namely race and ethnicity (pre-print <a href="https://www.medrxiv.org/content/10.1101/2025.07.21.25331865v1">here</a>), and on-going projects examining sex, gender, and geography.</p>
-                </div>
+                <details class="faq-section">
+                    <summary><h4>How is the "Unknown/Not Reported" category calculated?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">In the "Distribution Including Unknowns" charts, the Unknown category is calculated as:</p>
+                        <p><code>Unknown = Total Enrollment - Sum(All Known Categories)</code></p>
+                        <p class="note">This ensures the chart always sums to exactly 100% of total enrollment, providing a complete picture of data completeness.</p>
+                    </div>
+                </details>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>What about searching for specific trials and summarizing the information in other ways?</h4>
-                    <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from clinicaltrials.gov. There is a great connector for ClaudeCode built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
-                </div>
+                <details class="faq-section">
+                    <summary><h4>What about searching for specific trials and summarizing the information in other ways?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from clinicaltrials.gov. There is a great connector for ClaudeCode built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
+                    </div>
+                </details>
 
-                <div class="faq-section" style="margin-top: 2rem;">
-                    <h4>How do you count trial sponsors?</h4>
-                    <p class="note">We take a broad approach to capturing trial involvement. In our "Sponsor" filter, we count an organization if they are listed as either the <strong>Lead Sponsor</strong> or a <strong>Collaborator</strong> in the trial record. This allows us to capture the full ecosystem of organizations supporting a trial, rather than just the primary administrative entity.</p>
-                </div>
+                <details class="faq-section">
+                    <summary><h4>How do you count trial sponsors?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">We take a broad approach to capturing trial involvement. In our "Sponsor" filter, we count an organization if they are listed as either the <strong>Lead Sponsor</strong> or a <strong>Collaborator</strong> in the trial record. This allows us to capture the full ecosystem of organizations supporting a trial, rather than just the primary administrative entity.</p>
+                    </div>
+                </details>
             </div>
         </section>
 
