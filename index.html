@@ -52,6 +52,7 @@
         <button class="tab" data-tab="gender">Gender</button>
         <button class="tab" data-tab="studies">Studies</button>
         <button class="tab" data-tab="geography">Geography</button>
+        <button class="tab" data-tab="ai-devices">AI Devices</button>
         <button class="tab" data-tab="faq">FAQ</button>
         <button class="tab" data-tab="about">About</button>
     </nav>
@@ -529,6 +530,53 @@
                     <h3>Geographic Reporting Over Time</h3>
                     <p class="note">Percentage of trials reporting location data by year.</p>
                     <canvas id="geo-reporting-trend-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- AI Devices Tab -->
+        <section id="ai-devices" class="tab-content">
+            <div class="chart-container">
+                <div class="ai-devices-header">
+                    <h3>FDA-Authorized AI/ML-Enabled Medical Devices</h3>
+                    <p class="note">Data source: <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-enabled-medical-devices" target="_blank">FDA Artificial Intelligence-Enabled Medical Devices</a></p>
+                    <p class="note"><strong>Last Updated:</strong> March 5, 2026</p>
+                    <p class="note">This list identifies AI/ML-enabled medical devices authorized for marketing in the United States. Demographic data for these devices is not reported by the FDA; the dashboard displays 100% "Not Reported" for all demographic categories.</p>
+                </div>
+
+                <div class="ai-devices-stats" id="ai-devices-stats"></div>
+
+                <div class="ai-devices-charts">
+                    <div class="chart-row">
+                        <div class="chart-container">
+                            <h3>Devices by Medical Panel</h3>
+                            <canvas id="ai-panel-chart"></canvas>
+                        </div>
+                        <div class="chart-container">
+                            <h3>Authorizations Over Time</h3>
+                            <canvas id="ai-timeline-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ai-devices-table-wrapper">
+                    <input type="text" id="ai-device-search" class="table-search" placeholder="Search devices, companies, panels...">
+                    <div class="table-scroll">
+                        <table class="studies-table" id="ai-devices-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Submission #</th>
+                                    <th>Device</th>
+                                    <th>Company</th>
+                                    <th>Panel</th>
+                                    <th>Product Code</th>
+                                    <th>Application</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ai-devices-tbody"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </section>

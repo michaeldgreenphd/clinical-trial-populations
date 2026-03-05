@@ -560,9 +560,9 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById(tab.dataset.tab).classList.add('active');
 
-            // Hide filters on FAQ and About tabs
+            // Hide filters on FAQ, About, and AI Devices tabs
             const filtersSection = document.getElementById('filters');
-            if (tab.dataset.tab === 'faq' || tab.dataset.tab === 'about') {
+            if (tab.dataset.tab === 'faq' || tab.dataset.tab === 'about' || tab.dataset.tab === 'ai-devices') {
                 filtersSection.style.display = 'none';
             } else {
                 filtersSection.style.display = '';
@@ -572,6 +572,11 @@ function initTabs() {
             if (tab.dataset.tab === 'studies') {
                 currentPage = 0;
                 renderStudiesTable();
+            }
+
+            // Load AI devices tab on first visit
+            if (tab.dataset.tab === 'ai-devices') {
+                loadAIDevicesTab();
             }
         });
     });
@@ -4176,4 +4181,194 @@ function initGeographyTab() {
 
     // Populate sponsor dropdown
     populateGeographySponsorDropdown();
+}
+
+// ---------------------------------------------------------------------------
+// AI/ML-Enabled Medical Devices Tab
+// ---------------------------------------------------------------------------
+let aiDevicesData = null;
+let aiDevicesLoaded = false;
+
+async function loadAIDevicesTab() {
+    if (aiDevicesLoaded) return;
+
+    try {
+        const resp = await fetch('data/ai-ml-enabled-devices-csv_20260305.csv');
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const csvText = await resp.text();
+        aiDevicesData = parseCSV(csvText);
+        aiDevicesLoaded = true;
+        renderAIDevicesTab();
+    } catch (e) {
+        console.warn('Could not load AI devices CSV:', e.message);
+        const tbody = document.getElementById('ai-devices-tbody');
+        if (tbody) tbody.innerHTML = '<tr><td colspan="7">Could not load AI devices data.</td></tr>';
+    }
+}
+
+function parseCSV(text) {
+    const lines = text.trim().split('\n');
+    const headers = parseCSVLine(lines[0]);
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const vals = parseCSVLine(lines[i]);
+        if (vals.length === headers.length) {
+            const row = {};
+            headers.forEach((h, idx) => row[h.trim()] = vals[idx].trim());
+            rows.push(row);
+        }
+    }
+    return rows;
+}
+
+function parseCSVLine(line) {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (ch === '"') {
+            inQuotes = !inQuotes;
+        } else if (ch === ',' && !inQuotes) {
+            result.push(current);
+            current = '';
+        } else {
+            current += ch;
+        }
+    }
+    result.push(current);
+    return result;
+}
+
+function renderAIDevicesTab() {
+    if (!aiDevicesData) return;
+
+    // Stats
+    const statsEl = document.getElementById('ai-devices-stats');
+    const panelCounts = {};
+    const yearCounts = {};
+    aiDevicesData.forEach(d => {
+        const panel = d['Panel (Lead)'] || 'Unknown';
+        panelCounts[panel] = (panelCounts[panel] || 0) + 1;
+
+        const date = d['Date of Final Decision'];
+        if (date) {
+            const year = date.split('/')[2];
+            if (year) yearCounts[year] = (yearCounts[year] || 0) + 1;
+        }
+    });
+
+    const topPanel = Object.entries(panelCounts).sort((a, b) => b[1] - a[1])[0];
+    statsEl.innerHTML = `
+        <div class="stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card"><h3>Total Devices</h3><p class="stat-number">${aiDevicesData.length}</p></div>
+            <div class="stat-card"><h3>Medical Panels</h3><p class="stat-number">${Object.keys(panelCounts).length}</p></div>
+            <div class="stat-card"><h3>Top Panel</h3><p class="stat-number" style="font-size:1.1rem">${topPanel ? topPanel[0] : 'N/A'}</p></div>
+        </div>
+    `;
+
+    // Panel bar chart
+    renderAIPanelChart(panelCounts);
+
+    // Timeline chart
+    renderAITimelineChart(yearCounts);
+
+    // Table
+    renderAIDevicesTable(aiDevicesData);
+
+    // Search
+    const searchEl = document.getElementById('ai-device-search');
+    if (searchEl) {
+        searchEl.addEventListener('input', () => {
+            const q = searchEl.value.toLowerCase();
+            const filtered = aiDevicesData.filter(d =>
+                Object.values(d).some(v => v.toLowerCase().includes(q))
+            );
+            renderAIDevicesTable(filtered);
+        });
+    }
+}
+
+function renderAIDevicesTable(devices) {
+    const tbody = document.getElementById('ai-devices-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = devices.map(d => {
+        const subNum = d['Submission Number'] || '';
+        const fdaUrl = `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfPMN/pmn.cfm?ID=${encodeURIComponent(subNum)}`;
+        return `<tr>
+            <td>${escapeHtml(d['Date of Final Decision'] || '')}</td>
+            <td>${escapeHtml(subNum)}</td>
+            <td>${escapeHtml(d['Device'] || '')}</td>
+            <td>${escapeHtml(d['Company'] || '')}</td>
+            <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
+            <td>${escapeHtml(d['Product Code'] || '')}</td>
+            <td><a href="${fdaUrl}" target="_blank" class="fda-link">View FDA Application</a></td>
+        </tr>`;
+    }).join('');
+}
+
+function renderAIPanelChart(panelCounts) {
+    const ctx = document.getElementById('ai-panel-chart');
+    if (!ctx) return;
+
+    const sorted = Object.entries(panelCounts).sort((a, b) => b[1] - a[1]);
+    const labels = sorted.map(e => e[0]);
+    const values = sorted.map(e => e[1]);
+
+    if (charts.aiPanel) charts.aiPanel.destroy();
+    charts.aiPanel = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: 'Devices',
+                data: values,
+                backgroundColor: 'rgba(47, 79, 79, 0.7)',
+                borderColor: 'var(--primary-color)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            indexAxis: 'y',
+            scales: {
+                x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+
+function renderAITimelineChart(yearCounts) {
+    const ctx = document.getElementById('ai-timeline-chart');
+    if (!ctx) return;
+
+    const years = Object.keys(yearCounts).sort();
+    const values = years.map(y => yearCounts[y]);
+
+    if (charts.aiTimeline) charts.aiTimeline.destroy();
+    charts.aiTimeline = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Authorizations',
+                data: values,
+                backgroundColor: 'rgba(47, 79, 79, 0.7)',
+                borderColor: 'var(--primary-color)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: { beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
+                x: { title: { display: true, text: 'Year' } }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
 }
