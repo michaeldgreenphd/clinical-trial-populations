@@ -43,6 +43,48 @@ const COLORS = {
     }
 };
 
+// AI Study identification keywords (case-insensitive matching)
+const AI_KEYWORDS = [
+    'artificial intelligence', 'machine learning', 'deep learning',
+    'neural network', 'large language model', 'llm',
+    'natural language processing', 'computer vision',
+    'reinforcement learning', 'generative ai', 'chatbot',
+    'predictive algorithm', 'clinical decision support algorithm',
+    'algorithm-based', 'algorithm-driven', 'ai-based', 'ai-driven',
+    'ai-powered', 'ml-based', 'ml-driven'
+];
+
+// Precompiled regex for AI keyword matching (word-boundary-aware)
+const AI_REGEX = new RegExp(
+    AI_KEYWORDS.map(k => '\\b' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').join('|'),
+    'i'
+);
+
+/**
+ * Determine whether a study is AI-related by searching its text fields
+ * for known AI/ML keywords.  The result is memoized on the study object.
+ */
+function isAIStudy(study) {
+    if (study._isAI !== undefined) return study._isAI;
+    const text = [
+        study.brief_title,
+        study.primary_endpoint,
+        study.conditions?.join?.(' '),
+        study.primary_condition,
+        study.secondary_condition
+    ].filter(Boolean).join(' ');
+    study._isAI = AI_REGEX.test(text);
+    return study._isAI;
+}
+
+// Update loading progress bar
+function updateLoadingProgress(percent, statusText) {
+    const bar = document.getElementById('loading-progress-bar');
+    const status = document.getElementById('loading-status');
+    if (bar) bar.style.width = percent + '%';
+    if (status) status.textContent = statusText || '';
+}
+
 // Hide loading overlay after initial render is complete
 function hideLoadingOverlay() {
     const overlay = document.getElementById('loading-overlay');
@@ -294,14 +336,18 @@ function getStudyPediatricStatus(study) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
+    updateLoadingProgress(5, 'Loading condition ontology...');
     await loadConditionOntology();
+    updateLoadingProgress(10, 'Fetching clinical trial data...');
     await loadData();
+    updateLoadingProgress(80, 'Initializing dashboard...');
     initTabs();
     initFilters();
     initSubcategoryButtons();
     initTable();
     initGeographyTab();
     populatePrimaryConditionDropdown();
+    updateLoadingProgress(90, 'Rendering charts...');
     renderDashboard();
 
     // Hide loading overlay after everything is initialized and rendered
@@ -400,11 +446,15 @@ async function loadData(date) {
     for (const strategy of strategies) {
         try {
             console.log(`Trying ${strategy.name} strategy...`);
-            const [part1, part2] = await Promise.all([
-                fetchAndDecompress(strategy.urls[0]),
-                fetchAndDecompress(strategy.urls[1])
-            ]);
+            updateLoadingProgress(15, 'Downloading dataset part 1 of 2...');
+            const part1Promise = fetchAndDecompress(strategy.urls[0]);
+            const part2Promise = fetchAndDecompress(strategy.urls[1]);
 
+            const part1 = await part1Promise;
+            updateLoadingProgress(45, 'Downloading dataset part 2 of 2...');
+            const part2 = await part2Promise;
+
+            updateLoadingProgress(70, 'Processing studies...');
             data = [...part1.data, ...part2.data];
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
@@ -551,6 +601,15 @@ function initFilters() {
         }
     });
 
+    // AI study checkbox
+    const aiCheckbox = document.getElementById('ai-study-filter');
+    if (aiCheckbox) {
+        aiCheckbox.addEventListener('change', () => {
+            renderDashboard();
+            updateActiveFilters();
+        });
+    }
+
     // Participant range inputs (fire on every keystroke)
     ['min-participants', 'max-participants'].forEach(id => {
         const el = document.getElementById(id);
@@ -680,6 +739,8 @@ function resetFilters() {
     document.getElementById('country').value = 'all';
     document.getElementById('min-participants').value = '';
     document.getElementById('max-participants').value = '';
+    const aiCheckbox = document.getElementById('ai-study-filter');
+    if (aiCheckbox) aiCheckbox.checked = false;
 
     renderDashboard();
     updateActiveFilters();
@@ -775,6 +836,13 @@ function updateActiveFilters() {
         }});
     }
 
+    const aiChecked = document.getElementById('ai-study-filter')?.checked;
+    if (aiChecked) {
+        filters.push({ label: 'AI Studies Only', reset: () => {
+            document.getElementById('ai-study-filter').checked = false;
+        }});
+    }
+
     container.innerHTML = filters.map(f => `
         <span class="filter-tag">
             ${f.label}
@@ -856,8 +924,10 @@ function getFilteredData() {
     const conditionPrimaryFilter = document.getElementById('condition-primary')?.value || 'all';
     const conditionSecondaryFilter = document.getElementById('condition-secondary')?.value || 'all';
     const countryFilter = document.getElementById('country')?.value || 'all';
+    const aiOnly = document.getElementById('ai-study-filter')?.checked || false;
 
     return data.filter(study => {
+        if (aiOnly && !isAIStudy(study)) return false;
         const year = parseInt(study.results_date?.substring(0, 4));
         if (isNaN(year) || year < yearStart || year > yearEnd) return false;
         if (studyType !== 'all' && study.study_type !== studyType) return false;
@@ -914,9 +984,19 @@ function getFilteredData() {
     });
 }
 
+function showDashboardSpinner() {
+    const el = document.getElementById('dashboard-loading');
+    if (el) el.style.display = 'flex';
+}
+function hideDashboardSpinner() {
+    const el = document.getElementById('dashboard-loading');
+    if (el) el.style.display = 'none';
+}
+
 function renderDashboard() {
     if (!data) return;
 
+    showDashboardSpinner();
     const filtered = getFilteredData();
 
     // Update stats
@@ -958,6 +1038,9 @@ function renderDashboard() {
         currentPage = 0;
         renderStudiesTable();
     }
+
+    // Use requestAnimationFrame to hide spinner after paint
+    requestAnimationFrame(() => hideDashboardSpinner());
 }
 
 /**
