@@ -2467,7 +2467,7 @@ function renderRaceFullDistribution(filtered) {
     if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
 
     charts.raceFullDistribution = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: years,
             datasets: [
@@ -2478,9 +2478,7 @@ function renderRaceFullDistribution(filtered) {
                     data: asianData,
                     backgroundColor: COLORS.race.asian,
                     borderColor: COLORS.race.asian,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 2. Other Races
                 {
@@ -2488,9 +2486,7 @@ function renderRaceFullDistribution(filtered) {
                     data: otherRacesData,
                     backgroundColor: COLORS.race.other,
                     borderColor: COLORS.race.other,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 3. Explicitly Unknown (solid grey)
                 {
@@ -2498,9 +2494,7 @@ function renderRaceFullDistribution(filtered) {
                     data: explicitUnknownData,
                     backgroundColor: '#9ca3af',
                     borderColor: '#6b7280',
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 4. Black/African American
                 {
@@ -2508,9 +2502,7 @@ function renderRaceFullDistribution(filtered) {
                     data: blackData,
                     backgroundColor: COLORS.race.black_african_american,
                     borderColor: COLORS.race.black_african_american,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 5. White
                 {
@@ -2518,9 +2510,7 @@ function renderRaceFullDistribution(filtered) {
                     data: whiteData,
                     backgroundColor: COLORS.race.white,
                     borderColor: COLORS.race.white,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 6. Not Reported/Missing (top layer - light translucent grey)
                 {
@@ -2528,9 +2518,7 @@ function renderRaceFullDistribution(filtered) {
                     data: notReportedData,
                     backgroundColor: 'rgba(229, 231, 235, 0.7)',
                     borderColor: 'rgba(209, 213, 219, 0.8)',
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 }
             ]
         },
@@ -2717,7 +2705,7 @@ function renderEthnicityFullDistribution(filtered) {
     if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
 
     charts.ethnicityFullDistribution = new Chart(ctx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: years,
             datasets: [
@@ -2728,9 +2716,7 @@ function renderEthnicityFullDistribution(filtered) {
                     data: explicitUnknownData,
                     backgroundColor: '#9ca3af',
                     borderColor: '#6b7280',
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 2. Hispanic/Latino
                 {
@@ -2738,9 +2724,7 @@ function renderEthnicityFullDistribution(filtered) {
                     data: hispanicData,
                     backgroundColor: COLORS.ethnicity.hispanic_latino,
                     borderColor: COLORS.ethnicity.hispanic_latino,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 3. Not Hispanic/Latino
                 {
@@ -2748,9 +2732,7 @@ function renderEthnicityFullDistribution(filtered) {
                     data: notHispanicData,
                     backgroundColor: COLORS.ethnicity.not_hispanic_latino,
                     borderColor: COLORS.ethnicity.not_hispanic_latino,
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 },
                 // 4. Not Reported/Missing (top layer - light translucent grey)
                 {
@@ -2758,9 +2740,7 @@ function renderEthnicityFullDistribution(filtered) {
                     data: notReportedData,
                     backgroundColor: 'rgba(229, 231, 235, 0.7)',
                     borderColor: 'rgba(209, 213, 219, 0.8)',
-                    borderWidth: 1,
-                    fill: true,
-                    tension: 0.1
+                    borderWidth: 1
                 }
             ]
         },
