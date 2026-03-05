@@ -260,17 +260,6 @@
         <section id="race" class="tab-content">
             <div class="chart-row">
                 <div class="chart-container">
-                    <h3>Race Distribution (NIH/OMB Categories)</h3>
-                    <canvas id="race-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Race Over Time</h3>
-                    <p class="note">Proportion among studies that reported race (excludes missing and unknown).</p>
-                    <canvas id="race-trends-chart"></canvas>
-                </div>
-            </div>
-            <div class="chart-row">
-                <div class="chart-container">
                     <h3>Total Participants with Reported Race Data</h3>
                     <p class="note">Shows the total number of participants with explicitly reported race data per year (excludes "Unknown" and studies without race data).</p>
                     <canvas id="race-reported-participants-chart"></canvas>
@@ -281,22 +270,21 @@
                     <canvas id="race-full-distribution-chart"></canvas>
                 </div>
             </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Race Distribution (NIH/OMB Categories)</h3>
+                    <canvas id="race-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Race Over Time</h3>
+                    <p class="note">Proportion among studies that reported race (excludes missing and unknown).</p>
+                    <canvas id="race-trends-chart"></canvas>
+                </div>
+            </div>
         </section>
 
         <!-- Ethnicity Tab -->
         <section id="ethnicity" class="tab-content">
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Ethnicity Distribution</h3>
-                    <p class="note">Note: The "Unknown or Not Reported" category is large because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
-                    <canvas id="ethnicity-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Ethnicity Over Time</h3>
-                    <p class="note">Proportion among studies that reported ethnicity (excludes missing and unknown).</p>
-                    <canvas id="ethnicity-trends-chart"></canvas>
-                </div>
-            </div>
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Total Participants with Reported Ethnicity Data</h3>
@@ -307,6 +295,18 @@
                     <h3>Full Distribution with Data Quality</h3>
                     <p class="note">Proportion of total enrollment by category, distinguishing between explicitly unknown data and implicit missing (not reported) data.</p>
                     <canvas id="ethnicity-full-distribution-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Ethnicity Distribution</h3>
+                    <p class="note">Note: The "Unknown or Not Reported" category is large because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
+                    <canvas id="ethnicity-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Ethnicity Over Time</h3>
+                    <p class="note">Proportion among studies that reported ethnicity (excludes missing and unknown).</p>
+                    <canvas id="ethnicity-trends-chart"></canvas>
                 </div>
             </div>
         </section>

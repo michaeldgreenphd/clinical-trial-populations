@@ -1,6 +1,8 @@
 // ClinicalTrials.gov Demographics Dashboard - Enhanced Version
 
 let data = null;
+let detailCache = {};  // Lazy-loaded study detail data keyed by nct_id
+let detailsLoaded = false;  // Whether detail files have been fetched
 let charts = {};
 let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
@@ -320,8 +322,26 @@ async function fetchAndDecompress(url) {
     const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
     const decompressedResponse = new Response(decompressedStream);
     const json = await decompressedResponse.json();
-    console.log(`Successfully loaded ${json.data.length} studies from ${url}`);
+    const count = Array.isArray(json.data) ? json.data.length : Object.keys(json.data).length;
+    console.log(`Successfully loaded ${count} records from ${url}`);
     return json;
+}
+
+// Lazy-load detail data (study_sites full records, secondary_outcomes, references, etc.)
+// Called on-demand when a user opens a study detail modal.
+async function loadDetailData() {
+    if (detailsLoaded) return;
+    try {
+        const [d1, d2] = await Promise.all([
+            fetchAndDecompress('data/details.part1.json.gz'),
+            fetchAndDecompress('data/details.part2.json.gz')
+        ]);
+        Object.assign(detailCache, d1.data, d2.data);
+        detailsLoaded = true;
+        console.log(`✓ Loaded detail data for ${Object.keys(detailCache).length} studies`);
+    } catch (e) {
+        console.warn('Could not load detail data:', e.message);
+    }
 }
 
 // Build list of URL strategies to try for fetching data
@@ -370,6 +390,10 @@ function getUrlStrategies(date) {
 }
 
 async function loadData(date) {
+    // Reset detail cache when loading new data
+    detailCache = {};
+    detailsLoaded = false;
+
     const strategies = getUrlStrategies(date);
     let lastError = null;
 
@@ -1530,49 +1554,54 @@ function formatGenderDisplay(study) {
     return entries.length > 0 ? entries.join(', ') : 'Not Reported';
 }
 
-function showStudyDetails(nctId) {
+async function showStudyDetails(nctId) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
 
     const overlay = document.getElementById('study-details-overlay');
 
+    // Lazy-load detail data and merge into study for this modal render
+    await loadDetailData();
+    const detail = detailCache[nctId] || {};
+    const fullStudy = Object.assign({}, study, detail);
+
     // Format masking details
     let maskingDetails = '';
-    if (study.masking && study.masking !== 'NONE') {
+    if (fullStudy.masking && fullStudy.masking !== 'NONE') {
         const masked = [];
-        if (study.subject_masked) masked.push('Participants');
-        if (study.caregiver_masked) masked.push('Care Providers');
-        if (study.investigator_masked) masked.push('Investigators');
-        if (study.outcomes_assessor_masked) masked.push('Outcomes Assessors');
+        if (fullStudy.subject_masked) masked.push('Participants');
+        if (fullStudy.caregiver_masked) masked.push('Care Providers');
+        if (fullStudy.investigator_masked) masked.push('Investigators');
+        if (fullStudy.outcomes_assessor_masked) masked.push('Outcomes Assessors');
         maskingDetails = masked.length > 0 ? `<br><small>Masked: ${masked.join(', ')}</small>` : '';
     }
 
     // Format collaborators
     let collaboratorsHtml = '';
-    if (study.collaborators && study.collaborators.length > 0) {
+    if (fullStudy.collaborators && fullStudy.collaborators.length > 0) {
         collaboratorsHtml = `
             <div class="detail-section">
                 <h5>Collaborators</h5>
                 <ul class="collaborators-list">
-                    ${study.collaborators.map(c => `<li>${escapeHtml(c.name)} <span class="badge">${c.class}</span></li>`).join('')}
+                    ${fullStudy.collaborators.map(c => `<li>${escapeHtml(c.name)} <span class="badge">${c.class}</span></li>`).join('')}
                 </ul>
             </div>`;
     }
 
     // Format secondary outcomes
     let secondaryOutcomesHtml = '';
-    if (study.secondary_outcomes && study.secondary_outcomes.length > 0) {
+    if (fullStudy.secondary_outcomes && fullStudy.secondary_outcomes.length > 0) {
         secondaryOutcomesHtml = `
             <div class="detail-section">
-                <h5>Secondary Outcomes (${study.secondary_outcomes.length})</h5>
+                <h5>Secondary Outcomes (${fullStudy.secondary_outcomes.length})</h5>
                 <ul class="outcomes-list">
-                    ${study.secondary_outcomes.slice(0, 5).map(o => `
+                    ${fullStudy.secondary_outcomes.slice(0, 5).map(o => `
                         <li>
                             <strong>${escapeHtml(o.measure)}</strong>
                             ${o.time_frame ? `<br><small>Time Frame: ${escapeHtml(o.time_frame)}</small>` : ''}
                         </li>
                     `).join('')}
-                    ${study.secondary_outcomes.length > 5 ? `<li><em>... and ${study.secondary_outcomes.length - 5} more</em></li>` : ''}
+                    ${fullStudy.secondary_outcomes.length > 5 ? `<li><em>... and ${fullStudy.secondary_outcomes.length - 5} more</em></li>` : ''}
                 </ul>
             </div>`;
     }
@@ -1580,33 +1609,33 @@ function showStudyDetails(nctId) {
     const html = `
         <div class="study-details-modal">
             <div class="modal-header">
-                <h3>${escapeHtml(study.brief_title)}</h3>
+                <h3>${escapeHtml(fullStudy.brief_title)}</h3>
                 <button class="close-btn" onclick="closeStudyDetails()">✕</button>
             </div>
             <div class="modal-body">
                 <div class="detail-row">
                     <strong>NCT ID:</strong>
-                    <a href="https://clinicaltrials.gov/study/${study.nct_id}" target="_blank" class="nct-link">${study.nct_id}</a>
+                    <a href="https://clinicaltrials.gov/study/${fullStudy.nct_id}" target="_blank" class="nct-link">${fullStudy.nct_id}</a>
                 </div>
 
                 <div class="detail-section">
                     <h5>Study Design</h5>
                     <div class="detail-grid">
-                        <div><strong>Type:</strong> ${study.study_type || 'N/A'}</div>
-                        <div><strong>Phase:</strong> ${study.phase || 'N/A'}</div>
-                        <div><strong>Allocation:</strong> ${study.allocation || 'N/A'}</div>
-                        <div><strong>Model:</strong> ${study.intervention_model || study.observational_model || 'N/A'}</div>
-                        <div><strong>Masking:</strong> ${study.masking || 'N/A'}${maskingDetails}</div>
-                        <div><strong>Purpose:</strong> ${study.primary_purpose || 'N/A'}</div>
+                        <div><strong>Type:</strong> ${fullStudy.study_type || 'N/A'}</div>
+                        <div><strong>Phase:</strong> ${fullStudy.phase || 'N/A'}</div>
+                        <div><strong>Allocation:</strong> ${fullStudy.allocation || 'N/A'}</div>
+                        <div><strong>Model:</strong> ${fullStudy.intervention_model || fullStudy.observational_model || 'N/A'}</div>
+                        <div><strong>Masking:</strong> ${fullStudy.masking || 'N/A'}${maskingDetails}</div>
+                        <div><strong>Purpose:</strong> ${fullStudy.primary_purpose || 'N/A'}</div>
                     </div>
-                    ${study.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(study.intervention_model_description)}</p>` : ''}
+                    ${fullStudy.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(fullStudy.intervention_model_description)}</p>` : ''}
                 </div>
 
                 <div class="detail-section">
                     <h5>Primary Outcome</h5>
-                    <p><strong>${escapeHtml(study.primary_endpoint || 'N/A')}</strong></p>
-                    ${study.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(study.primary_outcome_time_frame)}</small></p>` : ''}
-                    ${study.primary_outcome_description ? `<p class="description">${escapeHtml(study.primary_outcome_description)}</p>` : ''}
+                    <p><strong>${escapeHtml(fullStudy.primary_endpoint || 'N/A')}</strong></p>
+                    ${fullStudy.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(fullStudy.primary_outcome_time_frame)}</small></p>` : ''}
+                    ${fullStudy.primary_outcome_description ? `<p class="description">${escapeHtml(fullStudy.primary_outcome_description)}</p>` : ''}
                 </div>
 
                 ${secondaryOutcomesHtml}
@@ -1614,33 +1643,33 @@ function showStudyDetails(nctId) {
                 <div class="detail-section">
                     <h5>Enrollment & Eligibility</h5>
                     <div class="detail-grid">
-                        <div><strong>Enrollment:</strong> ${(study.enrollment || 0).toLocaleString()} ${study.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
-                        <div><strong>Age Range:</strong> ${study.min_age || 'N/A'} to ${study.max_age || 'N/A'}</div>
-                        <div><strong>Population:</strong> ${getStudyPediatricStatus(study)}</div>
-                        <div><strong>Gender:</strong> ${formatGenderDisplay(study)}</div>
-                        <div><strong>Healthy Volunteers:</strong> ${study.healthy_volunteers ? 'Yes' : 'No'}</div>
+                        <div><strong>Enrollment:</strong> ${(fullStudy.enrollment || 0).toLocaleString()} ${fullStudy.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
+                        <div><strong>Age Range:</strong> ${fullStudy.min_age || 'N/A'} to ${fullStudy.max_age || 'N/A'}</div>
+                        <div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>
+                        <div><strong>Gender:</strong> ${formatGenderDisplay(fullStudy)}</div>
+                        <div><strong>Healthy Volunteers:</strong> ${fullStudy.healthy_volunteers ? 'Yes' : 'No'}</div>
                     </div>
                 </div>
 
                 <div class="detail-section">
                     <h5>Sponsor & Collaborators</h5>
-                    <p><strong>Lead Sponsor:</strong> ${escapeHtml(study.lead_sponsor_name || 'Unknown')} <span class="badge">${study.sponsor_class || 'N/A'}</span></p>
-                    <p><strong>Funding Source:</strong> <span class="badge">${deriveFundingSource(study)}</span></p>
+                    <p><strong>Lead Sponsor:</strong> ${escapeHtml(fullStudy.lead_sponsor_name || 'Unknown')} <span class="badge">${fullStudy.sponsor_class || 'N/A'}</span></p>
+                    <p><strong>Funding Source:</strong> <span class="badge">${deriveFundingSource(fullStudy)}</span></p>
                     ${collaboratorsHtml}
                 </div>
 
                 <div class="detail-section">
                     <h5>Study Status</h5>
                     <div class="detail-grid">
-                        <div><strong>Status:</strong> ${study.status || 'N/A'}</div>
-                        <div><strong>Results Posted:</strong> ${study.results_date || 'N/A'}</div>
-                        <div><strong>Completion Date:</strong> ${study.completion_date || study.primary_completion_date || 'N/A'}</div>
-                        <div><strong>Last Update:</strong> ${study.last_update || 'N/A'}</div>
+                        <div><strong>Status:</strong> ${fullStudy.status || 'N/A'}</div>
+                        <div><strong>Results Posted:</strong> ${fullStudy.results_date || 'N/A'}</div>
+                        <div><strong>Completion Date:</strong> ${fullStudy.completion_date || fullStudy.primary_completion_date || 'N/A'}</div>
+                        <div><strong>Last Update:</strong> ${fullStudy.last_update || 'N/A'}</div>
                     </div>
-                    ${study.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(study.why_stopped)}</p>` : ''}
+                    ${fullStudy.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(fullStudy.why_stopped)}</p>` : ''}
                 </div>
 
-                ${renderStudySites(study)}
+                ${renderStudySites(fullStudy)}
             </div>
         </div>
     `;
