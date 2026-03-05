@@ -19,8 +19,16 @@
         <div class="loading-content">
             <div class="loading-spinner"></div>
             <p class="loading-text">Loading Civic Trial Data...</p>
-            <p class="loading-subtext">Fetching and processing clinical trial demographics</p>
+            <p class="loading-subtext" id="loading-status">Fetching and processing clinical trial demographics</p>
+            <div class="loading-progress-track">
+                <div class="loading-progress-bar" id="loading-progress-bar"></div>
+            </div>
         </div>
+    </div>
+
+    <!-- In-app loading indicator for filtering / chart rendering -->
+    <div id="dashboard-loading" class="dashboard-loading" style="display: none;">
+        <div class="dashboard-loading-spinner"></div>
     </div>
 
     <header>
@@ -80,6 +88,13 @@
                         <option value="OTHER">Other</option>
                         <option value="NETWORK">Network</option>
                     </select>
+                </div>
+
+                <div class="filter-group ai-filter-group">
+                    <label class="ai-toggle-label" for="ai-study-filter">
+                        <input type="checkbox" id="ai-study-filter">
+                        <span class="ai-toggle-text">AI Studies Only</span>
+                    </label>
                 </div>
             </div>
 
@@ -542,6 +557,23 @@
                     <summary><h4>Is this work currently funded?</h4></summary>
                     <div class="faq-answer">
                         <p class="note">No, but we are open to conversations about supporting this work. Shoot us an email <a href="mailto:info@civictrial.com">info@civictrial.com</a></p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How are AI studies identified?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">A study is flagged as AI-related if any of its text fields contain one or more keywords associated with artificial intelligence or machine learning. The fields searched are: <strong>brief title</strong>, <strong>primary endpoint</strong>, <strong>conditions</strong>, <strong>primary condition category</strong>, and <strong>secondary condition category</strong>.</p>
+                        <p class="note" style="margin-top: 0.75rem;">The keyword list includes:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>artificial intelligence, machine learning, deep learning</li>
+                            <li>neural network, large language model, LLM</li>
+                            <li>natural language processing, computer vision</li>
+                            <li>reinforcement learning, generative AI, chatbot</li>
+                            <li>predictive algorithm, clinical decision support algorithm</li>
+                            <li>algorithm-based, algorithm-driven, AI-based, AI-driven, AI-powered, ML-based, ML-driven</li>
+                        </ul>
+                        <p class="note" style="margin-top: 0.75rem;">Matching is <strong>case-insensitive</strong> and uses <strong>whole-word boundary</strong> matching to avoid false positives (e.g., "algorithm-based" is matched, but "algorithm" appearing inside "logarithm" is not). This approach is intentionally broad to capture the evolving vocabulary around AI in clinical research, while still being precise enough to avoid spurious matches.</p>
                     </div>
                 </details>
 

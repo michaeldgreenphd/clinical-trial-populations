@@ -79,6 +79,82 @@
 .loading-subtext {
     font-size: 0.95rem;
     color: var(--text-secondary);
+    margin-bottom: 1rem;
+}
+
+.loading-progress-track {
+    width: 260px;
+    height: 6px;
+    background: #e8f0ec;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0 auto;
+}
+
+.loading-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--primary-color);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* In-app loading indicator */
+.dashboard-loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 8000;
+    pointer-events: none;
+}
+
+.dashboard-loading-spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid #e8f0ec;
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+/* AI Studies filter toggle */
+.ai-filter-group {
+    display: flex;
+    align-items: center;
+}
+
+.ai-toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: var(--text-color);
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background: var(--background);
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.ai-toggle-label:hover {
+    border-color: var(--primary-color);
+}
+
+.ai-toggle-label input:checked + .ai-toggle-text {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+.ai-toggle-label input {
+    accent-color: var(--primary-color);
 }
 
 * {
