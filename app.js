@@ -486,6 +486,14 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById(tab.dataset.tab).classList.add('active');
 
+            // Hide filters on FAQ and About tabs
+            const filtersSection = document.getElementById('filters');
+            if (tab.dataset.tab === 'faq' || tab.dataset.tab === 'about') {
+                filtersSection.style.display = 'none';
+            } else {
+                filtersSection.style.display = '';
+            }
+
             // Render table when Studies tab is selected
             if (tab.dataset.tab === 'studies') {
                 currentPage = 0;
