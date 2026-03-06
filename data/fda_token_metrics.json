@@ -1,5 +1,5 @@
 {
-    "pilot_size": 30,
+    "pilot_size": 15,
     "total_fda_tools": 1452,
     "avg_input_per_doc": 12847.3,
     "avg_output_per_doc": 187.6
