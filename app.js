@@ -4207,37 +4207,47 @@ async function loadAIDevicesTab() {
 }
 
 function parseCSV(text) {
-    const lines = text.trim().split('\n');
-    const headers = parseCSVLine(lines[0]);
     const rows = [];
-    for (let i = 1; i < lines.length; i++) {
-        const vals = parseCSVLine(lines[i]);
-        if (vals.length === headers.length) {
-            const row = {};
-            headers.forEach((h, idx) => row[h.trim()] = vals[idx].trim());
-            rows.push(row);
-        }
-    }
-    return rows;
-}
-
-function parseCSVLine(line) {
-    const result = [];
+    const headers = [];
     let current = '';
     let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
+    let fields = [];
+
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
         if (ch === '"') {
             inQuotes = !inQuotes;
         } else if (ch === ',' && !inQuotes) {
-            result.push(current);
+            fields.push(current.trim());
             current = '';
+        } else if ((ch === '\n' || ch === '\r') && !inQuotes) {
+            if (ch === '\r' && text[i + 1] === '\n') i++; // skip \r\n
+            fields.push(current.trim());
+            current = '';
+            if (fields.length > 1 || fields[0] !== '') {
+                if (headers.length === 0) {
+                    headers.push(...fields);
+                } else if (fields.length === headers.length) {
+                    const row = {};
+                    headers.forEach((h, idx) => row[h] = fields[idx]);
+                    rows.push(row);
+                }
+            }
+            fields = [];
         } else {
             current += ch;
         }
     }
-    result.push(current);
-    return result;
+    // Handle last row if no trailing newline
+    if (current || fields.length) {
+        fields.push(current.trim());
+        if (headers.length && fields.length === headers.length) {
+            const row = {};
+            headers.forEach((h, idx) => row[h] = fields[idx]);
+            rows.push(row);
+        }
+    }
+    return rows;
 }
 
 function renderAIDevicesTab() {
@@ -4253,7 +4263,10 @@ function renderAIDevicesTab() {
 
         const date = d['Date of Final Decision'];
         if (date) {
-            const year = date.split('/')[2];
+            let year = date.split('/')[2];
+            if (year && year.length === 2) {
+                year = (parseInt(year) >= 90 ? '19' : '20') + year;
+            }
             if (year) yearCounts[year] = (yearCounts[year] || 0) + 1;
         }
     });
@@ -4321,7 +4334,7 @@ function renderAIDevicesTable(devices) {
             <td>${escapeHtml(d['Device'] || '')}</td>
             <td>${escapeHtml(d['Company'] || '')}</td>
             <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
-            <td>${escapeHtml(d['Product Code'] || '')}</td>
+            <td>${escapeHtml(d['Primary Product Code'] || d['Product Code'] || '')}</td>
             <td>${linkCell}</td>
         </tr>`;
     }).join('');
