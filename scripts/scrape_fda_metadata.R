@@ -24,8 +24,21 @@ library(stringr)
 INPUT_CSV  <- "data/ai-ml-enabled-devices-csv_20260305.csv"
 OUTPUT_CSV <- "data/ai-ml-devices-enriched.csv"
 
-# FDA PMN/PMA lookup URL template
-FDA_BASE_URL <- "https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfPMN/pmn.cfm?ID="
+# FDA database URL routing by submission type prefix
+# K = 510(k) PMN, DEN = De Novo, P = PMA
+get_fda_url <- function(submission_number) {
+  sn <- toupper(trimws(submission_number))
+  if (startsWith(sn, "DEN")) {
+    return(paste0("https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/denovo.cfm?id=",
+                  URLencode(submission_number)))
+  } else if (startsWith(sn, "P")) {
+    return(paste0("https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpma/pma.cfm?id=",
+                  URLencode(submission_number)))
+  } else {
+    return(paste0("https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfPMN/pmn.cfm?ID=",
+                  URLencode(submission_number)))
+  }
+}
 
 # Polite scraping: pause between requests (seconds)
 REQUEST_DELAY <- 2
@@ -35,7 +48,7 @@ MAX_RETRIES <- 3
 
 # --- Helper: scrape a single FDA submission page ---------------------------
 scrape_submission <- function(submission_number) {
-  url <- paste0(FDA_BASE_URL, URLencode(submission_number))
+  url <- get_fda_url(submission_number)
 
   for (attempt in seq_len(MAX_RETRIES)) {
     tryCatch({

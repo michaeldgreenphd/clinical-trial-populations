@@ -2178,3 +2178,10 @@ footer p {
 .fda-link:hover {
     text-decoration: underline;
 }
+
+.fda-no-record {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-style: italic;
+    white-space: nowrap;
+}
