@@ -2318,10 +2318,78 @@ footer p {
     margin-bottom: 3px;
 }
 
+.study-details-study-name {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    line-height: 1.3;
+    margin-bottom: 2px;
+}
+
 .study-details-meta {
     display: block;
     font-size: 0.75rem;
     color: var(--text-secondary);
     line-height: 1.3;
     word-break: break-all;
+}
+
+/* Reporting Frequency Summary */
+.reporting-freq-grid {
+    display: flex;
+    justify-content: center;
+    gap: 2.5rem;
+    margin: 1.5rem 0;
+    flex-wrap: wrap;
+}
+
+.reporting-freq-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.reporting-freq-ring {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: conic-gradient(
+        var(--ring-color) calc(var(--pct) * 1%),
+        #e8eded calc(var(--pct) * 1%)
+    );
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    margin-bottom: 0.5rem;
+}
+
+.reporting-freq-ring::before {
+    content: '';
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    background: white;
+    position: absolute;
+}
+
+.reporting-freq-pct {
+    position: relative;
+    z-index: 1;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.reporting-freq-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.reporting-freq-detail {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
 }

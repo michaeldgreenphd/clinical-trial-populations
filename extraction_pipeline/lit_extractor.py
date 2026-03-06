@@ -7,16 +7,24 @@ import anthropic
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 UNPAYWALL_EMAIL = "michaeldgreen0520@gmail.com"
 
+
 def get_open_access_data(doi):
     url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
     try:
         data = requests.get(url, timeout=10).json()
         title = data.get('title', 'Title Not Found')
+        pdf_url = None
         if data.get('is_oa') and data.get('best_oa_location'):
-            return data['best_oa_location'].get('url_for_pdf'), title
+            pdf_url = data['best_oa_location'].get('url_for_pdf')
+            if not pdf_url:
+                pdf_url = data['best_oa_location'].get('url')
+        if not pdf_url:
+            pdf_url = f"https://doi.org/{doi}"
+        return pdf_url, title
     except Exception:
         pass
-    return None, "Title Not Found"
+    return f"https://doi.org/{doi}", "Title Not Found"
+
 
 def extract_pdf_text_from_url(pdf_url):
     import pdfplumber
@@ -28,12 +36,15 @@ def extract_pdf_text_from_url(pdf_url):
     except Exception:
         return None
 
+
 def extract_ses_and_race_with_claude(text):
     prompt = """
     You are a population health researcher. Extract the validation cohort demographics, explicitly looking for Socioeconomic Status (SES) indicators.
-    Also, scan the text for the ClinicalTrials.gov Trial Registry Number (e.g., NCT12345678).
+    Also, scan the text for:
+    - The formal study name (e.g., "The ALLHAT Trial", "SPRINT Study").
+    - The ClinicalTrials.gov Trial Registry Number (e.g., NCT12345678).
     Return ONLY a valid JSON object matching this schema exactly:
-    {"income_reported": bool, "education_reported": bool, "insurance_status_reported": bool, "ses_notes": "Summary or 'None'", "detailed_race_breakdown": "Summary or 'None'", "nct_id": "NCT Number or 'Not Reported'"}
+    {"income_reported": bool, "education_reported": bool, "insurance_status_reported": bool, "ses_notes": "Summary or 'None'", "detailed_race_breakdown": "Summary or 'None'", "study_name": "string or 'Not Reported'", "nct_id": "NCT Number or 'Not Reported'"}
     """
     try:
         response = client.messages.create(
@@ -47,15 +58,16 @@ def extract_ses_and_race_with_claude(text):
     except Exception:
         return {"error": "Extraction failed"}, {"input": 0, "output": 0}
 
+
 def process_literature_batch(input_csv, output_csv):
     df = pd.read_csv(input_csv)
     results, total_input, total_output, success_count = [], 0, 0, 0
 
-    for index, row in df.head(30).iterrows():
+    for index, row in df.head(10).iterrows():
         doi = row['doi']
         pdf_url, title = get_open_access_data(doi)
 
-        if pdf_url:
+        if pdf_url and not pdf_url.startswith("https://doi.org/"):
             text = extract_pdf_text_from_url(pdf_url)
             if text:
                 data, tokens = extract_ses_and_race_with_claude(text)
@@ -65,9 +77,9 @@ def process_literature_batch(input_csv, output_csv):
                 total_output += tokens['output']
                 success_count += 1
             else:
-                results.append({'doi': doi, 'study_title': title, 'status': 'Failed text read'})
+                results.append({'doi': doi, 'study_title': title, 'oa_pdf_url': pdf_url, 'status': 'Failed text read'})
         else:
-            results.append({'doi': doi, 'study_title': title, 'status': 'Closed Access'})
+            results.append({'doi': doi, 'study_title': title, 'oa_pdf_url': pdf_url, 'status': 'Closed Access'})
 
     pd.DataFrame(results).to_csv(output_csv, index=False)
 
