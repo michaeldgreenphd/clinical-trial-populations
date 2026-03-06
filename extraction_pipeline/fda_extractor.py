@@ -22,10 +22,10 @@ def extract_fda_text(submission_number, year_prefix):
 def extract_demographics_with_claude(text):
     prompt = """
     You are a clinical data extractor. Read the provided FDA summary text.
-    Extract the demographic breakdown of the clinical validation cohort.
+    Extract the device name, the FDA medical specialty panel, and the demographic breakdown of the clinical validation cohort.
     If a metric is missing, output 'Not Reported'.
     Return ONLY a valid JSON object matching this schema exactly:
-    {"total_participants": int or "Not Reported", "sex": {"male": int, "female": int}, "race": {"white": int, "black": int, "asian": int, "other": int}, "age_range": str}
+    {"device_name": str, "panel": str, "total_participants": int or "Not Reported", "sex": {"male": int, "female": int}, "race": {"white": int, "black": int, "asian": int, "other": int}, "age_range": str}
     """
     try:
         response = client.messages.create(

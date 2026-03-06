@@ -4428,13 +4428,14 @@ async function loadFDAExtractionTab() {
         const metrics = await metricsResp.json();
         const extractedData = await dataResp.json();
         renderFDACostBanner(metrics);
+        renderFDAReportingFreq(extractedData);
         renderFDAExtractionTable(extractedData);
         fdaExtractionLoaded = true;
     } catch (e) {
         console.warn('Could not load FDA extraction data:', e.message);
         const tbody = document.getElementById('fda-extraction-tbody');
         if (tbody) tbody.innerHTML =
-            '<tr><td colspan="10">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+            '<tr><td colspan="12">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
     }
 }
 
@@ -4455,6 +4456,33 @@ function renderFDACostBanner(m) {
         Math.round(scaledInput + scaledOutput).toLocaleString();
 }
 
+function renderFDAReportingFreq(data) {
+    const container = document.getElementById('fda-reporting-freq');
+    if (!container) return;
+
+    const total = data.length;
+    const raceReported = data.filter(d => d.race_white !== 'Not Reported').length;
+    const sexReported = data.filter(d => d.sex_male !== 'Not Reported').length;
+    const ageReported = data.filter(d => d.age_range !== 'Not Reported').length;
+
+    const items = [
+        { label: '% Reporting Race', count: raceReported, color: '#2f4f4f' },
+        { label: '% Reporting Sex', count: sexReported, color: '#4a7c7c' },
+        { label: '% Reporting Age', count: ageReported, color: '#6aacac' }
+    ];
+
+    container.innerHTML = items.map(item => {
+        const pct = Math.round((item.count / total) * 100);
+        return `<div class="reporting-freq-card">
+            <div class="reporting-freq-ring" style="--pct: ${pct}; --ring-color: ${item.color}">
+                <span class="reporting-freq-pct">${pct}%</span>
+            </div>
+            <span class="reporting-freq-label">${item.label}</span>
+            <span class="reporting-freq-detail">${item.count} of ${total} devices</span>
+        </div>`;
+    }).join('');
+}
+
 function renderFDAExtractionTable(data) {
     const tbody = document.getElementById('fda-extraction-tbody');
     if (!tbody) return;
@@ -4467,6 +4495,8 @@ function renderFDAExtractionTable(data) {
             ? `<a href="${escapeHtml(d.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
             : '—';
         return `<tr>
+            <td>${escapeHtml(d.device_name || '')}</td>
+            <td>${escapeHtml(d.panel || '')}</td>
             <td>${escapeHtml(d.submission_number || '')}</td>
             <td>${fmt(d.total_participants)}</td>
             <td>${fmt(d.sex_male)}</td>
@@ -4538,7 +4568,7 @@ function renderLitExtractionTable(data) {
         else if (d.status === 'Failed text read') statusClass = 'status-badge-failed';
 
         const pdfLink = d.oa_pdf_url
-            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View PDF</a>`
+            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>`
             : '—';
 
         const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
@@ -4550,15 +4580,20 @@ function renderLitExtractionTable(data) {
             : escapeHtml(d.detailed_race_breakdown);
 
         const title = d.study_title || 'Title Not Found';
+        const studyName = d.study_name || 'Not Reported';
         const doi = d.doi || '';
         const nctId = d.nct_id || 'Not Reported';
         const nctDisplay = nctId !== 'Not Reported'
             ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(nctId)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(nctId)}</a>`
             : '<span class="not-reported-badge">Not Reported</span>';
+        const studyNameDisplay = studyName !== 'Not Reported'
+            ? escapeHtml(studyName)
+            : '<span class="not-reported-badge">Not Reported</span>';
 
         return `<tr>
             <td class="study-details-cell">
                 <strong>${escapeHtml(title)}</strong>
+                <span class="study-details-study-name">${studyNameDisplay}</span>
                 <span class="study-details-meta">${escapeHtml(doi)} | ${nctDisplay}</span>
             </td>
             <td>${boolBadge(d.income_reported)}</td>
