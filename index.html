@@ -53,6 +53,8 @@
         <button class="tab" data-tab="studies">Studies</button>
         <button class="tab" data-tab="geography">Geography</button>
         <button class="tab" data-tab="ai-devices">AI Devices</button>
+        <button class="tab" data-tab="fda-extraction">(Beta) AI Demographic Extraction</button>
+        <button class="tab" data-tab="lit-extraction">(Beta) Paper Data Extraction</button>
         <button class="tab" data-tab="faq">FAQ</button>
         <button class="tab" data-tab="about">About</button>
     </nav>
@@ -575,6 +577,140 @@
                                 </tr>
                             </thead>
                             <tbody id="ai-devices-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- (Beta) AI Demographic Extraction Tab -->
+        <section id="fda-extraction" class="tab-content">
+            <div class="chart-container">
+                <h2>(Beta) AI Demographic Extraction</h2>
+                <p class="note">Uses Claude to extract demographic data from FDA 510(k)/De Novo/PMA summary PDFs. This pipeline identifies how often race, sex, and age are reported in AI/ML device clinical validations.</p>
+
+                <div class="extraction-cost-banner" id="fda-cost-banner">
+                    <h3>Token Usage &amp; Scaling Projection</h3>
+                    <div class="cost-grid">
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Run</span>
+                            <span class="cost-value" id="fda-pilot-input">—</span>
+                            <span class="cost-unit">avg input tokens/doc</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Run</span>
+                            <span class="cost-value" id="fda-pilot-output">—</span>
+                            <span class="cost-unit">avg output tokens/doc</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Size</span>
+                            <span class="cost-value" id="fda-pilot-size">—</span>
+                            <span class="cost-unit">documents processed</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Remaining Docs</span>
+                            <span class="cost-value" id="fda-remaining">—</span>
+                            <span class="cost-unit">to be processed</span>
+                        </div>
+                        <div class="cost-card cost-card-highlight">
+                            <span class="cost-label">Projected Scaling Cost</span>
+                            <span class="cost-value" id="fda-projected-cost">—</span>
+                            <span class="cost-unit">Sonnet 3.5 ($3/1M in, $15/1M out)</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Total Token Estimate</span>
+                            <span class="cost-value" id="fda-total-tokens">—</span>
+                            <span class="cost-unit">input + output</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Extracted FDA Demographics (Pilot Sample)</h3>
+                <p class="note">Fields marked <span class="not-reported-badge">Not Reported</span> highlight the gap in FDA demographic disclosure.</p>
+                <div class="ai-devices-table-wrapper">
+                    <div class="table-scroll">
+                        <table class="studies-table" id="fda-extraction-table">
+                            <thead>
+                                <tr>
+                                    <th>Submission #</th>
+                                    <th>Total Participants</th>
+                                    <th>Male</th>
+                                    <th>Female</th>
+                                    <th>White</th>
+                                    <th>Black</th>
+                                    <th>Asian</th>
+                                    <th>Other</th>
+                                    <th>Age Range</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody id="fda-extraction-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- (Beta) Paper Data Extraction Tab -->
+        <section id="lit-extraction" class="tab-content">
+            <div class="chart-container">
+                <h2>(Beta) Paper Data Extraction</h2>
+                <p class="note">Uses Claude to extract socioeconomic status (SES) indicators and detailed race breakdowns from open-access clinical trial manuscripts via Unpaywall.</p>
+
+                <div class="extraction-cost-banner" id="lit-cost-banner">
+                    <h3>Token Usage &amp; Scaling Projection</h3>
+                    <div class="cost-grid">
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Run</span>
+                            <span class="cost-value" id="lit-pilot-input">—</span>
+                            <span class="cost-unit">avg input tokens/doc</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Run</span>
+                            <span class="cost-value" id="lit-pilot-output">—</span>
+                            <span class="cost-unit">avg output tokens/doc</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Pilot Size</span>
+                            <span class="cost-value" id="lit-pilot-size">—</span>
+                            <span class="cost-unit">documents processed</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Remaining Docs</span>
+                            <span class="cost-value" id="lit-remaining">—</span>
+                            <span class="cost-unit">to be processed</span>
+                        </div>
+                        <div class="cost-card cost-card-highlight">
+                            <span class="cost-label">Projected Scaling Cost</span>
+                            <span class="cost-value" id="lit-projected-cost">—</span>
+                            <span class="cost-unit">Sonnet 3.5 ($3/1M in, $15/1M out)</span>
+                        </div>
+                        <div class="cost-card">
+                            <span class="cost-label">Total Token Estimate</span>
+                            <span class="cost-value" id="lit-total-tokens">—</span>
+                            <span class="cost-unit">input + output</span>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>Extracted Literature Data (Pilot Sample)</h3>
+                <p class="note">SES indicators (income, education, insurance) are critical for understanding health equity gaps in clinical trial populations.</p>
+                <div class="ai-devices-table-wrapper">
+                    <div class="table-scroll">
+                        <table class="studies-table" id="lit-extraction-table">
+                            <thead>
+                                <tr>
+                                    <th>DOI</th>
+                                    <th>Income</th>
+                                    <th>Education</th>
+                                    <th>Insurance</th>
+                                    <th>SES Notes</th>
+                                    <th>Race Breakdown</th>
+                                    <th>Status</th>
+                                    <th>Source PDF</th>
+                                </tr>
+                            </thead>
+                            <tbody id="lit-extraction-tbody"></tbody>
                         </table>
                     </div>
                 </div>
