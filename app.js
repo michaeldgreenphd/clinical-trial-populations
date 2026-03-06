@@ -1312,13 +1312,13 @@ function renderStudiesTable() {
             <td>${study.results_date || 'N/A'}</td>
             <td>${study.last_update || 'N/A'}</td>
             <td>${statusWithReason}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td class="col-publications">${renderPublications(study)}</td>
+            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
             <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
             <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
-            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
-            <td class="text-right">${enrollmentBadge}</td>
-            <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
     }).join('');
@@ -1418,8 +1418,8 @@ function renderDemographicCell(study, field) {
                     onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
                     title="${escapeHtml(tooltipText)}">
                 <span class="demo-badge-check">✓</span>
-                <svg class="demo-badge-chevron" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
-                    <path d="M2.5 3.5L5 6.5L7.5 3.5"/>
+                <svg class="demo-badge-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 </svg>
             </button>`;
 }
