@@ -1037,9 +1037,14 @@ function renderDashboard() {
     renderEthnicitySubcategories(filtered);
     renderEthnicityReportedParticipants(filtered);
     renderEthnicityFullDistribution(filtered);
+    renderSexReportedParticipants(filtered);
+    renderSexFullDistribution(filtered);
     renderSexDistribution(filtered);
     renderSexTrends(filtered);
+    renderGenderReportedParticipants(filtered);
+    renderGenderFullDistribution(filtered);
     renderGenderDistribution(filtered);
+    renderGenderTrends(filtered);
 
     // Render Geography dashboard
     renderGeographyDashboard();
@@ -2910,16 +2915,71 @@ function renderGenderDistribution(filtered) {
         totals.Unknown += study.gender.totals.unknown || 0;
     });
 
+    const genderColors = ['#ec4899', '#3b82f6', '#8b5cf6', '#f59e0b', '#6b7280'];
+
     if (charts.genderDistribution) charts.genderDistribution.destroy();
 
     charts.genderDistribution = new Chart(ctx, {
-        type: 'bar',
+        type: 'doughnut',
         data: {
             labels: Object.keys(totals),
             datasets: [{
-                label: 'Count',
                 data: Object.values(totals),
-                backgroundColor: '#3b82f6'
+                backgroundColor: genderColors
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { position: 'right' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
+                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Sex: Total Participants with Reported Sex Data per year
+ */
+function renderSexReportedParticipants(filtered) {
+    const ctx = document.getElementById('sex-reported-participants-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year || !study.sex?.reported) return;
+
+        if (!byYear[year]) byYear[year] = 0;
+
+        const totals = study.sex.totals;
+        const knownTotal = (totals.female || 0) + (totals.male || 0);
+        byYear[year] += knownTotal;
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    if (charts.sexReportedParticipants) charts.sexReportedParticipants.destroy();
+
+    charts.sexReportedParticipants = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Participants with Known Sex',
+                data: years.map(y => byYear[y]),
+                backgroundColor: COLORS.sex.female + '80',
+                borderColor: COLORS.sex.female,
+                borderWidth: 1
             }]
         },
         options: {
@@ -2927,7 +2987,8 @@ function renderGenderDistribution(filtered) {
             maintainAspectRatio: true,
             scales: {
                 y: {
-                    beginAtZero: true
+                    beginAtZero: true,
+                    title: { display: true, text: 'Total Participants' }
                 }
             },
             plugins: {
@@ -2935,12 +2996,314 @@ function renderGenderDistribution(filtered) {
                 tooltip: {
                     callbacks: {
                         label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed.y / total) * 100).toFixed(1) : '0.0';
-                            return ` ${context.parsed.y.toLocaleString()} participants (${pct}%)`;
+                            return ` ${context.parsed.y.toLocaleString()} participants`;
                         }
                     }
                 }
+            }
+        }
+    });
+}
+
+/**
+ * Sex: Full Distribution with Data Quality (stacked bar)
+ */
+function renderSexFullDistribution(filtered) {
+    const ctx = document.getElementById('sex-full-distribution-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { female: 0, male: 0, explicitUnknown: 0, totalEnrollment: 0 };
+        }
+
+        const enrollment = study.enrollment || 0;
+        byYear[year].totalEnrollment += enrollment;
+
+        if (study.sex?.reported) {
+            const totals = study.sex.totals;
+            byYear[year].female += totals.female || 0;
+            byYear[year].male += totals.male || 0;
+            byYear[year].explicitUnknown += totals.unknown || 0;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+    const femaleData = [], maleData = [], unknownData = [], notReportedData = [];
+
+    years.forEach(y => {
+        const d = byYear[y];
+        const allReported = d.female + d.male + d.explicitUnknown;
+        const effectiveTotal = Math.max(d.totalEnrollment, allReported);
+
+        if (effectiveTotal === 0) {
+            femaleData.push(0); maleData.push(0); unknownData.push(0); notReportedData.push(0);
+            return;
+        }
+
+        const notReported = Math.max(0, effectiveTotal - allReported);
+        femaleData.push((d.female / effectiveTotal) * 100);
+        maleData.push((d.male / effectiveTotal) * 100);
+        unknownData.push((d.explicitUnknown / effectiveTotal) * 100);
+        notReportedData.push((notReported / effectiveTotal) * 100);
+    });
+
+    if (charts.sexFullDistribution) charts.sexFullDistribution.destroy();
+
+    charts.sexFullDistribution = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [
+                { label: 'Female', data: femaleData, backgroundColor: COLORS.sex.female, borderColor: COLORS.sex.female, borderWidth: 1 },
+                { label: 'Male', data: maleData, backgroundColor: COLORS.sex.male, borderColor: COLORS.sex.male, borderWidth: 1 },
+                { label: 'Explicitly Unknown', data: unknownData, backgroundColor: '#9ca3af', borderColor: '#6b7280', borderWidth: 1 },
+                { label: 'Not Reported (Missing)', data: notReportedData, backgroundColor: 'rgba(229, 231, 235, 0.7)', borderColor: 'rgba(209, 213, 219, 0.8)', borderWidth: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of Total Enrollment' } },
+                x: { stacked: true, title: { display: true, text: 'Year' } }
+            },
+            plugins: {
+                legend: { position: 'right', labels: { usePointStyle: true, padding: 12 } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            },
+            interaction: { mode: 'index', intersect: false }
+        }
+    });
+}
+
+/**
+ * Gender: Total Participants with Reported Gender Data per year
+ */
+function renderGenderReportedParticipants(filtered) {
+    const ctx = document.getElementById('gender-reported-participants-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year || !study.gender?.reported) return;
+
+        if (!byYear[year]) byYear[year] = 0;
+
+        const totals = study.gender.totals;
+        const knownTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.other || 0);
+        byYear[year] += knownTotal;
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    if (charts.genderReportedParticipants) charts.genderReportedParticipants.destroy();
+
+    charts.genderReportedParticipants = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [{
+                label: 'Participants with Known Gender',
+                data: years.map(y => byYear[y]),
+                backgroundColor: '#8b5cf680',
+                borderColor: '#8b5cf6',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: { display: true, text: 'Total Participants' }
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.parsed.y.toLocaleString()} participants`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+/**
+ * Gender: Full Distribution with Data Quality (stacked bar)
+ */
+function renderGenderFullDistribution(filtered) {
+    const ctx = document.getElementById('gender-full-distribution-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { woman: 0, man: 0, nonbinary: 0, other: 0, explicitUnknown: 0, totalEnrollment: 0 };
+        }
+
+        const enrollment = study.enrollment || 0;
+        byYear[year].totalEnrollment += enrollment;
+
+        if (study.gender?.reported) {
+            const totals = study.gender.totals;
+            byYear[year].woman += totals.woman || 0;
+            byYear[year].man += totals.man || 0;
+            byYear[year].nonbinary += totals.nonbinary || 0;
+            byYear[year].other += totals.other || 0;
+            byYear[year].explicitUnknown += totals.unknown || 0;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+    const womanData = [], manData = [], nbData = [], otherData = [], unknownData = [], notReportedData = [];
+
+    years.forEach(y => {
+        const d = byYear[y];
+        const allReported = d.woman + d.man + d.nonbinary + d.other + d.explicitUnknown;
+        const effectiveTotal = Math.max(d.totalEnrollment, allReported);
+
+        if (effectiveTotal === 0) {
+            womanData.push(0); manData.push(0); nbData.push(0); otherData.push(0); unknownData.push(0); notReportedData.push(0);
+            return;
+        }
+
+        const notReported = Math.max(0, effectiveTotal - allReported);
+        womanData.push((d.woman / effectiveTotal) * 100);
+        manData.push((d.man / effectiveTotal) * 100);
+        nbData.push((d.nonbinary / effectiveTotal) * 100);
+        otherData.push((d.other / effectiveTotal) * 100);
+        unknownData.push((d.explicitUnknown / effectiveTotal) * 100);
+        notReportedData.push((notReported / effectiveTotal) * 100);
+    });
+
+    if (charts.genderFullDistribution) charts.genderFullDistribution.destroy();
+
+    charts.genderFullDistribution = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: years,
+            datasets: [
+                { label: 'Woman', data: womanData, backgroundColor: '#ec4899', borderColor: '#ec4899', borderWidth: 1 },
+                { label: 'Man', data: manData, backgroundColor: '#3b82f6', borderColor: '#3b82f6', borderWidth: 1 },
+                { label: 'Non-binary', data: nbData, backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', borderWidth: 1 },
+                { label: 'Other', data: otherData, backgroundColor: '#f59e0b', borderColor: '#f59e0b', borderWidth: 1 },
+                { label: 'Explicitly Unknown', data: unknownData, backgroundColor: '#9ca3af', borderColor: '#6b7280', borderWidth: 1 },
+                { label: 'Not Reported (Missing)', data: notReportedData, backgroundColor: 'rgba(229, 231, 235, 0.7)', borderColor: 'rgba(209, 213, 219, 0.8)', borderWidth: 1 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of Total Enrollment' } },
+                x: { stacked: true, title: { display: true, text: 'Year' } }
+            },
+            plugins: {
+                legend: { position: 'right', labels: { usePointStyle: true, padding: 12 } },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ` ${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                        }
+                    }
+                }
+            },
+            interaction: { mode: 'index', intersect: false }
+        }
+    });
+}
+
+/**
+ * Gender: Proportion of reported gender identities over time (line chart)
+ */
+function renderGenderTrends(filtered) {
+    const ctx = document.getElementById('gender-trends-chart');
+    if (!ctx) return;
+
+    const byYear = {};
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year || !study.gender?.reported) return;
+
+        if (!byYear[year]) {
+            byYear[year] = { count: 0, woman: 0, man: 0, nonbinary: 0 };
+        }
+
+        const totals = study.gender.totals;
+        const studyTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.other || 0);
+
+        if (studyTotal > 0) {
+            byYear[year].count++;
+            byYear[year].woman += (totals.woman || 0) / studyTotal;
+            byYear[year].man += (totals.man || 0) / studyTotal;
+            byYear[year].nonbinary += (totals.nonbinary || 0) / studyTotal;
+        }
+    });
+
+    const years = Object.keys(byYear).sort();
+
+    if (charts.genderTrends) charts.genderTrends.destroy();
+
+    charts.genderTrends = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: years,
+            datasets: [
+                {
+                    label: 'Woman',
+                    data: years.map(y => byYear[y].count > 0 ? (byYear[y].woman / byYear[y].count) * 100 : 0),
+                    borderColor: '#ec4899',
+                    backgroundColor: '#ec489920',
+                    tension: 0.3
+                },
+                {
+                    label: 'Man',
+                    data: years.map(y => byYear[y].count > 0 ? (byYear[y].man / byYear[y].count) * 100 : 0),
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#3b82f620',
+                    tension: 0.3
+                },
+                {
+                    label: 'Non-binary',
+                    data: years.map(y => byYear[y].count > 0 ? (byYear[y].nonbinary / byYear[y].count) * 100 : 0),
+                    borderColor: '#8b5cf6',
+                    backgroundColor: '#8b5cf620',
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: { display: true, text: 'Average % per Study' }
+                }
+            },
+            plugins: {
+                legend: { position: 'top' }
             }
         }
     });
