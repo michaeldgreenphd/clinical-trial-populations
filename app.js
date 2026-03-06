@@ -4289,13 +4289,32 @@ function renderAIDevicesTab() {
     }
 }
 
+function getFDAUrl(submissionNumber) {
+    if (!submissionNumber) return null;
+    const sn = submissionNumber.trim().toUpperCase();
+    if (sn.startsWith('DEN')) {
+        return `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/denovo.cfm?id=${encodeURIComponent(submissionNumber)}`;
+    }
+    if (sn.startsWith('P')) {
+        return `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpma/pma.cfm?id=${encodeURIComponent(submissionNumber)}`;
+    }
+    if (sn.startsWith('K')) {
+        return `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfPMN/pmn.cfm?ID=${encodeURIComponent(submissionNumber)}`;
+    }
+    // Unknown prefix — no valid link
+    return null;
+}
+
 function renderAIDevicesTable(devices) {
     const tbody = document.getElementById('ai-devices-tbody');
     if (!tbody) return;
 
     tbody.innerHTML = devices.map(d => {
         const subNum = d['Submission Number'] || '';
-        const fdaUrl = `https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfPMN/pmn.cfm?ID=${encodeURIComponent(subNum)}`;
+        const fdaUrl = getFDAUrl(subNum);
+        const linkCell = fdaUrl
+            ? `<a href="${fdaUrl}" target="_blank" class="fda-link">View FDA Application</a>`
+            : `<span class="fda-no-record">No premarket notification found</span>`;
         return `<tr>
             <td>${escapeHtml(d['Date of Final Decision'] || '')}</td>
             <td>${escapeHtml(subNum)}</td>
@@ -4303,7 +4322,7 @@ function renderAIDevicesTable(devices) {
             <td>${escapeHtml(d['Company'] || '')}</td>
             <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
             <td>${escapeHtml(d['Product Code'] || '')}</td>
-            <td><a href="${fdaUrl}" target="_blank" class="fda-link">View FDA Application</a></td>
+            <td>${linkCell}</td>
         </tr>`;
     }).join('');
 }
