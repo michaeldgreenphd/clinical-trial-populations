@@ -4464,7 +4464,7 @@ function renderFDAExtractionTable(data) {
             ? '<span class="not-reported-badge">Not Reported</span>'
             : escapeHtml(String(v));
         const sourceLink = d.source_url
-            ? `<a href="${escapeHtml(d.source_url)}" target="_blank" class="fda-link">PDF</a>`
+            ? `<a href="${escapeHtml(d.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
             : '—';
         return `<tr>
             <td>${escapeHtml(d.submission_number || '')}</td>
@@ -4538,7 +4538,7 @@ function renderLitExtractionTable(data) {
         else if (d.status === 'Failed text read') statusClass = 'status-badge-failed';
 
         const pdfLink = d.oa_pdf_url
-            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" class="fda-link">View PDF</a>`
+            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View PDF</a>`
             : '—';
 
         const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
@@ -4549,8 +4549,18 @@ function renderLitExtractionTable(data) {
             ? '<span class="not-reported-badge">Not Reported</span>'
             : escapeHtml(d.detailed_race_breakdown);
 
+        const title = d.study_title || 'Title Not Found';
+        const doi = d.doi || '';
+        const nctId = d.nct_id || 'Not Reported';
+        const nctDisplay = nctId !== 'Not Reported'
+            ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(nctId)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(nctId)}</a>`
+            : '<span class="not-reported-badge">Not Reported</span>';
+
         return `<tr>
-            <td>${escapeHtml(d.doi || '')}</td>
+            <td class="study-details-cell">
+                <strong>${escapeHtml(title)}</strong>
+                <span class="study-details-meta">${escapeHtml(doi)} | ${nctDisplay}</span>
+            </td>
             <td>${boolBadge(d.income_reported)}</td>
             <td>${boolBadge(d.education_reported)}</td>
             <td>${boolBadge(d.insurance_status_reported)}</td>

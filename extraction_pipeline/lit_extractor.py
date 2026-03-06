@@ -7,15 +7,16 @@ import anthropic
 client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 UNPAYWALL_EMAIL = "michaeldgreen0520@gmail.com"
 
-def get_open_access_pdf_url(doi):
+def get_open_access_data(doi):
     url = f"https://api.unpaywall.org/v2/{doi}?email={UNPAYWALL_EMAIL}"
     try:
         data = requests.get(url, timeout=10).json()
+        title = data.get('title', 'Title Not Found')
         if data.get('is_oa') and data.get('best_oa_location'):
-            return data['best_oa_location'].get('url_for_pdf')
+            return data['best_oa_location'].get('url_for_pdf'), title
     except Exception:
         pass
-    return None
+    return None, "Title Not Found"
 
 def extract_pdf_text_from_url(pdf_url):
     import pdfplumber
@@ -27,15 +28,16 @@ def extract_pdf_text_from_url(pdf_url):
     except Exception:
         return None
 
-def extract_ses_and_race_with_claude(text, doi):
+def extract_ses_and_race_with_claude(text):
     prompt = """
     You are a population health researcher. Extract the validation cohort demographics, explicitly looking for Socioeconomic Status (SES) indicators.
+    Also, scan the text for the ClinicalTrials.gov Trial Registry Number (e.g., NCT12345678).
     Return ONLY a valid JSON object matching this schema exactly:
-    {"income_reported": bool, "education_reported": bool, "insurance_status_reported": bool, "ses_notes": "Summary or 'None'", "detailed_race_breakdown": "Summary or 'None'"}
+    {"income_reported": bool, "education_reported": bool, "insurance_status_reported": bool, "ses_notes": "Summary or 'None'", "detailed_race_breakdown": "Summary or 'None'", "nct_id": "NCT Number or 'Not Reported'"}
     """
     try:
         response = client.messages.create(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-6",
             max_tokens=800, temperature=0,
             messages=[{"role": "user", "content": f"{prompt}\n\nManuscript Text:\n{text[:150000]}"}]
         )
@@ -51,20 +53,21 @@ def process_literature_batch(input_csv, output_csv):
 
     for index, row in df.head(30).iterrows():
         doi = row['doi']
-        pdf_url = get_open_access_pdf_url(doi)
+        pdf_url, title = get_open_access_data(doi)
+
         if pdf_url:
             text = extract_pdf_text_from_url(pdf_url)
             if text:
-                data, tokens = extract_ses_and_race_with_claude(text, doi)
-                data.update({'doi': doi, 'oa_pdf_url': pdf_url, 'status': 'Extracted'})
+                data, tokens = extract_ses_and_race_with_claude(text)
+                data.update({'doi': doi, 'study_title': title, 'oa_pdf_url': pdf_url, 'status': 'Extracted'})
                 results.append(data)
                 total_input += tokens['input']
                 total_output += tokens['output']
                 success_count += 1
             else:
-                results.append({'doi': doi, 'status': 'Failed text read'})
+                results.append({'doi': doi, 'study_title': title, 'status': 'Failed text read'})
         else:
-            results.append({'doi': doi, 'status': 'Closed Access'})
+            results.append({'doi': doi, 'study_title': title, 'status': 'Closed Access'})
 
     pd.DataFrame(results).to_csv(output_csv, index=False)
 
