@@ -1225,6 +1225,12 @@ function renderStudiesTable() {
     const countSpan = document.getElementById('study-count');
     if (!tbody) return;
 
+    // Hide loading overlay once we have data
+    const loadingOverlay = document.getElementById('studies-loading');
+    if (loadingOverlay && data.length > 0) {
+        loadingOverlay.classList.add('hidden');
+    }
+
     let filtered = getFilteredData();
 
     // Apply table-specific search
@@ -1397,15 +1403,13 @@ function truncateText(text, maxLength) {
 }
 
 function renderDemographicCell(study, field) {
-    const breakdownKey = `${field}Breakdown`;
-    const reported = study[field]?.reported;
-
-    if (!reported || !study[breakdownKey]) {
+    const fieldData = study[field];
+    if (!fieldData?.reported) {
         return '<span class="demo-disabled" title="No data reported">✗</span>';
     }
 
     // Get raw categories for tooltip
-    const rawCategories = study[field]?.raw_categories || [];
+    const rawCategories = fieldData.raw_categories || [];
     let tooltipText = 'Click to view demographic breakdown';
 
     if (rawCategories.length > 0) {
@@ -1420,7 +1424,7 @@ function renderDemographicCell(study, field) {
     }
 
     return `<button class="demo-badge"
-                    onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
+                    onclick="showBreakdown('${study.nct_id}', '${field}')"
                     title="${escapeHtml(tooltipText)}">
                 <span class="demo-badge-check">✓</span>
                 <svg class="demo-badge-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">
@@ -1429,15 +1433,13 @@ function renderDemographicCell(study, field) {
             </button>`;
 }
 
-function showBreakdown(nctId, breakdownType) {
+function showBreakdown(nctId, categoryName) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
 
-    const breakdown = study[breakdownType];
-    if (!breakdown) return;
+    const fieldData = study[categoryName];
+    if (!fieldData?.reported) return;
 
-    // Determine the category name
-    const categoryName = breakdownType.replace('Breakdown', '');
     const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
     // Build breakdown HTML
@@ -1448,7 +1450,7 @@ function showBreakdown(nctId, breakdownType) {
             <thead><tr><th>NIH/OMB Category</th><th>Original Label</th><th>Match Quality</th><th>Count</th><th>Percent</th></tr></thead>
             <tbody>`;
 
-    if (breakdownType === 'raceBreakdown') {
+    if (categoryName === 'race') {
         // Race: show every standard NIH/OMB category; mark unreported ones with ✗
         const ombCategories = [
             { key: 'american_indian_alaska_native',    display: 'American Indian or Alaska Native' },
@@ -1528,38 +1530,49 @@ function showBreakdown(nctId, breakdownType) {
             </tr>`;
         }
     } else {
-        // Generic path for ethnicity / sex — show only categories that were reported
-        const rawCategories = study[categoryName]?.raw_categories || [];
-        const entries = Object.entries(breakdown).sort((a, b) => b[1].count - a[1].count);
+        // Generic path for ethnicity / sex — build from omb_totals + raw_categories
+        const rawCategories = fieldData.raw_categories || [];
+        const totals = fieldData.omb_totals || fieldData.totals || {};
+        const grandTotal = Object.values(totals).reduce((s, v) => s + (v || 0), 0);
 
-        for (const [category, catData] of entries) {
-            const rawCat = rawCategories.find(rc =>
-                (rc.original === category ||
-                 (rc.omb_category && formatOmbCategory(rc.omb_category) === category))
+        // Sort by count descending
+        const entries = Object.entries(totals)
+            .filter(([, count]) => count > 0)
+            .sort((a, b) => b[1] - a[1]);
+
+        for (const [key, count] of entries) {
+            const displayName = formatOmbCategory(key);
+            const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
+
+            // Find matching raw category for original label and confidence
+            const matching = rawCategories.filter(rc =>
+                rc.omb_category === key || rc.category === key
             );
-
-            const originalLabel = rawCat?.original || category;
-            const confidence    = rawCat?.confidence || 'n/a';
-            const isFuzzy       = rawCat?.flags?.some(f => f.includes('fuzzy_match')) || false;
-            const isUnmapped    = rawCat?.flags?.includes('unmapped') || false;
+            const originalLabels = matching.length > 0
+                ? [...new Set(matching.map(rc => rc.original))].join(', ')
+                : displayName;
+            const bestConfidence = matching.some(rc => rc.confidence === 'high') ? 'high' :
+                                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low';
+            const hasFuzzy = matching.some(rc => rc.flags?.some(f => f.includes('fuzzy_match')));
+            const hasUnmapped = matching.some(rc => rc.flags?.includes('unmapped'));
 
             let matchQuality = '';
-            if (confidence === 'high') {
+            if (bestConfidence === 'high') {
                 matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
-            } else if (confidence === 'medium' || isFuzzy) {
+            } else if (bestConfidence === 'medium' || hasFuzzy) {
                 matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
-            } else if (isUnmapped) {
+            } else if (hasUnmapped) {
                 matchQuality = '<span class="match-low" title="Could not map to NIH/OMB category">⚠ Unmapped</span>';
             } else {
                 matchQuality = '<span class="match-na">-</span>';
             }
 
             html += `<tr>
-                <td>${escapeHtml(category)}</td>
-                <td class="original-label">${escapeHtml(originalLabel)}</td>
+                <td>${escapeHtml(displayName)}</td>
+                <td class="original-label">${escapeHtml(originalLabels)}</td>
                 <td class="text-center">${matchQuality}</td>
-                <td>${catData.count.toLocaleString()}</td>
-                <td style="--percent: ${catData.percent}">${catData.percent.toFixed(1)}%</td>
+                <td>${count.toLocaleString()}</td>
+                <td style="--percent: ${percent}">${percent}%</td>
             </tr>`;
         }
     }
