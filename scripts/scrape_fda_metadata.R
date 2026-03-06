@@ -56,7 +56,7 @@ scrape_submission <- function(submission_number) {
 
       resp <- GET(
         url,
-        user_agent("CivicTrial-FDAScraper/1.0 (research; contact: info@civictrial.com)"),
+        user_agent("CivicSample-FDAScraper/1.0 (research; contact: info@civicsample.com)"),
         timeout(30)
       )
 
