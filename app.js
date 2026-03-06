@@ -1290,6 +1290,8 @@ function renderStudiesTable() {
 
         return `
         <tr>
+            <td>${study.start_date || 'N/A'}</td>
+            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
             <td>
                 <a href="https://clinicaltrials.gov/study/${study.nct_id}"
                    target="_blank"
@@ -1302,16 +1304,14 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
-            <td>${study.start_date || 'N/A'}</td>
-            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
+            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
             <td>${renderSparkline(getTimeToReport(study))}</td>
-            <td>${statusWithReason}</td>
-            <td>${study.results_date || 'N/A'}</td>
-            <td>${study.last_update || 'N/A'}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
             <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
-            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
+            <td>${study.results_date || 'N/A'}</td>
+            <td>${study.last_update || 'N/A'}</td>
+            <td>${statusWithReason}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
             <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
@@ -1396,15 +1396,14 @@ function renderDemographicCell(study, field) {
     const reported = study[field]?.reported;
 
     if (!reported || !study[breakdownKey]) {
-        return '<span class="x-mark">✗</span>';
+        return '<span class="demo-disabled" title="No data reported">✗</span>';
     }
 
     // Get raw categories for tooltip
     const rawCategories = study[field]?.raw_categories || [];
-    let tooltipText = '';
+    let tooltipText = 'Click to view demographic breakdown';
 
     if (rawCategories.length > 0) {
-        // Build tooltip showing raw labels and match quality
         const summaries = rawCategories.slice(0, 3).map(rc => {
             const confidence = rc.confidence === 'high' ? '✓' :
                              rc.confidence === 'medium' ? '≈' : '⚠';
@@ -1412,14 +1411,16 @@ function renderDemographicCell(study, field) {
         }).join('; ');
 
         const moreCount = rawCategories.length > 3 ? ` +${rawCategories.length - 3} more` : '';
-        tooltipText = `Raw data: ${summaries}${moreCount}. Click for details.`;
-    } else {
-        tooltipText = 'Click to view breakdown';
+        tooltipText = `Raw data: ${summaries}${moreCount}. Click to view breakdown.`;
     }
 
-    return `<button class="demo-check"
+    return `<button class="demo-badge"
                     onclick="showBreakdown('${study.nct_id}', '${breakdownKey}')"
                     title="${escapeHtml(tooltipText)}">
+                <span class="demo-badge-check">✓</span>
+                <svg class="demo-badge-chevron" width="10" height="10" viewBox="0 0 10 10" fill="currentColor">
+                    <path d="M2.5 3.5L5 6.5L7.5 3.5"/>
+                </svg>
             </button>`;
 }
 
