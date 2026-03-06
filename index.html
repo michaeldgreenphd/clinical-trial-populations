@@ -331,6 +331,21 @@
 
         <!-- Sex Tab -->
         <section id="sex" class="tab-content">
+            <div class="methodology-disclaimer">
+                <p><strong>Disclaimer:</strong> This is currently an unstructured approach to wrangling this data, presented for demonstration purposes. We are refining this approach and expect to have a preprint detailing our methodology available by June 2026.</p>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Total Participants with Reported Sex Data</h3>
+                    <p class="note">Shows the total number of participants with explicitly reported sex data per year (excludes "Unknown" and studies without sex data).</p>
+                    <canvas id="sex-reported-participants-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Full Distribution with Data Quality</h3>
+                    <p class="note">Proportion of total enrollment by category, distinguishing between explicitly unknown data and implicit missing (not reported) data.</p>
+                    <canvas id="sex-full-distribution-chart"></canvas>
+                </div>
+            </div>
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Sex Distribution</h3>
@@ -338,6 +353,7 @@
                 </div>
                 <div class="chart-container">
                     <h3>Sex Ratio Over Time</h3>
+                    <p class="note">Proportion among studies that reported sex (excludes missing and unknown).</p>
                     <canvas id="sex-trends-chart"></canvas>
                 </div>
             </div>
@@ -345,10 +361,32 @@
 
         <!-- Gender Tab -->
         <section id="gender" class="tab-content">
-            <div class="chart-container">
-                <h3>Gender Reporting</h3>
-                <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
-                <canvas id="gender-distribution-chart"></canvas>
+            <div class="methodology-disclaimer">
+                <p><strong>Disclaimer:</strong> This is currently an unstructured approach to wrangling this data, presented for demonstration purposes. We are refining this approach and expect to have a preprint detailing our methodology available by June 2026.</p>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Total Participants with Reported Gender Data</h3>
+                    <p class="note">Shows the total number of participants with explicitly reported gender identity data per year (excludes "Unknown" and studies without gender data).</p>
+                    <canvas id="gender-reported-participants-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Full Distribution with Data Quality</h3>
+                    <p class="note">Proportion of total enrollment by category, distinguishing between explicitly unknown data and implicit missing (not reported) data.</p>
+                    <canvas id="gender-full-distribution-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Gender Distribution</h3>
+                    <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
+                    <canvas id="gender-distribution-chart"></canvas>
+                </div>
+                <div class="chart-container">
+                    <h3>Gender Over Time</h3>
+                    <p class="note">Proportion of reported gender identities across years (excludes missing and unknown).</p>
+                    <canvas id="gender-trends-chart"></canvas>
+                </div>
             </div>
         </section>
 
