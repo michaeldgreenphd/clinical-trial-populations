@@ -2185,3 +2185,123 @@ footer p {
     font-style: italic;
     white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   Extraction Pipeline Tabs (Beta)
+--------------------------------------------------------------------------- */
+.extraction-cost-banner {
+    background: linear-gradient(135deg, #f0f4f4, #e8eded);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--primary-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.extraction-cost-banner h3 {
+    margin: 0 0 1rem 0;
+    color: var(--primary-color);
+    font-size: 1.1rem;
+}
+
+.cost-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.cost-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.cost-card-highlight {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.cost-card-highlight .cost-label,
+.cost-card-highlight .cost-value,
+.cost-card-highlight .cost-unit {
+    color: white;
+}
+
+.cost-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.cost-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.15rem;
+}
+
+.cost-unit {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.not-reported-badge {
+    display: inline-block;
+    background: #fff3cd;
+    color: #856404;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.reported-badge {
+    display: inline-block;
+    background: #d4edda;
+    color: #155724;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-badge-extracted,
+.status-badge-closed,
+.status-badge-failed {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-badge-extracted {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge-closed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.status-badge-failed {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.bool-yes {
+    color: #155724;
+    font-weight: 600;
+}
+
+.bool-no {
+    color: #999;
+}

@@ -562,7 +562,8 @@ function initTabs() {
 
             // Hide filters on FAQ, About, and AI Devices tabs
             const filtersSection = document.getElementById('filters');
-            if (tab.dataset.tab === 'faq' || tab.dataset.tab === 'about' || tab.dataset.tab === 'ai-devices') {
+            const noFilterTabs = ['faq', 'about', 'ai-devices', 'fda-extraction', 'lit-extraction'];
+            if (noFilterTabs.includes(tab.dataset.tab)) {
                 filtersSection.style.display = 'none';
             } else {
                 filtersSection.style.display = '';
@@ -574,9 +575,15 @@ function initTabs() {
                 renderStudiesTable();
             }
 
-            // Load AI devices tab on first visit
+            // Lazy-load tabs on first visit
             if (tab.dataset.tab === 'ai-devices') {
                 loadAIDevicesTab();
+            }
+            if (tab.dataset.tab === 'fda-extraction') {
+                loadFDAExtractionTab();
+            }
+            if (tab.dataset.tab === 'lit-extraction') {
+                loadLitExtractionTab();
             }
         });
     });
@@ -4403,4 +4410,154 @@ function renderAITimelineChart(yearCounts) {
             plugins: { legend: { display: false } }
         }
     });
+}
+
+// ---------------------------------------------------------------------------
+// (Beta) AI Demographic Extraction Tab
+// ---------------------------------------------------------------------------
+let fdaExtractionLoaded = false;
+
+async function loadFDAExtractionTab() {
+    if (fdaExtractionLoaded) return;
+    try {
+        const [metricsResp, dataResp] = await Promise.all([
+            fetch('data/fda_token_metrics.json'),
+            fetch('data/fda_demographics_extracted.json')
+        ]);
+        if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load FDA extraction data');
+        const metrics = await metricsResp.json();
+        const extractedData = await dataResp.json();
+        renderFDACostBanner(metrics);
+        renderFDAExtractionTable(extractedData);
+        fdaExtractionLoaded = true;
+    } catch (e) {
+        console.warn('Could not load FDA extraction data:', e.message);
+        const tbody = document.getElementById('fda-extraction-tbody');
+        if (tbody) tbody.innerHTML =
+            '<tr><td colspan="10">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+    }
+}
+
+function renderFDACostBanner(m) {
+    const remaining = m.total_fda_tools - m.pilot_size;
+    const scaledInput = m.avg_input_per_doc * remaining;
+    const scaledOutput = m.avg_output_per_doc * remaining;
+    const costInput = (scaledInput / 1_000_000) * 3.00;
+    const costOutput = (scaledOutput / 1_000_000) * 15.00;
+    const totalCost = costInput + costOutput;
+
+    document.getElementById('fda-pilot-input').textContent = Math.round(m.avg_input_per_doc).toLocaleString();
+    document.getElementById('fda-pilot-output').textContent = Math.round(m.avg_output_per_doc).toLocaleString();
+    document.getElementById('fda-pilot-size').textContent = m.pilot_size;
+    document.getElementById('fda-remaining').textContent = remaining.toLocaleString();
+    document.getElementById('fda-projected-cost').textContent = '$' + totalCost.toFixed(2);
+    document.getElementById('fda-total-tokens').textContent =
+        Math.round(scaledInput + scaledOutput).toLocaleString();
+}
+
+function renderFDAExtractionTable(data) {
+    const tbody = document.getElementById('fda-extraction-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.map(d => {
+        const fmt = (v) => v === 'Not Reported'
+            ? '<span class="not-reported-badge">Not Reported</span>'
+            : escapeHtml(String(v));
+        const sourceLink = d.source_url
+            ? `<a href="${escapeHtml(d.source_url)}" target="_blank" class="fda-link">PDF</a>`
+            : '—';
+        return `<tr>
+            <td>${escapeHtml(d.submission_number || '')}</td>
+            <td>${fmt(d.total_participants)}</td>
+            <td>${fmt(d.sex_male)}</td>
+            <td>${fmt(d.sex_female)}</td>
+            <td>${fmt(d.race_white)}</td>
+            <td>${fmt(d.race_black)}</td>
+            <td>${fmt(d.race_asian)}</td>
+            <td>${fmt(d.race_other)}</td>
+            <td>${fmt(d.age_range)}</td>
+            <td>${sourceLink}</td>
+        </tr>`;
+    }).join('');
+}
+
+// ---------------------------------------------------------------------------
+// (Beta) Paper Data Extraction Tab
+// ---------------------------------------------------------------------------
+let litExtractionLoaded = false;
+
+async function loadLitExtractionTab() {
+    if (litExtractionLoaded) return;
+    try {
+        const [metricsResp, dataResp] = await Promise.all([
+            fetch('data/lit_token_metrics.json'),
+            fetch('data/lit_ses_extracted.json')
+        ]);
+        if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load literature extraction data');
+        const metrics = await metricsResp.json();
+        const extractedData = await dataResp.json();
+        renderLitCostBanner(metrics);
+        renderLitExtractionTable(extractedData);
+        litExtractionLoaded = true;
+    } catch (e) {
+        console.warn('Could not load literature extraction data:', e.message);
+        const tbody = document.getElementById('lit-extraction-tbody');
+        if (tbody) tbody.innerHTML =
+            '<tr><td colspan="8">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+    }
+}
+
+function renderLitCostBanner(m) {
+    const remaining = m.total_studies - m.pilot_size;
+    const scaledInput = m.avg_input_per_doc * remaining;
+    const scaledOutput = m.avg_output_per_doc * remaining;
+    const costInput = (scaledInput / 1_000_000) * 3.00;
+    const costOutput = (scaledOutput / 1_000_000) * 15.00;
+    const totalCost = costInput + costOutput;
+
+    document.getElementById('lit-pilot-input').textContent = Math.round(m.avg_input_per_doc).toLocaleString();
+    document.getElementById('lit-pilot-output').textContent = Math.round(m.avg_output_per_doc).toLocaleString();
+    document.getElementById('lit-pilot-size').textContent = m.pilot_size;
+    document.getElementById('lit-remaining').textContent = remaining.toLocaleString();
+    document.getElementById('lit-projected-cost').textContent = '$' + totalCost.toFixed(2);
+    document.getElementById('lit-total-tokens').textContent =
+        Math.round(scaledInput + scaledOutput).toLocaleString();
+}
+
+function renderLitExtractionTable(data) {
+    const tbody = document.getElementById('lit-extraction-tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = data.map(d => {
+        const boolBadge = (v) => v
+            ? '<span class="bool-yes">Yes</span>'
+            : '<span class="bool-no">No</span>';
+
+        let statusClass = 'status-badge-extracted';
+        if (d.status === 'Closed Access') statusClass = 'status-badge-closed';
+        else if (d.status === 'Failed text read') statusClass = 'status-badge-failed';
+
+        const pdfLink = d.oa_pdf_url
+            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" class="fda-link">View PDF</a>`
+            : '—';
+
+        const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
+            ? '<span class="not-reported-badge">None</span>'
+            : escapeHtml(d.ses_notes);
+
+        const raceBreak = (!d.detailed_race_breakdown || d.detailed_race_breakdown === 'None' || d.detailed_race_breakdown === 'Not Reported')
+            ? '<span class="not-reported-badge">Not Reported</span>'
+            : escapeHtml(d.detailed_race_breakdown);
+
+        return `<tr>
+            <td>${escapeHtml(d.doi || '')}</td>
+            <td>${boolBadge(d.income_reported)}</td>
+            <td>${boolBadge(d.education_reported)}</td>
+            <td>${boolBadge(d.insurance_status_reported)}</td>
+            <td>${sesNotes}</td>
+            <td>${raceBreak}</td>
+            <td><span class="${statusClass}">${escapeHtml(d.status || '')}</span></td>
+            <td>${pdfLink}</td>
+        </tr>`;
+    }).join('');
 }
