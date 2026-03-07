@@ -439,6 +439,7 @@ async function loadData(date) {
     // Reset detail cache when loading new data
     detailCache = {};
     detailsLoaded = false;
+    studiesTabReady = false;
 
     const strategies = getUrlStrategies(date);
     let lastError = null;
@@ -457,6 +458,18 @@ async function loadData(date) {
             updateLoadingProgress(70, 'Processing studies...');
             data = [...part1.data, ...part2.data];
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
+
+            // Debug: Log exact keys of first study for data mapping verification
+            if (data.length > 0) {
+                const sample = data[0];
+                console.log('📋 Study data keys:', Object.keys(sample).sort());
+                console.log('📋 study.race keys:', sample.race ? Object.keys(sample.race) : 'MISSING');
+                console.log('📋 study.sex keys:', sample.sex ? Object.keys(sample.sex) : 'MISSING');
+                console.log('📋 study.gender keys:', sample.gender ? Object.keys(sample.gender) : 'MISSING');
+                console.log('📋 study.ethnicity keys:', sample.ethnicity ? Object.keys(sample.ethnicity) : 'MISSING');
+                console.log('📋 study.sex.reported:', sample.sex?.reported, '| study.sex.totals:', sample.sex?.totals);
+                console.log('📋 study.race.reported:', sample.race?.reported, '| study.race.omb_totals:', sample.race?.omb_totals);
+            }
 
             // Show which snapshot is loaded
             let dateLabel = '';
@@ -569,10 +582,39 @@ function initTabs() {
                 filtersSection.style.display = '';
             }
 
-            // Render table when Studies tab is selected
+            // Render table when Studies tab is selected - preload ALL data first
             if (tab.dataset.tab === 'studies') {
-                currentPage = 0;
-                renderStudiesTable();
+                prepareStudiesTab();
+            }
+
+            // Re-render charts when their tab becomes visible
+            // (Chart.js renders at 0x0 on hidden canvases)
+            const filtered = data.length > 0 ? getFilteredData() : [];
+            if (tab.dataset.tab === 'sex' && filtered.length > 0) {
+                renderSexReportedParticipants(filtered);
+                renderSexFullDistribution(filtered);
+                renderSexDistribution(filtered);
+                renderSexTrends(filtered);
+            }
+            if (tab.dataset.tab === 'gender' && filtered.length > 0) {
+                renderGenderReportedParticipants(filtered);
+                renderGenderFullDistribution(filtered);
+                renderGenderDistribution(filtered);
+                renderGenderTrends(filtered);
+            }
+            if (tab.dataset.tab === 'race' && filtered.length > 0) {
+                renderRaceDistribution(filtered);
+                renderRaceTrends(filtered);
+                renderRaceSubcategories('asian');
+                renderRaceReportedParticipants(filtered);
+                renderRaceFullDistribution(filtered);
+            }
+            if (tab.dataset.tab === 'ethnicity' && filtered.length > 0) {
+                renderEthnicityDistribution(filtered);
+                renderEthnicityTrends(filtered);
+                renderEthnicitySubcategories(filtered);
+                renderEthnicityReportedParticipants(filtered);
+                renderEthnicityFullDistribution(filtered);
             }
 
             // Lazy-load tabs on first visit
@@ -1220,16 +1262,40 @@ function showPublications(nctId) {
     overlay.style.display = 'flex';
 }
 
+let studiesTabReady = false;
+
+async function prepareStudiesTab() {
+    const loadingScreen = document.getElementById('studies-loading-screen');
+    const readyContent = document.getElementById('studies-ready-content');
+
+    if (studiesTabReady) {
+        // Already loaded — just re-render
+        currentPage = 0;
+        renderStudiesTable();
+        return;
+    }
+
+    // Show loading screen, hide content
+    if (loadingScreen) loadingScreen.style.display = '';
+    if (readyContent) readyContent.style.display = 'none';
+
+    // Preload detail data so expand clicks are instant
+    await loadDetailData();
+
+    studiesTabReady = true;
+
+    // Hide loading screen, show content
+    if (loadingScreen) loadingScreen.style.display = 'none';
+    if (readyContent) readyContent.style.display = '';
+
+    currentPage = 0;
+    renderStudiesTable();
+}
+
 function renderStudiesTable() {
     const tbody = document.getElementById('studies-table-body');
     const countSpan = document.getElementById('study-count');
     if (!tbody) return;
-
-    // Hide loading overlay once we have data
-    const loadingOverlay = document.getElementById('studies-loading');
-    if (loadingOverlay && data.length > 0) {
-        loadingOverlay.classList.add('hidden');
-    }
 
     let filtered = getFilteredData();
 
@@ -4670,18 +4736,33 @@ function renderAIDevicesTab() {
     // Timeline chart
     renderAITimelineChart(yearCounts);
 
-    // Table
-    renderAIDevicesTable(aiDevicesData);
+    // Initialize table with pagination
+    aiDevicesFiltered = aiDevicesData;
+    aiDevicesPage = 0;
+    applyAIDevicesView();
 
     // Search
     const searchEl = document.getElementById('ai-device-search');
     if (searchEl) {
         searchEl.addEventListener('input', () => {
             const q = searchEl.value.toLowerCase();
-            const filtered = aiDevicesData.filter(d =>
-                Object.values(d).some(v => v.toLowerCase().includes(q))
-            );
-            renderAIDevicesTable(filtered);
+            aiDevicesFiltered = q
+                ? aiDevicesData.filter(d => Object.values(d).some(v => v.toLowerCase().includes(q)))
+                : aiDevicesData;
+            aiDevicesPage = 0;
+            applyAIDevicesView();
+        });
+    }
+
+    // Date sort toggle
+    const dateHeader = document.getElementById('ai-date-header');
+    if (dateHeader) {
+        dateHeader.addEventListener('click', () => {
+            if (aiDevicesSortDir === null) aiDevicesSortDir = 'desc';
+            else if (aiDevicesSortDir === 'desc') aiDevicesSortDir = 'asc';
+            else aiDevicesSortDir = null;
+            aiDevicesPage = 0;
+            applyAIDevicesView();
         });
     }
 }
@@ -4702,11 +4783,40 @@ function getFDAUrl(submissionNumber) {
     return null;
 }
 
-function renderAIDevicesTable(devices) {
+// AI Devices table state
+let aiDevicesFiltered = [];
+let aiDevicesPage = 0;
+let aiDevicesSortDir = null; // null, 'asc', 'desc'
+const AI_DEVICES_PAGE_SIZE = 50;
+
+function applyAIDevicesView() {
     const tbody = document.getElementById('ai-devices-tbody');
+    const countSpan = document.getElementById('ai-device-count');
+    const paginationEl = document.getElementById('ai-devices-pagination');
     if (!tbody) return;
 
-    tbody.innerHTML = devices.map(d => {
+    let viewData = [...aiDevicesFiltered];
+
+    // Sort by date if active
+    if (aiDevicesSortDir) {
+        viewData.sort((a, b) => {
+            const da = parseAIDate(a['Date of Final Decision']);
+            const db = parseAIDate(b['Date of Final Decision']);
+            return aiDevicesSortDir === 'asc' ? da - db : db - da;
+        });
+    }
+
+    const totalCount = viewData.length;
+    const totalPages = Math.max(1, Math.ceil(totalCount / AI_DEVICES_PAGE_SIZE));
+    aiDevicesPage = Math.max(0, Math.min(aiDevicesPage, totalPages - 1));
+    const start = aiDevicesPage * AI_DEVICES_PAGE_SIZE;
+    const pageData = viewData.slice(start, start + AI_DEVICES_PAGE_SIZE);
+
+    if (countSpan) {
+        countSpan.textContent = `Showing ${start + 1}–${Math.min(start + AI_DEVICES_PAGE_SIZE, totalCount)} of ${totalCount}`;
+    }
+
+    tbody.innerHTML = pageData.map(d => {
         const subNum = d['Submission Number'] || '';
         const fdaUrl = getFDAUrl(subNum);
         const linkCell = fdaUrl
@@ -4722,7 +4832,50 @@ function renderAIDevicesTable(devices) {
             <td>${linkCell}</td>
         </tr>`;
     }).join('');
+
+    // Render pagination
+    if (paginationEl) {
+        if (totalPages <= 1) {
+            paginationEl.innerHTML = '';
+        } else {
+            let phtml = `<button class="page-btn" ${aiDevicesPage === 0 ? 'disabled' : ''} onclick="aiDevicesGoPage(${aiDevicesPage - 1})">&#8592; Previous</button>`;
+            // Show up to 7 page numbers
+            const maxButtons = 7;
+            let startPage = Math.max(0, aiDevicesPage - Math.floor(maxButtons / 2));
+            let endPage = Math.min(totalPages, startPage + maxButtons);
+            if (endPage - startPage < maxButtons) startPage = Math.max(0, endPage - maxButtons);
+            for (let i = startPage; i < endPage; i++) {
+                phtml += `<button class="page-btn ${i === aiDevicesPage ? 'active' : ''}" onclick="aiDevicesGoPage(${i})">${i + 1}</button>`;
+            }
+            phtml += `<button class="page-btn" ${aiDevicesPage >= totalPages - 1 ? 'disabled' : ''} onclick="aiDevicesGoPage(${aiDevicesPage + 1})">Next &#8594;</button>`;
+            paginationEl.innerHTML = phtml;
+        }
+    }
+
+    // Update sort arrow
+    const header = document.getElementById('ai-date-header');
+    if (header) {
+        const arrow = header.querySelector('.sort-arrow');
+        if (arrow) arrow.textContent = aiDevicesSortDir === 'asc' ? ' ▲' : aiDevicesSortDir === 'desc' ? ' ▼' : '';
+    }
 }
+
+function parseAIDate(dateStr) {
+    if (!dateStr) return 0;
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+        let year = parts[2];
+        if (year.length === 2) year = (parseInt(year) >= 90 ? '19' : '20') + year;
+        return new Date(year, parseInt(parts[0]) - 1, parseInt(parts[1])).getTime();
+    }
+    return 0;
+}
+
+function aiDevicesGoPage(page) {
+    aiDevicesPage = page;
+    applyAIDevicesView();
+}
+window.aiDevicesGoPage = aiDevicesGoPage;
 
 function renderAIPanelChart(panelCounts) {
     const ctx = document.getElementById('ai-panel-chart');
@@ -4966,12 +5119,15 @@ function renderLitExtractionTable(data) {
         const studyNameDisplay = studyName !== 'Not Reported'
             ? escapeHtml(studyName)
             : '<span class="not-reported-badge">Not Reported</span>';
+        const doiDisplay = doi
+            ? `<a href="https://doi.org/${escapeHtml(doi)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doi)}</a>`
+            : '';
 
         return `<tr>
             <td class="study-details-cell">
                 <strong>${escapeHtml(title)}</strong>
                 <span class="study-details-study-name">${studyNameDisplay}</span>
-                <span class="study-details-meta">${escapeHtml(doi)} | ${nctDisplay}</span>
+                <span class="study-details-meta">${doiDisplay}${doi && nctId !== 'Not Reported' ? ' | ' : ''}${nctDisplay}</span>
             </td>
             <td>${boolBadge(d.income_reported)}</td>
             <td>${boolBadge(d.education_reported)}</td>
