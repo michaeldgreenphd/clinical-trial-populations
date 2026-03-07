@@ -575,6 +575,28 @@ main {
     font-size: 0.875rem;
 }
 
+.studies-loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    padding: 3rem;
+}
+
+.studies-loading-screen p {
+    margin-top: 1rem;
+    color: var(--secondary-text);
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.studies-loading-sub {
+    font-size: 0.8rem !important;
+    font-weight: 400 !important;
+    margin-top: 0.25rem !important;
+}
+
 /* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
     width: 100%;

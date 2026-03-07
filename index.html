@@ -392,6 +392,14 @@
 
         <!-- Studies Tab -->
         <section id="studies" class="tab-content">
+            <!-- Full-component loading screen shown until ALL data is ready -->
+            <div id="studies-loading-screen" class="studies-loading-screen">
+                <div class="table-loading-spinner"></div>
+                <p>Loading study data and details...</p>
+                <p class="studies-loading-sub">Preparing table for full interactivity</p>
+            </div>
+
+            <div id="studies-ready-content" class="studies-ready-content" style="display: none;">
             <div class="chart-container">
                 <h3>Study Details</h3>
                 <p class="note">
@@ -405,10 +413,6 @@
                 </div>
 
                 <div class="table-wrapper" id="studies-table-wrapper">
-                    <div id="studies-loading" class="table-loading-overlay">
-                        <div class="table-loading-spinner"></div>
-                        <p>Loading study data...</p>
-                    </div>
                     <table id="studies-table" class="studies-table">
                         <thead>
                             <tr>
@@ -440,6 +444,7 @@
                 </div>
                 <div id="pagination"></div>
             </div>
+            </div> <!-- end studies-ready-content -->
         </section>
 
         <!-- Geography Tab -->
@@ -604,12 +609,15 @@
                 </div>
 
                 <div class="ai-devices-table-wrapper">
-                    <input type="text" id="ai-device-search" class="table-search" placeholder="Search devices, companies, panels...">
+                    <div class="table-controls">
+                        <input type="text" id="ai-device-search" class="table-search" placeholder="Search devices, companies, panels...">
+                        <span id="ai-device-count" class="study-count"></span>
+                    </div>
                     <div class="table-scroll">
                         <table class="studies-table" id="ai-devices-table">
                             <thead>
                                 <tr>
-                                    <th>Date</th>
+                                    <th class="sortable" data-sort="date" id="ai-date-header" style="cursor:pointer">Date of Final Decision <span class="sort-arrow"></span></th>
                                     <th>Submission #</th>
                                     <th>Device</th>
                                     <th>Company</th>
@@ -621,6 +629,7 @@
                             <tbody id="ai-devices-tbody"></tbody>
                         </table>
                     </div>
+                    <div id="ai-devices-pagination" class="pagination-controls"></div>
                 </div>
             </div>
         </section>
