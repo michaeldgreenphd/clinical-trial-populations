@@ -3756,9 +3756,9 @@ function getStateValue(stateInfo) {
 function getChoroplethColor(value, minVal, maxVal) {
     if (value === 0) return '#f3f4f6'; // Light gray for no data
 
-    // Normalize value to 0-1 range
+    // Normalize value to 0-1 range, clamped to prevent out-of-bounds
     const range = maxVal - minVal;
-    const normalized = range > 0 ? (value - minVal) / range : 0;
+    const normalized = range > 0 ? Math.max(0, Math.min(1, (value - minVal) / range)) : 0;
 
     // Green gradient: light to dark
     const colors = [
@@ -3869,8 +3869,22 @@ function renderUSMap() {
 
     // Calculate min/max values for current layer
     const values = Object.keys(currentStateData).map(state => getStateValue(currentStateData[state]));
-    const minVal = Math.min(...values.filter(v => v > 0), 0);
-    const maxVal = Math.max(...values, 1);
+    const positiveValues = values.filter(v => v > 0);
+    let minVal, maxVal;
+    if (currentMapLayer === 'volume') {
+        // For volume, use 0 as floor
+        minVal = 0;
+        maxVal = Math.max(...values, 1);
+    } else {
+        // For reporting layers, use dynamic range from actual data
+        // This widens visual variance when values cluster in a narrow band
+        minVal = positiveValues.length > 0 ? Math.min(...positiveValues) : 0;
+        maxVal = positiveValues.length > 0 ? Math.max(...positiveValues) : 100;
+        // Ensure at least a 1-point spread to avoid division by zero
+        if (maxVal - minVal < 1) {
+            minVal = Math.max(0, maxVal - 1);
+        }
+    }
 
     // Update legend
     updateMapLegend(minVal, maxVal);
@@ -3927,8 +3941,9 @@ function updateMapLegend(minVal, maxVal) {
             legendLow.textContent = '0';
             legendHigh.textContent = maxVal.toLocaleString();
         } else {
-            legendLow.textContent = '0%';
-            legendHigh.textContent = '100%';
+            // Show actual dynamic range for reporting layers
+            legendLow.textContent = Math.round(minVal) + '%';
+            legendHigh.textContent = Math.round(maxVal) + '%';
         }
     }
 }
@@ -4360,7 +4375,7 @@ function renderRegionalChart() {
 /**
  * Render the international geography table
  */
-function renderInternationalTable(geoCounts, totalTrials) {
+function renderInternationalTable(geoCounts) {
     const tbody = document.getElementById('geography-table-body');
 
     if (!tbody) return;
@@ -4368,6 +4383,9 @@ function renderInternationalTable(geoCounts, totalTrials) {
     // Sort by count (for international view, geoCounts is { country: count })
     const sorted = Object.entries(geoCounts)
         .sort((a, b) => b[1] - a[1]);
+
+    // Denominator = sum of all country counts (site-level, not study-level)
+    const totalIntlSiteCounts = sorted.reduce((sum, [, count]) => sum + count, 0);
 
     tbody.innerHTML = '';
 
@@ -4377,7 +4395,7 @@ function renderInternationalTable(geoCounts, totalTrials) {
     }
 
     sorted.forEach(([location, count], index) => {
-        const pct = totalTrials > 0 ? ((count / totalTrials) * 100).toFixed(1) : '0.0';
+        const pct = totalIntlSiteCounts > 0 ? ((count / totalIntlSiteCounts) * 100).toFixed(1) : '0.0';
         const row = document.createElement('tr');
         row.innerHTML = `
             <td>${index + 1}</td>
@@ -4579,7 +4597,7 @@ function renderGeographyDashboard() {
         document.getElementById('state-detail-row').style.display = 'none';
 
         // Render international table
-        renderInternationalTable(geoCounts, filtered.length);
+        renderInternationalTable(geoCounts);
     }
 
     // Render charts
