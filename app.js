@@ -4944,9 +4944,128 @@ function renderAITimelineChart(yearCounts) {
 }
 
 // ---------------------------------------------------------------------------
-// (Beta) AI Demographic Extraction Tab
+// (Beta) AI Demographic Extraction Tab — 3-Way Model Comparison
 // ---------------------------------------------------------------------------
 let fdaExtractionLoaded = false;
+let _fdaExtractedData = [];
+let _fdaSelectedModel = 'claude-sonnet-4-6'; // default view
+
+// Model display order and labels
+const MODEL_ORDER = [
+    { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', tier: 'Fast / Low Cost' },
+    { id: 'claude-sonnet-4-6',         label: 'Sonnet 4.6', tier: 'Balanced Baseline' },
+    { id: 'claude-opus-4-6',           label: 'Opus 4.6',   tier: 'Highest Quality' },
+];
+
+/**
+ * Render a model comparison card for the cost banner.
+ * Works for both FDA and Literature tabs.
+ */
+function renderModelComparisonCards(containerId, perModel, totalDocs, pilotSize) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    if (!perModel || pilotSize === 0) {
+        container.innerHTML = MODEL_ORDER.map(m => `
+            <div class="model-card">
+                <div class="model-card-header">
+                    <span class="model-card-label">${m.label}</span>
+                    <span class="model-card-tier">${m.tier}</span>
+                </div>
+                <div class="model-card-body">
+                    <div class="model-metric"><span class="model-metric-value">—</span><span class="model-metric-label">Avg input tokens/doc</span></div>
+                    <div class="model-metric"><span class="model-metric-value">—</span><span class="model-metric-label">Avg output tokens/doc</span></div>
+                    <div class="model-metric model-metric-highlight"><span class="model-metric-value">Awaiting pilot</span><span class="model-metric-label">Projected scaling cost</span></div>
+                </div>
+            </div>
+        `).join('');
+        return;
+    }
+
+    container.innerHTML = MODEL_ORDER.map(m => {
+        const pm = perModel[m.id];
+        if (!pm) return '';
+        const remaining = totalDocs - pilotSize;
+        const scaledInput = pm.avg_input_per_doc * remaining;
+        const scaledOutput = pm.avg_output_per_doc * remaining;
+        const costInput = (scaledInput / 1_000_000) * pm.input_cost_per_m;
+        const costOutput = (scaledOutput / 1_000_000) * pm.output_cost_per_m;
+        const totalCost = costInput + costOutput;
+        const totalTokens = Math.round(scaledInput + scaledOutput);
+
+        return `<div class="model-card">
+            <div class="model-card-header">
+                <span class="model-card-label">${pm.label}</span>
+                <span class="model-card-tier">${m.tier}</span>
+            </div>
+            <div class="model-card-body">
+                <div class="model-metric">
+                    <span class="model-metric-value">${Math.round(pm.avg_input_per_doc).toLocaleString()}</span>
+                    <span class="model-metric-label">Avg input tokens/doc</span>
+                </div>
+                <div class="model-metric">
+                    <span class="model-metric-value">${Math.round(pm.avg_output_per_doc).toLocaleString()}</span>
+                    <span class="model-metric-label">Avg output tokens/doc</span>
+                </div>
+                <div class="model-metric model-metric-highlight">
+                    <span class="model-metric-value">$${totalCost.toFixed(2)}</span>
+                    <span class="model-metric-label">Projected cost (${remaining.toLocaleString()} docs)</span>
+                </div>
+                <div class="model-metric">
+                    <span class="model-metric-value">${totalTokens.toLocaleString()}</span>
+                    <span class="model-metric-label">Est. total tokens</span>
+                </div>
+                <div class="model-metric">
+                    <span class="model-metric-value">$${pm.input_cost_per_m}/$${pm.output_cost_per_m}</span>
+                    <span class="model-metric-label">Per 1M (in/out)</span>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+/**
+ * Build model selector radio buttons for a tab.
+ */
+function renderModelSelector(containerId, selectedModel, onChange) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const radios = MODEL_ORDER.map(m => {
+        const checked = m.id === selectedModel ? 'checked' : '';
+        return `<label class="model-radio-label">
+            <input type="radio" name="${containerId}-model" value="${m.id}" ${checked}> ${m.label}
+        </label>`;
+    }).join('');
+
+    // Keep existing <label> and append radios
+    container.innerHTML = `<label>View model:</label> ${radios}`;
+    container.querySelectorAll('input[type="radio"]').forEach(radio => {
+        radio.addEventListener('change', (e) => onChange(e.target.value));
+    });
+}
+
+/**
+ * Check if all 3 models agree on a specific field for an FDA document.
+ */
+function checkFDAFieldAgreement(doc, field) {
+    const models = doc.models || {};
+    const modelIds = Object.keys(models);
+    if (modelIds.length < 2) return null; // can't compare
+    const values = modelIds.map(mid => {
+        const d = models[mid]?.data || {};
+        return JSON.stringify(d[field]);
+    });
+    return values.every(v => v === values[0]);
+}
+
+/**
+ * Check overall agreement across key fields for an FDA document.
+ */
+function checkFDAOverallAgreement(doc) {
+    const fields = ['total_participants', 'sex_male', 'sex_female', 'race_white', 'race_black', 'race_asian', 'age_range'];
+    return fields.every(f => checkFDAFieldAgreement(doc, f));
+}
 
 async function loadFDAExtractionTab() {
     if (fdaExtractionLoaded) return;
@@ -4957,52 +5076,46 @@ async function loadFDAExtractionTab() {
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load FDA extraction data');
         const metrics = await metricsResp.json();
-        const extractedData = await dataResp.json();
-        renderFDACostBanner(metrics);
-        renderFDAReportingFreq(extractedData);
-        renderFDAExtractionTable(extractedData);
+        _fdaExtractedData = await dataResp.json();
+
+        // Handle new per_model metrics structure
+        const hasPilot = metrics.pilot_size > 0;
+        const totalDocs = metrics.total_fda_tools || 0;
+        document.getElementById('fda-pilot-size').textContent = metrics.pilot_size || 0;
+        document.getElementById('fda-remaining').textContent = (totalDocs - metrics.pilot_size).toLocaleString();
+
+        renderModelComparisonCards('fda-model-cards', metrics.per_model, totalDocs, metrics.pilot_size);
+        renderFDAReportingFreq(_fdaExtractedData);
+        renderModelSelector('fda-model-selector', _fdaSelectedModel, (modelId) => {
+            _fdaSelectedModel = modelId;
+            renderFDAExtractionTable(_fdaExtractedData, modelId);
+        });
+        renderFDAExtractionTable(_fdaExtractedData, _fdaSelectedModel);
         fdaExtractionLoaded = true;
     } catch (e) {
         console.warn('Could not load FDA extraction data:', e.message);
         const tbody = document.getElementById('fda-extraction-tbody');
         if (tbody) tbody.innerHTML =
-            '<tr><td colspan="12">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+            '<tr><td colspan="13">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
     }
-}
-
-function renderFDACostBanner(m) {
-    const hasPilot = m.pilot_size > 0;
-    const remaining = m.total_fda_tools - m.pilot_size;
-    const scaledInput = m.avg_input_per_doc * remaining;
-    const scaledOutput = m.avg_output_per_doc * remaining;
-    const costInput = (scaledInput / 1_000_000) * 3.00;
-    const costOutput = (scaledOutput / 1_000_000) * 15.00;
-    const totalCost = costInput + costOutput;
-
-    document.getElementById('fda-pilot-input').textContent = hasPilot
-        ? Math.round(m.avg_input_per_doc).toLocaleString() : '—';
-    document.getElementById('fda-pilot-output').textContent = hasPilot
-        ? Math.round(m.avg_output_per_doc).toLocaleString() : '—';
-    document.getElementById('fda-pilot-size').textContent = m.pilot_size || 0;
-    document.getElementById('fda-remaining').textContent = remaining.toLocaleString();
-    document.getElementById('fda-projected-cost').textContent = hasPilot
-        ? '$' + totalCost.toFixed(2) : 'Awaiting pilot';
-    document.getElementById('fda-total-tokens').textContent = hasPilot
-        ? Math.round(scaledInput + scaledOutput).toLocaleString() : '—';
 }
 
 function renderFDAReportingFreq(data) {
     const container = document.getElementById('fda-reporting-freq');
     if (!container) return;
 
-    const total = data.length;
+    // Use Sonnet as the reference model for reporting frequency
+    const refModel = 'claude-sonnet-4-6';
+    const successDocs = data.filter(d => d.extraction_status === 'success' && d.models && d.models[refModel]);
+    const total = successDocs.length;
     if (total === 0) {
         container.innerHTML = '<p style="color: var(--secondary-text); text-align: center; padding: 1rem;">No extraction data available yet.</p>';
         return;
     }
-    const raceReported = data.filter(d => d.race_white !== 'Not Reported').length;
-    const sexReported = data.filter(d => d.sex_male !== 'Not Reported').length;
-    const ageReported = data.filter(d => d.age_range !== 'Not Reported').length;
+
+    const raceReported = successDocs.filter(d => d.models[refModel]?.data?.race_white !== 'Not Reported').length;
+    const sexReported = successDocs.filter(d => d.models[refModel]?.data?.sex_male !== 'Not Reported').length;
+    const ageReported = successDocs.filter(d => d.models[refModel]?.data?.age_range !== 'Not Reported').length;
 
     const items = [
         { label: '% Reporting Race', count: raceReported, color: '#2f4f4f' },
@@ -5022,12 +5135,13 @@ function renderFDAReportingFreq(data) {
     }).join('');
 }
 
-function renderFDAExtractionTable(data) {
+function renderFDAExtractionTable(data, modelId) {
     const tbody = document.getElementById('fda-extraction-tbody');
     if (!tbody) return;
+    modelId = modelId || _fdaSelectedModel;
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+        tbody.innerHTML = `<tr><td colspan="13" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
             No extracted data yet. Trigger the extraction pipeline via
             <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
             or run <code>scripts/extraction/extract_fda_demographics.py</code> locally.
@@ -5035,20 +5149,38 @@ function renderFDAExtractionTable(data) {
         return;
     }
 
-    tbody.innerHTML = data.map(d => {
+    tbody.innerHTML = data.map(doc => {
+        if (doc.extraction_status !== 'success') {
+            return `<tr>
+                <td>${escapeHtml(doc.device_name || '')}</td>
+                <td>${escapeHtml(doc.panel || '')}</td>
+                <td>${escapeHtml(doc.submission_number || '')}</td>
+                <td colspan="8" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
+                <td>—</td>
+                <td>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>` : '—'}</td>
+            </tr>`;
+        }
+
+        const d = doc.models?.[modelId]?.data || {};
         const fmt = (v) => v === 'Not Reported'
             ? '<span class="not-reported-badge">Not Reported</span>'
             : escapeHtml(String(v));
         const fmtNum = (v) => v === 'Not Reported'
             ? '<span class="not-reported-badge">Not Reported</span>'
             : typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
-        const sourceLink = d.source_url
-            ? `<a href="${escapeHtml(d.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
+        const sourceLink = doc.source_url
+            ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
             : '—';
+
+        const allAgree = checkFDAOverallAgreement(doc);
+        const agreeBadge = allAgree === null ? '—'
+            : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
+            : '<span class="agreement-badge agreement-no">Differs</span>';
+
         return `<tr>
-            <td>${escapeHtml(d.device_name || '')}</td>
-            <td>${escapeHtml(d.panel || '')}</td>
-            <td>${escapeHtml(d.submission_number || '')}</td>
+            <td>${escapeHtml(doc.device_name || '')}</td>
+            <td>${escapeHtml(doc.panel || '')}</td>
+            <td>${escapeHtml(doc.submission_number || '')}</td>
             <td class="text-right">${fmtNum(d.total_participants)}</td>
             <td class="text-right">${fmtNum(d.sex_male)}</td>
             <td class="text-right">${fmtNum(d.sex_female)}</td>
@@ -5057,15 +5189,32 @@ function renderFDAExtractionTable(data) {
             <td class="text-right">${fmtNum(d.race_asian)}</td>
             <td class="text-right">${fmtNum(d.race_other)}</td>
             <td>${fmt(d.age_range)}</td>
+            <td>${agreeBadge}</td>
             <td>${sourceLink}</td>
         </tr>`;
     }).join('');
 }
 
 // ---------------------------------------------------------------------------
-// (Beta) Paper Data Extraction Tab
+// (Beta) Paper Data Extraction Tab — 3-Way Model Comparison
 // ---------------------------------------------------------------------------
 let litExtractionLoaded = false;
+let _litExtractedData = [];
+let _litSelectedModel = 'claude-sonnet-4-6';
+
+/**
+ * Check overall agreement across key fields for a literature document.
+ */
+function checkLitOverallAgreement(doc) {
+    const models = doc.models || {};
+    const modelIds = Object.keys(models);
+    if (modelIds.length < 2) return null;
+    const fields = ['income_reported', 'education_reported', 'insurance_status_reported', 'study_name'];
+    return fields.every(field => {
+        const values = modelIds.map(mid => JSON.stringify(models[mid]?.data?.[field]));
+        return values.every(v => v === values[0]);
+    });
+}
 
 async function loadLitExtractionTab() {
     if (litExtractionLoaded) return;
@@ -5077,9 +5226,18 @@ async function loadLitExtractionTab() {
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load literature extraction data');
         const metrics = await metricsResp.json();
-        const extractedData = await dataResp.json();
-        renderLitCostBanner(metrics);
-        renderLitExtractionTable(extractedData);
+        _litExtractedData = await dataResp.json();
+
+        const totalDocs = metrics.total_studies || 0;
+        document.getElementById('lit-pilot-size').textContent = metrics.pilot_size || 0;
+        document.getElementById('lit-remaining').textContent = (totalDocs - metrics.pilot_size).toLocaleString();
+
+        renderModelComparisonCards('lit-model-cards', metrics.per_model, totalDocs, metrics.pilot_size);
+        renderModelSelector('lit-model-selector', _litSelectedModel, (modelId) => {
+            _litSelectedModel = modelId;
+            renderLitExtractionTable(_litExtractedData, modelId);
+        });
+        renderLitExtractionTable(_litExtractedData, _litSelectedModel);
         litExtractionLoaded = true;
     } catch (e) {
         console.warn('Could not load literature extraction data:', e.message);
@@ -5089,31 +5247,11 @@ async function loadLitExtractionTab() {
     }
 }
 
-function renderLitCostBanner(m) {
-    const remaining = m.total_studies - m.pilot_size;
-    const scaledInput = m.avg_input_per_doc * remaining;
-    const scaledOutput = m.avg_output_per_doc * remaining;
-    const costInput = (scaledInput / 1_000_000) * 3.00;
-    const costOutput = (scaledOutput / 1_000_000) * 15.00;
-    const totalCost = costInput + costOutput;
-
-    document.getElementById('lit-pilot-input').textContent = m.pilot_size > 0
-        ? Math.round(m.avg_input_per_doc).toLocaleString() : '—';
-    document.getElementById('lit-pilot-output').textContent = m.pilot_size > 0
-        ? Math.round(m.avg_output_per_doc).toLocaleString() : '—';
-    document.getElementById('lit-pilot-size').textContent = m.pilot_size || 0;
-    document.getElementById('lit-remaining').textContent = remaining.toLocaleString();
-    document.getElementById('lit-projected-cost').textContent = m.pilot_size > 0
-        ? '$' + totalCost.toFixed(2) : 'Awaiting pilot';
-    document.getElementById('lit-total-tokens').textContent = m.pilot_size > 0
-        ? Math.round(scaledInput + scaledOutput).toLocaleString() : '—';
-}
-
-function renderLitExtractionTable(extractedData) {
+function renderLitExtractionTable(extractedData, modelId) {
     const tbody = document.getElementById('lit-extraction-tbody');
     if (!tbody) return;
+    modelId = modelId || _litSelectedModel;
 
-    // Empty state when no real extraction data exists
     if (!extractedData || extractedData.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
             No extracted data yet. Trigger the extraction pipeline via
@@ -5123,19 +5261,29 @@ function renderLitExtractionTable(extractedData) {
         return;
     }
 
-    tbody.innerHTML = extractedData.map(d => {
+    tbody.innerHTML = extractedData.map(doc => {
         const boolBadge = (v) => v
             ? '<span class="bool-yes">Yes</span>'
             : '<span class="bool-no">No</span>';
 
-        let statusClass = 'status-badge-extracted';
-        if (d.status === 'Closed Access') statusClass = 'status-badge-closed';
-        else if (d.status === 'Failed text read') statusClass = 'status-badge-failed';
+        if (doc.extraction_status !== 'success') {
+            let statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
+            return `<tr>
+                <td class="study-details-cell">
+                    <strong>${escapeHtml(doc.study_title || 'Title Not Found')}</strong>
+                    <span class="study-details-meta">${doc.doi ? `<a href="https://doi.org/${escapeHtml(doc.doi)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi)}</a>` : ''}</span>
+                </td>
+                <td colspan="5" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
+                <td>—</td>
+                <td>${doc.oa_pdf_url ? `<a href="${escapeHtml(doc.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>` : '<span class="fda-no-record">No PDF</span>'}</td>
+            </tr>`;
+        }
 
-        // PDF link: only link to real open-access PDFs, not DOI redirects
-        const hasRealPdf = d.oa_pdf_url && !d.oa_pdf_url.startsWith('https://doi.org/');
+        const d = doc.models?.[modelId]?.data || {};
+
+        const hasRealPdf = doc.oa_pdf_url && !doc.oa_pdf_url.startsWith('https://doi.org/');
         const pdfLink = hasRealPdf
-            ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>`
+            ? `<a href="${escapeHtml(doc.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>`
             : '<span class="fda-no-record">No PDF</span>';
 
         const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
@@ -5146,9 +5294,9 @@ function renderLitExtractionTable(extractedData) {
             ? '<span class="not-reported-badge">Not Reported</span>'
             : escapeHtml(d.detailed_race_breakdown);
 
-        const title = d.study_title || 'Title Not Found';
+        const title = doc.study_title || 'Title Not Found';
         const studyName = d.study_name || 'Not Reported';
-        const doi = d.doi || '';
+        const doi = doc.doi || '';
         const nctId = d.nct_id || 'Not Reported';
         const nctDisplay = nctId !== 'Not Reported'
             ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(nctId)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(nctId)}</a>`
@@ -5159,6 +5307,11 @@ function renderLitExtractionTable(extractedData) {
         const doiDisplay = doi
             ? `<a href="https://doi.org/${escapeHtml(doi)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doi)}</a>`
             : '';
+
+        const allAgree = checkLitOverallAgreement(doc);
+        const agreeBadge = allAgree === null ? '—'
+            : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
+            : '<span class="agreement-badge agreement-no">Differs</span>';
 
         return `<tr>
             <td class="study-details-cell">
@@ -5171,7 +5324,7 @@ function renderLitExtractionTable(extractedData) {
             <td>${boolBadge(d.insurance_status_reported)}</td>
             <td>${sesNotes}</td>
             <td>${raceBreak}</td>
-            <td><span class="${statusClass}">${escapeHtml(d.status || '')}</span></td>
+            <td>${agreeBadge}</td>
             <td>${pdfLink}</td>
         </tr>`;
     }).join('');

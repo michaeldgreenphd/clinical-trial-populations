@@ -2350,6 +2350,147 @@ footer p {
     color: var(--text-secondary);
 }
 
+/* 3-Way Model Comparison Grid */
+.model-comparison-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 900px) {
+    .model-comparison-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.model-card {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.model-card-header {
+    background: var(--primary-color);
+    color: white;
+    padding: 0.75rem 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.model-card-label {
+    font-family: 'Lora', Georgia, serif;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.model-card-tier {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.85;
+}
+
+.model-card-body {
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.model-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.model-metric:last-child {
+    border-bottom: none;
+}
+
+.model-metric-value {
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--text-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.model-metric-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.model-metric-highlight {
+    background: #f0f8f0;
+    margin: 0 -1rem;
+    padding: 0.5rem 1rem;
+    border-bottom: none;
+}
+
+.model-metric-highlight .model-metric-value {
+    color: #155724;
+    font-size: 1.15rem;
+}
+
+/* Model Selector Radio Buttons */
+.model-selector {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.model-selector > label {
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+}
+
+.model-radio-label {
+    cursor: pointer;
+    padding: 0.35rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-size: 0.85rem;
+    transition: all 0.15s ease;
+}
+
+.model-radio-label:has(input:checked) {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.model-radio-label input[type="radio"] {
+    display: none;
+}
+
+/* Agreement Badges */
+.agreement-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.agreement-yes {
+    background: #d4edda;
+    color: #155724;
+}
+
+.agreement-no {
+    background: #f8d7da;
+    color: #721c24;
+}
+
 .not-reported-badge {
     display: inline-block;
     background: #fff3cd;
