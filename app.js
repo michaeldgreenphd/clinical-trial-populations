@@ -777,7 +777,7 @@ function resetFilters() {
     document.getElementById('year-end').value = 2026;
     document.getElementById('year-start-label').textContent = '2009';
     document.getElementById('year-end-label').textContent = '2026';
-    document.getElementById('study-type').value = 'all';
+    document.getElementById('study-type').value = 'INTERVENTIONAL';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
     document.getElementById('intervention-model').value = 'all';
@@ -818,9 +818,10 @@ function updateActiveFilters() {
     }
 
     const studyType = document.getElementById('study-type').value;
-    if (studyType !== 'all') {
-        filters.push({ label: `Type: ${studyType}`, reset: () => {
-            document.getElementById('study-type').value = 'all';
+    if (studyType !== 'INTERVENTIONAL') {
+        const typeLabel = studyType === 'all' ? 'All' : studyType;
+        filters.push({ label: `Type: ${typeLabel}`, reset: () => {
+            document.getElementById('study-type').value = 'INTERVENTIONAL';
         }});
     }
 
@@ -5052,9 +5053,10 @@ let litExtractionLoaded = false;
 async function loadLitExtractionTab() {
     if (litExtractionLoaded) return;
     try {
+        const cacheBust = `?v=${Date.now()}`;
         const [metricsResp, dataResp] = await Promise.all([
-            fetch('data/lit_token_metrics.json'),
-            fetch('data/lit_ses_extracted.json')
+            fetch('data/lit_token_metrics.json' + cacheBust),
+            fetch('data/lit_ses_extracted.json' + cacheBust)
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load literature extraction data');
         const metrics = await metricsResp.json();
