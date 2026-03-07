@@ -1,0 +1,62 @@
+name: Run Extraction Pipelines
+
+on:
+  workflow_dispatch:
+    inputs:
+      pipeline:
+        description: "Which pipeline to run"
+        required: true
+        type: choice
+        options:
+          - both
+          - fda-only
+          - literature-only
+
+jobs:
+  extract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r scripts/extraction/requirements.txt
+
+      - name: Run FDA Demographics Extraction
+        if: inputs.pipeline == 'both' || inputs.pipeline == 'fda-only'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/extraction/extract_fda_demographics.py
+
+      - name: Run Literature SES Extraction
+        if: inputs.pipeline == 'both' || inputs.pipeline == 'literature-only'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python scripts/extraction/extract_paper_ses.py
+
+      - name: Commit extraction results
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/fda_demographics_extracted.json \
+                  data/fda_token_metrics.json \
+                  data/lit_ses_extracted.json \
+                  data/lit_token_metrics.json
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update extraction data from CI pipeline run
+
+            Triggered by: ${{ github.actor }}
+            Pipeline: ${{ inputs.pipeline }}
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            git push
+          fi
