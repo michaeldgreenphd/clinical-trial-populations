@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """
-Paper SES/Demographics Extraction Pipeline
+Paper SES/Demographics Extraction Pipeline — 3-Way Model Comparison
 
 Selects clinical trial publications with known open-access availability,
-fetches the full text, and uses the Anthropic API (Claude) to extract
-socioeconomic status (SES) indicators and race breakdowns.
+fetches the full text, and runs each through three Anthropic models
+(Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare extraction quality and cost.
 
 Outputs:
-  - data/lit_ses_extracted.json    (table data)
-  - data/lit_token_metrics.json    (aggregate token usage)
+  - data/lit_ses_extracted.json    (per-document, per-model results)
+  - data/lit_token_metrics.json    (aggregate per-model token usage)
 
 Requires:
   - ANTHROPIC_API_KEY environment variable
@@ -32,22 +32,20 @@ UNPAYWALL_EMAIL = "info@civicsample.com"
 # Total studies in the full AACT dataset (for scaling projections)
 TOTAL_STUDIES = 53841
 
+MODELS = [
+    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
+    {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6",  "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
+    {"id": "claude-opus-4-6",           "label": "Opus 4.6",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
+]
+
 client = anthropic.Anthropic()
 
-# Curated pilot sample: 10 real clinical trial publications known to have
+# Curated pilot sample: 3 real clinical trial publications known to have
 # open-access full text. These DOIs are verified against Unpaywall/PubMed.
-# Each must be a genuine published paper — no fabricated DOIs.
 PILOT_DOIS = [
     "10.1056/NEJMoa1911303",   # DAPA-HF trial (dapagliflozin, heart failure)
-    "10.1056/NEJMoa2206038",   # DELIVER trial (dapagliflozin, HFpEF)
     "10.1001/jama.2020.12839",  # RECOVERY trial (dexamethasone, COVID-19)
     "10.1056/NEJMoa2034577",   # BNT162b2 vaccine trial (Pfizer COVID-19)
-    "10.1056/NEJMoa1501352",   # SPRINT trial (blood pressure targets)
-    "10.1056/NEJMoa1200303",   # PARADIGM-HF trial (sacubitril/valsartan)
-    "10.1056/NEJMoa1903297",   # EMPEROR-Reduced trial (empagliflozin)
-    "10.1001/jama.2019.18151",  # ISCHEMIA trial (invasive strategy)
-    "10.1056/NEJMoa1816885",   # DECLARE-TIMI 58 (dapagliflozin, diabetes)
-    "10.1056/NEJMoa2032183",   # mRNA-1273 vaccine trial (Moderna COVID-19)
 ]
 
 EXTRACTION_PROMPT = """\
@@ -93,9 +91,9 @@ def get_open_access_pdf(doi: str) -> tuple[str | None, str]:
 
 
 def extract_pdf_text(url: str) -> str | None:
-    """Download a PDF and extract its text content."""
+    """Download a PDF and extract ALL pages — no page limits."""
     try:
-        resp = requests.get(url, timeout=30, headers={
+        resp = requests.get(url, timeout=60, headers={
             "User-Agent": "CivicSample-Research/1.0 (academic research)"
         })
         resp.raise_for_status()
@@ -108,30 +106,25 @@ def extract_pdf_text(url: str) -> str | None:
         return None
 
 
-def extract_ses_with_claude(text: str) -> tuple[dict, dict]:
-    """Send manuscript text to Claude for SES extraction. Returns (data, token_usage)."""
-    truncated = text[:150_000]
-
+def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
+    """Run extraction against a single model. Returns (data, token_usage)."""
     response = client.messages.create(
-        model="claude-sonnet-4-6",
+        model=model_id,
         max_tokens=800,
         temperature=0,
         messages=[{
             "role": "user",
-            "content": f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{truncated}"
+            "content": f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{text}"
         }]
     )
-
     token_usage = {
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
-
     try:
         data = json.loads(response.content[0].text)
     except (json.JSONDecodeError, IndexError):
-        data = {"error": "Failed to parse Claude response"}
-
+        data = {"error": "Failed to parse response"}
     return data, token_usage
 
 
@@ -140,19 +133,15 @@ def main():
         print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
         sys.exit(1)
 
-    print(f"Paper SES Extraction Pipeline")
-    print(f"  Pilot DOIs: {len(PILOT_DOIS)}")
-    print()
+    print(f"Paper SES 3-Way Model Comparison Pipeline")
+    print(f"  Pilot DOIs: {len(PILOT_DOIS)} (full PDF, 3 models each)\n")
 
     results = []
-    total_input_tokens = 0
-    total_output_tokens = 0
-    successful_extractions = 0
+    model_totals = {m["id"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
 
     for i, doi in enumerate(PILOT_DOIS):
         print(f"[{i+1}/{len(PILOT_DOIS)}] {doi}")
 
-        # Step 1: Find open-access PDF via Unpaywall
         pdf_url, title = get_open_access_pdf(doi)
 
         if not pdf_url:
@@ -160,105 +149,89 @@ def main():
             results.append({
                 "doi": doi,
                 "study_title": title,
-                "study_name": "Not Reported",
-                "nct_id": "Not Reported",
-                "income_reported": False,
-                "education_reported": False,
-                "insurance_status_reported": False,
-                "ses_notes": "None",
-                "detailed_race_breakdown": "Not Reported",
                 "oa_pdf_url": None,
-                "status": "Closed Access",
+                "extraction_status": "closed_access",
+                "models": {},
             })
             continue
 
-        # Step 2: Download and extract text
         text = extract_pdf_text(pdf_url)
         if not text:
             print(f"  ✗ Could not extract text from PDF")
             results.append({
                 "doi": doi,
                 "study_title": title,
-                "study_name": "Not Reported",
-                "nct_id": "Not Reported",
-                "income_reported": False,
-                "education_reported": False,
-                "insurance_status_reported": False,
-                "ses_notes": "None",
-                "detailed_race_breakdown": "Not Reported",
                 "oa_pdf_url": pdf_url,
-                "status": "Failed text read",
+                "extraction_status": "pdf_failed",
+                "models": {},
             })
             continue
 
-        print(f"  ✓ Extracted {len(text):,} chars from PDF")
+        print(f"  ✓ Full PDF: {len(text):,} chars")
 
-        # Step 3: Send to Claude for extraction
-        try:
-            extracted, tokens = extract_ses_with_claude(text)
-            total_input_tokens += tokens["input_tokens"]
-            total_output_tokens += tokens["output_tokens"]
-            successful_extractions += 1
+        model_results = {}
+        for model in MODELS:
+            mid = model["id"]
+            label = model["label"]
+            print(f"    → {label} ({mid})...", end=" ", flush=True)
+            try:
+                data, tokens = extract_with_model(text, mid)
+                model_results[mid] = {
+                    "label": label,
+                    "data": data,
+                    "input_tokens": tokens["input_tokens"],
+                    "output_tokens": tokens["output_tokens"],
+                }
+                model_totals[mid]["input"] += tokens["input_tokens"]
+                model_totals[mid]["output"] += tokens["output_tokens"]
+                model_totals[mid]["docs"] += 1
+                print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+            except Exception as e:
+                print(f"ERROR: {e}")
+                model_results[mid] = {
+                    "label": label,
+                    "data": {"error": str(e)},
+                    "input_tokens": 0,
+                    "output_tokens": 0,
+                }
+            time.sleep(1)
 
-            print(f"  ✓ Claude: {tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+        results.append({
+            "doi": doi,
+            "study_title": title,
+            "oa_pdf_url": pdf_url,
+            "extraction_status": "success",
+            "models": model_results,
+        })
 
-            record = {
-                "doi": doi,
-                "study_title": title,
-                "study_name": extracted.get("study_name", "Not Reported"),
-                "nct_id": extracted.get("nct_id", "Not Reported"),
-                "income_reported": extracted.get("income_reported", False),
-                "education_reported": extracted.get("education_reported", False),
-                "insurance_status_reported": extracted.get("insurance_status_reported", False),
-                "ses_notes": extracted.get("ses_notes", "None"),
-                "detailed_race_breakdown": extracted.get("detailed_race_breakdown", "Not Reported"),
-                "oa_pdf_url": pdf_url,
-                "status": "Extracted",
-            }
-            results.append(record)
-
-        except Exception as e:
-            print(f"  ✗ Claude extraction failed: {e}", file=sys.stderr)
-            results.append({
-                "doi": doi,
-                "study_title": title,
-                "study_name": "Not Reported",
-                "nct_id": "Not Reported",
-                "income_reported": False,
-                "education_reported": False,
-                "insurance_status_reported": False,
-                "ses_notes": "None",
-                "detailed_race_breakdown": "Not Reported",
-                "oa_pdf_url": pdf_url,
-                "status": "API Error",
-            })
-
-        # Rate limiting
-        time.sleep(1)
-
-    # Write extraction results
+    # Write results
     print(f"\nWriting {len(results)} results to {OUTPUT_DATA}")
     with open(OUTPUT_DATA, "w") as f:
         json.dump(results, f, indent=2)
 
-    # Write token metrics
+    # Build per-model metrics
+    per_model = {}
+    for model in MODELS:
+        mid = model["id"]
+        t = model_totals[mid]
+        docs = t["docs"] or 1
+        per_model[mid] = {
+            "label": model["label"],
+            "input_cost_per_m": model["input_cost_per_m"],
+            "output_cost_per_m": model["output_cost_per_m"],
+            "avg_input_per_doc": t["input"] / docs,
+            "avg_output_per_doc": t["output"] / docs,
+            "total_input_tokens": t["input"],
+            "total_output_tokens": t["output"],
+            "docs_processed": t["docs"],
+        }
+
     metrics = {
-        "pilot_size": successful_extractions,
+        "pilot_size": len([r for r in results if r["extraction_status"] == "success"]),
         "total_studies": TOTAL_STUDIES,
-        "avg_input_per_doc": (
-            total_input_tokens / successful_extractions
-            if successful_extractions > 0 else 0
-        ),
-        "avg_output_per_doc": (
-            total_output_tokens / successful_extractions
-            if successful_extractions > 0 else 0
-        ),
-        "total_input_tokens": total_input_tokens,
-        "total_output_tokens": total_output_tokens,
+        "per_model": per_model,
     }
-    print(f"Writing token metrics to {OUTPUT_METRICS}")
-    print(f"  Successful extractions: {successful_extractions}/{len(PILOT_DOIS)}")
-    print(f"  Total tokens: {total_input_tokens:,} input + {total_output_tokens:,} output")
+    print(f"Writing metrics to {OUTPUT_METRICS}")
     with open(OUTPUT_METRICS, "w") as f:
         json.dump(metrics, f, indent=2)
 
