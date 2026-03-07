@@ -2,5 +2,7 @@
     "pilot_size": 0,
     "total_studies": 53841,
     "avg_input_per_doc": 0,
-    "avg_output_per_doc": 0
+    "avg_output_per_doc": 0,
+    "total_input_tokens": 0,
+    "total_output_tokens": 0
 }

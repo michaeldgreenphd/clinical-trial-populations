@@ -4952,8 +4952,8 @@ async function loadFDAExtractionTab() {
     if (fdaExtractionLoaded) return;
     try {
         const [metricsResp, dataResp] = await Promise.all([
-            fetch('data/fda_token_metrics.json'),
-            fetch('data/fda_demographics_extracted.json')
+            fetch('data/fda_token_metrics.json?v=' + Date.now()),
+            fetch('data/fda_demographics_extracted.json?v=' + Date.now())
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load FDA extraction data');
         const metrics = await metricsResp.json();
@@ -4971,6 +4971,7 @@ async function loadFDAExtractionTab() {
 }
 
 function renderFDACostBanner(m) {
+    const hasPilot = m.pilot_size > 0;
     const remaining = m.total_fda_tools - m.pilot_size;
     const scaledInput = m.avg_input_per_doc * remaining;
     const scaledOutput = m.avg_output_per_doc * remaining;
@@ -4978,13 +4979,16 @@ function renderFDACostBanner(m) {
     const costOutput = (scaledOutput / 1_000_000) * 15.00;
     const totalCost = costInput + costOutput;
 
-    document.getElementById('fda-pilot-input').textContent = Math.round(m.avg_input_per_doc).toLocaleString();
-    document.getElementById('fda-pilot-output').textContent = Math.round(m.avg_output_per_doc).toLocaleString();
-    document.getElementById('fda-pilot-size').textContent = m.pilot_size;
+    document.getElementById('fda-pilot-input').textContent = hasPilot
+        ? Math.round(m.avg_input_per_doc).toLocaleString() : '—';
+    document.getElementById('fda-pilot-output').textContent = hasPilot
+        ? Math.round(m.avg_output_per_doc).toLocaleString() : '—';
+    document.getElementById('fda-pilot-size').textContent = m.pilot_size || 0;
     document.getElementById('fda-remaining').textContent = remaining.toLocaleString();
-    document.getElementById('fda-projected-cost').textContent = '$' + totalCost.toFixed(2);
-    document.getElementById('fda-total-tokens').textContent =
-        Math.round(scaledInput + scaledOutput).toLocaleString();
+    document.getElementById('fda-projected-cost').textContent = hasPilot
+        ? '$' + totalCost.toFixed(2) : 'Awaiting pilot';
+    document.getElementById('fda-total-tokens').textContent = hasPilot
+        ? Math.round(scaledInput + scaledOutput).toLocaleString() : '—';
 }
 
 function renderFDAReportingFreq(data) {
@@ -4992,6 +4996,10 @@ function renderFDAReportingFreq(data) {
     if (!container) return;
 
     const total = data.length;
+    if (total === 0) {
+        container.innerHTML = '<p style="color: var(--secondary-text); text-align: center; padding: 1rem;">No extraction data available yet.</p>';
+        return;
+    }
     const raceReported = data.filter(d => d.race_white !== 'Not Reported').length;
     const sexReported = data.filter(d => d.sex_male !== 'Not Reported').length;
     const ageReported = data.filter(d => d.age_range !== 'Not Reported').length;
@@ -5017,6 +5025,15 @@ function renderFDAReportingFreq(data) {
 function renderFDAExtractionTable(data) {
     const tbody = document.getElementById('fda-extraction-tbody');
     if (!tbody) return;
+
+    if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="12" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+            No extracted data yet. Trigger the extraction pipeline via
+            <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
+            or run <code>scripts/extraction/extract_fda_demographics.py</code> locally.
+        </td></tr>`;
+        return;
+    }
 
     tbody.innerHTML = data.map(d => {
         const fmt = (v) => v === 'Not Reported'
@@ -5099,7 +5116,9 @@ function renderLitExtractionTable(extractedData) {
     // Empty state when no real extraction data exists
     if (!extractedData || extractedData.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
-            No extracted data yet. Run <code>extraction_pipeline/lit_extractor.py</code> to populate this table with real study data.
+            No extracted data yet. Trigger the extraction pipeline via
+            <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
+            or run <code>scripts/extraction/extract_paper_ses.py</code> locally.
         </td></tr>`;
         return;
     }
