@@ -5021,6 +5021,9 @@ function renderFDAExtractionTable(data) {
         const fmt = (v) => v === 'Not Reported'
             ? '<span class="not-reported-badge">Not Reported</span>'
             : escapeHtml(String(v));
+        const fmtNum = (v) => v === 'Not Reported'
+            ? '<span class="not-reported-badge">Not Reported</span>'
+            : typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
         const sourceLink = d.source_url
             ? `<a href="${escapeHtml(d.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
             : '—';
@@ -5028,13 +5031,13 @@ function renderFDAExtractionTable(data) {
             <td>${escapeHtml(d.device_name || '')}</td>
             <td>${escapeHtml(d.panel || '')}</td>
             <td>${escapeHtml(d.submission_number || '')}</td>
-            <td>${fmt(d.total_participants)}</td>
-            <td>${fmt(d.sex_male)}</td>
-            <td>${fmt(d.sex_female)}</td>
-            <td>${fmt(d.race_white)}</td>
-            <td>${fmt(d.race_black)}</td>
-            <td>${fmt(d.race_asian)}</td>
-            <td>${fmt(d.race_other)}</td>
+            <td class="text-right">${fmtNum(d.total_participants)}</td>
+            <td class="text-right">${fmtNum(d.sex_male)}</td>
+            <td class="text-right">${fmtNum(d.sex_female)}</td>
+            <td class="text-right">${fmtNum(d.race_white)}</td>
+            <td class="text-right">${fmtNum(d.race_black)}</td>
+            <td class="text-right">${fmtNum(d.race_asian)}</td>
+            <td class="text-right">${fmtNum(d.race_other)}</td>
             <td>${fmt(d.age_range)}</td>
             <td>${sourceLink}</td>
         </tr>`;
@@ -5075,20 +5078,31 @@ function renderLitCostBanner(m) {
     const costOutput = (scaledOutput / 1_000_000) * 15.00;
     const totalCost = costInput + costOutput;
 
-    document.getElementById('lit-pilot-input').textContent = Math.round(m.avg_input_per_doc).toLocaleString();
-    document.getElementById('lit-pilot-output').textContent = Math.round(m.avg_output_per_doc).toLocaleString();
-    document.getElementById('lit-pilot-size').textContent = m.pilot_size;
+    document.getElementById('lit-pilot-input').textContent = m.pilot_size > 0
+        ? Math.round(m.avg_input_per_doc).toLocaleString() : '—';
+    document.getElementById('lit-pilot-output').textContent = m.pilot_size > 0
+        ? Math.round(m.avg_output_per_doc).toLocaleString() : '—';
+    document.getElementById('lit-pilot-size').textContent = m.pilot_size || 0;
     document.getElementById('lit-remaining').textContent = remaining.toLocaleString();
-    document.getElementById('lit-projected-cost').textContent = '$' + totalCost.toFixed(2);
-    document.getElementById('lit-total-tokens').textContent =
-        Math.round(scaledInput + scaledOutput).toLocaleString();
+    document.getElementById('lit-projected-cost').textContent = m.pilot_size > 0
+        ? '$' + totalCost.toFixed(2) : 'Awaiting pilot';
+    document.getElementById('lit-total-tokens').textContent = m.pilot_size > 0
+        ? Math.round(scaledInput + scaledOutput).toLocaleString() : '—';
 }
 
-function renderLitExtractionTable(data) {
+function renderLitExtractionTable(extractedData) {
     const tbody = document.getElementById('lit-extraction-tbody');
     if (!tbody) return;
 
-    tbody.innerHTML = data.map(d => {
+    // Empty state when no real extraction data exists
+    if (!extractedData || extractedData.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+            No extracted data yet. Run <code>extraction_pipeline/lit_extractor.py</code> to populate this table with real study data.
+        </td></tr>`;
+        return;
+    }
+
+    tbody.innerHTML = extractedData.map(d => {
         const boolBadge = (v) => v
             ? '<span class="bool-yes">Yes</span>'
             : '<span class="bool-no">No</span>';
@@ -5097,9 +5111,11 @@ function renderLitExtractionTable(data) {
         if (d.status === 'Closed Access') statusClass = 'status-badge-closed';
         else if (d.status === 'Failed text read') statusClass = 'status-badge-failed';
 
-        const pdfLink = d.oa_pdf_url
+        // PDF link: only link to real open-access PDFs, not DOI redirects
+        const hasRealPdf = d.oa_pdf_url && !d.oa_pdf_url.startsWith('https://doi.org/');
+        const pdfLink = hasRealPdf
             ? `<a href="${escapeHtml(d.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>`
-            : '—';
+            : '<span class="fda-no-record">No PDF</span>';
 
         const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
             ? '<span class="not-reported-badge">None</span>'
