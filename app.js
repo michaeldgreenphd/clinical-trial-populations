@@ -3878,14 +3878,10 @@ function renderUSMap() {
         minVal = 0;
         maxVal = Math.max(...values, 1);
     } else {
-        // For reporting layers, use dynamic range from actual data
-        // This widens visual variance when values cluster in a narrow band
-        minVal = positiveValues.length > 0 ? Math.min(...positiveValues) : 0;
-        maxVal = positiveValues.length > 0 ? Math.max(...positiveValues) : 100;
-        // Ensure at least a 1-point spread to avoid division by zero
-        if (maxVal - minVal < 1) {
-            minVal = Math.max(0, maxVal - 1);
-        }
+        // For reporting layers (race, ethnicity, sex), always use 0-100%
+        // so the full color gradient is visible and differences are clear
+        minVal = 0;
+        maxVal = 100;
     }
 
     // Update legend
