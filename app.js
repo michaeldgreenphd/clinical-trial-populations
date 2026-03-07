@@ -3760,13 +3760,15 @@ function getChoroplethColor(value, minVal, maxVal) {
     const range = maxVal - minVal;
     const normalized = range > 0 ? Math.max(0, Math.min(1, (value - minVal) / range)) : 0;
 
-    // Green gradient: light to dark
+    // High-contrast multi-hue gradient: light yellow → green → deep teal
     const colors = [
-        { r: 232, g: 245, b: 233 }, // #e8f5e9 - lightest
-        { r: 165, g: 214, b: 167 }, // #a5d6a7
-        { r: 102, g: 187, b: 106 }, // #66bb6a
-        { r: 56, g: 142, b: 60 },   // #388e3c
-        { r: 27, g: 67, b: 50 }     // #1b4332 - darkest
+        { r: 255, g: 255, b: 229 }, // #ffffe5 - pale yellow
+        { r: 247, g: 252, b: 185 }, // #f7fcb9 - light yellow-green
+        { r: 194, g: 230, b: 153 }, // #c2e699 - yellow-green
+        { r: 120, g: 198, b: 121 }, // #78c679 - light green
+        { r: 49, g: 163, b: 84 },   // #31a354 - medium green
+        { r: 0, g: 109, b: 44 },    // #006d2c - dark green
+        { r: 0, g: 68, b: 27 }      // #00441b - deepest green
     ];
 
     // Find the two colors to interpolate between
