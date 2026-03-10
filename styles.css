@@ -958,6 +958,32 @@ footer p {
     border-radius: 2px;
 }
 
+/* Quarantined labels section */
+.quarantine-section {
+    margin-top: 1.5rem;
+    padding: 1rem;
+    background: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 6px;
+}
+
+.quarantine-header {
+    color: #92400e;
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+}
+
+.quarantine-note {
+    color: #78350f;
+    font-size: 0.825rem;
+    margin-bottom: 0.75rem;
+}
+
+.quarantine-table {
+    background: white;
+    border-radius: 4px;
+}
+
 .modal-close-btn {
     background: var(--primary-color);
     color: white;

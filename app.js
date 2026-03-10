@@ -1646,6 +1646,28 @@ function showBreakdown(nctId, categoryName) {
 
     html += `</tbody></table>`;
 
+    // Quarantined labels section — show anomalous labels that were excluded
+    // from demographic totals because they don't match any plausible
+    // demographic term (e.g. birth control methods in a Race table)
+    const quarantined = study[categoryName]?.quarantined_labels || [];
+    if (quarantined.length > 0) {
+        html += `<div class="quarantine-section">
+            <h5 class="quarantine-header">Quarantined Labels (Manual Review Needed)</h5>
+            <p class="quarantine-note">These labels were found in a demographic table but do not match any known demographic category. Their counts have been <strong>excluded</strong> from the totals above to prevent data pollution.</p>
+            <table class="breakdown-table quarantine-table">
+                <thead><tr><th>Original Label</th><th>Count</th><th>Reason</th></tr></thead>
+                <tbody>`;
+        for (const q of quarantined) {
+            const reason = (q.reason || 'unmapped').replace(/_/g, ' ');
+            html += `<tr>
+                <td>${escapeHtml(q.original)}</td>
+                <td>${(q.count || 0).toLocaleString()}</td>
+                <td><span class="match-low">${escapeHtml(reason)}</span></td>
+            </tr>`;
+        }
+        html += `</tbody></table></div>`;
+    }
+
     // If any category came from a Customized or combined measure, add an
     // explanatory note so the user understands why some labels differ from
     // standard NIH/OMB categories

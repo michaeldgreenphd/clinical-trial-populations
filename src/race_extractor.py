@@ -106,6 +106,16 @@ RACE_MAPPINGS = {
 # Keywords to identify race tables
 RACE_TABLE_KEYWORDS = ["race", "racial"]
 
+# Labels containing these keywords are plausibly race-related even when
+# unmapped (e.g. "Other race", "Race - Other").  Labels that don't contain
+# ANY of these tokens are almost certainly from a non-race table that was
+# mis-labelled (e.g. birth control methods) and should be quarantined.
+_PLAUSIBLE_RACE_KEYWORDS = {
+    "race", "racial", "ethnic", "origin", "other", "unknown", "mixed",
+    "biracial", "multiracial", "prefer not", "declined", "not reported",
+    "not specified", "missing", "unspecified",
+}
+
 def is_race_table(title: str) -> bool:
     """Check if a baseline measure is about race.
 
@@ -178,6 +188,82 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
         "flags": flags
     }
 
+# Ethnicity keywords used to detect combined "Race, Ethnicity" labels
+_ETHNICITY_KEYWORDS = {
+    "hispanic", "latino", "latina", "latinx", "not hispanic", "non-hispanic",
+    "non hispanic",
+}
+
+def _split_combined_label(label: str) -> Optional[Tuple[str, str]]:
+    """If *label* contains BOTH a race keyword and an ethnicity keyword,
+    return (race_part, ethnicity_part).  Otherwise return None.
+
+    The race_part is the single best-matching race fragment (not all
+    fragments joined), so it maps cleanly to a RACE_MAPPINGS key.
+
+    Handles patterns like:
+      - "Caucasian/White, Hispanic"   -> ("White", "Hispanic")
+      - "Unknown race, Hispanic"      -> ("Unknown race", "Hispanic")
+      - "Black or African American, Not Hispanic or Latino"
+    """
+    label_lower = label.lower()
+    # Check for ethnicity keyword presence
+    if not any(kw in label_lower for kw in _ETHNICITY_KEYWORDS):
+        return None
+
+    race_keys_lower = {k.lower(): k for k in RACE_MAPPINGS}
+    import re
+    fragments = re.split(r"[,;/]\s*", label)
+    race_frags = []
+    eth_frags = []
+    for frag in fragments:
+        frag_stripped = frag.strip()
+        if not frag_stripped:
+            continue
+        frag_lower = frag_stripped.lower()
+        is_eth = any(ek in frag_lower for ek in _ETHNICITY_KEYWORDS)
+        is_race = frag_lower in race_keys_lower or any(
+            fuzz.ratio(frag_lower, rk) >= 85 for rk in race_keys_lower
+        )
+        if is_eth:
+            eth_frags.append(frag_stripped)
+        elif is_race:
+            race_frags.append(frag_stripped)
+        else:
+            race_frags.append(frag_stripped)
+
+    if not (race_frags and eth_frags):
+        return None
+
+    # Pick the single best race fragment (highest fuzzy score against known keys)
+    best_frag = race_frags[0]
+    best_score = 0
+    for frag in race_frags:
+        frag_lower = frag.lower()
+        if frag_lower in race_keys_lower:
+            best_frag = frag
+            best_score = 100
+            break
+        match = process.extractOne(frag, RACE_MAPPINGS.keys(), scorer=fuzz.ratio)
+        if match and match[1] > best_score:
+            best_score = match[1]
+            best_frag = frag
+
+    return (best_frag, ", ".join(eth_frags))
+
+def _should_quarantine(mapping: Dict) -> bool:
+    """Return True if an unmapped label is irrelevant to race and should be quarantined.
+
+    Unmapped labels that contain at least one plausible race-related keyword
+    (e.g. "Other", "Unknown") are kept in the normal "other" bucket.
+    Labels like "Condom", "IUD", "Withdrawal" — which come from non-race
+    tables that happen to be titled "Race" — are quarantined.
+    """
+    if mapping.get("omb_category") != "other" or "unmapped" not in mapping.get("flags", []):
+        return False
+    label_lower = mapping["original"].lower()
+    return not any(kw in label_lower for kw in _PLAUSIBLE_RACE_KEYWORDS)
+
 # Category titles that represent measurement values, not race labels.
 # When a category has one of these titles the actual label is on its parent class.
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
@@ -214,6 +300,17 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
                 count = sum_measurements(cat.get("measurements", []), overall_group_id)
 
                 mapping = map_race_category(label)
+
+                # Combined label splitting: if the whole label fails to map
+                # but contains both race and ethnicity fragments, re-map
+                # using only the race fragment.
+                if mapping.get("omb_category") == "other" and "unmapped" in mapping.get("flags", []):
+                    split = _split_combined_label(label)
+                    if split:
+                        race_part, _eth_part = split
+                        mapping = map_race_category(race_part)
+                        mapping["flags"].append("split_from_combined")
+
                 mapping["count"] = count
                 results.append(mapping)
         else:
@@ -225,6 +322,14 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
             count = sum_measurements(cls.get("measurements", []), overall_group_id)
 
             mapping = map_race_category(label)
+
+            if mapping.get("omb_category") == "other" and "unmapped" in mapping.get("flags", []):
+                split = _split_combined_label(label)
+                if split:
+                    race_part, _eth_part = split
+                    mapping = map_race_category(race_part)
+                    mapping["flags"].append("split_from_combined")
+
             mapping["count"] = count
             results.append(mapping)
 
@@ -260,6 +365,7 @@ def extract_race_data(study: dict) -> Dict:
         },
         "subcategory_totals": {},
         "raw_categories": [],
+        "quarantined_labels": [],
         "flags": []
     }
 
@@ -288,9 +394,19 @@ def extract_race_data(study: dict) -> Dict:
                 if is_customized:
                     cat["flags"].append("customized_table")
 
-        result["raw_categories"].extend(categories)
-
         for cat in categories:
+            # Quarantine irrelevant unmapped labels (e.g. "Condom", "IUD")
+            if _should_quarantine(cat):
+                result["quarantined_labels"].append({
+                    "original": cat["original"],
+                    "count": cat["count"],
+                    "reason": "unmapped_non_race_label"
+                })
+                result["flags"].append("quarantined_label")
+                continue
+
+            result["raw_categories"].append(cat)
+
             # Add to OMB totals
             omb = cat["omb_category"]
             result["omb_totals"][omb] = result["omb_totals"].get(omb, 0) + cat["count"]
@@ -305,6 +421,15 @@ def extract_race_data(study: dict) -> Dict:
 
     if race_tables_found > 1:
         result["flags"].append(f"multiple_race_tables_{race_tables_found}")
+
+    # All-zero rejection: if every mapped category has 0 participants,
+    # mark the demographic as not collected rather than showing empty rows
+    if result["reported"] and all(v == 0 for v in result["omb_totals"].values()):
+        result["reported"] = False
+        result["omb_totals"] = {k: 0 for k in result["omb_totals"]}
+        result["raw_categories"] = []
+        result["subcategory_totals"] = {}
+        result["flags"] = ["all_zero_rejection"]
 
     # Dedupe flags
     result["flags"] = list(set(result["flags"]))

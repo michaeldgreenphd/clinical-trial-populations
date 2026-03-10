@@ -141,6 +141,13 @@ def extract_gender_data(study: dict) -> Dict:
             result["totals"][cat["category"]] += cat["count"]
             result["flags"].extend(cat["flags"])
 
+    # All-zero rejection
+    if result["reported"] and all(v == 0 for v in result["totals"].values()):
+        result["reported"] = False
+        result["totals"] = {k: 0 for k in result["totals"]}
+        result["raw_categories"] = []
+        result["flags"] = ["all_zero_rejection"]
+
     result["flags"] = list(set(result["flags"]))
 
     return result
