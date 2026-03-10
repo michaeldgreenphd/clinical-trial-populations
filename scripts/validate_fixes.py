@@ -4,10 +4,8 @@ Uses mock API data that mirrors the ClinicalTrials.gov v2 response
 structure for the target studies.
 
 Tests:
-  1. NCT01221441 — Row-level routing + alias mapping on combined table
-     Expected: "Caucasian/White" (82) -> White, "Black" (16) -> Black,
-     "Hispanic" (4) -> ethnicity only, total race = 102
-  2. NCT02766335 — Independent handling of "Unknown race" (2) and "Hispanic" (2)
+  1. NCT02766335 — "Unknown race" alias mapping + denominator balancing
+  2. NCT01221441 — Row-level routing + alias mapping on combined table
   3. NCT02498067 — Quarantine of non-race labels
   4. NCT05109104 — All-zero count rejection
 """
@@ -37,7 +35,13 @@ def _make_class(title, categories):
 def _make_measure(title, classes):
     return {"title": title, "paramType": "COUNT_OF_PARTICIPANTS", "classes": classes}
 
-def _make_study(nct_id, title, measures, groups=None):
+def _make_study(nct_id, title, measures, total_participants, groups=None):
+    """Build a mock study dict matching ClinicalTrials.gov API v2 structure.
+
+    *total_participants* populates both the baseline ``denoms`` array and the
+    protocol enrollment count, so that ``get_total_baseline_participants``
+    can find the authoritative denominator.
+    """
     if groups is None:
         groups = [{"groupId": "BG000", "title": "All Participants"}]
     return {
@@ -49,7 +53,7 @@ def _make_study(nct_id, title, measures, groups=None):
                              "lastUpdatePostDateStruct": {"date": "2020-06-01"},
                              "resultsFirstPostDateStruct": {"date": "2020-03-01"}},
             "designModule": {"studyType": "INTERVENTIONAL", "phases": ["PHASE3"],
-                             "enrollmentInfo": {"count": 102, "type": "ACTUAL"}},
+                             "enrollmentInfo": {"count": total_participants, "type": "ACTUAL"}},
             "sponsorCollaboratorsModule": {"leadSponsor": {"name": "Test", "class": "OTHER"}},
             "conditionsModule": {"conditions": ["Test Condition"]},
             "eligibilityModule": {},
@@ -59,40 +63,25 @@ def _make_study(nct_id, title, measures, groups=None):
         "resultsSection": {
             "baselineCharacteristicsModule": {
                 "groups": groups,
+                "denoms": [
+                    {
+                        "units": "Participants",
+                        "counts": [{"groupId": "BG000", "value": str(total_participants)}]
+                    }
+                ],
                 "measures": measures
             }
         }
     }
 
 
-# ---------- NCT01221441: Combined Race/Ethnicity table ----------
-# Real study has 102 participants in a customized combined table.
-# Expected: "Caucasian/White" (82) → Race:White,
-#           "Black" (16) → Race:Black,
-#           "Asian" (2) → Race:Asian,
-#           "Unknown race" (2) → Race:Unknown,
-#           "Hispanic" (4) → Ethnicity:Hispanic ONLY (absent from Race),
-#           "Not Hispanic or Latino" (98) → Ethnicity only.
-MOCK_NCT01221441 = _make_study(
-    "NCT01221441",
-    "NCT01221441 - Combined Race/Ethnicity Study (mock)",
-    [
-        _make_measure("Race/Ethnicity, Customized", [
-            _make_class("", [
-                _make_category("Caucasian/White", 82),
-                _make_category("Black", 16),
-                _make_category("Asian", 2),
-                _make_category("Unknown race", 2),
-                _make_category("Hispanic", 4),
-                _make_category("Not Hispanic or Latino", 98),
-            ])
-        ]),
-    ]
-)
-
-
-# ---------- NCT02766335: Independent "Unknown race" and "Hispanic" ----------
-# Real study with combined table where each row must be handled independently.
+# ---------- NCT02766335: "Unknown race" alias + denominator balancing ----------
+# 74 participants analyzed.  Combined Race/Ethnicity table.
+# Race rows: Caucasian/White (40), Black (25), Asian (7), Unknown race (2) = 74
+# Ethnicity rows: Hispanic (2), Not Hispanic or Latino (72) = 74
+# Key tests:
+#   - "Unknown race" (2) → unknown_not_reported (not "other")
+#   - Ethnicity: Hispanic (2) + Not Hispanic (72) = 74 (balanced)
 MOCK_NCT02766335 = _make_study(
     "NCT02766335",
     "NCT02766335 - Combined Race/Ethnicity Study (mock)",
@@ -107,7 +96,29 @@ MOCK_NCT02766335 = _make_study(
                 _make_category("Not Hispanic or Latino", 72),
             ])
         ]),
-    ]
+    ],
+    total_participants=74,
+)
+
+
+# ---------- NCT01221441: Combined Race/Ethnicity table ----------
+# 102 participants analyzed.
+MOCK_NCT01221441 = _make_study(
+    "NCT01221441",
+    "NCT01221441 - Combined Race/Ethnicity Study (mock)",
+    [
+        _make_measure("Race/Ethnicity, Customized", [
+            _make_class("", [
+                _make_category("Caucasian/White", 82),
+                _make_category("Black", 16),
+                _make_category("Asian", 2),
+                _make_category("Unknown race", 2),
+                _make_category("Hispanic", 4),
+                _make_category("Not Hispanic or Latino", 98),
+            ])
+        ]),
+    ],
+    total_participants=102,
 )
 
 
@@ -133,7 +144,8 @@ MOCK_NCT02498067 = _make_study(
                 _make_category("Male", 35),
             ])
         ]),
-    ]
+    ],
+    total_participants=75,
 )
 
 
@@ -163,7 +175,8 @@ MOCK_NCT05109104 = _make_study(
                 _make_category("Male", 0),
             ])
         ]),
-    ]
+    ],
+    total_participants=50,
 )
 
 
@@ -217,8 +230,8 @@ def validate_study(study, nct_id):
 
 def main():
     studies = [
-        (MOCK_NCT01221441, "NCT01221441"),
         (MOCK_NCT02766335, "NCT02766335"),
+        (MOCK_NCT01221441, "NCT01221441"),
         (MOCK_NCT02498067, "NCT02498067"),
         (MOCK_NCT05109104, "NCT05109104"),
     ]

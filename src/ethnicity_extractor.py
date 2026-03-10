@@ -42,6 +42,12 @@ ETHNICITY_MAPPINGS = {
 
     # Unknown / Not Reported  (including slash-separated variants)
     "Unknown": ("unknown_not_reported", None),
+    "Unknown ethnicity": ("unknown_not_reported", None),
+    "Unknown Ethnicity": ("unknown_not_reported", None),
+    "Unspecified": ("unknown_not_reported", None),
+    "Unspecified ethnicity": ("unknown_not_reported", None),
+    "Ethnicity unknown": ("unknown_not_reported", None),
+    "Ethnicity not reported": ("unknown_not_reported", None),
     "Not Reported": ("unknown_not_reported", None),
     "Unknown or Not Reported": ("unknown_not_reported", None),
     "Unknown/Not Reported": ("unknown_not_reported", None),
@@ -209,10 +215,11 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
 
 def extract_ethnicity_data(study: dict) -> Dict:
     """Extract all ethnicity data from a study."""
-    from src.utils import get_baseline_measures, get_overall_group_id
+    from src.utils import get_baseline_measures, get_overall_group_id, get_total_baseline_participants
 
     measures = get_baseline_measures(study)
     overall_group_id = get_overall_group_id(study)
+    total_participants = get_total_baseline_participants(study, overall_group_id)
 
     result = {
         "reported": False,
@@ -262,6 +269,19 @@ def extract_ethnicity_data(study: dict) -> Dict:
 
     if ethnicity_tables_found > 1:
         result["flags"].append(f"multiple_ethnicity_tables_{ethnicity_tables_found}")
+
+    # Denominator balancing: ensure category counts sum to total participants.
+    # When a combined table only yields a few ethnicity rows (e.g. only
+    # "Hispanic: 2" in a 74-person study), add the remainder to
+    # "Unknown or Not Reported" so percentages use the true denominator.
+    # Only balance when at least some non-zero data was extracted.
+    if result["reported"] and total_participants is not None:
+        extracted_sum = sum(result["omb_totals"].values())
+        if extracted_sum > 0:
+            remainder = total_participants - extracted_sum
+            if remainder > 0:
+                result["omb_totals"]["unknown_not_reported"] += remainder
+                result["flags"].append("denominator_balanced")
 
     # All-zero rejection
     if result["reported"] and all(v == 0 for v in result["omb_totals"].values()):

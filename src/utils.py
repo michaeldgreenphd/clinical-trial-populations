@@ -121,6 +121,61 @@ def sum_measurements(measurements: list, overall_group_id: str = None) -> int:
     except (ValueError, TypeError):
         return 0
 
+def get_total_baseline_participants(study: dict, overall_group_id: Optional[str] = None) -> Optional[int]:
+    """Extract the total number of participants analyzed in baseline characteristics.
+
+    Reads the ``denoms`` array in the baselineCharacteristicsModule.  When an
+    *overall_group_id* is known, returns that group's denominator directly
+    (avoids double-counting arms).  Otherwise sums all denominator counts, or
+    — for single-group studies — returns the single value.
+
+    Falls back to the protocol-section enrollment count when denoms are absent.
+    Returns None if nothing can be determined.
+    """
+    baseline = (study.get("resultsSection", {})
+                .get("baselineCharacteristicsModule", {}))
+
+    # Try denoms (most reliable — "Number Analyzed" for baseline)
+    for denom in baseline.get("denoms", []):
+        if denom.get("units", "").lower() != "participants":
+            continue
+        counts = denom.get("counts", [])
+        if not counts:
+            continue
+
+        if overall_group_id:
+            for c in counts:
+                if c.get("groupId") == overall_group_id:
+                    try:
+                        return int(float(str(c["value"]).replace(",", "")))
+                    except (ValueError, TypeError):
+                        pass
+            # overall_group_id didn't match any count — fall through
+
+        # Single group or no overall — use last entry (mirrors sum_measurements)
+        if len(counts) == 1:
+            val = counts[0].get("value")
+        else:
+            val = counts[-1].get("value")
+        if val is not None:
+            try:
+                return int(float(str(val).replace(",", "")))
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback: enrollment from the protocol section
+    enrollment = (study.get("protocolSection", {})
+                  .get("designModule", {})
+                  .get("enrollmentInfo", {})
+                  .get("count"))
+    if enrollment is not None:
+        try:
+            return int(enrollment)
+        except (ValueError, TypeError):
+            pass
+
+    return None
+
 def get_study_metadata(study: dict) -> dict:
     """Extract common study metadata."""
     protocol = study.get("protocolSection", {})
