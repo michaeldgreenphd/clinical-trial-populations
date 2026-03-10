@@ -100,6 +100,12 @@ RACE_MAPPINGS = {
     # Unknown / Not Reported  (including slash-separated variants that
     # ClinicalTrials.gov returns for "Customized" measures)
     "Unknown": ("unknown_not_reported", None),
+    "Unknown race": ("unknown_not_reported", None),
+    "Unknown Race": ("unknown_not_reported", None),
+    "Unspecified": ("unknown_not_reported", None),
+    "Unspecified race": ("unknown_not_reported", None),
+    "Race unknown": ("unknown_not_reported", None),
+    "Race not reported": ("unknown_not_reported", None),
     "Not Reported": ("unknown_not_reported", None),
     "Unknown or Not Reported": ("unknown_not_reported", None),
     "Unknown/Not Reported": ("unknown_not_reported", None),
@@ -417,10 +423,11 @@ def extract_race_data(study: dict) -> Dict:
         - raw_categories: List of all extracted categories
         - flags: List of any issues
     """
-    from src.utils import get_baseline_measures, get_overall_group_id
+    from src.utils import get_baseline_measures, get_overall_group_id, get_total_baseline_participants
 
     measures = get_baseline_measures(study)
     overall_group_id = get_overall_group_id(study)
+    total_participants = get_total_baseline_participants(study, overall_group_id)
 
     result = {
         "reported": False,
@@ -492,6 +499,22 @@ def extract_race_data(study: dict) -> Dict:
 
     if race_tables_found > 1:
         result["flags"].append(f"multiple_race_tables_{race_tables_found}")
+
+    # Denominator balancing: ensure category counts sum to total participants.
+    # When a combined/customized table only yields a few race rows (e.g. a
+    # 100-person study with only 74 race-mapped participants), the remainder
+    # is explicitly assigned to "Unknown or Not Reported" so that percentage
+    # calculations use the true study population as the denominator.
+    # Only balance when at least some non-zero data was extracted — if every
+    # count is zero, the study has no real data and all-zero rejection should
+    # take precedence.
+    if result["reported"] and total_participants is not None:
+        extracted_sum = sum(result["omb_totals"].values())
+        if extracted_sum > 0:
+            remainder = total_participants - extracted_sum
+            if remainder > 0:
+                result["omb_totals"]["unknown_not_reported"] += remainder
+                result["flags"].append("denominator_balanced")
 
     # All-zero rejection: if every mapped category has 0 participants,
     # mark the demographic as not collected rather than showing empty rows
