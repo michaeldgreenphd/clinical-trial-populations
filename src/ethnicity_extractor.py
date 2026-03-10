@@ -61,6 +61,30 @@ _ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
 # When a category has one of these titles the actual label is on its parent class.
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
 
+# Ethnicity keywords used to detect the ethnicity fragment in combined labels
+_ETHNICITY_KEYWORDS = {
+    "hispanic", "latino", "latina", "latinx", "not hispanic", "non-hispanic",
+    "non hispanic",
+}
+
+def _split_combined_for_ethnicity(label: str) -> str | None:
+    """Extract the ethnicity fragment from a combined "Race, Ethnicity" label.
+
+    Returns the ethnicity-relevant substring if found, else None.
+    E.g. "Caucasian/White, Hispanic" -> "Hispanic"
+         "Unknown race, Hispanic"    -> "Hispanic"
+    """
+    import re
+    fragments = re.split(r"[,;/]\s*", label)
+    eth_frags = []
+    for frag in fragments:
+        frag_stripped = frag.strip()
+        if not frag_stripped:
+            continue
+        if any(ek in frag_stripped.lower() for ek in _ETHNICITY_KEYWORDS):
+            eth_frags.append(frag_stripped)
+    return ", ".join(eth_frags) if eth_frags else None
+
 def is_ethnicity_table(title: str) -> bool:
     """Check if a baseline measure is about ethnicity."""
     title_lower = title.lower()
@@ -151,6 +175,15 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
                 count = sum_measurements(cat.get("measurements", []), overall_group_id)
 
                 mapping = map_ethnicity_category(label)
+
+                # Combined label splitting: if the whole label doesn't map
+                # but contains an ethnicity fragment, re-map with that fragment
+                if mapping.get("confidence") == "low" and "unmapped" in mapping.get("flags", []):
+                    eth_part = _split_combined_for_ethnicity(label)
+                    if eth_part:
+                        mapping = map_ethnicity_category(eth_part)
+                        mapping["flags"].append("split_from_combined")
+
                 mapping["count"] = count
                 results.append(mapping)
         else:
@@ -162,6 +195,13 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
             count = sum_measurements(cls.get("measurements", []), overall_group_id)
 
             mapping = map_ethnicity_category(label)
+
+            if mapping.get("confidence") == "low" and "unmapped" in mapping.get("flags", []):
+                eth_part = _split_combined_for_ethnicity(label)
+                if eth_part:
+                    mapping = map_ethnicity_category(eth_part)
+                    mapping["flags"].append("split_from_combined")
+
             mapping["count"] = count
             results.append(mapping)
 
@@ -222,6 +262,14 @@ def extract_ethnicity_data(study: dict) -> Dict:
 
     if ethnicity_tables_found > 1:
         result["flags"].append(f"multiple_ethnicity_tables_{ethnicity_tables_found}")
+
+    # All-zero rejection
+    if result["reported"] and all(v == 0 for v in result["omb_totals"].values()):
+        result["reported"] = False
+        result["omb_totals"] = {k: 0 for k in result["omb_totals"]}
+        result["raw_categories"] = []
+        result["subcategory_totals"] = {}
+        result["flags"] = ["all_zero_rejection"]
 
     result["flags"] = list(set(result["flags"]))
 
