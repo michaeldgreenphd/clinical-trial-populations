@@ -97,16 +97,7 @@ def get_overall_group_id(study: dict) -> Optional[str]:
 
     return None
 
-def sum_measurements(measurements: list, overall_group_id: Optional[str] = None) -> int:
-    """
-    Extract a single integer count from a measurements array.
-
-    Strategy:
-      1. If overall_group_id is set, look for that group's measurement and
-         return its value directly (avoids double-counting arms + overall).
-      2. Fall back to summing all non-null measurements (handles single-arm
-         studies or multi-arm studies that have no Overall group).
-    """
+def sum_measurements(measurements: list, overall_group_id: str = None) -> int:
     if overall_group_id:
         for m in measurements:
             if m.get("groupId") == overall_group_id:
@@ -116,20 +107,19 @@ def sum_measurements(measurements: list, overall_group_id: Optional[str] = None)
                         return int(float(str(val).replace(",", "")))
                     except (ValueError, TypeError):
                         pass
-                # Overall measurement exists but value is null/bad — fall through
                 break
-
-    # No Overall group, or Overall value was unusable — sum all groups
-    total = 0
-    for m in measurements:
-        val = m.get("value")
-        if val is None:
-            continue
-        try:
-            total += int(float(str(val).replace(",", "")))
-        except (ValueError, TypeError):
-            pass
-    return total
+    if not measurements:
+        return 0
+    if len(measurements) == 1:
+        val = measurements[0].get("value")
+    else:
+        val = measurements[-1].get("value")
+    if val is None:
+        return 0
+    try:
+        return int(float(str(val).replace(",", "")))
+    except (ValueError, TypeError):
+        return 0
 
 def get_study_metadata(study: dict) -> dict:
     """Extract common study metadata."""
