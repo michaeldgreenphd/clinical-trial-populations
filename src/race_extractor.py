@@ -70,6 +70,10 @@ RACE_MAPPINGS = {
     # White - with subcategories
     "White": ("white", None),
     "Caucasian": ("white", None),
+    "Caucasian/White": ("white", None),
+    "White/Caucasian": ("white", None),
+    "Caucasian or White": ("white", None),
+    "White or Caucasian": ("white", None),
     "European": ("white", "european"),
     "Middle Eastern": ("white", "middle_eastern"),
     "North African": ("white", "north_african"),
@@ -82,9 +86,12 @@ RACE_MAPPINGS = {
 
     # More than one race
     "More than one race": ("more_than_one_race", None),
+    "More Than One Race": ("more_than_one_race", None),
     "Two or more races": ("more_than_one_race", None),
+    "Two or More Races": ("more_than_one_race", None),
     "Multiple races": ("more_than_one_race", None),
     "Multi-racial": ("more_than_one_race", None),
+    "Multi-Racial": ("more_than_one_race", None),
     "Multiracial": ("more_than_one_race", None),
     "Mixed": ("more_than_one_race", None),
     "Mixed Race": ("more_than_one_race", None),
@@ -165,6 +172,24 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
                 "flags": flags
             }
 
+    # Slash-compound normalization: try each "/" fragment individually
+    # so "Caucasian/White" resolves even without a dedicated mapping entry
+    if "/" in label_clean:
+        for frag in label_clean.split("/"):
+            frag = frag.strip()
+            if not frag:
+                continue
+            for key, (omb, subcat) in RACE_MAPPINGS.items():
+                if key.lower() == frag.lower():
+                    flags.append("slash_normalized")
+                    return {
+                        "omb_category": omb,
+                        "subcategory": subcat,
+                        "confidence": "high",
+                        "original": label_clean,
+                        "flags": flags
+                    }
+
     # Fuzzy match
     match = process.extractOne(label_clean, RACE_MAPPINGS.keys(), scorer=fuzz.ratio)
     if match and match[1] >= fuzzy_threshold:
@@ -193,6 +218,38 @@ _ETHNICITY_KEYWORDS = {
     "hispanic", "latino", "latina", "latinx", "not hispanic", "non-hispanic",
     "non hispanic",
 }
+
+def _is_ethnicity_only_label(label: str) -> bool:
+    """Return True if *label* is purely an ethnicity term with no race component.
+
+    Labels like "Hispanic or Latino", "Not Hispanic", "Non-Hispanic" are
+    ethnicity-only and must be routed exclusively to the ethnicity pipeline.
+    Labels like "Caucasian/White, Hispanic" contain BOTH and are NOT
+    ethnicity-only — they need the split logic.
+    """
+    label_lower = label.lower().strip()
+    # Must contain at least one ethnicity keyword
+    if not any(ek in label_lower for ek in _ETHNICITY_KEYWORDS):
+        return False
+    # Check whether any fragment also matches a known race key
+    race_keys_lower = {k.lower() for k in RACE_MAPPINGS}
+    import re
+    fragments = re.split(r"[,;/]\s*", label)
+    for frag in fragments:
+        frag_lower = frag.strip().lower()
+        if not frag_lower:
+            continue
+        # Skip fragments that ARE the ethnicity keyword themselves
+        if any(ek in frag_lower for ek in _ETHNICITY_KEYWORDS):
+            continue
+        # This fragment has no ethnicity keyword — check if it's a race term
+        if frag_lower in race_keys_lower:
+            return False
+        if process.extractOne(frag_lower, race_keys_lower, scorer=fuzz.ratio):
+            best = process.extractOne(frag_lower, race_keys_lower, scorer=fuzz.ratio)
+            if best and best[1] >= 85:
+                return False
+    return True
 
 def _split_combined_label(label: str) -> Optional[Tuple[str, str]]:
     """If *label* contains BOTH a race keyword and an ethnicity keyword,
@@ -268,9 +325,36 @@ def _should_quarantine(mapping: Dict) -> bool:
 # When a category has one of these titles the actual label is on its parent class.
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
 
+def _map_race_label(label: str) -> Dict:
+    """Map a single label to a race category.
+
+    Attempts direct mapping first, then tries combined-label splitting as
+    a fallback.  Each unmapped row is kept as an independent entity — labels
+    are never concatenated or merged.
+    """
+    mapping = map_race_category(label)
+
+    # Combined label splitting: if the whole label fails to map
+    # but contains both race and ethnicity fragments, re-map
+    # using only the race fragment.
+    if mapping.get("omb_category") == "other" and "unmapped" in mapping.get("flags", []):
+        split = _split_combined_label(label)
+        if split:
+            race_part, _eth_part = split
+            mapping = map_race_category(race_part)
+            mapping["flags"].append("split_from_combined")
+
+    return mapping
+
 def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = None) -> List[Dict]:
     """
     Extract race data from a single baseline measure.
+
+    Row-level routing: each row is evaluated individually.  Rows that are
+    purely ethnicity labels (e.g. "Hispanic or Latino") are skipped entirely
+    so they are handled exclusively by the ethnicity pipeline.  Each
+    remaining row produces an independent mapping — labels are never
+    concatenated or merged.
 
     Args:
         measure: A single baseline measure dict from the API
@@ -297,20 +381,12 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
                 if not label:
                     continue
 
+                # Row-level routing: skip pure ethnicity labels
+                if _is_ethnicity_only_label(label):
+                    continue
+
                 count = sum_measurements(cat.get("measurements", []), overall_group_id)
-
-                mapping = map_race_category(label)
-
-                # Combined label splitting: if the whole label fails to map
-                # but contains both race and ethnicity fragments, re-map
-                # using only the race fragment.
-                if mapping.get("omb_category") == "other" and "unmapped" in mapping.get("flags", []):
-                    split = _split_combined_label(label)
-                    if split:
-                        race_part, _eth_part = split
-                        mapping = map_race_category(race_part)
-                        mapping["flags"].append("split_from_combined")
-
+                mapping = _map_race_label(label)
                 mapping["count"] = count
                 results.append(mapping)
         else:
@@ -319,17 +395,12 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
             if not label:
                 continue
 
+            # Row-level routing: skip pure ethnicity labels
+            if _is_ethnicity_only_label(label):
+                continue
+
             count = sum_measurements(cls.get("measurements", []), overall_group_id)
-
-            mapping = map_race_category(label)
-
-            if mapping.get("omb_category") == "other" and "unmapped" in mapping.get("flags", []):
-                split = _split_combined_label(label)
-                if split:
-                    race_part, _eth_part = split
-                    mapping = map_race_category(race_part)
-                    mapping["flags"].append("split_from_combined")
-
+            mapping = _map_race_label(label)
             mapping["count"] = count
             results.append(mapping)
 
