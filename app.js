@@ -678,20 +678,31 @@ function initFilters() {
         }
     });
 
-    // Year dual-range slider
+    // Year dual-range slider with floating tooltip bubbles
     const yearStartInput = document.getElementById('year-start');
     const yearEndInput = document.getElementById('year-end');
 
-    function updateYearRangeFill() {
+    function updateYearSlider() {
         const fill = document.getElementById('year-range-fill');
+        const startTip = document.getElementById('year-start-tooltip');
+        const endTip = document.getElementById('year-end-tooltip');
         if (!fill || !yearStartInput || !yearEndInput) return;
+
         const min = parseInt(yearStartInput.min);
         const max = parseInt(yearStartInput.max);
         const range = max - min;
-        const startPct = ((parseInt(yearStartInput.value) - min) / range) * 100;
-        const endPct = ((parseInt(yearEndInput.value) - min) / range) * 100;
+        const startVal = parseInt(yearStartInput.value);
+        const endVal = parseInt(yearEndInput.value);
+        const startPct = ((startVal - min) / range) * 100;
+        const endPct = ((endVal - min) / range) * 100;
+
+        // Update fill bar
         fill.style.left = startPct + '%';
         fill.style.width = (endPct - startPct) + '%';
+
+        // Position tooltip bubbles above thumbs
+        if (startTip) startTip.style.left = startPct + '%';
+        if (endTip) endTip.style.left = endPct + '%';
     }
 
     if (yearStartInput) {
@@ -700,7 +711,7 @@ function initFilters() {
                 e.target.value = yearEndInput.value;
             }
             document.getElementById('year-start-label').textContent = e.target.value;
-            updateYearRangeFill();
+            updateYearSlider();
         });
     }
 
@@ -710,12 +721,12 @@ function initFilters() {
                 e.target.value = yearStartInput.value;
             }
             document.getElementById('year-end-label').textContent = e.target.value;
-            updateYearRangeFill();
+            updateYearSlider();
         });
     }
 
-    // Initialize the fill bar
-    updateYearRangeFill();
+    // Initialize slider fill + tooltip positions
+    updateYearSlider();
 
     // Reset filters button
     const resetBtn = document.getElementById('reset-filters');
@@ -803,9 +814,13 @@ function resetFilters() {
     document.getElementById('year-end').value = 2026;
     document.getElementById('year-start-label').textContent = '2009';
     document.getElementById('year-end-label').textContent = '2026';
-    // Re-paint the dual-range fill bar
+    // Re-paint the dual-range fill bar and tooltip positions
     const fill = document.getElementById('year-range-fill');
     if (fill) { fill.style.left = '0%'; fill.style.width = '100%'; }
+    const sTip = document.getElementById('year-start-tooltip');
+    const eTip = document.getElementById('year-end-tooltip');
+    if (sTip) sTip.style.left = '0%';
+    if (eTip) eTip.style.left = '100%';
     document.getElementById('study-type').value = 'INTERVENTIONAL';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
@@ -845,6 +860,10 @@ function updateActiveFilters() {
             document.getElementById('year-end-label').textContent = '2026';
             const f = document.getElementById('year-range-fill');
             if (f) { f.style.left = '0%'; f.style.width = '100%'; }
+            const st = document.getElementById('year-start-tooltip');
+            const et = document.getElementById('year-end-tooltip');
+            if (st) st.style.left = '0%';
+            if (et) et.style.left = '100%';
         }});
     }
 
@@ -1553,8 +1572,8 @@ function renderDemographicCell(study, field) {
                     onclick="showBreakdown('${study.nct_id}', '${field}')"
                     title="${escapeHtml(tooltipText)}">
                 <span class="demo-badge-check">
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <path d="M3 8.5L6.5 12L13 4" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
                 </span>
             </button>`;
