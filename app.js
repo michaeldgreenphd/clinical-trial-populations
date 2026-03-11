@@ -359,6 +359,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
 });
 
+// Feature-detect DecompressionStream (not available on Safari iOS, older mobile browsers)
+const hasDecompressionStream = typeof DecompressionStream !== 'undefined';
+
 // Decompress a single .json.gz response body and return parsed JSON.
 async function fetchAndDecompress(url) {
     console.log(`Fetching: ${url}`);
@@ -368,9 +371,21 @@ async function fetchAndDecompress(url) {
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
     }
-    const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
-    const decompressedResponse = new Response(decompressedStream);
-    const json = await decompressedResponse.json();
+
+    let json;
+    if (hasDecompressionStream) {
+        // Fast path: native streaming decompression
+        const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
+        const decompressedResponse = new Response(decompressedStream);
+        json = await decompressedResponse.json();
+    } else {
+        // Fallback for Safari iOS / older browsers: use pako
+        console.log('DecompressionStream not available, using pako fallback');
+        const compressed = new Uint8Array(await response.arrayBuffer());
+        const decompressed = pako.inflate(compressed, { to: 'string' });
+        json = JSON.parse(decompressed);
+    }
+
     const count = Array.isArray(json.data) ? json.data.length : Object.keys(json.data).length;
     console.log(`Successfully loaded ${count} records from ${url}`);
     return json;
