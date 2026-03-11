@@ -64,12 +64,16 @@
             <!-- Primary filters — always visible -->
             <div class="filter-row">
                 <div class="filter-group">
-                    <label for="year-range">Year Range:</label>
-                    <input type="range" id="year-start" min="2009" max="2026" value="2009">
-                    <span id="year-start-label">2009</span>
-                    <span> - </span>
-                    <input type="range" id="year-end" min="2009" max="2026" value="2026">
-                    <span id="year-end-label">2026</span>
+                    <label for="year-range">Year Range: <span class="filter-hint">(Results Posted Date)</span></label>
+                    <div class="dual-range-container">
+                        <span class="dual-range-value" id="year-start-label">2009</span>
+                        <div class="dual-range-track">
+                            <div class="dual-range-fill" id="year-range-fill"></div>
+                            <input type="range" id="year-start" min="2009" max="2026" value="2009" class="dual-range-input">
+                            <input type="range" id="year-end" min="2009" max="2026" value="2026" class="dual-range-input">
+                        </div>
+                        <span class="dual-range-value" id="year-end-label">2026</span>
+                    </div>
                 </div>
 
                 <div class="filter-group">
@@ -412,6 +416,9 @@
                     <span id="study-count" class="study-count"></span>
                 </div>
 
+                <div class="top-scrollbar-wrapper" id="top-scrollbar-wrapper">
+                    <div class="top-scrollbar-content" id="top-scrollbar-content"></div>
+                </div>
                 <div class="table-wrapper" id="studies-table-wrapper">
                     <table id="studies-table" class="studies-table">
                         <thead>
