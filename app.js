@@ -1528,10 +1528,13 @@ function initTopScrollbar() {
 }
 
 function syncTopScrollbarWidth() {
-    const topContent = document.getElementById('top-scrollbar-content');
-    const table = document.getElementById('studies-table');
-    if (!topContent || !table) return;
-    topContent.style.width = table.scrollWidth + 'px';
+    // Defer to next frame so the browser has laid out the table first
+    requestAnimationFrame(() => {
+        const topContent = document.getElementById('top-scrollbar-content');
+        const table = document.getElementById('studies-table');
+        if (!topContent || !table) return;
+        topContent.style.width = table.scrollWidth + 'px';
+    });
 }
 
 function renderPagination(total) {
