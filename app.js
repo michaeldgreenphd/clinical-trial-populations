@@ -353,6 +353,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Hide loading overlay after everything is initialized and rendered
     hideLoadingOverlay();
 
+    // Synchronized dual horizontal scrollbar
+    initTopScrollbar();
+
     initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
 });
 
@@ -675,21 +678,44 @@ function initFilters() {
         }
     });
 
-    // Year range labels
+    // Year dual-range slider
     const yearStartInput = document.getElementById('year-start');
     const yearEndInput = document.getElementById('year-end');
 
+    function updateYearRangeFill() {
+        const fill = document.getElementById('year-range-fill');
+        if (!fill || !yearStartInput || !yearEndInput) return;
+        const min = parseInt(yearStartInput.min);
+        const max = parseInt(yearStartInput.max);
+        const range = max - min;
+        const startPct = ((parseInt(yearStartInput.value) - min) / range) * 100;
+        const endPct = ((parseInt(yearEndInput.value) - min) / range) * 100;
+        fill.style.left = startPct + '%';
+        fill.style.width = (endPct - startPct) + '%';
+    }
+
     if (yearStartInput) {
         yearStartInput.addEventListener('input', (e) => {
+            if (parseInt(e.target.value) > parseInt(yearEndInput.value)) {
+                e.target.value = yearEndInput.value;
+            }
             document.getElementById('year-start-label').textContent = e.target.value;
+            updateYearRangeFill();
         });
     }
 
     if (yearEndInput) {
         yearEndInput.addEventListener('input', (e) => {
+            if (parseInt(e.target.value) < parseInt(yearStartInput.value)) {
+                e.target.value = yearStartInput.value;
+            }
             document.getElementById('year-end-label').textContent = e.target.value;
+            updateYearRangeFill();
         });
     }
+
+    // Initialize the fill bar
+    updateYearRangeFill();
 
     // Reset filters button
     const resetBtn = document.getElementById('reset-filters');
@@ -777,6 +803,9 @@ function resetFilters() {
     document.getElementById('year-end').value = 2026;
     document.getElementById('year-start-label').textContent = '2009';
     document.getElementById('year-end-label').textContent = '2026';
+    // Re-paint the dual-range fill bar
+    const fill = document.getElementById('year-range-fill');
+    if (fill) { fill.style.left = '0%'; fill.style.width = '100%'; }
     document.getElementById('study-type').value = 'INTERVENTIONAL';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
@@ -814,6 +843,8 @@ function updateActiveFilters() {
             document.getElementById('year-end').value = 2026;
             document.getElementById('year-start-label').textContent = '2009';
             document.getElementById('year-end-label').textContent = '2026';
+            const f = document.getElementById('year-range-fill');
+            if (f) { f.style.left = '0%'; f.style.width = '100%'; }
         }});
     }
 
@@ -1412,6 +1443,34 @@ function renderStudiesTable() {
     }
 
     renderPagination(totalCount);
+    syncTopScrollbarWidth();
+}
+
+function initTopScrollbar() {
+    const topBar = document.getElementById('top-scrollbar-wrapper');
+    const tableWrapper = document.getElementById('studies-table-wrapper');
+    if (!topBar || !tableWrapper) return;
+
+    let syncing = false;
+    topBar.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        tableWrapper.scrollLeft = topBar.scrollLeft;
+        syncing = false;
+    });
+    tableWrapper.addEventListener('scroll', () => {
+        if (syncing) return;
+        syncing = true;
+        topBar.scrollLeft = tableWrapper.scrollLeft;
+        syncing = false;
+    });
+}
+
+function syncTopScrollbarWidth() {
+    const topContent = document.getElementById('top-scrollbar-content');
+    const table = document.getElementById('studies-table');
+    if (!topContent || !table) return;
+    topContent.style.width = table.scrollWidth + 'px';
 }
 
 function renderPagination(total) {
@@ -1493,10 +1552,11 @@ function renderDemographicCell(study, field) {
     return `<button class="demo-badge"
                     onclick="showBreakdown('${study.nct_id}', '${field}')"
                     title="${escapeHtml(tooltipText)}">
-                <span class="demo-badge-check">✓</span>
-                <svg class="demo-badge-chevron" width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M2.5 3.5L5 6.5L7.5 3.5" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
+                <span class="demo-badge-check">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M3 8.5L6.5 12L13 4" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
             </button>`;
 }
 
