@@ -336,31 +336,57 @@ function getStudyPediatricStatus(study) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
-    updateLoadingProgress(5, 'Loading condition ontology...');
-    await loadConditionOntology();
-    updateLoadingProgress(10, 'Fetching clinical trial data...');
-    await loadData();
-    updateLoadingProgress(80, 'Initializing dashboard...');
-    initTabs();
-    initFilters();
-    initSubcategoryButtons();
-    initTable();
-    initGeographyTab();
-    populatePrimaryConditionDropdown();
-    updateLoadingProgress(90, 'Rendering charts...');
-    renderDashboard();
+    try {
+        updateLoadingProgress(5, 'Loading condition ontology...');
+        await loadConditionOntology();
+        updateLoadingProgress(10, 'Fetching clinical trial data...');
+        await loadData();
+        updateLoadingProgress(80, 'Initializing dashboard...');
+        initTabs();
+        initFilters();
+        initSubcategoryButtons();
+        initTable();
+        initGeographyTab();
+        populatePrimaryConditionDropdown();
+        updateLoadingProgress(90, 'Rendering charts...');
+        renderDashboard();
 
-    // Hide loading overlay after everything is initialized and rendered
-    hideLoadingOverlay();
+        // Hide loading overlay after everything is initialized and rendered
+        hideLoadingOverlay();
 
-    // Synchronized dual horizontal scrollbar
-    initTopScrollbar();
+        // Synchronized dual horizontal scrollbar
+        initTopScrollbar();
 
-    initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
+        initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
+    } catch (err) {
+        console.error('Dashboard initialization failed:', err);
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) {
+            const status = document.getElementById('loading-status');
+            if (status) {
+                status.textContent = `Error: ${err.message}. Please refresh the page.`;
+                status.style.color = '#ef4444';
+            }
+        }
+    }
 });
 
 // Feature-detect DecompressionStream (not available on Safari iOS, older mobile browsers)
 const hasDecompressionStream = typeof DecompressionStream !== 'undefined';
+
+// Dynamically load pako only when needed (avoids blocking page load on desktop)
+let _pakoReady = hasDecompressionStream ? Promise.resolve() : null;
+function ensurePako() {
+    if (_pakoReady) return _pakoReady;
+    _pakoReady = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load pako library for gzip decompression'));
+        document.head.appendChild(s);
+    });
+    return _pakoReady;
+}
 
 // Decompress a single .json.gz response body and return parsed JSON.
 async function fetchAndDecompress(url) {
@@ -379,8 +405,9 @@ async function fetchAndDecompress(url) {
         const decompressedResponse = new Response(decompressedStream);
         json = await decompressedResponse.json();
     } else {
-        // Fallback for Safari iOS / older browsers: use pako
+        // Fallback for Safari iOS / older browsers: load pako on demand
         console.log('DecompressionStream not available, using pako fallback');
+        await ensurePako();
         const compressed = new Uint8Array(await response.arrayBuffer());
         const decompressed = pako.inflate(compressed, { to: 'string' });
         json = JSON.parse(decompressed);
