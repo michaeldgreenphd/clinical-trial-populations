@@ -637,13 +637,16 @@ main {
     font-size: 0.875rem;
 }
 
-.top-scrollbar-wrapper {
-    display: block;
+.dual-scroll-container {
+    position: relative;
     width: 100%;
     max-width: 100%;
-    overflow-x: auto;
+}
+
+.top-scrollbar-wrapper {
+    width: 100%;
+    overflow-x: scroll;
     overflow-y: hidden;
-    height: 12px;
     border: 1px solid #E5E7EB;
     border-bottom: none;
     border-radius: 0.375rem 0.375rem 0 0;
@@ -651,16 +654,36 @@ main {
 
 .top-scrollbar-content {
     height: 1px;
+    pointer-events: none;
 }
 
 .table-wrapper {
     display: block;
     width: 100%;
     max-width: 100%;
-    overflow-x: auto;
-    border: 1px solid #E5E7EB;
-    border-radius: 0 0 0.375rem 0.375rem;
+    overflow-x: scroll;
+    border-left: 1px solid #E5E7EB;
+    border-right: 1px solid #E5E7EB;
     position: relative;
+    scrollbar-width: none;          /* Firefox */
+    -ms-overflow-style: none;       /* IE/Edge */
+}
+.table-wrapper::-webkit-scrollbar {
+    display: none;                  /* Chrome/Safari */
+}
+
+.bottom-scrollbar-wrapper {
+    width: 100%;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    border: 1px solid #E5E7EB;
+    border-top: none;
+    border-radius: 0 0 0.375rem 0.375rem;
+}
+
+.bottom-scrollbar-content {
+    height: 1px;
+    pointer-events: none;
 }
 
 .table-loading-overlay {
