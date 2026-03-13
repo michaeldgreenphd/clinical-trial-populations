@@ -354,9 +354,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
 
-        // Synchronized dual horizontal scrollbar
-        initTopScrollbar();
-
         initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
     } catch (err) {
         console.error('Dashboard initialization failed:', err);
@@ -1504,43 +1501,8 @@ function renderStudiesTable() {
     }
 
     renderPagination(totalCount);
-    syncTopScrollbarWidth();
 }
 
-function initTopScrollbar() {
-    const topBar = document.getElementById('top-scrollbar-wrapper');
-    const bottomBar = document.getElementById('bottom-scrollbar-wrapper');
-    const tableWrapper = document.getElementById('studies-table-wrapper');
-    if (!tableWrapper) return;
-
-    const scrollables = [topBar, tableWrapper, bottomBar].filter(Boolean);
-    let activeScroller = null;
-
-    scrollables.forEach(el => {
-        el.addEventListener('scroll', () => {
-            if (activeScroller && activeScroller !== el) return;
-            activeScroller = el;
-            const left = el.scrollLeft;
-            scrollables.forEach(other => {
-                if (other !== el) other.scrollLeft = left;
-            });
-            requestAnimationFrame(() => { activeScroller = null; });
-        });
-    });
-}
-
-function syncTopScrollbarWidth() {
-    // Defer to next frame so the browser has laid out the table first
-    requestAnimationFrame(() => {
-        const wrapper = document.getElementById('studies-table-wrapper');
-        if (!wrapper) return;
-        const w = wrapper.scrollWidth + 'px';
-        const topContent = document.getElementById('top-scrollbar-content');
-        const bottomContent = document.getElementById('bottom-scrollbar-content');
-        if (topContent) topContent.style.width = w;
-        if (bottomContent) bottomContent.style.width = w;
-    });
-}
 
 function renderPagination(total) {
     const container = document.getElementById('pagination');
