@@ -1455,15 +1455,24 @@ function renderStudiesTable() {
         const statusWithReason = study.why_stopped ?
             `<span title="Reason: ${escapeHtml(study.why_stopped)}" class="status-stopped">${statusText}</span>` : statusText;
 
+        const startDate = study.start_date ? study.start_date : '<span class="text-muted">\u2014</span>';
+        const endDate = (study.primary_completion_date || study.completion_date) ? (study.primary_completion_date || study.completion_date) : '<span class="text-muted">\u2014</span>';
+
         return `
         <tr>
-            <td>${study.start_date || 'N/A'}</td>
-            <td>${study.primary_completion_date || study.completion_date || 'N/A'}</td>
             <td>
                 <a href="https://clinicaltrials.gov/study/${study.nct_id}"
                    target="_blank"
                    class="nct-link">${study.nct_id}</a>
             </td>
+            <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
+            <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
+            <td>${startDate}</td>
+            <td>${endDate}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
             <td class="text-center">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1471,21 +1480,6 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
-            <td class="col-title">${escapeHtml(study.brief_title || 'N/A')}</td>
-            <td>${renderSparkline(getTimeToReport(study))}</td>
-            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
-            <td>${study.results_date || 'N/A'}</td>
-            <td>${study.last_update || 'N/A'}</td>
-            <td>${statusWithReason}</td>
-            <td class="text-right">${enrollmentBadge}</td>
-            <td class="col-publications">${renderPublications(study)}</td>
-            <td class="col-sponsor" title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${escapeHtml(study.lead_sponsor_name || 'Unknown')}</td>
-            <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
-            <td>${study.study_type || 'N/A'}</td>
-            <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
-            <td class="col-endpoint" title="${escapeHtml(study.primary_endpoint || 'N/A')}">${escapeHtml(study.primary_endpoint || 'N/A')}</td>
         </tr>
         `;
     }).join('');

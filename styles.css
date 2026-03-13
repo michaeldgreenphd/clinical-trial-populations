@@ -709,7 +709,7 @@ main {
 /* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
     width: 100%;
-    min-width: 1400px;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 0.875rem;
     border: none; /* Remove outer borders */
@@ -757,40 +757,18 @@ main {
     padding: 0.75rem 1rem 0.75rem 0.5rem;
     border: none;
     border-bottom: 1px solid #E5E7EB;
-    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Title column: wrap long study titles so other columns remain visible */
+/* Title column: wrap long study titles */
 .studies-table td.col-title,
 .studies-table th.col-title {
-    max-width: 320px;
+    width: 40%;
     white-space: normal;
     word-wrap: break-word;
+    overflow-wrap: break-word;
     line-height: 1.4;
-}
-
-/* Primary endpoint column: wrap long text */
-.studies-table td.col-endpoint,
-.studies-table th.col-endpoint {
-    max-width: 250px;
-    white-space: normal;
-    word-wrap: break-word;
-    line-height: 1.4;
-}
-
-/* Lead sponsor column: wrap long names */
-.studies-table td.col-sponsor,
-.studies-table th.col-sponsor {
-    max-width: 200px;
-    white-space: normal;
-    word-wrap: break-word;
-}
-
-/* Publications column: allow wrapping so long link text doesn't stretch the table */
-.studies-table td.col-publications {
-    max-width: 260px;
-    white-space: normal;
-    word-wrap: break-word;
 }
 
 .studies-table tbody tr {
