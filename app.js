@@ -1474,7 +1474,7 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
-            <td>${escapeHtml(study.brief_title || 'N/A')}</td>
+            <td class="col-title">${escapeHtml(study.brief_title || 'N/A')}</td>
             <td>${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center">${renderDemographicCell(study, 'race')}</td>
             <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
@@ -1484,11 +1484,11 @@ function renderStudiesTable() {
             <td>${statusWithReason}</td>
             <td class="text-right">${enrollmentBadge}</td>
             <td class="col-publications">${renderPublications(study)}</td>
-            <td title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${truncateText(study.lead_sponsor_name || 'Unknown', 30)}</td>
+            <td class="col-sponsor" title="${escapeHtml(study.lead_sponsor_name || 'Unknown')}">${escapeHtml(study.lead_sponsor_name || 'Unknown')}</td>
             <td><span class="phase-badge">${study.phase || 'N/A'}</span></td>
             <td>${study.study_type || 'N/A'}</td>
             <td>${study.intervention_model || study.observational_model || 'N/A'}</td>
-            <td title="${escapeHtml(study.primary_endpoint || 'N/A')}">${truncateText(study.primary_endpoint || 'N/A', 40)}</td>
+            <td class="col-endpoint" title="${escapeHtml(study.primary_endpoint || 'N/A')}">${escapeHtml(study.primary_endpoint || 'N/A')}</td>
         </tr>
         `;
     }).join('');
@@ -1532,9 +1532,9 @@ function initTopScrollbar() {
 function syncTopScrollbarWidth() {
     // Defer to next frame so the browser has laid out the table first
     requestAnimationFrame(() => {
-        const table = document.getElementById('studies-table');
-        if (!table) return;
-        const w = table.scrollWidth + 'px';
+        const wrapper = document.getElementById('studies-table-wrapper');
+        if (!wrapper) return;
+        const w = wrapper.scrollWidth + 'px';
         const topContent = document.getElementById('top-scrollbar-content');
         const bottomContent = document.getElementById('bottom-scrollbar-content');
         if (topContent) topContent.style.width = w;

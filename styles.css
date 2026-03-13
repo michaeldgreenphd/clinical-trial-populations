@@ -640,12 +640,12 @@ main {
 .dual-scroll-container {
     position: relative;
     width: 100%;
-    max-width: 100%;
+    overflow: hidden;
 }
 
 .top-scrollbar-wrapper {
     width: 100%;
-    overflow-x: scroll;
+    overflow-x: auto;
     overflow-y: hidden;
     border: 1px solid #E5E7EB;
     border-bottom: none;
@@ -660,21 +660,14 @@ main {
 .table-wrapper {
     display: block;
     width: 100%;
-    max-width: 100%;
-    overflow-x: scroll;
-    border-left: 1px solid #E5E7EB;
-    border-right: 1px solid #E5E7EB;
+    overflow-x: auto;
+    border: 1px solid #E5E7EB;
     position: relative;
-    scrollbar-width: none;          /* Firefox */
-    -ms-overflow-style: none;       /* IE/Edge */
-}
-.table-wrapper::-webkit-scrollbar {
-    display: none;                  /* Chrome/Safari */
 }
 
 .bottom-scrollbar-wrapper {
     width: 100%;
-    overflow-x: scroll;
+    overflow-x: auto;
     overflow-y: hidden;
     border: 1px solid #E5E7EB;
     border-top: none;
@@ -745,8 +738,8 @@ main {
 
 /* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
-    min-width: 2200px;
-    width: max-content;
+    width: 100%;
+    min-width: 1400px;
     border-collapse: collapse;
     font-size: 0.875rem;
     border: none; /* Remove outer borders */
@@ -795,6 +788,32 @@ main {
     border: none;
     border-bottom: 1px solid #E5E7EB;
     white-space: nowrap;
+}
+
+/* Title column: wrap long study titles so other columns remain visible */
+.studies-table td.col-title,
+.studies-table th.col-title {
+    max-width: 320px;
+    white-space: normal;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+/* Primary endpoint column: wrap long text */
+.studies-table td.col-endpoint,
+.studies-table th.col-endpoint {
+    max-width: 250px;
+    white-space: normal;
+    word-wrap: break-word;
+    line-height: 1.4;
+}
+
+/* Lead sponsor column: wrap long names */
+.studies-table td.col-sponsor,
+.studies-table th.col-sponsor {
+    max-width: 200px;
+    white-space: normal;
+    word-wrap: break-word;
 }
 
 /* Publications column: allow wrapping so long link text doesn't stretch the table */
