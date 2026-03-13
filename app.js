@@ -1509,31 +1509,36 @@ function renderStudiesTable() {
 
 function initTopScrollbar() {
     const topBar = document.getElementById('top-scrollbar-wrapper');
+    const bottomBar = document.getElementById('bottom-scrollbar-wrapper');
     const tableWrapper = document.getElementById('studies-table-wrapper');
-    if (!topBar || !tableWrapper) return;
+    if (!tableWrapper) return;
 
-    let syncing = false;
-    topBar.addEventListener('scroll', () => {
-        if (syncing) return;
-        syncing = true;
-        tableWrapper.scrollLeft = topBar.scrollLeft;
-        syncing = false;
-    });
-    tableWrapper.addEventListener('scroll', () => {
-        if (syncing) return;
-        syncing = true;
-        topBar.scrollLeft = tableWrapper.scrollLeft;
-        syncing = false;
+    const scrollables = [topBar, tableWrapper, bottomBar].filter(Boolean);
+    let activeScroller = null;
+
+    scrollables.forEach(el => {
+        el.addEventListener('scroll', () => {
+            if (activeScroller && activeScroller !== el) return;
+            activeScroller = el;
+            const left = el.scrollLeft;
+            scrollables.forEach(other => {
+                if (other !== el) other.scrollLeft = left;
+            });
+            requestAnimationFrame(() => { activeScroller = null; });
+        });
     });
 }
 
 function syncTopScrollbarWidth() {
     // Defer to next frame so the browser has laid out the table first
     requestAnimationFrame(() => {
-        const topContent = document.getElementById('top-scrollbar-content');
         const table = document.getElementById('studies-table');
-        if (!topContent || !table) return;
-        topContent.style.width = table.scrollWidth + 'px';
+        if (!table) return;
+        const w = table.scrollWidth + 'px';
+        const topContent = document.getElementById('top-scrollbar-content');
+        const bottomContent = document.getElementById('bottom-scrollbar-content');
+        if (topContent) topContent.style.width = w;
+        if (bottomContent) bottomContent.style.width = w;
     });
 }
 
