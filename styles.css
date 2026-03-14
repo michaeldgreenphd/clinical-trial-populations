@@ -262,7 +262,6 @@ main {
     max-width: 1400px;
     margin: 0 auto;
     padding: 2rem;
-    overflow: hidden;
 }
 
 #filters {
@@ -637,6 +636,11 @@ main {
 .study-count {
     color: var(--text-secondary);
     font-size: 0.875rem;
+}
+
+/* The chart-container wrapping the studies table must not clip the scrollable table */
+#studies .chart-container {
+    overflow: visible;
 }
 
 .table-wrapper {
