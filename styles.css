@@ -576,9 +576,7 @@ main {
 
 /* Studies section: scrollable container for the wide table */
 #studies .chart-container {
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
+    overflow: visible;
 }
 
 .chart-container h3 {
@@ -646,8 +644,12 @@ main {
 }
 
 .table-wrapper {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
     border: 1px solid #E5E7EB;
     border-radius: 0.375rem;
+    max-width: calc(100vw - 6rem);
 }
 
 .table-loading-overlay {
