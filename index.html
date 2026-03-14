@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
-    <link rel="stylesheet" href="styles.css?v=20260313">
+    <link rel="stylesheet" href="styles.css?v=20260314">
 </head>
 <body>
     <!-- Loading Overlay - shown immediately on page load -->
@@ -422,14 +422,18 @@
                             <tr>
                                 <th data-sort="nct_id" class="sortable">NCT ID</th>
                                 <th data-sort="brief_title" class="sortable col-title">Title</th>
-                                <th data-sort="phase" class="sortable">Phase</th>
-                                <th data-sort="start_date" class="sortable">Start Date</th>
-                                <th data-sort="primary_completion_date" class="sortable">End Date</th>
-                                <th data-sort="enrollment" class="sortable text-right">Participants</th>
+                                <th data-sort="results_date" class="sortable">Results Reported</th>
+                                <th class="text-center">Details</th>
                                 <th class="text-center">Race</th>
                                 <th class="text-center">Ethnicity</th>
                                 <th class="text-center">Sex</th>
-                                <th class="text-center">Details</th>
+                                <th class="text-center">Gender</th>
+                                <th class="text-center">Geography</th>
+                                <th data-sort="enrollment" class="sortable text-right">Participants</th>
+                                <th data-sort="start_date" class="sortable">Study Start Date</th>
+                                <th data-sort="primary_completion_date" class="sortable">Study End Date</th>
+                                <th data-sort="phase" class="sortable">Phase</th>
+                                <th>Publications</th>
                             </tr>
                         </thead>
                         <tbody id="studies-table-body">
@@ -978,6 +982,6 @@
     <!-- Modal Overlay for Study Details -->
     <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
 
-    <script src="app.js?v=20260313"></script>
+    <script src="app.js?v=20260314"></script>
 </body>
 </html>
