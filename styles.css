@@ -709,6 +709,7 @@ main {
 /* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
     width: 100%;
+    min-width: 1400px;
     border-collapse: collapse;
     font-size: 0.875rem;
     border: none; /* Remove outer borders */
@@ -767,6 +768,39 @@ main {
     overflow-wrap: break-word;
     line-height: 1.4;
     max-width: 400px;
+}
+
+/* Publications column: allow wrapping */
+.studies-table td.col-publications {
+    max-width: 260px;
+    white-space: normal;
+    word-wrap: break-word;
+}
+
+/* Publications list in detail modal */
+.publications-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.publications-list li {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f0f0f0;
+    line-height: 1.4;
+}
+
+.publications-list li:last-child {
+    border-bottom: none;
+}
+
+.publications-list a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.publications-list a:hover {
+    text-decoration: underline;
 }
 
 .studies-table tbody tr {

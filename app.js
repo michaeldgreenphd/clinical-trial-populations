@@ -1457,6 +1457,7 @@ function renderStudiesTable() {
 
         const startDate = study.start_date ? study.start_date : '<span class="text-muted">\u2014</span>';
         const endDate = (study.primary_completion_date || study.completion_date) ? (study.primary_completion_date || study.completion_date) : '<span class="text-muted">\u2014</span>';
+        const resultsDate = study.results_date ? study.results_date : '<span class="text-muted">\u2014</span>';
 
         return `
         <tr>
@@ -1466,13 +1467,7 @@ function renderStudiesTable() {
                    class="nct-link">${study.nct_id}</a>
             </td>
             <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
-            <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
-            <td>${startDate}</td>
-            <td>${endDate}</td>
-            <td class="text-right">${enrollmentBadge}</td>
-            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
+            <td>${resultsDate}</td>
             <td class="text-center">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -1480,6 +1475,16 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
+            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
+            <td class="text-center">${renderDemographicCell(study, 'gender')}</td>
+            <td class="text-center">${renderGeographyCell(study)}</td>
+            <td class="text-right">${enrollmentBadge}</td>
+            <td>${startDate}</td>
+            <td>${endDate}</td>
+            <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
+            <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
     }).join('');
@@ -1576,6 +1581,32 @@ function renderDemographicCell(study, field) {
 
     return `<button class="demo-badge"
                     onclick="showBreakdown('${study.nct_id}', '${field}')"
+                    title="${escapeHtml(tooltipText)}">
+                <span class="demo-badge-check">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
+            </button>`;
+}
+
+function renderGeographyCell(study) {
+    const sites = study.study_sites || [];
+    const countries = study.countries || [];
+    const hasGeo = sites.length > 0 || countries.length > 0;
+
+    if (!hasGeo) {
+        return '<span class="demo-disabled" title="No geography data">✗</span>';
+    }
+
+    const countryCount = sites.length > 0
+        ? [...new Set(sites.map(s => s.country).filter(Boolean))].length
+        : countries.length;
+    const siteCount = sites.length || countries.length;
+    const tooltipText = `${siteCount} site${siteCount !== 1 ? 's' : ''} in ${countryCount} countr${countryCount !== 1 ? 'ies' : 'y'}. Click to view details.`;
+
+    return `<button class="demo-badge"
+                    onclick="showStudyDetails('${study.nct_id}')"
                     title="${escapeHtml(tooltipText)}">
                 <span class="demo-badge-check">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1842,6 +1873,31 @@ function formatGenderDisplay(study) {
     return entries.length > 0 ? entries.join(', ') : 'Not Reported';
 }
 
+function renderPublicationsDetail(study) {
+    const refs = study.references || [];
+    if (refs.length === 0) {
+        return `<div class="detail-section">
+            <h5>Publications</h5>
+            <p class="note">No publications linked to this study.</p>
+        </div>`;
+    }
+
+    let pubsHtml = refs.map(ref => {
+        const url = ref.pmid ? `https://pubmed.ncbi.nlm.nih.gov/${ref.pmid}/` : '#';
+        const source = ref.source === 'pubmed' ? 'PubMed' : 'ClinicalTrials.gov';
+        const citation = ref.citation || ref.title || `Publication ${ref.pmid || ''}`;
+        return `<li>
+            <a href="${url}" target="_blank">${escapeHtml(citation)}</a>
+            <span class="badge">${source}</span>
+        </li>`;
+    }).join('');
+
+    return `<div class="detail-section">
+        <h5>Publications (${refs.length})</h5>
+        <ul class="publications-list">${pubsHtml}</ul>
+    </div>`;
+}
+
 async function showStudyDetails(nctId) {
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
@@ -1950,12 +2006,15 @@ async function showStudyDetails(nctId) {
                     <h5>Study Status</h5>
                     <div class="detail-grid">
                         <div><strong>Status:</strong> ${fullStudy.status || 'N/A'}</div>
-                        <div><strong>Results Posted:</strong> ${fullStudy.results_date || 'N/A'}</div>
+                        <div><strong>Start Date:</strong> ${fullStudy.start_date || 'N/A'}</div>
                         <div><strong>Completion Date:</strong> ${fullStudy.completion_date || fullStudy.primary_completion_date || 'N/A'}</div>
+                        <div><strong>Results Posted:</strong> ${fullStudy.results_date || 'N/A'}</div>
                         <div><strong>Last Update:</strong> ${fullStudy.last_update || 'N/A'}</div>
                     </div>
                     ${fullStudy.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(fullStudy.why_stopped)}</p>` : ''}
                 </div>
+
+                ${renderPublicationsDetail(fullStudy)}
 
                 ${renderStudySites(fullStudy)}
             </div>
