@@ -709,7 +709,6 @@ main {
 /* Tufte-style table design: maximize data-ink ratio */
 .studies-table {
     width: 100%;
-    table-layout: fixed;
     border-collapse: collapse;
     font-size: 0.875rem;
     border: none; /* Remove outer borders */
@@ -757,18 +756,17 @@ main {
     padding: 0.75rem 1rem 0.75rem 0.5rem;
     border: none;
     border-bottom: 1px solid #E5E7EB;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* Title column: wrap long study titles */
 .studies-table td.col-title,
 .studies-table th.col-title {
-    width: 40%;
     white-space: normal;
     word-wrap: break-word;
     overflow-wrap: break-word;
     line-height: 1.4;
+    max-width: 400px;
 }
 
 .studies-table tbody tr {
@@ -917,7 +915,6 @@ footer p {
         padding: 0.5rem 1rem;
         font-size: 0.875rem;
     }
-}
 }
 
 /* Clickable demographic badge (has data) */
