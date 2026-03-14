@@ -1606,7 +1606,7 @@ function renderGeographyCell(study) {
     const tooltipText = `${siteCount} site${siteCount !== 1 ? 's' : ''} in ${countryCount} countr${countryCount !== 1 ? 'ies' : 'y'}. Click to view details.`;
 
     return `<button class="demo-badge"
-                    onclick="showStudyDetails('${study.nct_id}')"
+                    onclick="showGeographyBreakdown('${study.nct_id}')"
                     title="${escapeHtml(tooltipText)}">
                 <span class="demo-badge-check">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -1614,6 +1614,32 @@ function renderGeographyCell(study) {
                     </svg>
                 </span>
             </button>`;
+}
+
+async function showGeographyBreakdown(nctId) {
+    const study = data.find(s => s.nct_id === nctId);
+    if (!study) return;
+
+    // Lazy-load detail data for full site info
+    await loadDetailData();
+    const detail = detailCache[nctId] || {};
+    const fullStudy = Object.assign({}, study, detail);
+
+    const sitesHtml = renderStudySites(fullStudy);
+
+    const html = `<div class="breakdown-modal">
+        <h4>Study Sites \u2014 ${nctId}</h4>
+        <p class="modal-subtitle">${escapeHtml(fullStudy.brief_title || '')}</p>
+        <p class="modal-subtitle">Click outside to close</p>
+        <div style="max-height: 500px; overflow-y: auto;">
+            ${sitesHtml}
+        </div>
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+
+    const overlay = document.getElementById('breakdown-overlay');
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
 }
 
 function showBreakdown(nctId, categoryName) {
@@ -1817,6 +1843,7 @@ function closeBreakdown() {
 // Make functions available globally
 window.showBreakdown = showBreakdown;
 window.closeBreakdown = closeBreakdown;
+window.showGeographyBreakdown = showGeographyBreakdown;
 
 /**
  * Derive the top-level funding category from the lead sponsor class
