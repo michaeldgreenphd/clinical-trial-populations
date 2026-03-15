@@ -8,6 +8,43 @@ let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
 const PAGE_SIZE = 100;
 
+// ── Snapshot cache: avoids re-downloading previously loaded snapshots ──
+const snapshotCache = new Map(); // key: date string ('latest' | 'YYYY-MM-DD'), value: { data, dateLabel }
+
+// ── Toast notifications ──
+function showToast(message, type = 'error', durationMs = 5000) {
+    const container = document.getElementById('toast-container');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    const icon = type === 'error' ? '⚠' : '✓';
+    toast.innerHTML = `<span class="toast-icon">${icon}</span><span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.classList.add('removing');
+        toast.addEventListener('animationend', () => toast.remove());
+    }, durationMs);
+}
+
+// ── Snapshot switching overlay ──
+function showSnapshotLoading(label) {
+    let overlay = document.getElementById('snapshot-loading');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'snapshot-loading';
+        overlay.className = 'snapshot-loading-overlay';
+        overlay.innerHTML = '<div class="loading-spinner"></div><p>Loading snapshot…</p>';
+        document.body.appendChild(overlay);
+    }
+    overlay.querySelector('p').textContent = label || 'Loading snapshot…';
+    overlay.style.display = 'flex';
+}
+
+function hideSnapshotLoading() {
+    const overlay = document.getElementById('snapshot-loading');
+    if (overlay) overlay.style.display = 'none';
+}
+
 // GitHub repository details for fetching historical snapshots
 const REPO_OWNER = 'michaeldgreenphd';
 const REPO_NAME  = 'clinical-trial-populations';
@@ -478,6 +515,20 @@ function getUrlStrategies(date) {
 }
 
 async function loadData(date) {
+    const cacheKey = date || 'latest';
+
+    // ── Check snapshot cache first ──
+    if (snapshotCache.has(cacheKey)) {
+        const cached = snapshotCache.get(cacheKey);
+        console.log(`⚡ Snapshot "${cacheKey}" loaded from cache (${cached.data.length} studies)`);
+        data = cached.data;
+        detailCache = {};
+        detailsLoaded = false;
+        studiesTabReady = false;
+        document.getElementById('last-updated').textContent = cached.dateLabel;
+        return;
+    }
+
     // Reset detail cache when loading new data
     detailCache = {};
     detailsLoaded = false;
@@ -523,8 +574,13 @@ async function loadData(date) {
                     dateLabel = ` (${date} snapshot)`;
                 }
             }
-            document.getElementById('last-updated').textContent =
-                new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
+            const fullDateLabel = new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
+            document.getElementById('last-updated').textContent = fullDateLabel;
+
+            // ── Cache this snapshot for instant re-access ──
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel });
+            console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
+
             return; // Success!
 
         } catch (error) {
@@ -556,15 +612,26 @@ async function loadData(date) {
     `;
 }
 
-// Wrapper function to reload with a specific date
+// Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
-    document.getElementById('history-date').value = date;
-    await loadData(date);
-    if (data && data.length > 0) {
-        populateConditionsDropdown();
-        populateCountriesDropdown();
-        populatePrimaryConditionDropdown();
-        renderDashboard();
+    const select = document.getElementById('history-date');
+    if (select) select.value = date;
+
+    const isCached = snapshotCache.has(date || 'latest');
+    if (!isCached) showSnapshotLoading(date === 'latest' ? 'Loading latest data…' : `Loading ${date} snapshot…`);
+
+    try {
+        await loadData(date);
+        if (data && data.length > 0) {
+            populateConditionsDropdown();
+            populateCountriesDropdown();
+            populatePrimaryConditionDropdown();
+            renderDashboard();
+        }
+    } catch (err) {
+        showToast(`Failed to load ${date || 'latest'} snapshot: ${err.message}`, 'error');
+    } finally {
+        hideSnapshotLoading();
     }
 }
 window.loadDataAndRender = loadDataAndRender;
@@ -597,12 +664,40 @@ async function initHistorySelector() {
 
     select.addEventListener('change', async () => {
         const chosen = select.value;
+        const previousValue = select.dataset.lastValue || 'latest';
         console.log(`Switching to snapshot: ${chosen}`);
-        await loadData(chosen);
-        // Re-populate dynamic dropdowns whose options come from the dataset
-        populateConditionsDropdown();
-        populateCountriesDropdown();
-        renderDashboard();
+
+        const isCached = snapshotCache.has(chosen === 'latest' ? 'latest' : chosen);
+        const label = chosen === 'latest' ? 'Loading latest data…' : `Loading ${chosen} snapshot…`;
+        if (!isCached) showSnapshotLoading(label);
+
+        try {
+            await loadData(chosen);
+
+            if (!data || data.length === 0) throw new Error('No data returned');
+
+            // Re-populate dynamic dropdowns whose options come from the dataset
+            populateConditionsDropdown();
+            populateCountriesDropdown();
+            populatePrimaryConditionDropdown();
+            renderDashboard();
+
+            select.dataset.lastValue = chosen;
+            if (isCached) {
+                showToast(`Loaded ${chosen === 'latest' ? 'latest' : chosen} snapshot from cache`, 'info', 2000);
+            }
+        } catch (err) {
+            console.error('Snapshot switch failed:', err);
+            showToast(`Snapshot data unavailable for ${chosen}. Reverting to previous view.`, 'error');
+            // Revert dropdown and reload previous data
+            select.value = previousValue;
+            if (previousValue !== chosen) {
+                try { await loadData(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
+                renderDashboard();
+            }
+        } finally {
+            hideSnapshotLoading();
+        }
     });
 }
 
