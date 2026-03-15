@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
-    <link rel="stylesheet" href="styles.css?v=20260315e">
+    <link rel="stylesheet" href="styles.css?v=20260315f">
 </head>
 <body>
     <!-- Loading Overlay - shown immediately on page load -->
@@ -417,11 +417,13 @@
                 </div>
 
                 <div class="table-scroll-container">
+                    <div class="table-drag-bar" id="table-drag-bar">
+                        <span class="drag-bar-icon">&#9776;</span>
+                        <span class="drag-bar-label">Drag to scroll</span>
+                        <span class="drag-bar-icon">&#9776;</span>
+                    </div>
                     <button class="table-scroll-btn table-scroll-left" id="table-scroll-left" aria-label="Scroll table left" title="Scroll left">&#9664;</button>
                     <div class="table-wrapper" id="studies-table-wrapper">
-                        <div class="table-drag-bar" id="table-drag-bar">
-                            <span class="drag-bar-label">&#8676; Drag to scroll &#8677;</span>
-                        </div>
                         <table id="studies-table" class="studies-table">
                             <thead>
                                 <tr>
@@ -989,6 +991,6 @@
     <!-- Modal Overlay for Study Details -->
     <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
 
-    <script src="app.js?v=20260315e"></script>
+    <script src="app.js?v=20260315f"></script>
 </body>
 </html>
