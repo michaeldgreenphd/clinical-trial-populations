@@ -1,0 +1,70 @@
+name: Backfill Missing Releases
+
+# One-time workflow to create GitHub Releases (with assets) for date tags
+# that only have a git tag but no release.  Run manually once, then disable.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0  # need full history to checkout tags
+
+      - name: Backfill releases for date tags
+        run: |
+          # List all date-format tags (YYYY-MM-DD)
+          TAGS=$(git tag -l '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' | sort)
+          echo "Found date tags: $TAGS"
+
+          for TAG in $TAGS; do
+            echo ""
+            echo "=== Processing tag: $TAG ==="
+
+            # Check if a release already exists with assets
+            ASSET_COUNT=$(gh release view "$TAG" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
+            if [ "$ASSET_COUNT" -ge 2 ]; then
+              echo "✓ Release $TAG already has $ASSET_COUNT assets — skipping."
+              continue
+            fi
+
+            # Checkout the data files at this tag
+            echo "Checking out data files at tag $TAG..."
+            git checkout "$TAG" -- data/demographics.part1.json.gz data/demographics.part2.json.gz 2>/dev/null || {
+              echo "✗ Could not find data files at tag $TAG — skipping."
+              git checkout HEAD -- data/ 2>/dev/null
+              continue
+            }
+
+            # Delete partial release if it exists (tag only, no assets)
+            gh release delete "$TAG" --yes 2>/dev/null || true
+
+            # Create the release with assets
+            echo "Creating release $TAG..."
+            gh release create "$TAG" \
+              --title "Demographics snapshot $TAG" \
+              --notes "Weekly demographics extraction (backfilled)" \
+              data/demographics.part1.json.gz \
+              data/demographics.part2.json.gz || {
+              echo "✗ Failed to create release $TAG"
+              git checkout HEAD -- data/ 2>/dev/null
+              continue
+            }
+
+            echo "✓ Release $TAG created successfully."
+
+            # Restore working tree
+            git checkout HEAD -- data/ 2>/dev/null
+          done
+
+          echo ""
+          echo "=== Backfill complete ==="
+        env:
+          GH_TOKEN: ${{ github.token }}
