@@ -1507,26 +1507,39 @@ function renderStudiesTable() {
 
 /**
  * Ensure the table wrapper has horizontal scroll working.
- * The chart-container parent has overflow:hidden which constrains the wrapper,
- * but we also set an explicit pixel width as a safety measure.
+ * Uses viewport width as ground truth to set an explicit pixel constraint
+ * on the wrapper, guaranteeing the inner content (1600px+) overflows it.
  */
 function fixTableScroll() {
     const wrapper = document.getElementById('studies-table-wrapper');
     if (!wrapper) return;
 
-    // Get main element's computed content width (the ultimate constraint)
-    const main = document.querySelector('main');
-    if (!main) return;
-    const mainStyle = getComputedStyle(main);
-    const mainWidth = main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight);
+    // Use the wrapper's own parent to get the actual available space.
+    // getBoundingClientRect gives us the rendered size regardless of overflow.
+    const chartContainer = wrapper.closest('.chart-container');
+    if (!chartContainer) return;
 
-    // Subtract chart-container padding (2rem = 32px each side)
-    const availableWidth = mainWidth - 64;
+    const containerRect = chartContainer.getBoundingClientRect();
+    const containerStyle = getComputedStyle(chartContainer);
+    const padL = parseFloat(containerStyle.paddingLeft) || 0;
+    const padR = parseFloat(containerStyle.paddingRight) || 0;
 
-    // Force the wrapper to this width
+    // Available width = chart-container's CSS box width minus its padding
+    let availableWidth = containerRect.width - padL - padR;
+
+    // Safety: never let it exceed viewport width
+    availableWidth = Math.min(availableWidth, window.innerWidth - 40);
+
+    // Also cap it to a reasonable minimum
+    if (availableWidth < 300) return;
+
     wrapper.style.width = availableWidth + 'px';
     wrapper.style.maxWidth = availableWidth + 'px';
-    wrapper.style.overflowX = 'scroll';
+    wrapper.style.overflowX = 'auto';
+
+    // Debug: log to confirm it's running
+    console.log('[fixTableScroll] wrapper set to', availableWidth + 'px',
+                'scrollWidth:', wrapper.scrollWidth, 'clientWidth:', wrapper.clientWidth);
 }
 
 function renderPagination(total) {
