@@ -652,7 +652,24 @@ async function initHistorySelector() {
         const manifest = await resp.json();
         const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
 
-        dates.forEach(d => {
+        // Validate each date by probing the jsDelivr CDN with a HEAD request.
+        // Only dates whose snapshot files are reachable get added to the dropdown.
+        const probeResults = await Promise.allSettled(dates.map(async d => {
+            const probeUrl = `${JSDELIVR_BASE}@${d}/data/demographics.part1.json.gz`;
+            const head = await fetch(probeUrl, { method: 'HEAD' });
+            return { date: d, ok: head.ok };
+        }));
+
+        const validDates = probeResults
+            .filter(r => r.status === 'fulfilled' && r.value.ok)
+            .map(r => r.value.date);
+
+        if (validDates.length < dates.length) {
+            const skipped = dates.filter(d => !validDates.includes(d));
+            console.warn('Snapshot dates skipped (files not found on CDN):', skipped);
+        }
+
+        validDates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
             opt.textContent = d;
