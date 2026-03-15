@@ -1506,26 +1506,27 @@ function renderStudiesTable() {
 }
 
 /**
- * Ensure the table wrapper is properly constrained so horizontal scroll works.
- * Belt-and-suspenders: CSS should handle this, but we force it via JS too.
+ * Ensure the table wrapper has horizontal scroll working.
+ * The chart-container parent has overflow:hidden which constrains the wrapper,
+ * but we also set an explicit pixel width as a safety measure.
  */
 function fixTableScroll() {
     const wrapper = document.getElementById('studies-table-wrapper');
     if (!wrapper) return;
 
-    // Get the chart-container parent's inner width (the available space)
-    const chartContainer = wrapper.closest('.chart-container');
-    if (chartContainer) {
-        const style = getComputedStyle(chartContainer);
-        const paddingLeft = parseFloat(style.paddingLeft) || 0;
-        const paddingRight = parseFloat(style.paddingRight) || 0;
-        const availableWidth = chartContainer.clientWidth - paddingLeft - paddingRight;
+    // Get main element's computed content width (the ultimate constraint)
+    const main = document.querySelector('main');
+    if (!main) return;
+    const mainStyle = getComputedStyle(main);
+    const mainWidth = main.clientWidth - parseFloat(mainStyle.paddingLeft) - parseFloat(mainStyle.paddingRight);
 
-        // Force the wrapper to this exact width so it's narrower than the table
-        wrapper.style.maxWidth = availableWidth + 'px';
-        wrapper.style.overflowX = 'scroll';
-        wrapper.style.display = 'block';
-    }
+    // Subtract chart-container padding (2rem = 32px each side)
+    const availableWidth = mainWidth - 64;
+
+    // Force the wrapper to this width
+    wrapper.style.width = availableWidth + 'px';
+    wrapper.style.maxWidth = availableWidth + 'px';
+    wrapper.style.overflowX = 'scroll';
 }
 
 function renderPagination(total) {
