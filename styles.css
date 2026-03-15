@@ -574,11 +574,6 @@ main {
     overflow: hidden;
 }
 
-/* Studies section: don't clip the scrollable table-wrapper */
-#studies .chart-container {
-    overflow: visible;
-}
-
 /* Scroll hint shown above the table */
 .table-scroll-hint {
     text-align: right;
