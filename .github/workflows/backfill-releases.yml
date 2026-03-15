@@ -1,7 +1,11 @@
-name: Backfill Missing Releases
+name: Backfill Snapshots (re-split to 8 parts)
 
-# One-time workflow to create GitHub Releases (with assets) for date tags
-# that only have a git tag but no release.  Run manually once, then disable.
+# One-time workflow to re-split old 2-part snapshots into 8 parts so
+# each part is under jsDelivr's 20 MB limit.  For each date tag:
+# 1. Check out the old 2-part files from the tag
+# 2. Decompress and merge them back into one JSON
+# 3. Re-split into 8 parts using split_data.py
+# 4. Force-update the tag to a new commit with the 8-part files
 
 on:
   workflow_dispatch:
@@ -16,11 +20,21 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 0  # need full history to checkout tags
+          fetch-depth: 0  # full history needed to access tags
 
-      - name: Backfill releases for date tags
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Re-split old 2-part snapshots into 8 parts
         run: |
-          # List all date-format tags (YYYY-MM-DD)
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # List all date-format tags
           TAGS=$(git tag -l '20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]' | sort)
           echo "Found date tags: $TAGS"
 
@@ -28,41 +42,63 @@ jobs:
             echo ""
             echo "=== Processing tag: $TAG ==="
 
-            # Check if a release already exists with assets
-            ASSET_COUNT=$(gh release view "$TAG" --json assets --jq '.assets | length' 2>/dev/null || echo "0")
-            if [ "$ASSET_COUNT" -ge 2 ]; then
-              echo "✓ Release $TAG already has $ASSET_COUNT assets — skipping."
+            # Check if tag already has 8-part files (already migrated)
+            if git show "$TAG:data/demographics.part8.json.gz" >/dev/null 2>&1; then
+              echo "✓ Tag $TAG already has 8-part files — skipping."
               continue
             fi
 
-            # Checkout the data files at this tag
-            echo "Checking out data files at tag $TAG..."
+            # Check out the 2-part files from this tag
+            echo "Checking out 2-part files from tag $TAG..."
             git checkout "$TAG" -- data/demographics.part1.json.gz data/demographics.part2.json.gz 2>/dev/null || {
               echo "✗ Could not find data files at tag $TAG — skipping."
-              git checkout HEAD -- data/ 2>/dev/null
               continue
             }
 
-            # Delete partial release if it exists (tag only, no assets)
-            gh release delete "$TAG" --yes 2>/dev/null || true
+            # Decompress and merge the 2 parts back into one JSON
+            echo "Merging 2 parts into single JSON..."
+            python3 -c "
+import gzip, json
 
-            # Create the release with assets
-            echo "Creating release $TAG..."
-            gh release create "$TAG" \
-              --title "Demographics snapshot $TAG" \
-              --notes "Weekly demographics extraction (backfilled)" \
-              data/demographics.part1.json.gz \
-              data/demographics.part2.json.gz || {
-              echo "✗ Failed to create release $TAG"
-              git checkout HEAD -- data/ 2>/dev/null
-              continue
-            }
+parts_data = []
+extracted_at = None
+for i in [1, 2]:
+    with gzip.open(f'data/demographics.part{i}.json.gz', 'rt') as f:
+        part = json.load(f)
+        parts_data.extend(part['data'])
+        if not extracted_at:
+            extracted_at = part['extracted_at']
 
-            echo "✓ Release $TAG created successfully."
+merged = {'extracted_at': extracted_at, 'data': parts_data}
+with open('data/demographics.json', 'w') as f:
+    json.dump(merged, f)
+print(f'Merged {len(parts_data)} studies')
+"
 
-            # Restore working tree
-            git checkout HEAD -- data/ 2>/dev/null
+            # Re-split into 8 parts using the updated script
+            echo "Re-splitting into 8 parts..."
+            python3 scripts/split_data.py
+
+            # Clean up the temporary merged file
+            rm -f data/demographics.json
+
+            # Stage the new 8-part files, commit, and move the tag
+            git add data/demographics.part*.json.gz
+            git commit -m "Re-split demographics data $TAG into 8 parts for jsDelivr"
+
+            # Force-move the tag to this new commit
+            git tag -f "$TAG"
+            git push origin -f "refs/tags/$TAG"
+
+            echo "✓ Tag $TAG updated to 8-part format."
+
+            # Reset working tree to main for next iteration
+            git checkout main -- data/
           done
+
+          # Push all commits (they're on main, which is fine — they just
+          # hold intermediate states; the latest extraction will overwrite)
+          git push origin main || true
 
           echo ""
           echo "=== Backfill complete ==="

@@ -27,18 +27,20 @@ jobs:
       - name: Run extraction
         run: python -m src.extract_all --output data/demographics.json --results-after 2009-01-01
 
-      - name: Commit and push data
+      - name: Split and commit data
         run: |
-          # Split JSON into 2 parts to stay under GitHub's 100MB limit
+          # Split JSON into 8 parts so each stays under jsDelivr's 20 MB limit
           python3 scripts/split_data.py
 
-          PART1_SIZE=$(du -h data/demographics.part1.json.gz | cut -f1)
-          PART2_SIZE=$(du -h data/demographics.part2.json.gz | cut -f1)
-          echo "Part 1 size: $PART1_SIZE"
-          echo "Part 2 size: $PART2_SIZE"
+          # Show sizes
+          for f in data/demographics.part*.json.gz; do
+            echo "$(basename $f): $(du -h "$f" | cut -f1)"
+          done
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage new parts and remove any old 2-part leftovers
           git add data/demographics.part*.json.gz
 
           # Remove the original JSON file if it exists
@@ -46,7 +48,7 @@ jobs:
           git rm --ignore-unmatch data/demographics.json
 
           TIMESTAMP=$(date +'%Y-%m-%d')
-          git commit -m "Update demographics data $TIMESTAMP (Part1: $PART1_SIZE, Part2: $PART2_SIZE)" || exit 0
+          git commit -m "Update demographics data $TIMESTAMP" || exit 0
           git push
         env:
           GH_TOKEN: ${{ github.token }}
@@ -62,22 +64,16 @@ jobs:
           # Delete any existing release for this date (re-runs should overwrite)
           gh release delete "$DATE" --yes 2>/dev/null || true
 
-          # Create a new release with the data files as assets.
-          # gh release create handles large files (up to 2 GB) reliably.
+          # Create a new release with all part files as assets
           gh release create "$DATE" \
             --title "Demographics snapshot $DATE" \
             --notes "Weekly demographics extraction from ClinicalTrials.gov" \
-            data/demographics.part1.json.gz \
-            data/demographics.part2.json.gz
+            data/demographics.part*.json.gz
 
           echo "✓ Release $DATE created."
 
           # Verify assets were uploaded
           ASSET_COUNT=$(gh release view "$DATE" --json assets --jq '.assets | length')
-          if [ "$ASSET_COUNT" -lt 2 ]; then
-            echo "ERROR: Release $DATE has only ${ASSET_COUNT} assets (expected 2)."
-            exit 1
-          fi
           echo "✓ Release has ${ASSET_COUNT} assets."
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,4 +96,3 @@ jobs:
           git push
         env:
           GH_TOKEN: ${{ github.token }}
-
