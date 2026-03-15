@@ -1506,40 +1506,102 @@ function renderStudiesTable() {
 }
 
 /**
- * Ensure the table wrapper has horizontal scroll working.
- * Uses viewport width as ground truth to set an explicit pixel constraint
- * on the wrapper, guaranteeing the inner content (1600px+) overflows it.
+ * Set up table horizontal scrolling:
+ * - Left/right arrow buttons that scroll on click (and hold)
+ * - Drag-to-scroll (click and drag the table horizontally)
+ * - Arrow visibility updates based on scroll position
  */
-function fixTableScroll() {
+function initTableScroll() {
     const wrapper = document.getElementById('studies-table-wrapper');
-    if (!wrapper) return;
+    const btnLeft = document.getElementById('table-scroll-left');
+    const btnRight = document.getElementById('table-scroll-right');
+    if (!wrapper || !btnLeft || !btnRight) return;
 
-    // Use the wrapper's own parent to get the actual available space.
-    // getBoundingClientRect gives us the rendered size regardless of overflow.
-    const chartContainer = wrapper.closest('.chart-container');
-    if (!chartContainer) return;
+    const SCROLL_AMOUNT = 300; // pixels per click
 
-    const containerRect = chartContainer.getBoundingClientRect();
-    const containerStyle = getComputedStyle(chartContainer);
-    const padL = parseFloat(containerStyle.paddingLeft) || 0;
-    const padR = parseFloat(containerStyle.paddingRight) || 0;
+    // -- Update arrow visibility based on scroll position --
+    function updateArrows() {
+        const maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
+        btnLeft.classList.toggle('hidden', wrapper.scrollLeft <= 0);
+        btnRight.classList.toggle('hidden', wrapper.scrollLeft >= maxScroll - 1);
+    }
 
-    // Available width = chart-container's CSS box width minus its padding
-    let availableWidth = containerRect.width - padL - padR;
+    wrapper.addEventListener('scroll', updateArrows);
+    // Also update on resize
+    window.addEventListener('resize', updateArrows);
 
-    // Safety: never let it exceed viewport width
-    availableWidth = Math.min(availableWidth, window.innerWidth - 40);
+    // -- Click to scroll --
+    btnLeft.addEventListener('click', function () {
+        wrapper.scrollBy({ left: -SCROLL_AMOUNT, behavior: 'smooth' });
+    });
+    btnRight.addEventListener('click', function () {
+        wrapper.scrollBy({ left: SCROLL_AMOUNT, behavior: 'smooth' });
+    });
 
-    // Also cap it to a reasonable minimum
-    if (availableWidth < 300) return;
+    // -- Hold-to-scroll (continuous scroll while button is held) --
+    let holdInterval = null;
+    function startHold(direction) {
+        holdInterval = setInterval(function () {
+            wrapper.scrollBy({ left: direction * 4 });
+        }, 16);
+    }
+    function stopHold() {
+        if (holdInterval) { clearInterval(holdInterval); holdInterval = null; }
+    }
 
-    wrapper.style.width = availableWidth + 'px';
-    wrapper.style.maxWidth = availableWidth + 'px';
-    wrapper.style.overflowX = 'auto';
+    btnLeft.addEventListener('mousedown', function () { startHold(-1); });
+    btnRight.addEventListener('mousedown', function () { startHold(1); });
+    document.addEventListener('mouseup', stopHold);
 
-    // Debug: log to confirm it's running
-    console.log('[fixTableScroll] wrapper set to', availableWidth + 'px',
-                'scrollWidth:', wrapper.scrollWidth, 'clientWidth:', wrapper.clientWidth);
+    // -- Drag to scroll (click and drag on the table) --
+    let isDragging = false;
+    let startX = 0;
+    let scrollStart = 0;
+
+    wrapper.addEventListener('mousedown', function (e) {
+        // Don't start drag on links, buttons, or inputs
+        if (e.target.closest('a, button, input, select')) return;
+        isDragging = true;
+        startX = e.pageX;
+        scrollStart = wrapper.scrollLeft;
+        wrapper.classList.add('is-dragging');
+        e.preventDefault();
+    });
+
+    document.addEventListener('mousemove', function (e) {
+        if (!isDragging) return;
+        const dx = e.pageX - startX;
+        wrapper.scrollLeft = scrollStart - dx;
+    });
+
+    document.addEventListener('mouseup', function () {
+        if (isDragging) {
+            isDragging = false;
+            wrapper.classList.remove('is-dragging');
+        }
+    });
+
+    // Initial arrow state
+    updateArrows();
+}
+
+// Backward compat — old call sites invoke fixTableScroll()
+let _tableScrollInitialized = false;
+function fixTableScroll() {
+    if (!_tableScrollInitialized) {
+        _tableScrollInitialized = true;
+        initTableScroll();
+    } else {
+        // Just update arrows on re-render
+        const wrapper = document.getElementById('studies-table-wrapper');
+        const btnLeft = document.getElementById('table-scroll-left');
+        const btnRight = document.getElementById('table-scroll-right');
+        if (wrapper && btnLeft && btnRight) {
+            const maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
+            btnLeft.classList.toggle('hidden', wrapper.scrollLeft <= 0);
+            btnRight.classList.toggle('hidden', wrapper.scrollLeft >= maxScroll - 1);
+        }
+    }
 }
 
 function renderPagination(total) {
@@ -1585,8 +1647,7 @@ function goToPage(page) {
 
 window.goToPage = goToPage;
 
-// Re-fix scroll on window resize
-window.addEventListener('resize', fixTableScroll);
+
 
 function escapeHtml(text) {
     const div = document.createElement('div');
