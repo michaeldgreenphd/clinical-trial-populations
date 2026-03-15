@@ -481,21 +481,24 @@ function getUrlStrategies(date) {
     }
 
     // Historical data: try multiple strategies
+    // GitHub Release assets are preferred because jsDelivr returns 403 for
+    // files larger than ~50 MB.  Release asset URLs redirect to
+    // objects.githubusercontent.com which supports CORS.
     return [
-        // Strategy 1: jsDelivr CDN (works on GitHub Pages, proper CORS)
-        {
-            name: 'jsDelivr CDN',
-            urls: [
-                `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
-                `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
-            ]
-        },
-        // Strategy 2: GitHub Release assets (may have CORS issues)
+        // Strategy 1: GitHub Release assets (reliable for large files, CORS via redirect)
         {
             name: 'GitHub Release',
             urls: [
                 `${RELEASE_BASE}/${date}/demographics.part1.json.gz`,
                 `${RELEASE_BASE}/${date}/demographics.part2.json.gz`
+            ]
+        },
+        // Strategy 2: jsDelivr CDN (fast when it works, but 403s on large files)
+        {
+            name: 'jsDelivr CDN',
+            urls: [
+                `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
+                `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
             ]
         },
         // Strategy 3: raw.githubusercontent.com (works if file exists at tag)
@@ -652,24 +655,12 @@ async function initHistorySelector() {
         const manifest = await resp.json();
         const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
 
-        // Validate each date by probing the jsDelivr CDN with a HEAD request.
-        // Only dates whose snapshot files are reachable get added to the dropdown.
-        const probeResults = await Promise.allSettled(dates.map(async d => {
-            const probeUrl = `${JSDELIVR_BASE}@${d}/data/demographics.part1.json.gz`;
-            const head = await fetch(probeUrl, { method: 'HEAD' });
-            return { date: d, ok: head.ok };
-        }));
-
-        const validDates = probeResults
-            .filter(r => r.status === 'fulfilled' && r.value.ok)
-            .map(r => r.value.date);
-
-        if (validDates.length < dates.length) {
-            const skipped = dates.filter(d => !validDates.includes(d));
-            console.warn('Snapshot dates skipped (files not found on CDN):', skipped);
-        }
-
-        validDates.forEach(d => {
+        // Trust the manifest — the GitHub Actions workflow only appends a date
+        // after verifying the release and its assets exist.  The loadData()
+        // function already handles failures gracefully (toast + revert), so
+        // we don't need a HEAD-probe gate here.  Previous probes used jsDelivr,
+        // which 403s on files >50 MB, hiding every valid date.
+        dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
             opt.textContent = d;
