@@ -56,35 +56,35 @@ jobs:
         run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
 
       - name: Create release and upload data snapshots
-        id: release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.date.outputs.date }}
-          name: Demographics snapshot ${{ steps.date.outputs.date }}
-          files: |
-            data/demographics.part1.json.gz
-            data/demographics.part2.json.gz
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Verify release exists then update history manifest
         run: |
           DATE="${{ steps.date.outputs.date }}"
 
-          # Verify the release and its assets actually exist before updating the manifest
-          echo "Verifying release ${DATE} exists..."
-          RELEASE_INFO=$(gh release view "$DATE" --json tagName,assets --jq '.tagName' 2>&1) || {
-            echo "ERROR: Release ${DATE} not found — skipping history update."
-            exit 0
-          }
-          echo "✓ Release ${RELEASE_INFO} verified."
+          # Delete any existing release for this date (re-runs should overwrite)
+          gh release delete "$DATE" --yes 2>/dev/null || true
 
+          # Create a new release with the data files as assets.
+          # gh release create handles large files (up to 2 GB) reliably.
+          gh release create "$DATE" \
+            --title "Demographics snapshot $DATE" \
+            --notes "Weekly demographics extraction from ClinicalTrials.gov" \
+            data/demographics.part1.json.gz \
+            data/demographics.part2.json.gz
+
+          echo "✓ Release $DATE created."
+
+          # Verify assets were uploaded
           ASSET_COUNT=$(gh release view "$DATE" --json assets --jq '.assets | length')
           if [ "$ASSET_COUNT" -lt 2 ]; then
-            echo "ERROR: Release ${DATE} has only ${ASSET_COUNT} assets (expected 2) — skipping history update."
-            exit 0
+            echo "ERROR: Release $DATE has only ${ASSET_COUNT} assets (expected 2)."
+            exit 1
           fi
           echo "✓ Release has ${ASSET_COUNT} assets."
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Update history manifest
+        run: |
+          DATE="${{ steps.date.outputs.date }}"
 
           # Append date to history.json, creating the file if missing
           if [ ! -f history.json ]; then
