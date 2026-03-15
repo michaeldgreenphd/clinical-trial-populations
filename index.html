@@ -11,7 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
-    <link rel="stylesheet" href="styles.css?v=20260314c">
+    <link rel="stylesheet" href="styles.css?v=20260315a">
 </head>
 <body>
     <!-- Loading Overlay - shown immediately on page load -->
@@ -416,7 +416,8 @@
                     <span id="study-count" class="study-count"></span>
                 </div>
 
-                <div class="table-wrapper" id="studies-table-wrapper">
+                <div class="table-scroll-hint">Scroll right to see more columns &rarr;</div>
+                <div class="table-wrapper" id="studies-table-wrapper" style="overflow-x:scroll !important;display:block !important;max-width:100% !important;-webkit-overflow-scrolling:touch;">
                     <table id="studies-table" class="studies-table">
                         <thead>
                             <tr>
@@ -982,6 +983,6 @@
     <!-- Modal Overlay for Study Details -->
     <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
 
-    <script src="app.js?v=20260314c"></script>
+    <script src="app.js?v=20260315a"></script>
 </body>
 </html>

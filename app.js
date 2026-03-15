@@ -1500,8 +1500,33 @@ function renderStudiesTable() {
     }
 
     renderPagination(totalCount);
+
+    // Force horizontal scroll on the table wrapper
+    fixTableScroll();
 }
 
+/**
+ * Ensure the table wrapper is properly constrained so horizontal scroll works.
+ * Belt-and-suspenders: CSS should handle this, but we force it via JS too.
+ */
+function fixTableScroll() {
+    const wrapper = document.getElementById('studies-table-wrapper');
+    if (!wrapper) return;
+
+    // Get the chart-container parent's inner width (the available space)
+    const chartContainer = wrapper.closest('.chart-container');
+    if (chartContainer) {
+        const style = getComputedStyle(chartContainer);
+        const paddingLeft = parseFloat(style.paddingLeft) || 0;
+        const paddingRight = parseFloat(style.paddingRight) || 0;
+        const availableWidth = chartContainer.clientWidth - paddingLeft - paddingRight;
+
+        // Force the wrapper to this exact width so it's narrower than the table
+        wrapper.style.maxWidth = availableWidth + 'px';
+        wrapper.style.overflowX = 'scroll';
+        wrapper.style.display = 'block';
+    }
+}
 
 function renderPagination(total) {
     const container = document.getElementById('pagination');
@@ -1545,6 +1570,9 @@ function goToPage(page) {
 }
 
 window.goToPage = goToPage;
+
+// Re-fix scroll on window resize
+window.addEventListener('resize', fixTableScroll);
 
 function escapeHtml(text) {
     const div = document.createElement('div');
