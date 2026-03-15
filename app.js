@@ -1553,33 +1553,34 @@ function initTableScroll() {
     btnRight.addEventListener('mousedown', function () { startHold(1); });
     document.addEventListener('mouseup', stopHold);
 
-    // -- Drag to scroll (click and drag on the table) --
-    let isDragging = false;
-    let startX = 0;
-    let scrollStart = 0;
+    // -- Drag to scroll on the drag bar only --
+    const dragBar = document.getElementById('table-drag-bar');
+    if (dragBar) {
+        let isDragging = false;
+        let startX = 0;
+        let scrollStart = 0;
 
-    wrapper.addEventListener('mousedown', function (e) {
-        // Don't start drag on links, buttons, or inputs
-        if (e.target.closest('a, button, input, select')) return;
-        isDragging = true;
-        startX = e.pageX;
-        scrollStart = wrapper.scrollLeft;
-        wrapper.classList.add('is-dragging');
-        e.preventDefault();
-    });
+        dragBar.addEventListener('mousedown', function (e) {
+            isDragging = true;
+            startX = e.pageX;
+            scrollStart = wrapper.scrollLeft;
+            dragBar.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
 
-    document.addEventListener('mousemove', function (e) {
-        if (!isDragging) return;
-        const dx = e.pageX - startX;
-        wrapper.scrollLeft = scrollStart - dx;
-    });
+        document.addEventListener('mousemove', function (e) {
+            if (!isDragging) return;
+            const dx = e.pageX - startX;
+            wrapper.scrollLeft = scrollStart - dx;
+        });
 
-    document.addEventListener('mouseup', function () {
-        if (isDragging) {
-            isDragging = false;
-            wrapper.classList.remove('is-dragging');
-        }
-    });
+        document.addEventListener('mouseup', function () {
+            if (isDragging) {
+                isDragging = false;
+                dragBar.style.cursor = 'grab';
+            }
+        });
+    }
 
     // Initial arrow state
     updateArrows();
