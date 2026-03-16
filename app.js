@@ -1541,7 +1541,7 @@ function renderStudiesTable() {
             </td>
             <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
             <td>${resultsDate}</td>
-            <td>${renderSparkline(getTimeToReport(study))}</td>
+            <td class="col-time-to-report">${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">

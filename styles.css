@@ -1541,6 +1541,10 @@ footer p {
 }
 
 /* Sparkline styles for time metrics - Tufte principle: small multiples */
+.col-time-to-report {
+    min-width: 120px;
+}
+
 .sparkline-cell {
     display: flex;
     align-items: center;
