@@ -298,11 +298,16 @@ main {
 }
 
 .filter-group select,
-.filter-group input[type="text"] {
+.filter-group input[type="text"],
+.filter-group input[type="number"] {
     padding: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: 0.25rem;
     font-size: 1rem;
+}
+
+.filter-group input[type="number"] {
+    text-align: center;
 }
 
 .filter-group input[type="text"] {
