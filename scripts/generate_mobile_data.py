@@ -1,76 +1,24 @@
 #!/usr/bin/env python3
 """
-Generate mobile-optimized data files from the full demographics parts.
+Generate a pre-computed dashboard summary for mobile browsers.
 
-The full dataset is ~136 MB compressed / 780 MB uncompressed across 8 parts.
-Mobile browsers (especially iOS Safari) crash or time-out trying to download
-and parse that much data.
+The full dataset is ~136 MB compressed / 780 MB uncompressed — far too much
+for mobile browsers.  Instead of sending 77K individual study records, this
+script pre-computes every aggregate the dashboard charts need and writes a
+single ~30 KB JSON file.
 
-This script produces lightweight "mobile" parts that keep only the fields
-needed for the dashboard charts, filters, and Studies table — stripping
-detail-only fields (study_sites, secondary_outcomes, references, etc.) and
-trimming demographic objects to just their summary totals.
-
-Result: ~10-15 MB compressed across 2 parts — loadable on mobile.
+Mobile loads ONLY this file: instant dashboard with all charts, no per-study
+data needed.  The Studies table and Geography tab show a "view on desktop"
+prompt.  Filters are disabled (all data is pre-aggregated).
 """
 import json
 import gzip
-import math
 import os
-
-NUM_MOBILE_PARTS = 2
-MAX_PART_MB = 20
-
-# Fields kept verbatim from the full study record
-KEEP_FIELDS = {
-    "nct_id", "brief_title", "results_date", "enrollment", "enrollment_type",
-    "study_type", "phase", "status", "start_date", "completion_date",
-    "primary_completion_date", "sponsor_class", "intervention_model",
-    "masking", "primary_purpose", "healthy_volunteers", "conditions",
-    "countries", "completion_to_report_days", "start_to_report_days",
-    "std_ages", "why_stopped", "primary_condition", "secondary_condition",
-    "pediatric_status",
-}
-
-
-def slim_demographic(obj, totals_key="omb_totals"):
-    """Reduce a demographic object to just reported + totals."""
-    if not obj or not isinstance(obj, dict):
-        return obj
-    return {
-        "reported": obj.get("reported", False),
-        totals_key: obj.get(totals_key, {}),
-    }
-
-
-def slim_study(study):
-    """Return a mobile-friendly copy of a study record."""
-    slim = {}
-    for k in KEEP_FIELDS:
-        if k in study:
-            slim[k] = study[k]
-
-    # Slim demographics: keep only reported flag + totals
-    slim["race"] = slim_demographic(study.get("race"), "omb_totals")
-    slim["ethnicity"] = slim_demographic(study.get("ethnicity"), "omb_totals")
-    slim["sex"] = slim_demographic(study.get("sex"), "totals")
-    slim["gender"] = slim_demographic(study.get("gender"), "totals")
-
-    # Countries: if study_sites exist but countries is missing, derive from sites
-    if not slim.get("countries") and study.get("study_sites"):
-        unique = list({s["country"] for s in study["study_sites"] if s.get("country")})
-        slim["countries"] = [{"country": c} for c in unique]
-
-    # Minimal references: just count (for the publications column badge)
-    refs = study.get("references") or []
-    if refs:
-        slim["reference_count"] = len(refs)
-
-    return slim
+from collections import defaultdict
 
 
 def main():
-    # Collect all studies from the full parts
+    # ── Load all studies ──
     all_studies = []
     extracted_at = None
 
@@ -86,45 +34,200 @@ def main():
         all_studies.extend(container["data"])
 
     total = len(all_studies)
-    print(f"Loaded {total} studies from full dataset")
+    print(f"Loaded {total} studies")
 
-    # Slim each study
-    slim_studies = [slim_study(s) for s in all_studies]
+    # ── Summary cards ──
+    race_count = sum(1 for s in all_studies if (s.get("race") or {}).get("reported"))
+    eth_count = sum(1 for s in all_studies if (s.get("ethnicity") or {}).get("reported"))
+    sex_count = sum(1 for s in all_studies if (s.get("sex") or {}).get("reported"))
+    gender_count = sum(1 for s in all_studies if (s.get("gender") or {}).get("reported"))
+    both_count = sum(1 for s in all_studies
+                     if (s.get("race") or {}).get("reported")
+                     and (s.get("ethnicity") or {}).get("reported"))
 
-    # Measure savings
-    full_sample = json.dumps(all_studies[0], separators=(",", ":"))
-    slim_sample = json.dumps(slim_studies[0], separators=(",", ":"))
-    print(f"Per-study size: {len(full_sample)} → {len(slim_sample)} bytes "
-          f"({100 * len(slim_sample) / len(full_sample):.0f}%)")
+    # ── Aggregate distributions (non-year-grouped) ──
+    race_dist = defaultdict(int)
+    eth_dist = defaultdict(int)
+    sex_dist = defaultdict(int)
+    gender_dist = defaultdict(int)
+    race_subcats = defaultdict(int)
+    eth_subcats = defaultdict(int)
 
-    # Split into parts
-    chunk_size = math.ceil(total / NUM_MOBILE_PARTS)
-    os.makedirs("data", exist_ok=True)
+    for s in all_studies:
+        r = s.get("race") or {}
+        if r.get("reported"):
+            for k, v in (r.get("omb_totals") or {}).items():
+                race_dist[k] += v or 0
+            for k, v in (r.get("subcategory_totals") or {}).items():
+                race_subcats[k] += v or 0
 
-    for i in range(NUM_MOBILE_PARTS):
-        start = i * chunk_size
-        end = min(start + chunk_size, total)
-        part_data = {
-            "extracted_at": extracted_at,
-            "part": i + 1,
-            "total_parts": NUM_MOBILE_PARTS,
-            "mobile": True,
-            "data": slim_studies[start:end],
-        }
-        path = f"data/demographics.mobile.part{i + 1}.json.gz"
-        print(f"  Mobile part {i + 1}: studies {start}–{end - 1} ({end - start} studies)")
-        with gzip.open(path, "wt", compresslevel=9) as f:
-            json.dump(part_data, f, separators=(",", ":"))
+        e = s.get("ethnicity") or {}
+        if e.get("reported"):
+            for k, v in (e.get("omb_totals") or {}).items():
+                eth_dist[k] += v or 0
+            for k, v in (e.get("subcategory_totals") or {}).items():
+                eth_subcats[k] += v or 0
 
-        size_mb = os.path.getsize(path) / (1024 * 1024)
-        print(f"    → {size_mb:.1f} MB")
+        sx = s.get("sex") or {}
+        if sx.get("reported"):
+            for k, v in (sx.get("totals") or {}).items():
+                sex_dist[k] += v or 0
 
-    total_mb = sum(
-        os.path.getsize(f"data/demographics.mobile.part{i + 1}.json.gz") / (1024 ** 2)
-        for i in range(NUM_MOBILE_PARTS)
-    )
-    print(f"\n✓ Generated {NUM_MOBILE_PARTS} mobile parts, total {total_mb:.1f} MB compressed")
-    print(f"  (vs ~136 MB for full desktop data)")
+        g = s.get("gender") or {}
+        if g.get("reported"):
+            for k, v in (g.get("totals") or {}).items():
+                gender_dist[k] += v or 0
+
+    # ── Year-grouped aggregates ──
+    # Each year bucket stores everything the various chart functions need.
+    years = defaultdict(lambda: {
+        "total": 0,
+        "race_reported": 0, "eth_reported": 0,
+        "sex_reported": 0, "gender_reported": 0, "both_reported": 0,
+        "enrollment": 0,
+        # Race OMB sums
+        "r_ai": 0, "r_as": 0, "r_bl": 0, "r_nh": 0,
+        "r_wh": 0, "r_mu": 0, "r_un": 0, "r_ot": 0,
+        # Race normalized (sum of per-study fractions)
+        "rn_wh": 0.0, "rn_bl": 0.0, "rn_as": 0.0, "rn_count": 0,
+        # Ethnicity OMB sums
+        "e_hi": 0, "e_nh": 0, "e_un": 0,
+        # Ethnicity normalized
+        "en_hi": 0.0, "en_count": 0,
+        # Sex sums
+        "s_f": 0, "s_m": 0, "s_u": 0,
+        # Sex normalized
+        "sn_f": 0.0, "sn_count": 0,
+        # Gender sums
+        "g_w": 0, "g_m": 0, "g_nb": 0, "g_tg": 0, "g_ot": 0, "g_u": 0,
+        # Gender normalized
+        "gn_w": 0.0, "gn_m": 0.0, "gn_nb": 0.0, "gn_tg": 0.0, "gn_count": 0,
+        # Full distribution (all studies, including non-reporting)
+        "fd_enrollment": 0,
+    })
+
+    for s in all_studies:
+        rd = (s.get("results_date") or "")[:4]
+        if not rd:
+            continue
+        y = years[rd]
+        y["total"] += 1
+        enrollment = s.get("enrollment") or 0
+        y["enrollment"] += enrollment
+        y["fd_enrollment"] += enrollment
+
+        r = s.get("race") or {}
+        e = s.get("ethnicity") or {}
+        sx = s.get("sex") or {}
+        g = s.get("gender") or {}
+
+        r_rep = r.get("reported", False)
+        e_rep = e.get("reported", False)
+        sx_rep = sx.get("reported", False)
+        g_rep = g.get("reported", False)
+
+        if r_rep:
+            y["race_reported"] += 1
+        if e_rep:
+            y["eth_reported"] += 1
+        if sx_rep:
+            y["sex_reported"] += 1
+        if g_rep:
+            y["gender_reported"] += 1
+        if r_rep and e_rep:
+            y["both_reported"] += 1
+
+        # Race aggregates
+        if r_rep:
+            omb = r.get("omb_totals") or {}
+            ai = omb.get("american_indian_alaska_native", 0) or 0
+            asian = omb.get("asian", 0) or 0
+            bl = omb.get("black_african_american", 0) or 0
+            nh = omb.get("native_hawaiian_pacific_islander", 0) or 0
+            wh = omb.get("white", 0) or 0
+            mu = omb.get("more_than_one_race", 0) or 0
+            un = omb.get("unknown_not_reported", 0) or 0
+            ot = omb.get("other", 0) or 0
+            y["r_ai"] += ai; y["r_as"] += asian; y["r_bl"] += bl
+            y["r_nh"] += nh; y["r_wh"] += wh; y["r_mu"] += mu
+            y["r_un"] += un; y["r_ot"] += ot
+            study_total = ai + asian + bl + nh + wh + mu + un + ot
+            if study_total > 0:
+                y["rn_count"] += 1
+                y["rn_wh"] += wh / study_total
+                y["rn_bl"] += bl / study_total
+                y["rn_as"] += asian / study_total
+
+        # Ethnicity aggregates
+        if e_rep:
+            omb = e.get("omb_totals") or {}
+            hi = omb.get("hispanic_latino", 0) or 0
+            nhi = omb.get("not_hispanic_latino", 0) or 0
+            eun = omb.get("unknown_not_reported", 0) or 0
+            y["e_hi"] += hi; y["e_nh"] += nhi; y["e_un"] += eun
+            study_total = hi + nhi + eun
+            if study_total > 0:
+                y["en_count"] += 1
+                y["en_hi"] += hi / study_total
+
+        # Sex aggregates
+        if sx_rep:
+            t = sx.get("totals") or {}
+            f = t.get("female", 0) or 0
+            m = t.get("male", 0) or 0
+            u = t.get("unknown", 0) or 0
+            y["s_f"] += f; y["s_m"] += m; y["s_u"] += u
+            study_total = f + m + u
+            if study_total > 0:
+                y["sn_count"] += 1
+                y["sn_f"] += f / study_total
+
+        # Gender aggregates
+        if g_rep:
+            t = g.get("totals") or {}
+            gw = t.get("woman", 0) or 0
+            gm = t.get("man", 0) or 0
+            gnb = t.get("nonbinary", 0) or 0
+            gtg = t.get("transgender", 0) or 0
+            got = t.get("other", 0) or 0
+            gu = t.get("unknown", 0) or 0
+            y["g_w"] += gw; y["g_m"] += gm; y["g_nb"] += gnb
+            y["g_tg"] += gtg; y["g_ot"] += got; y["g_u"] += gu
+            study_total = gw + gm + gnb + gtg + got
+            if study_total > 0:
+                y["gn_count"] += 1
+                y["gn_w"] += gw / study_total
+                y["gn_m"] += gm / study_total
+                y["gn_nb"] += gnb / study_total
+                y["gn_tg"] += gtg / study_total
+
+    # ── Build summary JSON ──
+    summary = {
+        "extracted_at": extracted_at,
+        "totalStudies": total,
+        "cards": {
+            "raceCount": race_count,
+            "ethCount": eth_count,
+            "sexCount": sex_count,
+            "genderCount": gender_count,
+            "bothCount": both_count,
+        },
+        "raceDistribution": dict(race_dist),
+        "ethnicityDistribution": dict(eth_dist),
+        "sexDistribution": dict(sex_dist),
+        "genderDistribution": dict(gender_dist),
+        "raceSubcategories": dict(race_subcats),
+        "ethnicitySubcategories": dict(eth_subcats),
+        "byYear": {yr: dict(vals) for yr, vals in sorted(years.items())},
+    }
+
+    path = "data/dashboard-summary.json"
+    with open(path, "w") as f:
+        json.dump(summary, f, separators=(",", ":"))
+
+    size_kb = os.path.getsize(path) / 1024
+    print(f"\n✓ Generated {path}: {size_kb:.1f} KB")
+    print(f"  ({total} studies pre-aggregated into {len(years)} year buckets)")
 
 
 if __name__ == "__main__":
