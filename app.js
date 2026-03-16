@@ -45,16 +45,7 @@ function hideSnapshotLoading() {
     if (overlay) overlay.style.display = 'none';
 }
 
-// GitHub repository details for fetching historical snapshots
-const REPO_OWNER = 'michaeldgreenphd';
-const REPO_NAME  = 'clinical-trial-populations';
-
-// Use jsDelivr CDN for historical data - it mirrors GitHub releases with proper CORS headers
-// Format: https://cdn.jsdelivr.net/gh/{owner}/{repo}@{tag}/path/to/file
-const JSDELIVR_BASE = `https://cdn.jsdelivr.net/gh/${REPO_OWNER}/${REPO_NAME}`;
-
-// Fallback: direct GitHub release URL (may have CORS issues in some browsers)
-const RELEASE_BASE = `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download`;
+// Historical snapshots are served from the snapshots/ directory on GitHub Pages (same origin)
 
 // Colors for charts
 const COLORS = {
@@ -469,7 +460,7 @@ async function loadDetailData() {
     }
 }
 
-// Number of data file parts (updated from 2 → 8 to stay under jsDelivr's 20 MB limit)
+// Number of data file parts per snapshot
 const NUM_PARTS = 8;
 
 // Generate an array of part filenames: demographics.part1.json.gz … partN.json.gz
@@ -478,41 +469,24 @@ function partFiles(n) {
 }
 
 // Build list of URL strategies to try for fetching data.
-// Each strategy has a name and an array of part URLs.
+// Historical snapshots are stored in snapshots/{date}/ on GitHub Pages (same origin).
 function getUrlStrategies(date) {
     const parts8 = partFiles(8);
-    const parts2 = partFiles(2);
 
     // Latest data: local relative paths
     if (!date || date === 'latest') {
         return [
-            { name: 'Local (8-part)', urls: parts8.map(f => `data/${f}`) },
-            { name: 'Local (2-part legacy)', urls: parts2.map(f => `data/${f}`) }
+            { name: 'Local', urls: parts8.map(f => `data/${f}`) }
         ];
     }
 
-    // Historical data: try jsDelivr first (proper CORS, fast), then GitHub Releases
+    // Historical data: served from snapshots/ directory on GitHub Pages (same origin)
     return [
-        // 8-part (new format, each <20 MB — within jsDelivr limit)
         {
-            name: 'jsDelivr CDN (8-part)',
-            urls: parts8.map(f => `${JSDELIVR_BASE}@${date}/data/${f}`)
+            name: 'Snapshot',
+            urls: parts8.map(f => `snapshots/${date}/${f}`)
         },
-        // 2-part legacy via jsDelivr (will 403 if files are >20 MB, but try anyway)
-        {
-            name: 'jsDelivr CDN (2-part legacy)',
-            urls: parts2.map(f => `${JSDELIVR_BASE}@${date}/data/${f}`)
-        },
-        // GitHub Release assets (works for any size, CORS via redirect)
-        {
-            name: 'GitHub Release (8-part)',
-            urls: parts8.map(f => `${RELEASE_BASE}/${date}/${f}`)
-        },
-        {
-            name: 'GitHub Release (2-part legacy)',
-            urls: parts2.map(f => `${RELEASE_BASE}/${date}/${f}`)
-        },
-        // Fall back to latest local data (for development/testing)
+        // Fall back to latest local data
         {
             name: 'Local (fallback)',
             urls: parts8.map(f => `data/${f}`)

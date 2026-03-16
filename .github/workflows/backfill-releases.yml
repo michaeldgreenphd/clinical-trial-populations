@@ -1,4 +1,7 @@
-name: Backfill Snapshots (re-split to 8 parts)
+name: Backfill Snapshots
+
+# Creates snapshots/{date}/ directories for historical date tags so they
+# can be served directly from GitHub Pages.  Run once after merging.
 
 on:
   workflow_dispatch:
@@ -20,7 +23,7 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Re-split old 2-part snapshots into 8 parts
+      - name: Create snapshot directories for each date tag
         run: |
           set -e
 
@@ -34,43 +37,48 @@ jobs:
             echo ""
             echo "=== Processing tag: $TAG ==="
 
-            # Skip if already migrated to 8 parts
-            if git show "$TAG:data/demographics.part8.json.gz" >/dev/null 2>&1; then
-              echo "Tag $TAG already has 8-part files. Skipping."
+            # Skip if snapshot directory already exists with 8-part files
+            if [ -f "snapshots/$TAG/demographics.part8.json.gz" ]; then
+              echo "snapshots/$TAG/ already has 8-part files. Skipping."
               continue
             fi
 
-            # Check out the 2-part files from this tag
-            echo "Checking out 2-part files from tag $TAG..."
+            # Check out the data files from this tag
+            echo "Checking out data files from tag $TAG..."
             git checkout "$TAG" -- data/demographics.part1.json.gz data/demographics.part2.json.gz 2>/dev/null || {
               echo "Could not find data files at tag $TAG. Skipping."
               continue
             }
 
-            # Merge 2 parts back into single JSON, then re-split into 8
-            echo "Merging 2 parts into single JSON..."
-            python3 scripts/merge_parts.py
+            # Check if these are 2-part (legacy) or 8-part files
+            if git show "$TAG:data/demographics.part8.json.gz" >/dev/null 2>&1; then
+              echo "Tag has 8-part files, copying directly..."
+              git checkout "$TAG" -- data/demographics.part3.json.gz data/demographics.part4.json.gz \
+                data/demographics.part5.json.gz data/demographics.part6.json.gz \
+                data/demographics.part7.json.gz data/demographics.part8.json.gz
+              mkdir -p "snapshots/$TAG"
+              cp data/demographics.part*.json.gz "snapshots/$TAG/"
+            else
+              echo "Tag has 2-part files, merging and re-splitting..."
+              python3 scripts/merge_parts.py
+              python3 scripts/split_data.py
+              rm -f data/demographics.json
+              mkdir -p "snapshots/$TAG"
+              cp data/demographics.part*.json.gz "snapshots/$TAG/"
+            fi
 
-            echo "Re-splitting into 8 parts..."
-            python3 scripts/split_data.py
-
-            # Clean up temporary merged file
-            rm -f data/demographics.json
-
-            # Commit and move the tag
-            git add data/demographics.part*.json.gz
-            git commit -m "Re-split demographics data $TAG into 8 parts for jsDelivr"
-
-            git tag -f "$TAG"
-            git push origin -f "refs/tags/$TAG"
-
-            echo "Tag $TAG updated to 8-part format."
-
-            # Reset working tree for next iteration
+            # Restore main's data files
             git checkout main -- data/
+
+            echo "Created snapshots/$TAG/"
           done
 
-          git push origin main || true
+          # Commit all snapshot directories at once
+          if [ -d snapshots ]; then
+            git add snapshots/
+            git commit -m "Backfill historical snapshot directories for GitHub Pages" || echo "Nothing to commit."
+            git push
+          fi
 
           echo ""
           echo "=== Backfill complete ==="
