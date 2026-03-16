@@ -32,16 +32,17 @@ jobs:
           DATE=$(date +'%Y-%m-%d')
           echo "date=$DATE" >> $GITHUB_ENV
 
-          # Split into 8 parts
+          # Split into 8 parts (desktop) + 2 mobile-optimized parts
           python3 scripts/split_data.py
+          python3 scripts/generate_mobile_data.py
 
-          for f in data/demographics.part*.json.gz; do
+          for f in data/demographics.part*.json.gz data/demographics.mobile.part*.json.gz; do
             echo "$(basename $f): $(du -h "$f" | cut -f1)"
           done
 
           # Archive snapshot for historical access via GitHub Pages
           mkdir -p "snapshots/$DATE"
-          cp data/demographics.part*.json.gz "snapshots/$DATE/"
+          cp data/demographics.part*.json.gz data/demographics.mobile.part*.json.gz "snapshots/$DATE/"
           echo "Archived snapshot to snapshots/$DATE/"
 
           # Update history manifest
@@ -57,7 +58,7 @@ jobs:
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/demographics.part*.json.gz "snapshots/$DATE/" history.json
+          git add data/demographics.part*.json.gz data/demographics.mobile.part*.json.gz "snapshots/$DATE/" history.json
           git commit -m "Update demographics data $DATE" || exit 0
           git push
         env:
