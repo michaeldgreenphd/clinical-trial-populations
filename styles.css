@@ -1001,6 +1001,16 @@ footer p {
         min-width: 150px;
     }
 
+    .dual-range-container {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    .dual-range-track {
+        width: 100%;
+        max-width: calc(100vw - 6rem);
+    }
+
     .table-controls {
         flex-direction: column;
         align-items: flex-start;
