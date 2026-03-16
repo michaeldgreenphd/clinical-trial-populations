@@ -8,6 +8,19 @@ let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
 const PAGE_SIZE = 100;
 
+// ── Mobile / low-memory detection ──
+// Mobile browsers struggle with the full 136 MB dataset (780 MB uncompressed).
+// When detected, load the lightweight mobile parts (~11 MB) instead.
+const isMobileDevice = (() => {
+    const ua = navigator.userAgent || '';
+    const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(ua);
+    const isSmallScreen = window.innerWidth <= 768;
+    // deviceMemory is a Chrome-only API (GB); treat ≤4 GB as constrained
+    const isLowMemory = navigator.deviceMemory != null && navigator.deviceMemory <= 4;
+    return isMobileUA || isSmallScreen || isLowMemory;
+})();
+const NUM_MOBILE_PARTS = 2;
+
 // ── Snapshot cache: avoids re-downloading previously loaded snapshots ──
 const snapshotCache = new Map(); // key: date string ('latest' | 'YYYY-MM-DD'), value: { data, dateLabel }
 
@@ -375,7 +388,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         updateLoadingProgress(5, 'Loading condition ontology...');
         await loadConditionOntology();
-        updateLoadingProgress(10, 'Fetching clinical trial data...');
+        updateLoadingProgress(10, isMobileDevice ? 'Loading mobile-optimized data...' : 'Fetching clinical trial data...');
         await loadData();
         updateLoadingProgress(80, 'Initializing dashboard...');
         initTabs();
@@ -476,21 +489,38 @@ function partFiles(n) {
     return Array.from({ length: n }, (_, i) => `demographics.part${i + 1}.json.gz`);
 }
 
+// Generate mobile part filenames: demographics.mobile.part1.json.gz …
+function mobilePartFiles(n) {
+    return Array.from({ length: n }, (_, i) => `demographics.mobile.part${i + 1}.json.gz`);
+}
+
 // Build list of URL strategies to try for fetching data.
 // Historical snapshots are stored in snapshots/{date}/ on GitHub Pages (same origin).
+// On mobile, try lightweight mobile parts first, then fall back to full parts.
 function getUrlStrategies(date) {
     const parts8 = partFiles(8);
+    const mobileParts = mobilePartFiles(NUM_MOBILE_PARTS);
 
     // Latest data: local relative paths
     if (!date || date === 'latest') {
+        if (isMobileDevice) {
+            return [
+                { name: 'Mobile',  urls: mobileParts.map(f => `data/${f}`) },
+                { name: 'Local',   urls: parts8.map(f => `data/${f}`) }
+            ];
+        }
         return [
             { name: 'Local', urls: parts8.map(f => `data/${f}`) }
         ];
     }
 
     // Historical data: served from snapshots/ directory on GitHub Pages (same origin)
-    // No fallback to local — if a snapshot is unavailable, fail clearly
-    // rather than silently showing the latest data as if it were the snapshot.
+    if (isMobileDevice) {
+        return [
+            { name: 'Mobile Snapshot', urls: mobileParts.map(f => `snapshots/${date}/${f}`) },
+            { name: 'Snapshot',        urls: parts8.map(f => `snapshots/${date}/${f}`) }
+        ];
+    }
     return [
         {
             name: 'Snapshot',
@@ -540,7 +570,9 @@ async function loadData(date) {
 
             updateLoadingProgress(70, 'Processing studies...');
             data = parts.flatMap(p => p.data);
-            console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
+            // Track whether we loaded mobile-slim data (missing raw_categories, breakdowns, etc.)
+            window.mobileDataMode = !!parts[0]?.mobile;
+            console.log(`✓ Loaded ${data.length} studies via ${strategy.name}${window.mobileDataMode ? ' (mobile-slim)' : ''}`);
 
             // Debug: Log exact keys of first study for data mapping verification
             if (data.length > 0) {
@@ -1372,6 +1404,10 @@ function pubLabel(ref, index) {
 function renderPublications(study) {
     const refs = study.references || [];
     if (refs.length === 0) {
+        // Mobile-slim data: show count badge if available
+        if (study.reference_count > 0) {
+            return `<span class="text-muted" title="${study.reference_count} publication(s) — open full view for details">${study.reference_count} pub${study.reference_count > 1 ? 's' : ''}</span>`;
+        }
         return '<span class="text-muted">-</span>';
     }
 
@@ -1853,7 +1889,10 @@ function showBreakdown(nctId, categoryName) {
         const rawCategories = study.race?.raw_categories || [];
 
         // Which OMB categories actually appear in this study's baseline data
-        const reportedSet = new Set(rawCategories.map(rc => rc.omb_category));
+        // In mobile-slim mode, raw_categories is missing; fall back to non-zero omb_totals
+        const reportedSet = rawCategories.length > 0
+            ? new Set(rawCategories.map(rc => rc.omb_category))
+            : new Set(Object.entries(ombTotals).filter(([, v]) => v > 0).map(([k]) => k));
 
         // Denominator includes all standard categories + any "other" unmapped counts
         const grandTotal = ombCategories.reduce((s, c) => s + (ombTotals[c.key] || 0), 0)
@@ -1877,14 +1916,20 @@ function showBreakdown(nctId, categoryName) {
 
             // Aggregate original labels and best match quality from raw_categories
             const matching       = rawCategories.filter(rc => rc.omb_category === cat.key);
-            const originalLabels = [...new Set(matching.map(rc => rc.original))].join(', ');
-            const bestConfidence = matching.some(rc => rc.confidence === 'high')   ? 'high'   :
-                                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low';
+            const originalLabels = matching.length > 0
+                ? [...new Set(matching.map(rc => rc.original))].join(', ')
+                : cat.display;  // Fallback for mobile-slim
+            const bestConfidence = matching.length > 0
+                ? (matching.some(rc => rc.confidence === 'high')   ? 'high'   :
+                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low')
+                : null;
             const hasFuzzy       = matching.some(rc => rc.flags?.some(f => f.includes('fuzzy_match')));
             const hasUnmapped    = matching.some(rc => rc.flags?.includes('unmapped'));
 
             let matchQuality = '';
-            if (bestConfidence === 'high') {
+            if (bestConfidence === null) {
+                matchQuality = '<span class="match-na">-</span>';
+            } else if (bestConfidence === 'high') {
                 matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
             } else if (bestConfidence === 'medium' || hasFuzzy) {
                 matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
@@ -1906,7 +1951,9 @@ function showBreakdown(nctId, categoryName) {
         // "Other" row only when unmapped labels contributed counts
         if (ombTotals.other > 0) {
             const otherRaw    = rawCategories.filter(rc => rc.omb_category === 'other');
-            const otherLabels = [...new Set(otherRaw.map(rc => rc.original))].join(', ');
+            const otherLabels = otherRaw.length > 0
+                ? [...new Set(otherRaw.map(rc => rc.original))].join(', ')
+                : 'Other';
             const otherPct    = grandTotal > 0 ? ((ombTotals.other / grandTotal) * 100).toFixed(1) : '0.0';
             html += `<tr>
                 <td>Other</td>
@@ -1937,14 +1984,18 @@ function showBreakdown(nctId, categoryName) {
             );
             const originalLabels = matching.length > 0
                 ? [...new Set(matching.map(rc => rc.original))].join(', ')
-                : displayName;
-            const bestConfidence = matching.some(rc => rc.confidence === 'high') ? 'high' :
-                                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low';
+                : displayName;  // Fallback for mobile-slim
+            const bestConfidence = matching.length > 0
+                ? (matching.some(rc => rc.confidence === 'high') ? 'high' :
+                   matching.some(rc => rc.confidence === 'medium') ? 'medium' : 'low')
+                : null;
             const hasFuzzy = matching.some(rc => rc.flags?.some(f => f.includes('fuzzy_match')));
             const hasUnmapped = matching.some(rc => rc.flags?.includes('unmapped'));
 
             let matchQuality = '';
-            if (bestConfidence === 'high') {
+            if (bestConfidence === null) {
+                matchQuality = '<span class="match-na">-</span>';
+            } else if (bestConfidence === 'high') {
                 matchQuality = '<span class="match-high" title="Exact or case-insensitive match">✓ Exact</span>';
             } else if (bestConfidence === 'medium' || hasFuzzy) {
                 matchQuality = '<span class="match-medium" title="Fuzzy string matching used">≈ Fuzzy</span>';
