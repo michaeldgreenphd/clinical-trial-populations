@@ -489,15 +489,12 @@ function getUrlStrategies(date) {
     }
 
     // Historical data: served from snapshots/ directory on GitHub Pages (same origin)
+    // No fallback to local — if a snapshot is unavailable, fail clearly
+    // rather than silently showing the latest data as if it were the snapshot.
     return [
         {
             name: 'Snapshot',
             urls: parts8.map(f => `snapshots/${date}/${f}`)
-        },
-        // Fall back to latest local data
-        {
-            name: 'Local (fallback)',
-            urls: parts8.map(f => `data/${f}`)
         }
     ];
 }
@@ -581,27 +578,9 @@ async function loadData(date) {
         }
     }
 
-    // All strategies failed
+    // All strategies failed — throw so callers (change handler) can handle
     console.error('All fetch strategies failed:', lastError);
-    document.getElementById('last-updated').textContent = 'Error loading data';
-
-    document.querySelector('main').innerHTML = `
-        <div class="chart-container">
-            <h3>No Data Available</h3>
-            <p class="note">Could not load data for ${date || 'latest'}.</p>
-            <p class="note">Error: ${lastError?.message || 'Unknown error'}</p>
-            <p class="note" style="font-size: 0.9em; color: #666;">
-                Tried the following sources:<br>
-                ${strategies.map(s => `- ${s.name}: ${s.urls[0]}`).join('<br>')}
-            </p>
-            ${date && date !== 'latest' ? `
-            <p class="note">
-                <button onclick="loadDataAndRender('latest')" style="padding: 0.5rem 1rem; cursor: pointer; background: var(--primary-color); color: white; border: none; border-radius: 4px;">
-                    Load Latest Data Instead
-                </button>
-            </p>` : ''}
-        </div>
-    `;
+    throw new Error(`Could not load data for ${date || 'latest'}: ${lastError?.message || 'Unknown error'}`);
 }
 
 // Wrapper function to reload with a specific date (called from error recovery buttons)
@@ -659,6 +638,9 @@ async function initHistorySelector() {
         console.warn('Could not load history manifest:', e);
     }
 
+    // Initialize tracking so revert-on-error knows the starting state
+    select.dataset.lastValue = 'latest';
+
     select.addEventListener('change', async () => {
         const chosen = select.value;
         const previousValue = select.dataset.lastValue || 'latest';
@@ -680,12 +662,11 @@ async function initHistorySelector() {
             renderDashboard();
 
             select.dataset.lastValue = chosen;
-            if (isCached) {
-                showToast(`Loaded ${chosen === 'latest' ? 'latest' : chosen} snapshot from cache`, 'info', 2000);
-            }
+            const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
+            showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${data.length} studies`, 'info', 3000);
         } catch (err) {
             console.error('Snapshot switch failed:', err);
-            showToast(`Snapshot data unavailable for ${chosen}. Reverting to previous view.`, 'error');
+            showToast(`Snapshot "${chosen}" unavailable: ${err.message}. Reverting.`, 'error', 5000);
             // Revert dropdown and reload previous data
             select.value = previousValue;
             if (previousValue !== chosen) {
