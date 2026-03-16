@@ -469,50 +469,53 @@ async function loadDetailData() {
     }
 }
 
-// Build list of URL strategies to try for fetching data
-// Returns array of { name, urls } objects in priority order
+// Number of data file parts (updated from 2 → 8 to stay under jsDelivr's 20 MB limit)
+const NUM_PARTS = 8;
+
+// Generate an array of part filenames: demographics.part1.json.gz … partN.json.gz
+function partFiles(n) {
+    return Array.from({ length: n }, (_, i) => `demographics.part${i + 1}.json.gz`);
+}
+
+// Build list of URL strategies to try for fetching data.
+// Each strategy has a name and an array of part URLs.
 function getUrlStrategies(date) {
-    // Latest data: just use local relative paths
+    const parts8 = partFiles(8);
+    const parts2 = partFiles(2);
+
+    // Latest data: local relative paths
     if (!date || date === 'latest') {
-        return [{
-            name: 'Local',
-            urls: ['data/demographics.part1.json.gz', 'data/demographics.part2.json.gz']
-        }];
+        return [
+            { name: 'Local (8-part)', urls: parts8.map(f => `data/${f}`) },
+            { name: 'Local (2-part legacy)', urls: parts2.map(f => `data/${f}`) }
+        ];
     }
 
-    // Historical data: try multiple strategies
-    // GitHub Release assets are preferred because jsDelivr returns 403 for
-    // files larger than ~50 MB.  Release asset URLs redirect to
-    // objects.githubusercontent.com which supports CORS.
+    // Historical data: try jsDelivr first (proper CORS, fast), then GitHub Releases
     return [
-        // Strategy 1: GitHub Release assets (reliable for large files, CORS via redirect)
+        // 8-part (new format, each <20 MB — within jsDelivr limit)
         {
-            name: 'GitHub Release',
-            urls: [
-                `${RELEASE_BASE}/${date}/demographics.part1.json.gz`,
-                `${RELEASE_BASE}/${date}/demographics.part2.json.gz`
-            ]
+            name: 'jsDelivr CDN (8-part)',
+            urls: parts8.map(f => `${JSDELIVR_BASE}@${date}/data/${f}`)
         },
-        // Strategy 2: jsDelivr CDN (fast when it works, but 403s on large files)
+        // 2-part legacy via jsDelivr (will 403 if files are >20 MB, but try anyway)
         {
-            name: 'jsDelivr CDN',
-            urls: [
-                `${JSDELIVR_BASE}@${date}/data/demographics.part1.json.gz`,
-                `${JSDELIVR_BASE}@${date}/data/demographics.part2.json.gz`
-            ]
+            name: 'jsDelivr CDN (2-part legacy)',
+            urls: parts2.map(f => `${JSDELIVR_BASE}@${date}/data/${f}`)
         },
-        // Strategy 3: raw.githubusercontent.com (works if file exists at tag)
+        // GitHub Release assets (works for any size, CORS via redirect)
         {
-            name: 'Raw GitHub',
-            urls: [
-                `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${date}/data/demographics.part1.json.gz`,
-                `https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${date}/data/demographics.part2.json.gz`
-            ]
+            name: 'GitHub Release (8-part)',
+            urls: parts8.map(f => `${RELEASE_BASE}/${date}/${f}`)
         },
-        // Strategy 4: Fall back to latest local data (for development/testing)
+        {
+            name: 'GitHub Release (2-part legacy)',
+            urls: parts2.map(f => `${RELEASE_BASE}/${date}/${f}`)
+        },
+        // Fall back to latest local data (for development/testing)
         {
             name: 'Local (fallback)',
-            urls: ['data/demographics.part1.json.gz', 'data/demographics.part2.json.gz']
+            urls: parts8.map(f => `data/${f}`)
         }
     ];
 }
@@ -542,17 +545,22 @@ async function loadData(date) {
 
     for (const strategy of strategies) {
         try {
-            console.log(`Trying ${strategy.name} strategy...`);
-            updateLoadingProgress(15, 'Downloading dataset part 1 of 2...');
-            const part1Promise = fetchAndDecompress(strategy.urls[0]);
-            const part2Promise = fetchAndDecompress(strategy.urls[1]);
+            const numParts = strategy.urls.length;
+            console.log(`Trying ${strategy.name} strategy (${numParts} parts)...`);
 
-            const part1 = await part1Promise;
-            updateLoadingProgress(45, 'Downloading dataset part 2 of 2...');
-            const part2 = await part2Promise;
+            // Fetch all parts in parallel
+            const promises = strategy.urls.map((url, i) => {
+                updateLoadingProgress(
+                    15 + Math.round((i / numParts) * 50),
+                    `Downloading dataset part ${i + 1} of ${numParts}...`
+                );
+                return fetchAndDecompress(url);
+            });
+
+            const parts = await Promise.all(promises);
 
             updateLoadingProgress(70, 'Processing studies...');
-            data = [...part1.data, ...part2.data];
+            data = parts.flatMap(p => p.data);
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
             // Debug: Log exact keys of first study for data mapping verification
@@ -570,14 +578,13 @@ async function loadData(date) {
             // Show which snapshot is loaded
             let dateLabel = '';
             if (date && date !== 'latest') {
-                // Check if we fell back to local data
-                if (strategy.name === 'Local (fallback)') {
+                if (strategy.name.includes('fallback')) {
                     dateLabel = ` (showing latest - ${date} unavailable)`;
                 } else {
                     dateLabel = ` (${date} snapshot)`;
                 }
             }
-            const fullDateLabel = new Date(part1.extracted_at).toLocaleDateString() + dateLabel;
+            const fullDateLabel = new Date(parts[0].extracted_at).toLocaleDateString() + dateLabel;
             document.getElementById('last-updated').textContent = fullDateLabel;
 
             // ── Cache this snapshot for instant re-access ──
