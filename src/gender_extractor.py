@@ -6,6 +6,7 @@ Strictly decoupled from biological sex: Female/Male are NEVER mapped to
 Woman/Man.  Only tables explicitly labeled as "gender" are parsed here.
 """
 from typing import Dict, List, Optional
+from src.utils import clean_demographic_label
 
 # ── Strict standardized target array for gender identity ──
 GENDER_CATEGORIES = ["Woman", "Man", "Non-binary", "Transgender", "Other", "Unknown or Not Reported"]
@@ -61,7 +62,7 @@ def map_gender_label(label: str) -> Optional[Dict]:
     Returns None for biological sex labels so callers can route them
     to the sex extractor instead of cross-mapping.
     """
-    label_clean = label.strip()
+    label_clean = clean_demographic_label(label)
     label_lower = label_clean.lower()
 
     # Reject sex-only labels outright

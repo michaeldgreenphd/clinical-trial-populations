@@ -6,6 +6,7 @@ Implements context-aware routing: only biological sex labels (Female, Male)
 are mapped here.  Gender identity labels (Woman, Man) are never cross-mapped.
 """
 from typing import Dict, List, Optional
+from src.utils import clean_demographic_label
 
 # ── Strict standardized target array for biological sex ──
 SEX_CATEGORIES = ["Female", "Male", "Unknown or Not Reported"]
@@ -61,7 +62,7 @@ def map_sex_label(label: str) -> Optional[Dict]:
     Returns None for gender-identity labels so callers can route them
     to the gender extractor instead of cross-mapping.
     """
-    label_clean = label.strip()
+    label_clean = clean_demographic_label(label)
     label_lower = label_clean.lower()
 
     # Reject gender-only labels outright
