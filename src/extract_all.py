@@ -14,7 +14,7 @@ from src.api_client import CTGovAPIClient
 from src.utils import get_study_metadata, save_json, get_baseline_measures, get_overall_group_id, extract_demographic_breakdown
 from src.race_extractor import extract_race_data
 from src.ethnicity_extractor import extract_ethnicity_data
-from src.sex_extractor import extract_sex_data
+from src.sex_extractor import extract_sex_data, is_combined_sex_gender_table, extract_sex_from_combined_measure
 from src.gender_extractor import extract_gender_data
 from src.condition_classifier import classify_conditions
 from src.pubmed_fetcher import PubMedFetcher
@@ -41,8 +41,64 @@ def extract_demographics_from_study(study: dict, pubmed_fetcher: Optional[PubMed
         metadata = get_study_metadata(study)
         race_data = extract_race_data(study)
         ethnicity_data = extract_ethnicity_data(study)
+
+        # ── Context-aware Sex/Gender extraction ──
+        # Context A & B are handled by the individual extractors.
+        # Context C (combined "Sex/Gender, Customized" tables) requires
+        # coordinated row-level routing from a single table into both arrays.
         sex_data = extract_sex_data(study)
         gender_data = extract_gender_data(study)
+
+        # Handle Context C: combined Sex/Gender tables
+        baseline_measures_all = get_baseline_measures(study)
+        overall_group_id = get_overall_group_id(study)
+        for measure in baseline_measures_all:
+            title = measure.get("title", "")
+            if not is_combined_sex_gender_table(title):
+                continue
+
+            sex_rows, gender_rows = extract_sex_from_combined_measure(
+                measure, overall_group_id
+            )
+
+            # Merge sex rows from combined table
+            if sex_rows:
+                sex_data["reported"] = True
+                sex_data["raw_categories"].extend(sex_rows)
+                for cat in sex_rows:
+                    sex_data["totals"][cat["category"]] += cat["count"]
+                    sex_data["flags"].extend(cat["flags"])
+
+            # Merge gender rows from combined table
+            if gender_rows:
+                gender_data["reported"] = True
+                gender_data["raw_categories"].extend(gender_rows)
+                for cat in gender_rows:
+                    gender_data["totals"][cat["category"]] += cat["count"]
+                    gender_data["flags"].extend(cat["flags"])
+
+            # Enforce "Not Collected": if a combined table only yielded
+            # sex data (Female/Male), explicitly nullify gender
+            if sex_rows and not gender_rows:
+                gender_data["reported"] = False
+                gender_data["totals"] = {k: 0 for k in gender_data["totals"]}
+                gender_data["raw_categories"] = []
+                gender_data["flags"] = ["not_collected_from_combined_table"]
+
+        # Denominator balancing for sex (if combined table added data)
+        if sex_data["reported"]:
+            from src.utils import get_total_baseline_participants
+            total_p = get_total_baseline_participants(study, overall_group_id)
+            if total_p is not None and total_p > 0:
+                reported_sum = sum(sex_data["totals"].values())
+                remainder = total_p - reported_sum
+                if remainder > 0:
+                    sex_data["totals"]["unknown"] += remainder
+                    if "denominator_balanced" not in sex_data["flags"]:
+                        sex_data["flags"].append("denominator_balanced")
+
+        sex_data["flags"] = list(set(sex_data["flags"]))
+        gender_data["flags"] = list(set(gender_data["flags"]))
 
         # Extract demographic breakdowns for interactive display
         baseline_measures = get_baseline_measures(study)

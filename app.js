@@ -68,6 +68,14 @@ const COLORS = {
         female: '#ec4899',
         male: '#3b82f6',
         unknown: '#6b7280'
+    },
+    gender: {
+        woman: '#ec4899',
+        man: '#3b82f6',
+        nonbinary: '#8b5cf6',
+        transgender: '#f97316',
+        other: '#f59e0b',
+        unknown: '#6b7280'
     }
 };
 
@@ -3365,18 +3373,19 @@ function renderGenderDistribution(filtered) {
     const ctx = document.getElementById('gender-distribution-chart');
     if (!ctx) return;
 
-    const totals = { Woman: 0, Man: 0, 'Non-binary': 0, Other: 0, Unknown: 0 };
+    const totals = { Woman: 0, Man: 0, 'Non-binary': 0, Transgender: 0, Other: 0, 'Unknown or Not Reported': 0 };
 
     filtered.forEach(study => {
         if (!study.gender?.reported) return;
         totals.Woman += study.gender.totals.woman || 0;
         totals.Man += study.gender.totals.man || 0;
         totals['Non-binary'] += study.gender.totals.nonbinary || 0;
+        totals.Transgender += study.gender.totals.transgender || 0;
         totals.Other += study.gender.totals.other || 0;
-        totals.Unknown += study.gender.totals.unknown || 0;
+        totals['Unknown or Not Reported'] += study.gender.totals.unknown || 0;
     });
 
-    const genderColors = ['#ec4899', '#3b82f6', '#8b5cf6', '#f59e0b', '#6b7280'];
+    const genderColors = [COLORS.gender.woman, COLORS.gender.man, COLORS.gender.nonbinary, COLORS.gender.transgender, COLORS.gender.other, COLORS.gender.unknown];
 
     if (charts.genderDistribution) charts.genderDistribution.destroy();
 
@@ -3563,7 +3572,7 @@ function renderGenderReportedParticipants(filtered) {
         if (!byYear[year]) byYear[year] = 0;
 
         const totals = study.gender.totals;
-        const knownTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.other || 0);
+        const knownTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
         byYear[year] += knownTotal;
     });
 
@@ -3619,7 +3628,7 @@ function renderGenderFullDistribution(filtered) {
         if (!year) return;
 
         if (!byYear[year]) {
-            byYear[year] = { woman: 0, man: 0, nonbinary: 0, other: 0, explicitUnknown: 0, totalEnrollment: 0 };
+            byYear[year] = { woman: 0, man: 0, nonbinary: 0, transgender: 0, other: 0, explicitUnknown: 0, totalEnrollment: 0 };
         }
 
         const enrollment = study.enrollment || 0;
@@ -3630,21 +3639,22 @@ function renderGenderFullDistribution(filtered) {
             byYear[year].woman += totals.woman || 0;
             byYear[year].man += totals.man || 0;
             byYear[year].nonbinary += totals.nonbinary || 0;
+            byYear[year].transgender += totals.transgender || 0;
             byYear[year].other += totals.other || 0;
             byYear[year].explicitUnknown += totals.unknown || 0;
         }
     });
 
     const years = Object.keys(byYear).sort();
-    const womanData = [], manData = [], nbData = [], otherData = [], unknownData = [], notReportedData = [];
+    const womanData = [], manData = [], nbData = [], transData = [], otherData = [], unknownData = [], notReportedData = [];
 
     years.forEach(y => {
         const d = byYear[y];
-        const allReported = d.woman + d.man + d.nonbinary + d.other + d.explicitUnknown;
+        const allReported = d.woman + d.man + d.nonbinary + d.transgender + d.other + d.explicitUnknown;
         const effectiveTotal = Math.max(d.totalEnrollment, allReported);
 
         if (effectiveTotal === 0) {
-            womanData.push(0); manData.push(0); nbData.push(0); otherData.push(0); unknownData.push(0); notReportedData.push(0);
+            womanData.push(0); manData.push(0); nbData.push(0); transData.push(0); otherData.push(0); unknownData.push(0); notReportedData.push(0);
             return;
         }
 
@@ -3652,6 +3662,7 @@ function renderGenderFullDistribution(filtered) {
         womanData.push((d.woman / effectiveTotal) * 100);
         manData.push((d.man / effectiveTotal) * 100);
         nbData.push((d.nonbinary / effectiveTotal) * 100);
+        transData.push((d.transgender / effectiveTotal) * 100);
         otherData.push((d.other / effectiveTotal) * 100);
         unknownData.push((d.explicitUnknown / effectiveTotal) * 100);
         notReportedData.push((notReported / effectiveTotal) * 100);
@@ -3664,11 +3675,12 @@ function renderGenderFullDistribution(filtered) {
         data: {
             labels: years,
             datasets: [
-                { label: 'Woman', data: womanData, backgroundColor: '#ec4899', borderColor: '#ec4899', borderWidth: 1 },
-                { label: 'Man', data: manData, backgroundColor: '#3b82f6', borderColor: '#3b82f6', borderWidth: 1 },
-                { label: 'Non-binary', data: nbData, backgroundColor: '#8b5cf6', borderColor: '#8b5cf6', borderWidth: 1 },
-                { label: 'Other', data: otherData, backgroundColor: '#f59e0b', borderColor: '#f59e0b', borderWidth: 1 },
-                { label: 'Explicitly Unknown', data: unknownData, backgroundColor: '#9ca3af', borderColor: '#6b7280', borderWidth: 1 },
+                { label: 'Woman', data: womanData, backgroundColor: COLORS.gender.woman, borderColor: COLORS.gender.woman, borderWidth: 1 },
+                { label: 'Man', data: manData, backgroundColor: COLORS.gender.man, borderColor: COLORS.gender.man, borderWidth: 1 },
+                { label: 'Non-binary', data: nbData, backgroundColor: COLORS.gender.nonbinary, borderColor: COLORS.gender.nonbinary, borderWidth: 1 },
+                { label: 'Transgender', data: transData, backgroundColor: COLORS.gender.transgender, borderColor: COLORS.gender.transgender, borderWidth: 1 },
+                { label: 'Other', data: otherData, backgroundColor: COLORS.gender.other, borderColor: COLORS.gender.other, borderWidth: 1 },
+                { label: 'Unknown or Not Reported', data: unknownData, backgroundColor: '#9ca3af', borderColor: '#6b7280', borderWidth: 1 },
                 { label: 'Not Reported (Missing)', data: notReportedData, backgroundColor: 'rgba(229, 231, 235, 0.7)', borderColor: 'rgba(209, 213, 219, 0.8)', borderWidth: 1 }
             ]
         },
@@ -3707,17 +3719,18 @@ function renderGenderTrends(filtered) {
         if (!year || !study.gender?.reported) return;
 
         if (!byYear[year]) {
-            byYear[year] = { count: 0, woman: 0, man: 0, nonbinary: 0 };
+            byYear[year] = { count: 0, woman: 0, man: 0, nonbinary: 0, transgender: 0 };
         }
 
         const totals = study.gender.totals;
-        const studyTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.other || 0);
+        const studyTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
 
         if (studyTotal > 0) {
             byYear[year].count++;
             byYear[year].woman += (totals.woman || 0) / studyTotal;
             byYear[year].man += (totals.man || 0) / studyTotal;
             byYear[year].nonbinary += (totals.nonbinary || 0) / studyTotal;
+            byYear[year].transgender += (totals.transgender || 0) / studyTotal;
         }
     });
 
@@ -3733,22 +3746,29 @@ function renderGenderTrends(filtered) {
                 {
                     label: 'Woman',
                     data: years.map(y => byYear[y].count > 0 ? (byYear[y].woman / byYear[y].count) * 100 : 0),
-                    borderColor: '#ec4899',
-                    backgroundColor: '#ec489920',
+                    borderColor: COLORS.gender.woman,
+                    backgroundColor: COLORS.gender.woman + '20',
                     tension: 0.3
                 },
                 {
                     label: 'Man',
                     data: years.map(y => byYear[y].count > 0 ? (byYear[y].man / byYear[y].count) * 100 : 0),
-                    borderColor: '#3b82f6',
-                    backgroundColor: '#3b82f620',
+                    borderColor: COLORS.gender.man,
+                    backgroundColor: COLORS.gender.man + '20',
                     tension: 0.3
                 },
                 {
                     label: 'Non-binary',
                     data: years.map(y => byYear[y].count > 0 ? (byYear[y].nonbinary / byYear[y].count) * 100 : 0),
-                    borderColor: '#8b5cf6',
-                    backgroundColor: '#8b5cf620',
+                    borderColor: COLORS.gender.nonbinary,
+                    backgroundColor: COLORS.gender.nonbinary + '20',
+                    tension: 0.3
+                },
+                {
+                    label: 'Transgender',
+                    data: years.map(y => byYear[y].count > 0 ? (byYear[y].transgender / byYear[y].count) * 100 : 0),
+                    borderColor: COLORS.gender.transgender,
+                    backgroundColor: COLORS.gender.transgender + '20',
                     tension: 0.3
                 }
             ]
