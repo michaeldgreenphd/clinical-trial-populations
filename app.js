@@ -10,7 +10,7 @@ const PAGE_SIZE = 100;
 
 // ── Mobile / low-memory detection ──
 // Mobile browsers struggle with the full 136 MB dataset (780 MB uncompressed).
-// When detected, load the lightweight mobile parts (~11 MB) instead.
+// When detected, load a pre-computed 15 KB summary instead of 77K study records.
 const isMobileDevice = (() => {
     const ua = navigator.userAgent || '';
     const isMobileUA = /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(ua);
@@ -19,7 +19,8 @@ const isMobileDevice = (() => {
     const isLowMemory = navigator.deviceMemory != null && navigator.deviceMemory <= 4;
     return isMobileUA || isSmallScreen || isLowMemory;
 })();
-const NUM_MOBILE_PARTS = 2;
+// Pre-computed dashboard summary for mobile (set after loading)
+let dashboardSummary = null;
 
 // ── Snapshot cache: avoids re-downloading previously loaded snapshots ──
 const snapshotCache = new Map(); // key: date string ('latest' | 'YYYY-MM-DD'), value: { data, dateLabel }
@@ -392,18 +393,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadData();
         updateLoadingProgress(80, 'Initializing dashboard...');
         initTabs();
-        initFilters();
+        if (!dashboardSummary) {
+            // Full desktop mode: initialize filters, table, geography
+            initFilters();
+            initTable();
+            initGeographyTab();
+            populatePrimaryConditionDropdown();
+        } else {
+            // Mobile summary mode: disable filters, show "desktop only" on heavy tabs
+            disableFiltersForMobile();
+        }
         initSubcategoryButtons();
-        initTable();
-        initGeographyTab();
-        populatePrimaryConditionDropdown();
         updateLoadingProgress(90, 'Rendering charts...');
         renderDashboard();
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
 
-        initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
+        if (!dashboardSummary) {
+            initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
+        }
     } catch (err) {
         console.error('Dashboard initialization failed:', err);
         const overlay = document.getElementById('loading-overlay');
@@ -489,38 +498,18 @@ function partFiles(n) {
     return Array.from({ length: n }, (_, i) => `demographics.part${i + 1}.json.gz`);
 }
 
-// Generate mobile part filenames: demographics.mobile.part1.json.gz …
-function mobilePartFiles(n) {
-    return Array.from({ length: n }, (_, i) => `demographics.mobile.part${i + 1}.json.gz`);
-}
-
 // Build list of URL strategies to try for fetching data.
 // Historical snapshots are stored in snapshots/{date}/ on GitHub Pages (same origin).
-// On mobile, try lightweight mobile parts first, then fall back to full parts.
+// Mobile uses pre-computed dashboard-summary.json loaded in loadData() — no part files needed.
 function getUrlStrategies(date) {
     const parts8 = partFiles(8);
-    const mobileParts = mobilePartFiles(NUM_MOBILE_PARTS);
 
-    // Latest data: local relative paths
     if (!date || date === 'latest') {
-        if (isMobileDevice) {
-            return [
-                { name: 'Mobile',  urls: mobileParts.map(f => `data/${f}`) },
-                { name: 'Local',   urls: parts8.map(f => `data/${f}`) }
-            ];
-        }
         return [
             { name: 'Local', urls: parts8.map(f => `data/${f}`) }
         ];
     }
 
-    // Historical data: served from snapshots/ directory on GitHub Pages (same origin)
-    if (isMobileDevice) {
-        return [
-            { name: 'Mobile Snapshot', urls: mobileParts.map(f => `snapshots/${date}/${f}`) },
-            { name: 'Snapshot',        urls: parts8.map(f => `snapshots/${date}/${f}`) }
-        ];
-    }
     return [
         {
             name: 'Snapshot',
@@ -531,6 +520,28 @@ function getUrlStrategies(date) {
 
 async function loadData(date) {
     const cacheKey = date || 'latest';
+
+    // ── Mobile: load pre-computed summary (~15 KB) instead of 77K studies ──
+    if (isMobileDevice && (!date || date === 'latest')) {
+        try {
+            console.log('📱 Mobile detected — loading pre-computed dashboard summary');
+            const cacheBust = new Date().getTime();
+            const resp = await fetch(`data/dashboard-summary.json?v=${cacheBust}`);
+            if (resp.ok) {
+                dashboardSummary = await resp.json();
+                data = [];  // empty — charts will use dashboardSummary instead
+                const dateLabel = dashboardSummary.extracted_at
+                    ? new Date(dashboardSummary.extracted_at).toLocaleDateString()
+                    : '';
+                document.getElementById('last-updated').textContent = dateLabel;
+                console.log(`✓ Mobile summary loaded: ${dashboardSummary.totalStudies} studies pre-aggregated`);
+                return;
+            }
+            console.warn('Mobile summary not available, falling back to full data');
+        } catch (e) {
+            console.warn('Mobile summary failed:', e.message, '— falling back to full data');
+        }
+    }
 
     // ── Check snapshot cache first ──
     if (snapshotCache.has(cacheKey)) {
@@ -570,9 +581,7 @@ async function loadData(date) {
 
             updateLoadingProgress(70, 'Processing studies...');
             data = parts.flatMap(p => p.data);
-            // Track whether we loaded mobile-slim data (missing raw_categories, breakdowns, etc.)
-            window.mobileDataMode = !!parts[0]?.mobile;
-            console.log(`✓ Loaded ${data.length} studies via ${strategy.name}${window.mobileDataMode ? ' (mobile-slim)' : ''}`);
+            console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
             // Debug: Log exact keys of first study for data mapping verification
             if (data.length > 0) {
@@ -773,6 +782,39 @@ function initTabs() {
             }
             if (tab.dataset.tab === 'lit-extraction') {
                 loadLitExtractionTab();
+            }
+        });
+    });
+}
+
+function disableFiltersForMobile() {
+    // Disable all filter controls since mobile uses pre-aggregated data
+    const filterSection = document.getElementById('filter-section') || document.querySelector('.filter-section');
+    if (filterSection) {
+        filterSection.querySelectorAll('select, input, button').forEach(el => {
+            el.disabled = true;
+            el.title = 'Filters available on desktop only';
+        });
+        // Add a small note
+        const note = document.createElement('p');
+        note.className = 'mobile-note';
+        note.style.cssText = 'font-size:0.8rem;color:#6b7280;text-align:center;margin:0.5rem 0;';
+        note.textContent = 'Filters and study-level data available on desktop. Showing aggregate dashboard.';
+        filterSection.prepend(note);
+    }
+
+    // Show "desktop only" message on Studies and Geography tabs when clicked
+    document.querySelectorAll('.tab[data-tab="studies"], .tab[data-tab="geography"]').forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = tab.dataset.tab;
+            const content = document.getElementById(`${target}-content`) || document.querySelector(`.tab-content[data-tab="${target}"]`);
+            if (content && !content.querySelector('.mobile-placeholder')) {
+                const msg = document.createElement('div');
+                msg.className = 'mobile-placeholder';
+                msg.style.cssText = 'text-align:center;padding:3rem 1rem;color:#6b7280;';
+                msg.innerHTML = `<p style="font-size:1.1rem;margin-bottom:0.5rem;">This tab requires loading the full dataset (~136 MB)</p>
+                    <p>Open this dashboard on a desktop browser for the full experience including study-level data, filters, and geography maps.</p>`;
+                content.prepend(msg);
             }
         });
     });
@@ -1243,9 +1285,49 @@ function hideDashboardSpinner() {
 }
 
 function renderDashboard() {
-    if (!data) return;
+    if (!data && !dashboardSummary) return;
 
     showDashboardSpinner();
+
+    // ── Mobile summary path: use pre-computed aggregates ──
+    if (dashboardSummary) {
+        const s = dashboardSummary;
+        const t = s.totalStudies;
+        document.getElementById('total-studies').textContent = t.toLocaleString();
+        document.getElementById('race-reporting').textContent =
+            t > 0 ? `${((s.cards.raceCount / t) * 100).toFixed(1)}%` : '0%';
+        document.getElementById('ethnicity-reporting').textContent =
+            t > 0 ? `${((s.cards.ethCount / t) * 100).toFixed(1)}%` : '0%';
+        document.getElementById('both-reporting').textContent =
+            t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
+
+        // All chart functions check dashboardSummary internally
+        const stub = [];
+        renderReportingTrends(stub);
+        renderRaceDistribution(stub);
+        renderRaceTrends(stub);
+        renderRaceSubcategories('asian');
+        renderRaceReportedParticipants(stub);
+        renderRaceFullDistribution(stub);
+        renderEthnicityDistribution(stub);
+        renderEthnicityTrends(stub);
+        renderEthnicitySubcategories(stub);
+        renderEthnicityReportedParticipants(stub);
+        renderEthnicityFullDistribution(stub);
+        renderSexReportedParticipants(stub);
+        renderSexFullDistribution(stub);
+        renderSexDistribution(stub);
+        renderSexTrends(stub);
+        renderGenderReportedParticipants(stub);
+        renderGenderFullDistribution(stub);
+        renderGenderDistribution(stub);
+        renderGenderTrends(stub);
+
+        requestAnimationFrame(() => hideDashboardSpinner());
+        return;
+    }
+
+    // ── Desktop path: full per-study aggregation ──
     const filtered = getFilteredData();
 
     // Update stats
@@ -2408,19 +2490,24 @@ function renderReportingTrends(filtered) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported };
         }
-        byYear[year].total++;
-        if (study.race?.reported) byYear[year].race++;
-        if (study.ethnicity?.reported) byYear[year].ethnicity++;
-        if (study.race?.reported && study.ethnicity?.reported) byYear[year].both++;
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year) return;
+            if (!byYear[year]) byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0 };
+            byYear[year].total++;
+            if (study.race?.reported) byYear[year].race++;
+            if (study.ethnicity?.reported) byYear[year].ethnicity++;
+            if (study.race?.reported && study.ethnicity?.reported) byYear[year].both++;
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -2475,29 +2562,35 @@ function renderRaceDistribution(filtered) {
     const ctx = document.getElementById('race-distribution-chart');
     if (!ctx) return;
 
-    const totals = {
-        'American Indian/Alaska Native': 0,
-        'Asian': 0,
-        'Black/African American': 0,
-        'Native Hawaiian/Pacific Islander': 0,
-        'White': 0,
-        'More than one race': 0,
-        'Unknown': 0,
-        'Other': 0
-    };
-
-    filtered.forEach(study => {
-        if (!study.race?.reported) return;
-        const omb = study.race.omb_totals;
-        totals['American Indian/Alaska Native'] += omb.american_indian_alaska_native || 0;
-        totals['Asian'] += omb.asian || 0;
-        totals['Black/African American'] += omb.black_african_american || 0;
-        totals['Native Hawaiian/Pacific Islander'] += omb.native_hawaiian_pacific_islander || 0;
-        totals['White'] += omb.white || 0;
-        totals['More than one race'] += omb.more_than_one_race || 0;
-        totals['Unknown'] += omb.unknown_not_reported || 0;
-        totals['Other'] += omb.other || 0;
-    });
+    let totals;
+    if (dashboardSummary) {
+        const d = dashboardSummary.raceDistribution;
+        totals = {
+            'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
+            'Asian': d.asian || 0, 'Black/African American': d.black_african_american || 0,
+            'Native Hawaiian/Pacific Islander': d.native_hawaiian_pacific_islander || 0,
+            'White': d.white || 0, 'More than one race': d.more_than_one_race || 0,
+            'Unknown': d.unknown_not_reported || 0, 'Other': d.other || 0
+        };
+    } else {
+        totals = {
+            'American Indian/Alaska Native': 0, 'Asian': 0, 'Black/African American': 0,
+            'Native Hawaiian/Pacific Islander': 0, 'White': 0, 'More than one race': 0,
+            'Unknown': 0, 'Other': 0
+        };
+        filtered.forEach(study => {
+            if (!study.race?.reported) return;
+            const omb = study.race.omb_totals;
+            totals['American Indian/Alaska Native'] += omb.american_indian_alaska_native || 0;
+            totals['Asian'] += omb.asian || 0;
+            totals['Black/African American'] += omb.black_african_american || 0;
+            totals['Native Hawaiian/Pacific Islander'] += omb.native_hawaiian_pacific_islander || 0;
+            totals['White'] += omb.white || 0;
+            totals['More than one race'] += omb.more_than_one_race || 0;
+            totals['Unknown'] += omb.unknown_not_reported || 0;
+            totals['Other'] += omb.other || 0;
+        });
+    }
 
     if (charts.raceDistribution) charts.raceDistribution.destroy();
 
@@ -2533,25 +2626,28 @@ function renderRaceTrends(filtered) {
     const ctx = document.getElementById('race-trends-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.race?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { total: 0, white: 0, black: 0, asian: 0, other: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { total: v.rn_count, white: v.rn_wh, black: v.rn_bl, asian: v.rn_as };
         }
-
-        const omb = study.race.omb_totals;
-        const studyTotal = Object.values(omb).reduce((a, b) => a + b, 0);
-
-        if (studyTotal > 0) {
-            byYear[year].total++;
-            byYear[year].white += (omb.white || 0) / studyTotal;
-            byYear[year].black += (omb.black_african_american || 0) / studyTotal;
-            byYear[year].asian += (omb.asian || 0) / studyTotal;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.race?.reported) return;
+            if (!byYear[year]) byYear[year] = { total: 0, white: 0, black: 0, asian: 0, other: 0 };
+            const omb = study.race.omb_totals;
+            const studyTotal = Object.values(omb).reduce((a, b) => a + b, 0);
+            if (studyTotal > 0) {
+                byYear[year].total++;
+                byYear[year].white += (omb.white || 0) / studyTotal;
+                byYear[year].black += (omb.black_african_american || 0) / studyTotal;
+                byYear[year].asian += (omb.asian || 0) / studyTotal;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -2606,22 +2702,25 @@ function renderRaceSubcategories(category) {
     const container = document.getElementById('race-subcategory-container');
     if (!ctx || !container) return;
 
-    const filtered = getFilteredData();
-    const subcategories = {};
-
-    filtered.forEach(study => {
-        if (!study.race?.reported) return;
-
-        Object.entries(study.race.subcategory_totals || {}).forEach(([key, count]) => {
-            if (category === 'asian' && key.startsWith('asian_')) {
-                subcategories[key] = (subcategories[key] || 0) + count;
-            } else if (category === 'black' && key.startsWith('black_')) {
-                subcategories[key] = (subcategories[key] || 0) + count;
-            } else if (category === 'white' && key.startsWith('white_')) {
-                subcategories[key] = (subcategories[key] || 0) + count;
-            }
+    let subcategories = {};
+    if (dashboardSummary) {
+        const all = dashboardSummary.raceSubcategories || {};
+        for (const [key, count] of Object.entries(all)) {
+            if (category === 'asian' && key.startsWith('asian_')) subcategories[key] = count;
+            else if (category === 'black' && key.startsWith('black_')) subcategories[key] = count;
+            else if (category === 'white' && key.startsWith('white_')) subcategories[key] = count;
+        }
+    } else {
+        const filtered = getFilteredData();
+        filtered.forEach(study => {
+            if (!study.race?.reported) return;
+            Object.entries(study.race.subcategory_totals || {}).forEach(([key, count]) => {
+                if (category === 'asian' && key.startsWith('asian_')) subcategories[key] = (subcategories[key] || 0) + count;
+                else if (category === 'black' && key.startsWith('black_')) subcategories[key] = (subcategories[key] || 0) + count;
+                else if (category === 'white' && key.startsWith('white_')) subcategories[key] = (subcategories[key] || 0) + count;
+            });
         });
-    });
+    }
 
     const labels = Object.keys(subcategories).map(k =>
         k.replace(/_/g, ' ').replace(/^(asian|black|white) /, '').replace(/\b\w/g, l => l.toUpperCase())
@@ -2669,19 +2768,20 @@ function renderEthnicityDistribution(filtered) {
     const ctx = document.getElementById('ethnicity-distribution-chart');
     if (!ctx) return;
 
-    const totals = {
-        'Hispanic/Latino': 0,
-        'Not Hispanic/Latino': 0,
-        'Unknown': 0
-    };
-
-    filtered.forEach(study => {
-        if (!study.ethnicity?.reported) return;
-        const omb = study.ethnicity.omb_totals;
-        totals['Hispanic/Latino'] += omb.hispanic_latino || 0;
-        totals['Not Hispanic/Latino'] += omb.not_hispanic_latino || 0;
-        totals['Unknown'] += omb.unknown_not_reported || 0;
-    });
+    let totals;
+    if (dashboardSummary) {
+        const d = dashboardSummary.ethnicityDistribution;
+        totals = { 'Hispanic/Latino': d.hispanic_latino || 0, 'Not Hispanic/Latino': d.not_hispanic_latino || 0, 'Unknown': d.unknown_not_reported || 0 };
+    } else {
+        totals = { 'Hispanic/Latino': 0, 'Not Hispanic/Latino': 0, 'Unknown': 0 };
+        filtered.forEach(study => {
+            if (!study.ethnicity?.reported) return;
+            const omb = study.ethnicity.omb_totals;
+            totals['Hispanic/Latino'] += omb.hispanic_latino || 0;
+            totals['Not Hispanic/Latino'] += omb.not_hispanic_latino || 0;
+            totals['Unknown'] += omb.unknown_not_reported || 0;
+        });
+    }
 
     if (charts.ethnicityDistribution) charts.ethnicityDistribution.destroy();
 
@@ -2717,23 +2817,23 @@ function renderEthnicityTrends(filtered) {
     const ctx = document.getElementById('ethnicity-trends-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.ethnicity?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { total: 0, hispanic: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { total: v.en_count, hispanic: v.en_hi };
         }
-
-        const omb = study.ethnicity.omb_totals;
-        const studyTotal = Object.values(omb).reduce((a, b) => a + b, 0);
-
-        if (studyTotal > 0) {
-            byYear[year].total++;
-            byYear[year].hispanic += (omb.hispanic_latino || 0) / studyTotal;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.ethnicity?.reported) return;
+            if (!byYear[year]) byYear[year] = { total: 0, hispanic: 0 };
+            const omb = study.ethnicity.omb_totals;
+            const studyTotal = Object.values(omb).reduce((a, b) => a + b, 0);
+            if (studyTotal > 0) { byYear[year].total++; byYear[year].hispanic += (omb.hispanic_latino || 0) / studyTotal; }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -2772,15 +2872,18 @@ function renderEthnicitySubcategories(filtered) {
     const container = document.getElementById('ethnicity-subcategory-container');
     if (!ctx || !container) return;
 
-    const subcategories = {};
-
-    filtered.forEach(study => {
-        if (!study.ethnicity?.reported) return;
-
-        Object.entries(study.ethnicity.subcategory_totals || {}).forEach(([key, count]) => {
-            subcategories[key] = (subcategories[key] || 0) + count;
+    let subcategories;
+    if (dashboardSummary) {
+        subcategories = dashboardSummary.ethnicitySubcategories || {};
+    } else {
+        subcategories = {};
+        filtered.forEach(study => {
+            if (!study.ethnicity?.reported) return;
+            Object.entries(study.ethnicity.subcategory_totals || {}).forEach(([key, count]) => {
+                subcategories[key] = (subcategories[key] || 0) + count;
+            });
         });
-    });
+    }
 
     const labels = Object.keys(subcategories).map(k =>
         k.replace(/_/g, ' ').replace(/^hispanic latino /, '').replace(/\b\w/g, l => l.toUpperCase())
@@ -2833,27 +2936,24 @@ function renderRaceReportedParticipants(filtered) {
     const ctx = document.getElementById('race-reported-participants-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.race?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = 0;
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = v.r_ai + v.r_as + v.r_bl + v.r_nh + v.r_wh + v.r_mu + v.r_ot;
         }
-
-        const omb = study.race.omb_totals;
-        // Sum all known categories (excluding unknown_not_reported)
-        const knownTotal = (omb.american_indian_alaska_native || 0) +
-                          (omb.asian || 0) +
-                          (omb.black_african_american || 0) +
-                          (omb.native_hawaiian_pacific_islander || 0) +
-                          (omb.white || 0) +
-                          (omb.more_than_one_race || 0) +
-                          (omb.other || 0);
-
-        byYear[year] += knownTotal;
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.race?.reported) return;
+            if (!byYear[year]) byYear[year] = 0;
+            const omb = study.race.omb_totals;
+            byYear[year] += (omb.american_indian_alaska_native || 0) + (omb.asian || 0) +
+                (omb.black_african_american || 0) + (omb.native_hawaiian_pacific_islander || 0) +
+                (omb.white || 0) + (omb.more_than_one_race || 0) + (omb.other || 0);
+        });
+    }
 
     const years = Object.keys(byYear).sort();
     const participantData = years.map(y => byYear[y]);
@@ -2908,39 +3008,34 @@ function renderRaceFullDistribution(filtered) {
     const ctx = document.getElementById('race-full-distribution-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year) return;
-
-        if (!byYear[year]) {
-            byYear[year] = {
-                white: 0,
-                black: 0,
-                asian: 0,
-                otherRaces: 0,           // Other known races (NOT including unknown)
-                explicitUnknown: 0,       // Explicitly marked as "Unknown" in source
-                totalEnrollment: 0
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = {
+                white: v.r_wh, black: v.r_bl, asian: v.r_as,
+                otherRaces: v.r_ai + v.r_nh + v.r_mu + v.r_ot,
+                explicitUnknown: v.r_un, totalEnrollment: v.fd_enrollment
             };
         }
-
-        const enrollment = study.enrollment || 0;
-        byYear[year].totalEnrollment += enrollment;
-
-        if (study.race?.reported) {
-            const omb = study.race.omb_totals;
-            byYear[year].white += omb.white || 0;
-            byYear[year].black += omb.black_african_american || 0;
-            byYear[year].asian += omb.asian || 0;
-            // Other known races (excluding unknown_not_reported)
-            byYear[year].otherRaces += (omb.american_indian_alaska_native || 0) +
-                                       (omb.native_hawaiian_pacific_islander || 0) +
-                                       (omb.more_than_one_race || 0) +
-                                       (omb.other || 0);
-            // Explicit Unknown - the NIH category
-            byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year) return;
+            if (!byYear[year]) byYear[year] = { white: 0, black: 0, asian: 0, otherRaces: 0, explicitUnknown: 0, totalEnrollment: 0 };
+            byYear[year].totalEnrollment += study.enrollment || 0;
+            if (study.race?.reported) {
+                const omb = study.race.omb_totals;
+                byYear[year].white += omb.white || 0;
+                byYear[year].black += omb.black_african_american || 0;
+                byYear[year].asian += omb.asian || 0;
+                byYear[year].otherRaces += (omb.american_indian_alaska_native || 0) +
+                    (omb.native_hawaiian_pacific_islander || 0) + (omb.more_than_one_race || 0) + (omb.other || 0);
+                byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -3091,21 +3186,22 @@ function renderEthnicityReportedParticipants(filtered) {
     const ctx = document.getElementById('ethnicity-reported-participants-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.ethnicity?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = 0;
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = v.e_hi + v.e_nh;
         }
-
-        const omb = study.ethnicity.omb_totals;
-        // Sum known categories (excluding unknown_not_reported)
-        const knownTotal = (omb.hispanic_latino || 0) + (omb.not_hispanic_latino || 0);
-
-        byYear[year] += knownTotal;
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.ethnicity?.reported) return;
+            if (!byYear[year]) byYear[year] = 0;
+            const omb = study.ethnicity.omb_totals;
+            byYear[year] += (omb.hispanic_latino || 0) + (omb.not_hispanic_latino || 0);
+        });
+    }
 
     const years = Object.keys(byYear).sort();
     const participantData = years.map(y => byYear[y]);
@@ -3160,31 +3256,27 @@ function renderEthnicityFullDistribution(filtered) {
     const ctx = document.getElementById('ethnicity-full-distribution-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year) return;
-
-        if (!byYear[year]) {
-            byYear[year] = {
-                hispanic: 0,
-                notHispanic: 0,
-                explicitUnknown: 0,       // Explicitly marked as "Unknown" in source
-                totalEnrollment: 0
-            };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { hispanic: v.e_hi, notHispanic: v.e_nh, explicitUnknown: v.e_un, totalEnrollment: v.fd_enrollment };
         }
-
-        const enrollment = study.enrollment || 0;
-        byYear[year].totalEnrollment += enrollment;
-
-        if (study.ethnicity?.reported) {
-            const omb = study.ethnicity.omb_totals;
-            byYear[year].hispanic += omb.hispanic_latino || 0;
-            byYear[year].notHispanic += omb.not_hispanic_latino || 0;
-            // Explicit Unknown - the NIH category
-            byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year) return;
+            if (!byYear[year]) byYear[year] = { hispanic: 0, notHispanic: 0, explicitUnknown: 0, totalEnrollment: 0 };
+            byYear[year].totalEnrollment += study.enrollment || 0;
+            if (study.ethnicity?.reported) {
+                const omb = study.ethnicity.omb_totals;
+                byYear[year].hispanic += omb.hispanic_latino || 0;
+                byYear[year].notHispanic += omb.not_hispanic_latino || 0;
+                byYear[year].explicitUnknown += omb.unknown_not_reported || 0;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -3308,14 +3400,19 @@ function renderSexDistribution(filtered) {
     const ctx = document.getElementById('sex-distribution-chart');
     if (!ctx) return;
 
-    const totals = { Female: 0, Male: 0, Unknown: 0 };
-
-    filtered.forEach(study => {
-        if (!study.sex?.reported) return;
-        totals.Female += study.sex.totals.female || 0;
-        totals.Male += study.sex.totals.male || 0;
-        totals.Unknown += study.sex.totals.unknown || 0;
-    });
+    let totals;
+    if (dashboardSummary) {
+        const d = dashboardSummary.sexDistribution;
+        totals = { Female: d.female || 0, Male: d.male || 0, Unknown: d.unknown || 0 };
+    } else {
+        totals = { Female: 0, Male: 0, Unknown: 0 };
+        filtered.forEach(study => {
+            if (!study.sex?.reported) return;
+            totals.Female += study.sex.totals.female || 0;
+            totals.Male += study.sex.totals.male || 0;
+            totals.Unknown += study.sex.totals.unknown || 0;
+        });
+    }
 
     if (charts.sexDistribution) charts.sexDistribution.destroy();
 
@@ -3351,23 +3448,23 @@ function renderSexTrends(filtered) {
     const ctx = document.getElementById('sex-trends-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.sex?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { total: 0, female: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { total: v.sn_count, female: v.sn_f };
         }
-
-        const totals = study.sex.totals;
-        const studyTotal = Object.values(totals).reduce((a, b) => a + b, 0);
-
-        if (studyTotal > 0) {
-            byYear[year].total++;
-            byYear[year].female += (totals.female || 0) / studyTotal;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.sex?.reported) return;
+            if (!byYear[year]) byYear[year] = { total: 0, female: 0 };
+            const totals = study.sex.totals;
+            const studyTotal = Object.values(totals).reduce((a, b) => a + b, 0);
+            if (studyTotal > 0) { byYear[year].total++; byYear[year].female += (totals.female || 0) / studyTotal; }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -3406,17 +3503,23 @@ function renderGenderDistribution(filtered) {
     const ctx = document.getElementById('gender-distribution-chart');
     if (!ctx) return;
 
-    const totals = { Woman: 0, Man: 0, 'Non-binary': 0, Transgender: 0, Other: 0, 'Unknown or Not Reported': 0 };
-
-    filtered.forEach(study => {
-        if (!study.gender?.reported) return;
-        totals.Woman += study.gender.totals.woman || 0;
-        totals.Man += study.gender.totals.man || 0;
-        totals['Non-binary'] += study.gender.totals.nonbinary || 0;
-        totals.Transgender += study.gender.totals.transgender || 0;
-        totals.Other += study.gender.totals.other || 0;
-        totals['Unknown or Not Reported'] += study.gender.totals.unknown || 0;
-    });
+    let totals;
+    if (dashboardSummary) {
+        const d = dashboardSummary.genderDistribution;
+        totals = { Woman: d.woman || 0, Man: d.man || 0, 'Non-binary': d.nonbinary || 0,
+            Transgender: d.transgender || 0, Other: d.other || 0, 'Unknown or Not Reported': d.unknown || 0 };
+    } else {
+        totals = { Woman: 0, Man: 0, 'Non-binary': 0, Transgender: 0, Other: 0, 'Unknown or Not Reported': 0 };
+        filtered.forEach(study => {
+            if (!study.gender?.reported) return;
+            totals.Woman += study.gender.totals.woman || 0;
+            totals.Man += study.gender.totals.man || 0;
+            totals['Non-binary'] += study.gender.totals.nonbinary || 0;
+            totals.Transgender += study.gender.totals.transgender || 0;
+            totals.Other += study.gender.totals.other || 0;
+            totals['Unknown or Not Reported'] += study.gender.totals.unknown || 0;
+        });
+    }
 
     const genderColors = [COLORS.gender.woman, COLORS.gender.man, COLORS.gender.nonbinary, COLORS.gender.transgender, COLORS.gender.other, COLORS.gender.unknown];
 
@@ -3457,17 +3560,21 @@ function renderSexReportedParticipants(filtered) {
     const ctx = document.getElementById('sex-reported-participants-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.sex?.reported) return;
-
-        if (!byYear[year]) byYear[year] = 0;
-
-        const totals = study.sex.totals;
-        const knownTotal = (totals.female || 0) + (totals.male || 0);
-        byYear[year] += knownTotal;
-    });
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = v.s_f + v.s_m;
+        }
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.sex?.reported) return;
+            if (!byYear[year]) byYear[year] = 0;
+            byYear[year] += (study.sex.totals.female || 0) + (study.sex.totals.male || 0);
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -3515,25 +3622,26 @@ function renderSexFullDistribution(filtered) {
     const ctx = document.getElementById('sex-full-distribution-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { female: 0, male: 0, explicitUnknown: 0, totalEnrollment: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { female: v.s_f, male: v.s_m, explicitUnknown: v.s_u, totalEnrollment: v.fd_enrollment };
         }
-
-        const enrollment = study.enrollment || 0;
-        byYear[year].totalEnrollment += enrollment;
-
-        if (study.sex?.reported) {
-            const totals = study.sex.totals;
-            byYear[year].female += totals.female || 0;
-            byYear[year].male += totals.male || 0;
-            byYear[year].explicitUnknown += totals.unknown || 0;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year) return;
+            if (!byYear[year]) byYear[year] = { female: 0, male: 0, explicitUnknown: 0, totalEnrollment: 0 };
+            byYear[year].totalEnrollment += study.enrollment || 0;
+            if (study.sex?.reported) {
+                byYear[year].female += study.sex.totals.female || 0;
+                byYear[year].male += study.sex.totals.male || 0;
+                byYear[year].explicitUnknown += study.sex.totals.unknown || 0;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
     const femaleData = [], maleData = [], unknownData = [], notReportedData = [];
@@ -3597,17 +3705,22 @@ function renderGenderReportedParticipants(filtered) {
     const ctx = document.getElementById('gender-reported-participants-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.gender?.reported) return;
-
-        if (!byYear[year]) byYear[year] = 0;
-
-        const totals = study.gender.totals;
-        const knownTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
-        byYear[year] += knownTotal;
-    });
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = v.g_w + v.g_m + v.g_nb + v.g_tg + v.g_ot;
+        }
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.gender?.reported) return;
+            if (!byYear[year]) byYear[year] = 0;
+            const totals = study.gender.totals;
+            byYear[year] += (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
@@ -3655,28 +3768,27 @@ function renderGenderFullDistribution(filtered) {
     const ctx = document.getElementById('gender-full-distribution-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { woman: 0, man: 0, nonbinary: 0, transgender: 0, other: 0, explicitUnknown: 0, totalEnrollment: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { woman: v.g_w, man: v.g_m, nonbinary: v.g_nb, transgender: v.g_tg, other: v.g_ot, explicitUnknown: v.g_u, totalEnrollment: v.fd_enrollment };
         }
-
-        const enrollment = study.enrollment || 0;
-        byYear[year].totalEnrollment += enrollment;
-
-        if (study.gender?.reported) {
-            const totals = study.gender.totals;
-            byYear[year].woman += totals.woman || 0;
-            byYear[year].man += totals.man || 0;
-            byYear[year].nonbinary += totals.nonbinary || 0;
-            byYear[year].transgender += totals.transgender || 0;
-            byYear[year].other += totals.other || 0;
-            byYear[year].explicitUnknown += totals.unknown || 0;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year) return;
+            if (!byYear[year]) byYear[year] = { woman: 0, man: 0, nonbinary: 0, transgender: 0, other: 0, explicitUnknown: 0, totalEnrollment: 0 };
+            byYear[year].totalEnrollment += study.enrollment || 0;
+            if (study.gender?.reported) {
+                const totals = study.gender.totals;
+                byYear[year].woman += totals.woman || 0; byYear[year].man += totals.man || 0;
+                byYear[year].nonbinary += totals.nonbinary || 0; byYear[year].transgender += totals.transgender || 0;
+                byYear[year].other += totals.other || 0; byYear[year].explicitUnknown += totals.unknown || 0;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
     const womanData = [], manData = [], nbData = [], transData = [], otherData = [], unknownData = [], notReportedData = [];
@@ -3746,26 +3858,29 @@ function renderGenderTrends(filtered) {
     const ctx = document.getElementById('gender-trends-chart');
     if (!ctx) return;
 
-    const byYear = {};
-    filtered.forEach(study => {
-        const year = study.results_date?.substring(0, 4);
-        if (!year || !study.gender?.reported) return;
-
-        if (!byYear[year]) {
-            byYear[year] = { count: 0, woman: 0, man: 0, nonbinary: 0, transgender: 0 };
+    let byYear;
+    if (dashboardSummary) {
+        byYear = {};
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { count: v.gn_count, woman: v.gn_w, man: v.gn_m, nonbinary: v.gn_nb, transgender: v.gn_tg };
         }
-
-        const totals = study.gender.totals;
-        const studyTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
-
-        if (studyTotal > 0) {
-            byYear[year].count++;
-            byYear[year].woman += (totals.woman || 0) / studyTotal;
-            byYear[year].man += (totals.man || 0) / studyTotal;
-            byYear[year].nonbinary += (totals.nonbinary || 0) / studyTotal;
-            byYear[year].transgender += (totals.transgender || 0) / studyTotal;
-        }
-    });
+    } else {
+        byYear = {};
+        filtered.forEach(study => {
+            const year = study.results_date?.substring(0, 4);
+            if (!year || !study.gender?.reported) return;
+            if (!byYear[year]) byYear[year] = { count: 0, woman: 0, man: 0, nonbinary: 0, transgender: 0 };
+            const totals = study.gender.totals;
+            const studyTotal = (totals.woman || 0) + (totals.man || 0) + (totals.nonbinary || 0) + (totals.transgender || 0) + (totals.other || 0);
+            if (studyTotal > 0) {
+                byYear[year].count++;
+                byYear[year].woman += (totals.woman || 0) / studyTotal;
+                byYear[year].man += (totals.man || 0) / studyTotal;
+                byYear[year].nonbinary += (totals.nonbinary || 0) / studyTotal;
+                byYear[year].transgender += (totals.transgender || 0) / studyTotal;
+            }
+        });
+    }
 
     const years = Object.keys(byYear).sort();
 
