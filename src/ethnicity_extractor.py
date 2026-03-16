@@ -5,6 +5,7 @@ Extracts ethnicity data from baseline characteristics.
 """
 from typing import Dict, List
 from rapidfuzz import fuzz, process
+from src.utils import clean_demographic_label
 
 ETHNICITY_MAPPINGS = {
     # Hispanic or Latino - with subcategories
@@ -103,7 +104,7 @@ def is_ethnicity_table(title: str) -> bool:
 
 def map_ethnicity_category(label: str, fuzzy_threshold: int = 85) -> Dict:
     """Map an ethnicity category label to NIH/OMB standard."""
-    label_clean = label.strip().translate(_ZERO_WIDTH_CHARS)
+    label_clean = clean_demographic_label(label)
     flags = []
 
     # Exact match

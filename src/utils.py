@@ -1,5 +1,6 @@
 """Shared utilities"""
 import json
+import re
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
@@ -7,6 +8,35 @@ from typing import Optional
 # Translation table that strips invisible Unicode characters commonly
 # inserted by ClinicalTrials.gov (zero-width space, joiner, etc.)
 _ZERO_WIDTH_CHARS = str.maketrans("", "", "\u200b\u200c\u200d\ufeff")
+
+# Regex patterns for measurement suffixes appended to row labels in
+# ClinicalTrials.gov "Customized" tables (e.g. "Female, %", "White, %",
+# "Black, n", "Asian (%)").
+_LABEL_SUFFIX_RE = re.compile(
+    r',\s*'             # REQUIRE a comma before the suffix
+    r'(?:'
+    r'%'                # bare percent
+    r'|n'               # bare "n" (count indicator)
+    r'|\(%?\)'          # parenthesized percent "(%) or "()"
+    r'|\(n\)'           # parenthesized n "(n)"
+    r')'
+    r'\s*$',            # end of string
+    re.IGNORECASE
+)
+
+
+def clean_demographic_label(label: str) -> str:
+    """Strip measurement suffixes from demographic labels.
+
+    ClinicalTrials.gov "Customized" tables often append units like ', %'
+    to row labels (e.g. 'Female, %', 'White, %').  This strips those
+    suffixes so standard category matching works.
+
+    Also removes invisible Unicode characters (zero-width spaces, etc.).
+    """
+    label = label.strip().translate(_ZERO_WIDTH_CHARS)
+    label = _LABEL_SUFFIX_RE.sub('', label)
+    return label.strip()
 
 def calculate_days_between(start_date: str, end_date: str) -> Optional[int]:
     """

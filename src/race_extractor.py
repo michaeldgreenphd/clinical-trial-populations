@@ -6,6 +6,7 @@ with granular subcategories preserved.
 """
 from typing import Dict, List, Tuple, Optional
 from rapidfuzz import fuzz, process
+from src.utils import clean_demographic_label
 
 # Translation table that strips invisible Unicode characters commonly
 # inserted by ClinicalTrials.gov (zero-width space, joiner, etc.)
@@ -127,6 +128,11 @@ _PLAUSIBLE_RACE_KEYWORDS = {
     "race", "racial", "ethnic", "origin", "other", "unknown", "mixed",
     "biracial", "multiracial", "prefer not", "declined", "not reported",
     "not specified", "missing", "unspecified",
+    # Actual race category names — prevents quarantine of valid labels
+    # that have measurement suffixes stripped (e.g. "White, %" → "White")
+    "white", "caucasian", "black", "african", "asian", "hispanic",
+    "latino", "latina", "native", "hawaiian", "pacific", "indian",
+    "alaska", "indigenous", "caribbean",
 }
 
 def is_race_table(title: str) -> bool:
@@ -151,9 +157,9 @@ def map_race_category(label: str, fuzzy_threshold: int = 85) -> Dict:
         - original: Original label
         - flags: Any issues noted
     """
-    # Strip invisible Unicode characters that ClinicalTrials.gov sometimes
-    # inserts (e.g. U+200B ZERO WIDTH SPACE between slash and next word)
-    label_clean = label.strip().translate(_ZERO_WIDTH_CHARS)
+    # Strip invisible Unicode characters and measurement suffixes (e.g. ", %")
+    # that ClinicalTrials.gov "Customized" tables append to labels
+    label_clean = clean_demographic_label(label)
     flags = []
 
     # Exact match
@@ -324,7 +330,7 @@ def _should_quarantine(mapping: Dict) -> bool:
     """
     if mapping.get("omb_category") != "other" or "unmapped" not in mapping.get("flags", []):
         return False
-    label_lower = mapping["original"].lower()
+    label_lower = clean_demographic_label(mapping["original"]).lower()
     return not any(kw in label_lower for kw in _PLAUSIBLE_RACE_KEYWORDS)
 
 # Category titles that represent measurement values, not race labels.
