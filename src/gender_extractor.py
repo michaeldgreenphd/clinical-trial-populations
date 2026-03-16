@@ -1,114 +1,137 @@
 """
-Gender Data Extractor
+Gender Identity Data Extractor
 
 Extracts gender identity data from baseline characteristics.
-Note: Many studies conflate sex and gender. This extractor focuses on
-tables explicitly labeled as "gender" or "gender identity".
+Strictly decoupled from biological sex: Female/Male are NEVER mapped to
+Woman/Man.  Only tables explicitly labeled as "gender" are parsed here.
 """
-from typing import Dict, List
+from typing import Dict, List, Optional
 
-GENDER_MAPPINGS = {
-    "Woman": "woman",
-    "Female": "woman",
-    "Cisgender Woman": "woman",
-    "Cis Woman": "woman",
-    "Transgender Woman": "woman",
-    "Trans Woman": "woman",
-    "Man": "man",
-    "Male": "man",
-    "Cisgender Man": "man",
-    "Cis Man": "man",
-    "Transgender Man": "man",
-    "Trans Man": "man",
-    "Non-binary": "nonbinary",
-    "Nonbinary": "nonbinary",
-    "Genderqueer": "nonbinary",
-    "Gender Non-conforming": "nonbinary",
-    "Agender": "nonbinary",
-    "Genderfluid": "nonbinary",
-    "Two-Spirit": "nonbinary",
-    "Other": "other",
-    "Unknown": "unknown",
-    "Not Reported": "unknown",
-    "Prefer not to say": "unknown",
+# ── Strict standardized target array for gender identity ──
+GENDER_CATEGORIES = ["Woman", "Man", "Non-binary", "Transgender", "Other", "Unknown or Not Reported"]
+
+# Direct-match labels → standardized gender category
+_GENDER_LABEL_MAP = {
+    "woman":                    "woman",
+    "women":                    "woman",
+    "cisgender woman":          "woman",
+    "cis woman":                "woman",
+    "man":                      "man",
+    "men":                      "man",
+    "cisgender man":            "man",
+    "cis man":                  "man",
+    "non-binary":               "nonbinary",
+    "nonbinary":                "nonbinary",
+    "genderqueer":              "nonbinary",
+    "gender non-conforming":    "nonbinary",
+    "agender":                  "nonbinary",
+    "genderfluid":              "nonbinary",
+    "two-spirit":               "nonbinary",
+    "transgender":              "transgender",
+    "transgender woman":        "transgender",
+    "trans woman":              "transgender",
+    "transgender man":          "transgender",
+    "trans man":                "transgender",
+    "other":                    "other",
+    "unknown":                  "unknown",
+    "not reported":             "unknown",
+    "prefer not to say":        "unknown",
 }
+
+# Labels that are strictly biological sex — must NEVER be mapped to gender
+_SEX_ONLY_LABELS = {"female", "f", "females", "male", "m", "males", "intersex"}
 
 GENDER_TABLE_KEYWORDS = ["gender", "gender identity"]
 
-# Category titles that represent measurement values, not gender labels.
-# When a category has one of these titles the actual label is on its parent class.
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
 
+
 def is_gender_table(title: str) -> bool:
-    """Check if a baseline measure is about gender identity."""
+    """Check if a baseline measure is about gender identity (Context B)."""
     title_lower = title.lower()
+    # Exclude combined Sex/Gender tables (handled by orchestrator)
+    if "sex" in title_lower and "gender" in title_lower:
+        return False
     return any(kw in title_lower for kw in GENDER_TABLE_KEYWORDS)
 
-def map_gender_category(label: str) -> Dict:
-    """Map a gender category label to standard."""
+
+def map_gender_label(label: str) -> Optional[Dict]:
+    """Map a label to a gender category, returning None if it's a sex-only label.
+
+    Returns None for biological sex labels so callers can route them
+    to the sex extractor instead of cross-mapping.
+    """
     label_clean = label.strip()
+    label_lower = label_clean.lower()
 
-    for key, value in GENDER_MAPPINGS.items():
-        if key.lower() == label_clean.lower():
-            return {
-                "category": value,
-                "confidence": "high",
-                "original": label_clean,
-                "flags": []
-            }
+    # Reject sex-only labels outright
+    if label_lower in _SEX_ONLY_LABELS:
+        return None
 
+    # Direct mapping
+    if label_lower in _GENDER_LABEL_MAP:
+        return {
+            "category": _GENDER_LABEL_MAP[label_lower],
+            "confidence": "high",
+            "original": label_clean,
+            "flags": [],
+        }
+
+    # Unknown / unmapped
     return {"category": "unknown", "confidence": "low", "original": label_clean, "flags": ["unmapped"]}
 
-def extract_gender_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
-    """Extract gender data from a single baseline measure.
 
-    Args:
-        measure: A single baseline measure dict from the API
-        overall_group_id: groupId of the Overall group (avoids double-counting arms)
-
-    Returns list of category records with counts.
-    """
+def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+    """Low-level row extraction: yields (label, count) pairs."""
     from src.utils import sum_measurements
 
-    results = []
-
+    rows = []
     for cls in measure.get("classes", []):
         categories = cls.get("categories", [])
-
         if categories:
             for cat in categories:
                 cat_title = (cat.get("title") or "").strip()
-                # If the category title is a measurement label (e.g. "Count")
-                # the real gender label lives on the parent class
                 if cat_title.lower() in _MEASUREMENT_LABELS:
                     label = cls.get("title", "").strip()
                 else:
                     label = cat_title or cls.get("title", "").strip()
                 if not label:
                     continue
-
                 count = sum_measurements(cat.get("measurements", []), overall_group_id)
-
-                mapping = map_gender_category(label)
-                mapping["count"] = count
-                results.append(mapping)
+                rows.append({"label": label, "count": count})
         else:
-            # Fallback: class itself carries measurements with no categories
             label = cls.get("title", "").strip()
             if not label:
                 continue
-
             count = sum_measurements(cls.get("measurements", []), overall_group_id)
+            rows.append({"label": label, "count": count})
+    return rows
 
-            mapping = map_gender_category(label)
-            mapping["count"] = count
-            results.append(mapping)
 
+def extract_gender_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+    """Extract gender data from a standard gender table (Context B).
+
+    All rows are routed to gender.  Sex-only labels are mapped to unknown.
+    """
+    results = []
+    for row in _extract_rows_from_measure(measure, overall_group_id):
+        mapping = map_gender_label(row["label"])
+        if mapping is None:
+            # Sex-only label in a gender table — treat as unknown gender
+            mapping = {"category": "unknown", "confidence": "low",
+                       "original": row["label"], "flags": ["sex_label_in_gender_table"]}
+        mapping["count"] = row["count"]
+        results.append(mapping)
     return results
 
+
 def extract_gender_data(study: dict) -> Dict:
-    """Extract all gender data from a study."""
-    from src.utils import get_baseline_measures, get_overall_group_id
+    """Extract all gender data from a study.
+
+    Handles Context B (strict gender tables).
+    Context C (combined tables) is handled by the orchestrator.
+    """
+    from src.utils import get_baseline_measures, get_overall_group_id, get_total_baseline_participants
 
     measures = get_baseline_measures(study)
     overall_group_id = get_overall_group_id(study)
@@ -119,11 +142,12 @@ def extract_gender_data(study: dict) -> Dict:
             "woman": 0,
             "man": 0,
             "nonbinary": 0,
+            "transgender": 0,
             "other": 0,
-            "unknown": 0
+            "unknown": 0,
         },
         "raw_categories": [],
-        "flags": []
+        "flags": [],
     }
 
     for measure in measures:
@@ -133,10 +157,8 @@ def extract_gender_data(study: dict) -> Dict:
             continue
 
         result["reported"] = True
-
         categories = extract_gender_from_measure(measure, overall_group_id)
         result["raw_categories"].extend(categories)
-
         for cat in categories:
             result["totals"][cat["category"]] += cat["count"]
             result["flags"].extend(cat["flags"])
@@ -148,6 +170,15 @@ def extract_gender_data(study: dict) -> Dict:
         result["raw_categories"] = []
         result["flags"] = ["all_zero_rejection"]
 
-    result["flags"] = list(set(result["flags"]))
+    # Denominator balancing
+    if result["reported"]:
+        total_participants = get_total_baseline_participants(study, overall_group_id)
+        if total_participants is not None and total_participants > 0:
+            reported_sum = sum(result["totals"].values())
+            remainder = total_participants - reported_sum
+            if remainder > 0:
+                result["totals"]["unknown"] += remainder
+                result["flags"].append("denominator_balanced")
 
+    result["flags"] = list(set(result["flags"]))
     return result
