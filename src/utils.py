@@ -535,8 +535,8 @@ def get_study_metadata(study: dict) -> dict:
         "completion_to_report_days": completion_to_report,
         "start_to_report_days": start_to_report,
         # FDA oversight
-        "is_fda_regulated_drug": oversight_mod.get("isFDARegulatedDrug", False),
-        "is_fda_regulated_device": oversight_mod.get("isFDARegulatedDevice", False),
+        "is_fda_regulated_drug": oversight_mod.get("isFdaRegulatedDrug", False),
+        "is_fda_regulated_device": oversight_mod.get("isFdaRegulatedDevice", False),
         "is_unapproved_device": oversight_mod.get("isUnapprovedDevice", False),
         # Publications
         "references": references
