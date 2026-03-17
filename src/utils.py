@@ -179,10 +179,15 @@ def is_percentage_measure(measure: dict) -> bool:
 
 
 def get_measure_denom(measure: dict, overall_group_id: str = None) -> Optional[int]:
-    """Get the Number Analyzed from a measure's denoms array.
+    """Get the Number Analyzed (participant-level) from a measure's denoms array.
 
     This is the denominator needed to convert percentage values to counts:
         count = round((percentage / 100) * denom)
+
+    Only returns a value when the denom units are "Participants" (individual
+    people).  Cluster-randomized studies may have denoms in "Number of Clinics"
+    or "Sites" — these are NOT participant counts and must be rejected so the
+    caller can fall back to enrollment.
     """
     for denom in measure.get("denoms", []):
         if denom.get("units", "").lower() != "participants":
@@ -209,21 +214,33 @@ def get_measure_denom(measure: dict, overall_group_id: str = None) -> Optional[i
     return None
 
 
+# Regex to strip standard deviation / confidence interval notation from values.
+# ClinicalTrials.gov "Mean (Standard Deviation)" format: "50.3 (33.8)" → "50.3"
+_SD_NOTATION_RE = re.compile(r'\s*\(.*?\)\s*')
+
+
 def sum_measurements(measurements: list, overall_group_id: str = None,
                      is_pct: bool = False, denom: int = None) -> int:
     """Parse a measurement value from the API, optionally converting percentages.
+
+    Handles values in "Mean (SD)" format by stripping the parenthetical part.
 
     Args:
         measurements: List of measurement dicts from the API
         overall_group_id: groupId of the Overall group (avoids double-counting arms)
         is_pct: True if the parent measure reports percentage values
-        denom: Number Analyzed (denominator) for percentage → count conversion
+        denom: Number of participants (denominator) for percentage → count conversion
     """
     val = _get_measurement_value(measurements, overall_group_id)
     if val is None:
         return 0
     try:
-        num = float(str(val).replace(",", "").replace("%", "").strip())
+        val_str = str(val).replace(",", "").replace("%", "").strip()
+        # Strip Mean (SD) / CI notation: "50.3 (33.8)" → "50.3"
+        val_str = _SD_NOTATION_RE.sub('', val_str).strip()
+        if not val_str:
+            return 0
+        num = float(val_str)
     except (ValueError, TypeError):
         return 0
 

@@ -82,16 +82,22 @@ def map_gender_label(label: str) -> Optional[Dict]:
     return {"category": "unknown", "confidence": "low", "original": label_clean, "flags": ["unmapped"]}
 
 
-def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+def _extract_rows_from_measure(measure: dict, overall_group_id=None,
+                               fallback_denom: int = None) -> List[Dict]:
     """Low-level row extraction: yields (label, count) pairs.
 
     Percentage-aware: if the measure reports percentages, values are
-    converted to estimated counts using the measure's Number Analyzed.
+    converted to estimated counts using the measure's Number Analyzed,
+    or the study enrollment as a fallback for cluster-randomized studies.
     """
     from src.utils import sum_measurements, is_percentage_measure, get_measure_denom
 
     is_pct = is_percentage_measure(measure)
-    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
+    denom = None
+    if is_pct:
+        denom = get_measure_denom(measure, overall_group_id)
+        if denom is None:
+            denom = fallback_denom
 
     rows = []
     for cls in measure.get("classes", []):
@@ -118,13 +124,14 @@ def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dic
     return rows
 
 
-def extract_gender_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+def extract_gender_from_measure(measure: dict, overall_group_id=None,
+                                fallback_denom: int = None) -> List[Dict]:
     """Extract gender data from a standard gender table (Context B).
 
     All rows are routed to gender.  Sex-only labels are mapped to unknown.
     """
     results = []
-    for row in _extract_rows_from_measure(measure, overall_group_id):
+    for row in _extract_rows_from_measure(measure, overall_group_id, fallback_denom):
         mapping = map_gender_label(row["label"])
         if mapping is None:
             # Sex-only label in a gender table — treat as unknown gender
@@ -149,6 +156,7 @@ def extract_gender_data(study: dict) -> Dict:
 
     measures = get_baseline_measures(study)
     overall_group_id = get_overall_group_id(study)
+    total_participants = get_total_baseline_participants(study, overall_group_id)
 
     result = {
         "reported": False,
@@ -173,7 +181,7 @@ def extract_gender_data(study: dict) -> Dict:
         if is_combined_sex_gender_table(title):
             combined_table_found = True
             _sex_rows, gender_rows = extract_sex_from_combined_measure(
-                measure, overall_group_id
+                measure, overall_group_id, fallback_denom=total_participants
             )
             if gender_rows:
                 result["reported"] = True
@@ -189,7 +197,8 @@ def extract_gender_data(study: dict) -> Dict:
             continue
 
         result["reported"] = True
-        categories = extract_gender_from_measure(measure, overall_group_id)
+        categories = extract_gender_from_measure(measure, overall_group_id,
+                                                 fallback_denom=total_participants)
         result["raw_categories"].extend(categories)
         for cat in categories:
             result["totals"][cat["category"]] += cat["count"]
