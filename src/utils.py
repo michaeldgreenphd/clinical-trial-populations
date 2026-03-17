@@ -24,17 +24,56 @@ _LABEL_SUFFIX_RE = re.compile(
     re.IGNORECASE
 )
 
+# Aggressive wrapper pattern: strips labels like "Race (n, % White)" → "White"
+# or "Ethnicity (n, % Hispanic or Latino)" → "Hispanic or Latino".
+# Sponsors sometimes embed the actual category inside a wrapper that includes
+# the demographic type and measurement unit.
+_WRAPPER_RE = re.compile(
+    r'^(?:race|ethnicity|ethnic|sex|gender|biological\s+sex)\s*'
+    r'\(\s*'
+    r'(?:n\s*[,;]?\s*)?'       # optional "n" with optional comma/semicolon
+    r'(?:%\s*[,;]?\s*)?'       # optional "%" with optional comma/semicolon
+    r'(.+?)'                    # captured: actual category label
+    r'\s*\)$',
+    re.IGNORECASE
+)
+
+# Secondary wrapper: handles "(n, % LABEL)" without the demographic type prefix
+_PAREN_WRAPPER_RE = re.compile(
+    r'^\(\s*'
+    r'(?:n\s*[,;]?\s*)?'
+    r'(?:%\s*[,;]?\s*)?'
+    r'(.+?)'
+    r'\s*\)$',
+    re.IGNORECASE
+)
+
 
 def clean_demographic_label(label: str) -> str:
-    """Strip measurement suffixes from demographic labels.
+    """Strip measurement suffixes and wrapper text from demographic labels.
 
     ClinicalTrials.gov "Customized" tables often append units like ', %'
-    to row labels (e.g. 'Female, %', 'White, %').  This strips those
-    suffixes so standard category matching works.
+    to row labels (e.g. 'Female, %', 'White, %').  Some sponsors also wrap
+    labels in patterns like 'Race (n, % White)' where the actual category
+    is buried inside parentheses.
 
-    Also removes invisible Unicode characters (zero-width spaces, etc.).
+    This function:
+    1. Removes invisible Unicode characters (zero-width spaces, etc.)
+    2. Strips wrapper patterns like "Race (n, % White)" → "White"
+    3. Strips trailing measurement suffixes like ", %" or ", n"
     """
     label = label.strip().translate(_ZERO_WIDTH_CHARS)
+
+    # Try aggressive wrapper stripping first
+    m = _WRAPPER_RE.match(label)
+    if m:
+        label = m.group(1).strip()
+    else:
+        m = _PAREN_WRAPPER_RE.match(label)
+        if m:
+            label = m.group(1).strip()
+
+    # Strip trailing measurement suffixes
     label = _LABEL_SUFFIX_RE.sub('', label)
     return label.strip()
 
@@ -127,29 +166,89 @@ def get_overall_group_id(study: dict) -> Optional[str]:
 
     return None
 
-def sum_measurements(measurements: list, overall_group_id: str = None) -> int:
+def is_percentage_measure(measure: dict) -> bool:
+    """Check if a baseline measure reports percentage values.
+
+    Detects via unitOfMeasure (e.g. "%", "Percentage of Participants")
+    or paramType (e.g. "PERCENTAGE").
+    """
+    unit = (measure.get("unitOfMeasure") or "").lower()
+    param = (measure.get("paramType") or "").lower()
+    return (any(kw in unit for kw in ("%", "percent", "percentage")) or
+            any(kw in param for kw in ("percent", "percentage")))
+
+
+def get_measure_denom(measure: dict, overall_group_id: str = None) -> Optional[int]:
+    """Get the Number Analyzed from a measure's denoms array.
+
+    This is the denominator needed to convert percentage values to counts:
+        count = round((percentage / 100) * denom)
+    """
+    for denom in measure.get("denoms", []):
+        if denom.get("units", "").lower() != "participants":
+            continue
+        counts = denom.get("counts", [])
+        if not counts:
+            continue
+
+        if overall_group_id:
+            for c in counts:
+                if c.get("groupId") == overall_group_id:
+                    try:
+                        return int(float(str(c["value"]).replace(",", "")))
+                    except (ValueError, TypeError):
+                        pass
+
+        # Fallback: single or last count
+        val = counts[0].get("value") if len(counts) == 1 else counts[-1].get("value")
+        if val is not None:
+            try:
+                return int(float(str(val).replace(",", "")))
+            except (ValueError, TypeError):
+                pass
+    return None
+
+
+def sum_measurements(measurements: list, overall_group_id: str = None,
+                     is_pct: bool = False, denom: int = None) -> int:
+    """Parse a measurement value from the API, optionally converting percentages.
+
+    Args:
+        measurements: List of measurement dicts from the API
+        overall_group_id: groupId of the Overall group (avoids double-counting arms)
+        is_pct: True if the parent measure reports percentage values
+        denom: Number Analyzed (denominator) for percentage → count conversion
+    """
+    val = _get_measurement_value(measurements, overall_group_id)
+    if val is None:
+        return 0
+    try:
+        num = float(str(val).replace(",", "").replace("%", "").strip())
+    except (ValueError, TypeError):
+        return 0
+
+    # Percentage → count conversion
+    if is_pct and denom and denom > 0 and 0 <= num <= 100:
+        return round((num / 100.0) * denom)
+
+    return int(num)
+
+
+def _get_measurement_value(measurements: list, overall_group_id: str = None):
+    """Extract the raw value string from measurements."""
     if overall_group_id:
         for m in measurements:
             if m.get("groupId") == overall_group_id:
                 val = m.get("value")
                 if val is not None:
-                    try:
-                        return int(float(str(val).replace(",", "")))
-                    except (ValueError, TypeError):
-                        pass
+                    return val
                 break
     if not measurements:
-        return 0
+        return None
     if len(measurements) == 1:
-        val = measurements[0].get("value")
+        return measurements[0].get("value")
     else:
-        val = measurements[-1].get("value")
-    if val is None:
-        return 0
-    try:
-        return int(float(str(val).replace(",", "")))
-    except (ValueError, TypeError):
-        return 0
+        return measurements[-1].get("value")
 
 def get_total_baseline_participants(study: dict, overall_group_id: Optional[str] = None) -> Optional[int]:
     """Extract the total number of participants analyzed in baseline characteristics.
