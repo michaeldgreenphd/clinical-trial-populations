@@ -544,14 +544,15 @@ def extract_race_data(study: dict) -> Dict:
         result["flags"].append(f"multiple_race_tables_{race_tables_found}")
 
     # Denominator balancing: ensure category counts sum to total participants.
-    # SKIP for combined Race/Ethnicity tables: ethnicity rows (e.g. LatinX)
-    # were routed to the ethnicity pipeline, so the race total intentionally
-    # accounts for less than 100% of participants.  Adding the difference to
-    # "Unknown" would be incorrect — those participants are known (ethnicity).
+    # For combined Race/Ethnicity tables, ethnicity rows (e.g. LatinX) are
+    # routed to the ethnicity pipeline, so the race total will be less than
+    # enrollment.  The remaining participants' race is genuinely unknown
+    # (they were categorized by ethnicity only), so the difference should
+    # be added to unknown_not_reported.
     # Only balance when at least some non-zero data was extracted — if every
     # count is zero, the study has no real data and all-zero rejection should
     # take precedence.
-    if result["reported"] and total_participants is not None and not has_combined_table:
+    if result["reported"] and total_participants is not None:
         extracted_sum = sum(result["omb_totals"].values())
         if extracted_sum > 0:
             remainder = total_participants - extracted_sum
