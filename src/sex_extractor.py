@@ -89,8 +89,15 @@ def map_sex_label(label: str) -> Optional[Dict]:
 
 
 def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
-    """Low-level row extraction: yields (label, count) pairs from a measure."""
-    from src.utils import sum_measurements
+    """Low-level row extraction: yields (label, count) pairs from a measure.
+
+    Percentage-aware: if the measure reports percentages, values are
+    converted to estimated counts using the measure's Number Analyzed.
+    """
+    from src.utils import sum_measurements, is_percentage_measure, get_measure_denom
+
+    is_pct = is_percentage_measure(measure)
+    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
 
     rows = []
     for cls in measure.get("classes", []):
@@ -104,13 +111,15 @@ def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dic
                     label = cat_title or cls.get("title", "").strip()
                 if not label:
                     continue
-                count = sum_measurements(cat.get("measurements", []), overall_group_id)
+                count = sum_measurements(cat.get("measurements", []), overall_group_id,
+                                         is_pct=is_pct, denom=denom)
                 rows.append({"label": label, "count": count})
         else:
             label = cls.get("title", "").strip()
             if not label:
                 continue
-            count = sum_measurements(cls.get("measurements", []), overall_group_id)
+            count = sum_measurements(cls.get("measurements", []), overall_group_id,
+                                     is_pct=is_pct, denom=denom)
             rows.append({"label": label, "count": count})
     return rows
 
@@ -209,9 +218,11 @@ def extract_sex_from_combined_measure(measure: dict, overall_group_id=None):
 def extract_sex_data(study: dict) -> Dict:
     """Extract all sex data from a study.
 
-    Handles three contexts:
-      A) Standard sex table → all rows to sex
-      C) Combined Sex/Gender table → row-level routing (sex portion returned here)
+    Unified iterative loop — exhaustively checks all available modules:
+      1) Standard sex tables (Context A) → all rows to sex
+      2) Combined Sex/Gender tables (Context C) → row-level routing, sex portion
+      3) Customized sex tables → handled same as standard
+    Only declares "Not Reported" after checking all tables.
     """
     from src.utils import get_baseline_measures, get_overall_group_id, get_total_baseline_participants
 
@@ -228,15 +239,24 @@ def extract_sex_data(study: dict) -> Dict:
     for measure in measures:
         title = measure.get("title", "")
 
+        # Context C: combined Sex/Gender table — extract only sex rows
+        if is_combined_sex_gender_table(title):
+            sex_rows, _gender_rows = extract_sex_from_combined_measure(
+                measure, overall_group_id
+            )
+            if sex_rows:
+                result["reported"] = True
+                result["raw_categories"].extend(sex_rows)
+                for cat in sex_rows:
+                    result["totals"][cat["category"]] += cat["count"]
+                    result["flags"].extend(cat["flags"])
+                result["flags"].append("from_combined_table")
+            continue
+
+        # Standard or Customized sex table (Context A)
         if not is_sex_table(title):
             continue
 
-        # Context C: combined table — handled by orchestrator (extract_all.py)
-        # to coordinate both sex and gender outputs.
-        if is_combined_sex_gender_table(title):
-            continue
-
-        # Context A: standard sex table
         result["reported"] = True
         categories = extract_sex_from_measure(measure, overall_group_id)
         result["raw_categories"].extend(categories)

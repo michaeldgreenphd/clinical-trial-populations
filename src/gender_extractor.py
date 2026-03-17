@@ -83,8 +83,15 @@ def map_gender_label(label: str) -> Optional[Dict]:
 
 
 def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
-    """Low-level row extraction: yields (label, count) pairs."""
-    from src.utils import sum_measurements
+    """Low-level row extraction: yields (label, count) pairs.
+
+    Percentage-aware: if the measure reports percentages, values are
+    converted to estimated counts using the measure's Number Analyzed.
+    """
+    from src.utils import sum_measurements, is_percentage_measure, get_measure_denom
+
+    is_pct = is_percentage_measure(measure)
+    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
 
     rows = []
     for cls in measure.get("classes", []):
@@ -98,13 +105,15 @@ def _extract_rows_from_measure(measure: dict, overall_group_id=None) -> List[Dic
                     label = cat_title or cls.get("title", "").strip()
                 if not label:
                     continue
-                count = sum_measurements(cat.get("measurements", []), overall_group_id)
+                count = sum_measurements(cat.get("measurements", []), overall_group_id,
+                                         is_pct=is_pct, denom=denom)
                 rows.append({"label": label, "count": count})
         else:
             label = cls.get("title", "").strip()
             if not label:
                 continue
-            count = sum_measurements(cls.get("measurements", []), overall_group_id)
+            count = sum_measurements(cls.get("measurements", []), overall_group_id,
+                                     is_pct=is_pct, denom=denom)
             rows.append({"label": label, "count": count})
     return rows
 
@@ -129,10 +138,14 @@ def extract_gender_from_measure(measure: dict, overall_group_id=None) -> List[Di
 def extract_gender_data(study: dict) -> Dict:
     """Extract all gender data from a study.
 
-    Handles Context B (strict gender tables).
-    Context C (combined tables) is handled by the orchestrator.
+    Unified iterative loop — exhaustively checks all available modules:
+      1) Standard gender tables (Context B) → all rows to gender
+      2) Combined Sex/Gender tables (Context C) → row-level routing, gender portion
+      3) Customized gender tables → handled same as standard
+    Only declares "Not Reported" after checking all tables.
     """
     from src.utils import get_baseline_measures, get_overall_group_id, get_total_baseline_participants
+    from src.sex_extractor import is_combined_sex_gender_table, extract_sex_from_combined_measure
 
     measures = get_baseline_measures(study)
     overall_group_id = get_overall_group_id(study)
@@ -151,9 +164,27 @@ def extract_gender_data(study: dict) -> Dict:
         "flags": [],
     }
 
+    combined_table_found = False
+
     for measure in measures:
         title = measure.get("title", "")
 
+        # Context C: combined Sex/Gender table — extract only gender rows
+        if is_combined_sex_gender_table(title):
+            combined_table_found = True
+            _sex_rows, gender_rows = extract_sex_from_combined_measure(
+                measure, overall_group_id
+            )
+            if gender_rows:
+                result["reported"] = True
+                result["raw_categories"].extend(gender_rows)
+                for cat in gender_rows:
+                    result["totals"][cat["category"]] += cat["count"]
+                    result["flags"].extend(cat["flags"])
+                result["flags"].append("from_combined_table")
+            continue
+
+        # Standard or Customized gender table (Context B)
         if not is_gender_table(title):
             continue
 
@@ -163,6 +194,11 @@ def extract_gender_data(study: dict) -> Dict:
         for cat in categories:
             result["totals"][cat["category"]] += cat["count"]
             result["flags"].extend(cat["flags"])
+
+    # "Not Collected" enforcement: if a combined table was found but yielded
+    # no gender rows (only Female/Male), explicitly mark as not collected
+    if combined_table_found and not result["reported"]:
+        result["flags"] = ["not_collected_from_combined_table"]
 
     # All-zero rejection
     if result["reported"] and all(v == 0 for v in result["totals"].values()):

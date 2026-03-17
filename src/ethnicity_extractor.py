@@ -154,13 +154,20 @@ def map_ethnicity_category(label: str, fuzzy_threshold: int = 85) -> Dict:
 def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
     """Extract ethnicity data from a single baseline measure.
 
+    Percentage-aware: if the measure reports percentages, values are converted
+    to estimated counts using the measure's Number Analyzed denominator.
+
     Args:
         measure: A single baseline measure dict from the API
         overall_group_id: groupId of the Overall group (avoids double-counting arms)
 
     Returns list of category records with counts.
     """
-    from src.utils import sum_measurements
+    from src.utils import sum_measurements, is_percentage_measure, get_measure_denom
+
+    # Detect percentage measures and get denominator for conversion
+    is_pct = is_percentage_measure(measure)
+    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
 
     results = []
 
@@ -179,7 +186,8 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
                 if not label:
                     continue
 
-                count = sum_measurements(cat.get("measurements", []), overall_group_id)
+                count = sum_measurements(cat.get("measurements", []), overall_group_id,
+                                         is_pct=is_pct, denom=denom)
 
                 mapping = map_ethnicity_category(label)
 
@@ -192,6 +200,8 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
                         mapping["flags"].append("split_from_combined")
 
                 mapping["count"] = count
+                if is_pct and denom:
+                    mapping["flags"].append("pct_to_count")
                 results.append(mapping)
         else:
             # Fallback: class itself carries measurements with no categories
@@ -199,7 +209,8 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
             if not label:
                 continue
 
-            count = sum_measurements(cls.get("measurements", []), overall_group_id)
+            count = sum_measurements(cls.get("measurements", []), overall_group_id,
+                                     is_pct=is_pct, denom=denom)
 
             mapping = map_ethnicity_category(label)
 
@@ -210,6 +221,8 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
                     mapping["flags"].append("split_from_combined")
 
             mapping["count"] = count
+            if is_pct and denom:
+                mapping["flags"].append("pct_to_count")
             results.append(mapping)
 
     return results

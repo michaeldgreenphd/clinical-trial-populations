@@ -98,6 +98,15 @@ RACE_MAPPINGS = {
     "Mixed Race": ("more_than_one_race", None),
     "Biracial": ("more_than_one_race", None),
 
+    # Other — explicitly mapped so it gets high confidence instead of "unmapped"
+    "Other": ("other", None),
+    "Other Race": ("other", None),
+    "Other race": ("other", None),
+    "Some Other Race": ("other", None),
+    "Some other race": ("other", None),
+    "Other/Unspecified": ("other", None),
+    "Another Race": ("other", None),
+
     # Unknown / Not Reported  (including slash-separated variants that
     # ClinicalTrials.gov returns for "Customized" measures)
     "Unknown": ("unknown_not_reported", None),
@@ -368,13 +377,21 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
     remaining row produces an independent mapping — labels are never
     concatenated or merged.
 
+    Percentage-aware: if the measure reports percentages (detected via
+    unitOfMeasure/paramType), values are converted to estimated counts
+    using the measure's Number Analyzed denominator.
+
     Args:
         measure: A single baseline measure dict from the API
         overall_group_id: groupId of the Overall group (avoids double-counting arms)
 
     Returns list of category records with counts.
     """
-    from src.utils import sum_measurements
+    from src.utils import sum_measurements, is_percentage_measure, get_measure_denom
+
+    # Detect percentage measures and get denominator for conversion
+    is_pct = is_percentage_measure(measure)
+    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
 
     results = []
 
@@ -397,9 +414,12 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
                 if _is_ethnicity_only_label(label):
                     continue
 
-                count = sum_measurements(cat.get("measurements", []), overall_group_id)
+                count = sum_measurements(cat.get("measurements", []), overall_group_id,
+                                         is_pct=is_pct, denom=denom)
                 mapping = _map_race_label(label)
                 mapping["count"] = count
+                if is_pct and denom:
+                    mapping["flags"].append("pct_to_count")
                 results.append(mapping)
         else:
             # Fallback: class itself carries measurements with no categories
@@ -411,9 +431,12 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
             if _is_ethnicity_only_label(label):
                 continue
 
-            count = sum_measurements(cls.get("measurements", []), overall_group_id)
+            count = sum_measurements(cls.get("measurements", []), overall_group_id,
+                                     is_pct=is_pct, denom=denom)
             mapping = _map_race_label(label)
             mapping["count"] = count
+            if is_pct and denom:
+                mapping["flags"].append("pct_to_count")
             results.append(mapping)
 
     return results
