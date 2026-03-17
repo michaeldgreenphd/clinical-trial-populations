@@ -773,6 +773,10 @@ function initTabs() {
                 renderEthnicityFullDistribution(filtered);
             }
 
+            if (tab.dataset.tab === 'fda-oversight' && filtered.length > 0) {
+                renderFdaOversight(filtered);
+            }
+
             // Lazy-load tabs on first visit
             if (tab.dataset.tab === 'ai-devices') {
                 loadAIDevicesTab();
@@ -1707,6 +1711,9 @@ function renderStudiesTable() {
             <td>${startDate}</td>
             <td>${endDate}</td>
             <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
+            <td class="text-center">${renderFdaCell(study.is_fda_regulated_drug)}</td>
+            <td class="text-center">${renderFdaCell(study.is_fda_regulated_device)}</td>
+            <td class="text-center">${renderFdaCell(study.is_unapproved_device)}</td>
             <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
@@ -1883,6 +1890,13 @@ function truncateText(text, maxLength) {
     if (!text || text === 'N/A') return text;
     if (text.length <= maxLength) return text;
     return text.substring(0, maxLength - 3) + '...';
+}
+
+function renderFdaCell(value) {
+    if (value === true) {
+        return '<svg width="16" height="16" viewBox="0 0 16 16" fill="#10b981"><path d="M13.485 3.929a.75.75 0 0 1 .086 1.056l-6 7a.75.75 0 0 1-1.1.043l-3-3a.75.75 0 1 1 1.06-1.06l2.419 2.418 5.48-6.371a.75.75 0 0 1 1.055-.086z"/></svg>';
+    }
+    return '<span class="text-muted">\u2014</span>';
 }
 
 function renderDemographicCell(study, field) {
@@ -5102,6 +5116,84 @@ function renderGeoReportingTrendChart(studies) {
                 }
             }
         }
+    });
+}
+
+// ── FDA Oversight Tab ──
+
+function renderFdaOversight(filtered) {
+    // Compute counts for each regulatory category
+    const drugTrials = filtered.filter(s => s.is_fda_regulated_drug === true);
+    const deviceTrials = filtered.filter(s => s.is_fda_regulated_device === true);
+    const unapprovedTrials = filtered.filter(s => s.is_unapproved_device === true);
+
+    // Update stat cards
+    const drugEl = document.getElementById('fda-drug-count');
+    const deviceEl = document.getElementById('fda-device-count');
+    const unapprovedEl = document.getElementById('fda-unapproved-count');
+    if (drugEl) drugEl.textContent = drugTrials.length.toLocaleString();
+    if (deviceEl) deviceEl.textContent = deviceTrials.length.toLocaleString();
+    if (unapprovedEl) unapprovedEl.textContent = unapprovedTrials.length.toLocaleString();
+
+    // Helper: compute % of trials in a subset that report a given field
+    function reportingPct(subset, field) {
+        if (subset.length === 0) return 0;
+        const reported = subset.filter(s => s[field]?.reported).length;
+        return parseFloat(((reported / subset.length) * 100).toFixed(1));
+    }
+
+    // Categories for comparison
+    const nonRegulated = filtered.filter(s => s.is_fda_regulated_drug !== true && s.is_fda_regulated_device !== true);
+    const categories = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated'];
+    const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulated];
+    const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
+
+    // Render grouped bar charts for each demographic
+    const demoFields = [
+        { field: 'race', chartId: 'fda-race-reporting-chart', chartKey: 'fdaRace' },
+        { field: 'ethnicity', chartId: 'fda-ethnicity-reporting-chart', chartKey: 'fdaEthnicity' },
+        { field: 'sex', chartId: 'fda-sex-reporting-chart', chartKey: 'fdaSex' }
+    ];
+
+    demoFields.forEach(({ field, chartId, chartKey }) => {
+        const ctx = document.getElementById(chartId);
+        if (!ctx) return;
+        if (charts[chartKey]) charts[chartKey].destroy();
+
+        const pcts = subsets.map(subset => reportingPct(subset, field));
+
+        charts[chartKey] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: categories,
+                datasets: [{
+                    label: `% Reporting ${field.charAt(0).toUpperCase() + field.slice(1)}`,
+                    data: pcts,
+                    backgroundColor: barColors
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        title: { display: true, text: '% of Trials' }
+                    }
+                },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return ` ${context.parsed.y}% of trials`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
     });
 }
 
