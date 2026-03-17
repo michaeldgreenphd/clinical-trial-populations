@@ -1552,6 +1552,29 @@ footer p {
     white-space: nowrap;
 }
 
+.sparkline-bidirectional {
+    gap: 0;
+}
+
+.sparkline-left {
+    display: flex;
+    justify-content: flex-end;
+    width: 50px;
+}
+
+.sparkline-center {
+    width: 2px;
+    height: 16px;
+    background: #9ca3af;
+    flex-shrink: 0;
+}
+
+.sparkline-right {
+    display: flex;
+    justify-content: flex-start;
+    width: 50px;
+}
+
 .sparkline-bar {
     display: inline-block;
     height: 16px;
@@ -1560,6 +1583,10 @@ footer p {
     min-width: 2px;
     max-width: 100px;
     transition: all 0.2s;
+}
+
+.sparkline-bar.early {
+    background: #3b82f6; /* Blue for early reporting (negative days) */
 }
 
 .sparkline-bar.fast {
@@ -1578,6 +1605,7 @@ footer p {
     font-size: 0.8125rem;
     color: var(--text-secondary);
     min-width: 50px;
+    margin-left: 0.25rem;
 }
 
 /* Tooltip for raw/mapped demographic labels */

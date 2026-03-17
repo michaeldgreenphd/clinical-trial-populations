@@ -1411,7 +1411,7 @@ function calculateDaysBetween(startDate, endDate) {
         const diffTime = end - start;
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
-        return diffDays >= 0 ? diffDays : null;
+        return diffDays;
     } catch (e) {
         return null;
     }
@@ -1439,25 +1439,56 @@ function getTimeToReport(study) {
  * Tufte principle: Small multiples allow micro/macro reading
  */
 function renderSparkline(days) {
-    if (days === null || days === undefined || days < 0) {
+    if (days === null || days === undefined) {
         return '<span class="text-muted">N/A</span>';
     }
 
-    // Calculate bar width (0-100px range, max at 730 days = 2 years)
     const maxDays = 730;
-    const widthPercent = Math.min((days / maxDays) * 100, 100);
 
-    // Determine color class based on thresholds
+    if (days === 0) {
+        // Zero: neutral dot at center
+        return `
+            <div class="sparkline-cell sparkline-bidirectional">
+                <div class="sparkline-left"></div>
+                <div class="sparkline-center"></div>
+                <div class="sparkline-right"></div>
+                <span class="sparkline-value">0d</span>
+            </div>
+        `;
+    }
+
+    if (days < 0) {
+        // Early reporting: blue bar growing left from center
+        const absDays = Math.abs(days);
+        const widthPercent = Math.min((absDays / maxDays) * 100, 100);
+        return `
+            <div class="sparkline-cell sparkline-bidirectional">
+                <div class="sparkline-left">
+                    <div class="sparkline-bar early" style="width: ${widthPercent}px" title="${days} days (early)"></div>
+                </div>
+                <div class="sparkline-center"></div>
+                <div class="sparkline-right"></div>
+                <span class="sparkline-value">${days}d</span>
+            </div>
+        `;
+    }
+
+    // Late reporting: bar growing right from center
+    const widthPercent = Math.min((days / maxDays) * 100, 100);
     let colorClass = 'fast';
     if (days > 365) {
-        colorClass = 'slow'; // > 1 year: red
+        colorClass = 'slow';
     } else if (days > 180) {
-        colorClass = 'medium'; // 6 months - 1 year: orange
-    } // < 6 months: green
+        colorClass = 'medium';
+    }
 
     return `
-        <div class="sparkline-cell">
-            <div class="sparkline-bar ${colorClass}" style="width: ${widthPercent}px" title="${days} days"></div>
+        <div class="sparkline-cell sparkline-bidirectional">
+            <div class="sparkline-left"></div>
+            <div class="sparkline-center"></div>
+            <div class="sparkline-right">
+                <div class="sparkline-bar ${colorClass}" style="width: ${widthPercent}px" title="${days} days"></div>
+            </div>
             <span class="sparkline-value">${days}d</span>
         </div>
     `;
