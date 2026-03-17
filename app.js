@@ -2718,6 +2718,7 @@ function renderRaceTrends(filtered) {
             scales: {
                 y: {
                     beginAtZero: true,
+                    max: 100,
                     title: { display: true, text: 'Average % per Study' }
                 }
             },
@@ -2888,6 +2889,7 @@ function renderEthnicityTrends(filtered) {
             scales: {
                 y: {
                     beginAtZero: true,
+                    max: 100,
                     title: { display: true, text: 'Average % per Study' }
                 }
             },
