@@ -54,6 +54,7 @@
         <button class="tab" data-tab="sex">Sex</button>
         <button class="tab" data-tab="gender">Gender</button>
         <button class="tab" data-tab="geography">Geography</button>
+        <button class="tab" data-tab="fda-oversight">FDA Oversight</button>
         <button class="tab" data-tab="ai-devices">AI Devices</button>
         <button class="tab" data-tab="fda-extraction">(Beta) AI Demographic Extraction</button>
         <button class="tab" data-tab="lit-extraction">(Beta) Paper Data Extraction</button>
@@ -441,6 +442,9 @@
                                     <th data-sort="start_date" class="sortable">Study Start Date</th>
                                     <th data-sort="primary_completion_date" class="sortable">Study End Date</th>
                                     <th data-sort="phase" class="sortable">Phase</th>
+                                    <th class="text-center sortable" data-sort="is_fda_regulated_drug">FDA Drug</th>
+                                    <th class="text-center sortable" data-sort="is_fda_regulated_device">FDA Device</th>
+                                    <th class="text-center sortable" data-sort="is_unapproved_device">Unapproved Device</th>
                                     <th>Publications</th>
                                 </tr>
                             </thead>
@@ -589,6 +593,42 @@
                     <p class="note">Percentage of trials reporting location data by year.</p>
                     <canvas id="geo-reporting-trend-chart"></canvas>
                 </div>
+            </div>
+        </section>
+
+        <!-- FDA Oversight Tab -->
+        <section id="fda-oversight" class="tab-content">
+            <div class="stats-grid" id="fda-stats-grid">
+                <div class="stat-card">
+                    <h3>FDA Regulated Drug Trials</h3>
+                    <p class="stat-value" id="fda-drug-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>FDA Regulated Device Trials</h3>
+                    <p class="stat-value" id="fda-device-count">-</p>
+                </div>
+                <div class="stat-card">
+                    <h3>Unapproved Device Trials</h3>
+                    <p class="stat-value" id="fda-unapproved-count">-</p>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Race Reporting by FDA Regulatory Status</h3>
+                <p class="note">Percentage of trials that report race data, compared across regulatory categories.</p>
+                <canvas id="fda-race-reporting-chart"></canvas>
+            </div>
+
+            <div class="chart-container" style="margin-top: 1.5rem;">
+                <h3>Ethnicity Reporting by FDA Regulatory Status</h3>
+                <p class="note">Percentage of trials that report ethnicity data, compared across regulatory categories.</p>
+                <canvas id="fda-ethnicity-reporting-chart"></canvas>
+            </div>
+
+            <div class="chart-container" style="margin-top: 1.5rem;">
+                <h3>Sex Reporting by FDA Regulatory Status</h3>
+                <p class="note">Percentage of trials that report sex data, compared across regulatory categories.</p>
+                <canvas id="fda-sex-reporting-chart"></canvas>
             </div>
         </section>
 
@@ -951,6 +991,19 @@
                         <p class="note">Time to report is calculated as the difference in days between when the study results were posted and when the study officially ended.</p>
                         <p><code>Time to Report = Results Reported Date - Study End Date</code></p>
                         <p class="note">A positive number (red/orange bar) indicates the results were reported after the study ended. A negative number (blue bar) indicates a positive scenario where results were reported early, before the official study end date.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What do the FDA regulatory status fields mean?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">These fields indicate the level of U.S. Food and Drug Administration (FDA) oversight for a given clinical trial, as reported by the trial sponsor to ClinicalTrials.gov.</p>
+                        <ul>
+                            <li><strong>FDA Regulated Drug:</strong> Indicates the trial is studying a drug or biological product subject to FDA regulations.</li>
+                            <li><strong>FDA Regulated Device:</strong> Indicates the trial is studying a medical device subject to FDA regulations.</li>
+                            <li><strong>Unapproved Device:</strong> Indicates that at least one device being studied has not been previously approved or cleared by the FDA for any use.</li>
+                        </ul>
+                        <p class="note"><strong>Note:</strong> These fields indicate regulatory jurisdiction over the trial itself. They do not mean the FDA has ultimately approved the drug or device for public market availability.</p>
                     </div>
                 </details>
             </div>
