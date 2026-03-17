@@ -151,15 +151,19 @@ def map_ethnicity_category(label: str, fuzzy_threshold: int = 85) -> Dict:
         "flags": flags
     }
 
-def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List[Dict]:
+def extract_ethnicity_from_measure(measure: dict, overall_group_id=None,
+                                   fallback_denom: int = None) -> List[Dict]:
     """Extract ethnicity data from a single baseline measure.
 
     Percentage-aware: if the measure reports percentages, values are converted
-    to estimated counts using the measure's Number Analyzed denominator.
+    to estimated counts using the measure's Number Analyzed denominator, or
+    the study enrollment as a fallback for cluster-randomized studies.
 
     Args:
         measure: A single baseline measure dict from the API
         overall_group_id: groupId of the Overall group (avoids double-counting arms)
+        fallback_denom: Study enrollment count, used when measure-level denom
+            is unavailable (e.g. cluster-randomized studies)
 
     Returns list of category records with counts.
     """
@@ -167,7 +171,11 @@ def extract_ethnicity_from_measure(measure: dict, overall_group_id=None) -> List
 
     # Detect percentage measures and get denominator for conversion
     is_pct = is_percentage_measure(measure)
-    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
+    denom = None
+    if is_pct:
+        denom = get_measure_denom(measure, overall_group_id)
+        if denom is None:
+            denom = fallback_denom  # fall back to study enrollment
 
     results = []
 
@@ -248,6 +256,7 @@ def extract_ethnicity_data(study: dict) -> Dict:
     }
 
     ethnicity_tables_found = 0
+    has_combined_table = False
 
     for measure in measures:
         title = measure.get("title", "")
@@ -258,7 +267,11 @@ def extract_ethnicity_data(study: dict) -> Dict:
         ethnicity_tables_found += 1
         result["reported"] = True
 
-        categories = extract_ethnicity_from_measure(measure, overall_group_id)
+        if "race" in title.lower():
+            has_combined_table = True
+
+        categories = extract_ethnicity_from_measure(measure, overall_group_id,
+                                                    fallback_denom=total_participants)
 
         # Combined "Race/Ethnicity" measures contain race labels (e.g.
         # "White", "Non-white") that don't match any ethnicity keyword.
@@ -285,11 +298,13 @@ def extract_ethnicity_data(study: dict) -> Dict:
         result["flags"].append(f"multiple_ethnicity_tables_{ethnicity_tables_found}")
 
     # Denominator balancing: ensure category counts sum to total participants.
-    # When a combined table only yields a few ethnicity rows (e.g. only
-    # "Hispanic: 2" in a 74-person study), add the remainder to
-    # "Unknown or Not Reported" so percentages use the true denominator.
+    # SKIP for combined Race/Ethnicity tables: race rows (e.g. White, Black)
+    # were NOT routed to the ethnicity pipeline, so the ethnicity total
+    # intentionally accounts for less than 100% of participants.  Adding
+    # the difference to "Unknown" would be incorrect — those participants
+    # are accounted for in race, not missing from ethnicity.
     # Only balance when at least some non-zero data was extracted.
-    if result["reported"] and total_participants is not None:
+    if result["reported"] and total_participants is not None and not has_combined_table:
         extracted_sum = sum(result["omb_totals"].values())
         if extracted_sum > 0:
             remainder = total_participants - extracted_sum

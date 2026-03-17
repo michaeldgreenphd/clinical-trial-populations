@@ -367,7 +367,8 @@ def _map_race_label(label: str) -> Dict:
 
     return mapping
 
-def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = None) -> List[Dict]:
+def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = None,
+                              fallback_denom: int = None) -> List[Dict]:
     """
     Extract race data from a single baseline measure.
 
@@ -379,11 +380,15 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
 
     Percentage-aware: if the measure reports percentages (detected via
     unitOfMeasure/paramType), values are converted to estimated counts
-    using the measure's Number Analyzed denominator.
+    using the measure's Number Analyzed denominator, or the study's
+    enrollment count as a fallback (for cluster-randomized studies where
+    the measure's denom is "Number of Clinics" instead of "Participants").
 
     Args:
         measure: A single baseline measure dict from the API
         overall_group_id: groupId of the Overall group (avoids double-counting arms)
+        fallback_denom: Study enrollment count, used when measure-level denom
+            is unavailable (e.g. cluster-randomized studies)
 
     Returns list of category records with counts.
     """
@@ -391,7 +396,11 @@ def extract_race_from_measure(measure: dict, overall_group_id: Optional[str] = N
 
     # Detect percentage measures and get denominator for conversion
     is_pct = is_percentage_measure(measure)
-    denom = get_measure_denom(measure, overall_group_id) if is_pct else None
+    denom = None
+    if is_pct:
+        denom = get_measure_denom(measure, overall_group_id)
+        if denom is None:
+            denom = fallback_denom  # fall back to study enrollment
 
     results = []
 
@@ -477,6 +486,7 @@ def extract_race_data(study: dict) -> Dict:
     }
 
     race_tables_found = 0
+    has_combined_table = False
 
     for measure in measures:
         title = measure.get("title", "")
@@ -487,13 +497,16 @@ def extract_race_data(study: dict) -> Dict:
         race_tables_found += 1
         result["reported"] = True
 
-        categories = extract_race_from_measure(measure, overall_group_id)
+        categories = extract_race_from_measure(measure, overall_group_id,
+                                               fallback_denom=total_participants)
 
         # Annotate categories from non-standard / combined measures so the
         # dashboard can surface the match-quality signal to the user
         title_lower = title.lower()
         is_combined   = "ethnicity" in title_lower
         is_customized = "customized" in title_lower
+        if is_combined:
+            has_combined_table = True
         if is_combined or is_customized:
             for cat in categories:
                 if is_combined:
@@ -530,14 +543,14 @@ def extract_race_data(study: dict) -> Dict:
         result["flags"].append(f"multiple_race_tables_{race_tables_found}")
 
     # Denominator balancing: ensure category counts sum to total participants.
-    # When a combined/customized table only yields a few race rows (e.g. a
-    # 100-person study with only 74 race-mapped participants), the remainder
-    # is explicitly assigned to "Unknown or Not Reported" so that percentage
-    # calculations use the true study population as the denominator.
+    # SKIP for combined Race/Ethnicity tables: ethnicity rows (e.g. LatinX)
+    # were routed to the ethnicity pipeline, so the race total intentionally
+    # accounts for less than 100% of participants.  Adding the difference to
+    # "Unknown" would be incorrect — those participants are known (ethnicity).
     # Only balance when at least some non-zero data was extracted — if every
     # count is zero, the study has no real data and all-zero rejection should
     # take precedence.
-    if result["reported"] and total_participants is not None:
+    if result["reported"] and total_participants is not None and not has_combined_table:
         extracted_sum = sum(result["omb_totals"].values())
         if extracted_sum > 0:
             remainder = total_participants - extracted_sum
