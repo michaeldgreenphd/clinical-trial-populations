@@ -31,7 +31,7 @@ _LABEL_SUFFIX_RE = re.compile(
 _WRAPPER_RE = re.compile(
     r'^(?:race|ethnicity|ethnic|sex|gender|biological\s+sex)\s*'
     r'\(\s*'
-    r'(?:n\s*[,;]?\s*)?'       # optional "n" with optional comma/semicolon
+    r'(?:n\s*[,;]\s*)?'        # optional "n" REQUIRING comma/semicolon (avoids eating "N" from "Non-White")
     r'(?:%\s*[,;]?\s*)?'       # optional "%" with optional comma/semicolon
     r'(.+?)'                    # captured: actual category label
     r'\s*\)$',
@@ -41,7 +41,7 @@ _WRAPPER_RE = re.compile(
 # Secondary wrapper: handles "(n, % LABEL)" without the demographic type prefix
 _PAREN_WRAPPER_RE = re.compile(
     r'^\(\s*'
-    r'(?:n\s*[,;]?\s*)?'
+    r'(?:n\s*[,;]\s*)?'        # optional "n" REQUIRING comma/semicolon
     r'(?:%\s*[,;]?\s*)?'
     r'(.+?)'
     r'\s*\)$',

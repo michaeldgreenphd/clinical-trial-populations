@@ -18,6 +18,7 @@ RACE_MAPPINGS = {
     "American Indian or Alaska Native": ("american_indian_alaska_native", None),
     "American Indian or Alaskan Native": ("american_indian_alaska_native", None),
     "American Indian/Alaska Native": ("american_indian_alaska_native", None),
+    "American Indian/Native Alaskan": ("american_indian_alaska_native", None),
     "Native American": ("american_indian_alaska_native", None),
     "Indigenous": ("american_indian_alaska_native", None),
     "First Nations": ("american_indian_alaska_native", None),
