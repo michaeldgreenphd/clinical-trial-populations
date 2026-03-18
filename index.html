@@ -237,6 +237,17 @@
                             <span class="ai-toggle-text">AI Studies Only</span>
                         </label>
                     </div>
+
+                    <div class="filter-group">
+                        <label for="fda-status">FDA Regulatory Status:</label>
+                        <select id="fda-status">
+                            <option value="all">All Statuses</option>
+                            <option value="drug">FDA Regulated Drug</option>
+                            <option value="device">FDA Regulated Device</option>
+                            <option value="unapproved">Unapproved Device</option>
+                            <option value="non-regulated">Non-Regulated</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -611,6 +622,10 @@
                     <h3>Unapproved Device Trials</h3>
                     <p class="stat-value" id="fda-unapproved-count">-</p>
                 </div>
+                <div class="stat-card">
+                    <h3>Non-Regulated / Unflagged Trials</h3>
+                    <p class="stat-value" id="fda-nonregulated-count">-</p>
+                </div>
             </div>
 
             <div class="chart-container">
@@ -634,6 +649,9 @@
 
         <!-- AI Devices Tab -->
         <section id="ai-devices" class="tab-content">
+            <div class="ai-devices-disclaimer" style="background: #fef9c3; border: 1px solid #facc15; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; color: #854d0e; font-size: 0.9rem;">
+                <strong>Note:</strong> This tab tracks specific AI-enabled devices. Demographic data extraction for these devices is currently pending and will be populated in a future update.
+            </div>
             <div class="chart-container">
                 <div class="ai-devices-header">
                     <h3>FDA-Authorized AI/ML-Enabled Medical Devices</h3>
@@ -1002,6 +1020,7 @@
                             <li><strong>FDA Regulated Drug:</strong> Indicates the trial is studying a drug or biological product subject to FDA regulations.</li>
                             <li><strong>FDA Regulated Device:</strong> Indicates the trial is studying a medical device subject to FDA regulations.</li>
                             <li><strong>Unapproved Device:</strong> Indicates that at least one device being studied has not been previously approved or cleared by the FDA for any use.</li>
+                            <li><strong>Non-Regulated / Unflagged:</strong> The trial does not have these specific FDA flags set to true. This bucket contains the majority of studies, including behavioral interventions, surgical technique comparisons, international trials without a U.S. IND, and older legacy trials conducted before these fields were mandated.</li>
                         </ul>
                         <p class="note"><strong>Note:</strong> These fields indicate regulatory jurisdiction over the trial itself. They do not mean the FDA has ultimately approved the drug or device for public market availability.</p>
                     </div>
