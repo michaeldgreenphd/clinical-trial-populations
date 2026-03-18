@@ -5171,10 +5171,9 @@ function renderFdaOversight(filtered) {
         return parseFloat(((reported / subset.length) * 100).toFixed(1));
     }
 
-    // Categories for comparison
-    const nonRegulated = filtered.filter(s => s.is_fda_regulated_drug !== true && s.is_fda_regulated_device !== true);
+    // Categories for comparison (nonRegulatedTrials is consistent with the stat card)
     const categories = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated'];
-    const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulated];
+    const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulatedTrials];
     const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
 
     // Render grouped bar charts for each demographic
