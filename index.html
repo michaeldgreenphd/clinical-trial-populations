@@ -131,6 +131,19 @@
                 </div>
             </div>
 
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="fda-status">FDA Regulatory Status:</label>
+                    <select id="fda-status">
+                        <option value="all">All Statuses</option>
+                        <option value="drug">FDA Regulated Drug</option>
+                        <option value="device">FDA Regulated Device</option>
+                        <option value="unapproved">Unapproved Device</option>
+                        <option value="non-regulated">Non-Regulated</option>
+                    </select>
+                </div>
+            </div>
+
             <!-- Expandable filters — hidden by default -->
             <div id="expanded-filters" class="expanded-filters" style="display: none;">
                 <div class="filter-row">
@@ -236,17 +249,6 @@
                             <input type="checkbox" id="ai-study-filter">
                             <span class="ai-toggle-text">AI Studies Only</span>
                         </label>
-                    </div>
-
-                    <div class="filter-group">
-                        <label for="fda-status">FDA Regulatory Status:</label>
-                        <select id="fda-status">
-                            <option value="all">All Statuses</option>
-                            <option value="drug">FDA Regulated Drug</option>
-                            <option value="device">FDA Regulated Device</option>
-                            <option value="unapproved">Unapproved Device</option>
-                            <option value="non-regulated">Non-Regulated</option>
-                        </select>
                     </div>
                 </div>
             </div>
