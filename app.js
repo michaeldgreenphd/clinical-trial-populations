@@ -832,7 +832,8 @@ function initFilters() {
     const filterIds = [
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
-        'enrollment-type', 'healthy-volunteers', 'population-age', 'condition', 'condition-primary', 'condition-secondary', 'country'
+        'enrollment-type', 'healthy-volunteers', 'population-age', 'condition', 'condition-primary', 'condition-secondary', 'country',
+        'fda-status'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -1027,6 +1028,8 @@ function resetFilters() {
     document.getElementById('country').value = 'all';
     document.getElementById('min-participants').value = '';
     document.getElementById('max-participants').value = '';
+    const fdaStatusSelect = document.getElementById('fda-status');
+    if (fdaStatusSelect) fdaStatusSelect.value = 'all';
     const aiCheckbox = document.getElementById('ai-study-filter');
     if (aiCheckbox) aiCheckbox.checked = false;
 
@@ -1131,6 +1134,14 @@ function updateActiveFilters() {
         }});
     }
 
+    const fdaStatusVal = document.getElementById('fda-status')?.value;
+    if (fdaStatusVal && fdaStatusVal !== 'all') {
+        const fdaLabels = { drug: 'FDA Drug', device: 'FDA Device', unapproved: 'Unapproved Device', 'non-regulated': 'Non-Regulated' };
+        filters.push({ label: `FDA: ${fdaLabels[fdaStatusVal] || fdaStatusVal}`, reset: () => {
+            document.getElementById('fda-status').value = 'all';
+        }});
+    }
+
     const aiChecked = document.getElementById('ai-study-filter')?.checked;
     if (aiChecked) {
         filters.push({ label: 'AI Studies Only', reset: () => {
@@ -1220,6 +1231,7 @@ function getFilteredData() {
     const conditionSecondaryFilter = document.getElementById('condition-secondary')?.value || 'all';
     const countryFilter = document.getElementById('country')?.value || 'all';
     const aiOnly = document.getElementById('ai-study-filter')?.checked || false;
+    const fdaStatus = document.getElementById('fda-status')?.value || 'all';
 
     return data.filter(study => {
         if (aiOnly && !isAIStudy(study)) return false;
@@ -1273,6 +1285,14 @@ function getFilteredData() {
             if (enroll == null) return false;
             if (minPart !== '' && enroll < parseInt(minPart, 10)) return false;
             if (maxPart !== '' && enroll > parseInt(maxPart, 10)) return false;
+        }
+
+        // FDA regulatory status filter
+        if (fdaStatus !== 'all') {
+            if (fdaStatus === 'drug' && study.is_fda_regulated_drug !== true) return false;
+            if (fdaStatus === 'device' && study.is_fda_regulated_device !== true) return false;
+            if (fdaStatus === 'unapproved' && study.is_unapproved_device !== true) return false;
+            if (fdaStatus === 'non-regulated' && (study.is_fda_regulated_drug === true || study.is_fda_regulated_device === true || study.is_unapproved_device === true)) return false;
         }
 
         return true;
@@ -1711,9 +1731,9 @@ function renderStudiesTable() {
             <td>${startDate}</td>
             <td>${endDate}</td>
             <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
-            <td class="text-center">${renderFdaCell(study.is_fda_regulated_drug)}</td>
-            <td class="text-center">${renderFdaCell(study.is_fda_regulated_device)}</td>
-            <td class="text-center">${renderFdaCell(study.is_unapproved_device)}</td>
+            <td class="text-center">${renderFdaCell(study.is_fda_regulated_drug, 'Yes: FDA Regulated Drug')}</td>
+            <td class="text-center">${renderFdaCell(study.is_fda_regulated_device, 'Yes: FDA Regulated Device')}</td>
+            <td class="text-center">${renderFdaCell(study.is_unapproved_device, 'Yes: Unapproved Device')}</td>
             <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
@@ -1892,9 +1912,9 @@ function truncateText(text, maxLength) {
     return text.substring(0, maxLength - 3) + '...';
 }
 
-function renderFdaCell(value) {
+function renderFdaCell(value, tooltipText) {
     if (value === true) {
-        return '<svg width="16" height="16" viewBox="0 0 16 16" fill="#10b981"><path d="M13.485 3.929a.75.75 0 0 1 .086 1.056l-6 7a.75.75 0 0 1-1.1.043l-3-3a.75.75 0 1 1 1.06-1.06l2.419 2.418 5.48-6.371a.75.75 0 0 1 1.055-.086z"/></svg>';
+        return `<span title="${tooltipText || 'Yes'}"><svg width="16" height="16" viewBox="0 0 16 16" fill="#10b981"><path d="M13.485 3.929a.75.75 0 0 1 .086 1.056l-6 7a.75.75 0 0 1-1.1.043l-3-3a.75.75 0 1 1 1.06-1.06l2.419 2.418 5.48-6.371a.75.75 0 0 1 1.055-.086z"/></svg></span>`;
     }
     return '<span class="text-muted">\u2014</span>';
 }
@@ -5127,13 +5147,22 @@ function renderFdaOversight(filtered) {
     const deviceTrials = filtered.filter(s => s.is_fda_regulated_device === true);
     const unapprovedTrials = filtered.filter(s => s.is_unapproved_device === true);
 
+    // Non-regulated: none of the three FDA flags are true
+    const nonRegulatedTrials = filtered.filter(s =>
+        s.is_fda_regulated_drug !== true &&
+        s.is_fda_regulated_device !== true &&
+        s.is_unapproved_device !== true
+    );
+
     // Update stat cards
     const drugEl = document.getElementById('fda-drug-count');
     const deviceEl = document.getElementById('fda-device-count');
     const unapprovedEl = document.getElementById('fda-unapproved-count');
+    const nonRegEl = document.getElementById('fda-nonregulated-count');
     if (drugEl) drugEl.textContent = drugTrials.length.toLocaleString();
     if (deviceEl) deviceEl.textContent = deviceTrials.length.toLocaleString();
     if (unapprovedEl) unapprovedEl.textContent = unapprovedTrials.length.toLocaleString();
+    if (nonRegEl) nonRegEl.textContent = nonRegulatedTrials.length.toLocaleString();
 
     // Helper: compute % of trials in a subset that report a given field
     function reportingPct(subset, field) {
