@@ -443,11 +443,15 @@ function ensurePako() {
     return _pakoReady;
 }
 
+// Session-level cache buster: same value for the entire page session so the
+// browser HTTP cache is effective within a session, but a new tab/refresh
+// after deployment gets fresh data.  Changes daily to pick up weekly extractions.
+const DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
 // Decompress a single .json.gz response body and return parsed JSON.
 async function fetchAndDecompress(url) {
     console.log(`Fetching: ${url}`);
-    const cacheBust = new Date().getTime();
-    const response = await fetch(`${url}?v=${cacheBust}`);
+    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
     console.log(`Response status for ${url}: ${response.status}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
@@ -525,8 +529,7 @@ async function loadData(date) {
     if (isMobileDevice && (!date || date === 'latest')) {
         try {
             console.log('📱 Mobile detected — loading pre-computed dashboard summary');
-            const cacheBust = new Date().getTime();
-            const resp = await fetch(`data/dashboard-summary.json?v=${cacheBust}`);
+            const resp = await fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
             if (resp.ok) {
                 dashboardSummary = await resp.json();
                 data = [];  // empty — charts will use dashboardSummary instead
@@ -4412,9 +4415,33 @@ let regionalChart = null;
 /**
  * Initialize the US Map with D3 - fetches TopoJSON and sets up SVG
  */
+// ── Lazy-load D3 + topojson (only when Geography tab is first opened) ──
+let _d3Ready = null;
+function ensureD3() {
+    if (typeof d3 !== 'undefined' && typeof topojson !== 'undefined') return Promise.resolve();
+    if (_d3Ready) return _d3Ready;
+    _d3Ready = new Promise((resolve, reject) => {
+        const d3Script = document.createElement('script');
+        d3Script.src = 'https://d3js.org/d3.v7.min.js';
+        d3Script.onload = () => {
+            const topoScript = document.createElement('script');
+            topoScript.src = 'https://cdn.jsdelivr.net/npm/topojson-client@3';
+            topoScript.onload = resolve;
+            topoScript.onerror = () => reject(new Error('Failed to load topojson'));
+            document.head.appendChild(topoScript);
+        };
+        d3Script.onerror = () => reject(new Error('Failed to load D3'));
+        document.head.appendChild(d3Script);
+    });
+    return _d3Ready;
+}
+
 async function initUSMap() {
     const container = document.getElementById('us-map-container');
     if (!container) return;
+
+    // Load D3 + topojson on demand
+    await ensureD3();
 
     // Clear any existing content
     container.innerHTML = '';
@@ -4494,10 +4521,12 @@ function renderUSMap() {
         minVal = 0;
         maxVal = Math.max(...values, 1);
     } else {
-        // For reporting layers (race, ethnicity, sex), always use 0-100%
-        // so the full color gradient is visible and differences are clear
-        minVal = 0;
-        maxVal = 100;
+        // For reporting layers (race, ethnicity, sex), use the actual data range
+        // so color differences between states are clearly visible
+        const scaleValues = positiveValues.length > 0 ? positiveValues : [0];
+        minVal = Math.min(...scaleValues);
+        maxVal = Math.max(...scaleValues);
+        if (minVal === maxVal) { minVal = 0; } // avoid zero-range edge case
     }
 
     // Update legend
