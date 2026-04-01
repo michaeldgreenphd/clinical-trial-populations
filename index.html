@@ -6,12 +6,15 @@
     <title>Civic Sample - Clinical Trials Demographics Dashboard</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
-    <link rel="stylesheet" href="styles.css?v=20260316b">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="stylesheet" href="styles.css?v=20260401">
+    <!-- Non-render-blocking font loading -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap"></noscript>
+    <!-- Chart.js loaded defer: non-render-blocking, executes in order before DOMContentLoaded -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+    <!-- D3 + topojson lazy-loaded by app.js when Geography tab is first opened -->
 </head>
 <body>
     <!-- Loading Overlay - shown immediately on page load -->
@@ -1041,14 +1044,14 @@
                     <h3>Who built this</h3>
                     <div class="team-grid">
                         <div class="team-member">
-                            <img src="Maryam Headshot.jpeg" alt="Maryam Aziz" class="team-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <img src="maryam-headshot.webp" alt="Maryam Aziz" class="team-photo" width="400" height="332" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                             <div class="team-photo-placeholder" style="display: none;"></div>
                             <h4>Maryam Aziz</h4>
                             <p class="team-link"><a href="https://www.linkedin.com/in/azizmaryam/">LinkedIn</a></p>
                             <p class="team-bio">Maryam Aziz is a Ph.D. candidate in Population Health Sciences at Duke University School of Medicine and holds an M.S. in Computer Science from Columbia University. Her research focuses on human-centered development and evaluation of AI in healthcare, particularly for women's health, with an emphasis on equity, transparency, and clinical impact.</p>
                         </div>
                         <div class="team-member">
-                            <img src="Michael Headshot.jpg" alt="Michael D. Green, Ph.D." class="team-photo" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <img src="michael-headshot.webp" alt="Michael D. Green, Ph.D." class="team-photo" width="400" height="297" loading="lazy" decoding="async" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                             <div class="team-photo-placeholder" style="display: none;"></div>
                             <h4>Michael D. Green, Ph.D.</h4>
                             <p class="team-link"><a href="https://www.linkedin.com/in/michaeldgreenphd/">LinkedIn</a></p>
@@ -1078,6 +1081,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script src="app.js?v=20260316b"></script>
+    <script defer src="app.js?v=20260401"></script>
 </body>
 </html>
