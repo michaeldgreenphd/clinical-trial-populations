@@ -391,7 +391,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await loadConditionOntology();
         updateLoadingProgress(10, isMobileDevice ? 'Loading mobile-optimized data...' : 'Fetching clinical trial data...');
         await loadData();
-        updateLoadingProgress(80, 'Initializing dashboard...');
+        updateLoadingProgress(75, 'Setting up filters...');
         initTabs();
         if (!dashboardSummary) {
             // Full desktop mode: initialize filters, table, geography
@@ -404,8 +404,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             disableFiltersForMobile();
         }
         initSubcategoryButtons();
-        updateLoadingProgress(90, 'Rendering charts...');
+        updateLoadingProgress(85, 'Rendering overview...');
         renderDashboard();
+        updateLoadingProgress(100, 'Ready');
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
@@ -571,13 +572,17 @@ async function loadData(date) {
             const numParts = strategy.urls.length;
             console.log(`Trying ${strategy.name} strategy (${numParts} parts)...`);
 
-            // Fetch all parts in parallel
-            const promises = strategy.urls.map((url, i) => {
-                updateLoadingProgress(
-                    15 + Math.round((i / numParts) * 50),
-                    `Downloading dataset part ${i + 1} of ${numParts}...`
-                );
-                return fetchAndDecompress(url);
+            // Fetch all parts in parallel, but track individual completions
+            let partsCompleted = 0;
+            const promises = strategy.urls.map((url) => {
+                return fetchAndDecompress(url).then(result => {
+                    partsCompleted++;
+                    updateLoadingProgress(
+                        15 + Math.round((partsCompleted / numParts) * 55),
+                        `Downloaded ${partsCompleted} of ${numParts} data files...`
+                    );
+                    return result;
+                });
             });
 
             const parts = await Promise.all(promises);
@@ -1371,29 +1376,40 @@ function renderDashboard() {
     document.getElementById('both-reporting').textContent =
         filtered.length > 0 ? `${((bothCount / filtered.length) * 100).toFixed(1)}%` : '0%';
 
-    // Render charts
+    // Render only the Overview tab chart immediately (the visible tab).
+    // All other tab charts are rendered on-demand when their tab is clicked
+    // (the tab-click handler already calls the appropriate render functions).
     renderReportingTrends(filtered);
-    renderRaceDistribution(filtered);
-    renderRaceTrends(filtered);
-    renderRaceSubcategories('asian');
-    renderRaceReportedParticipants(filtered);
-    renderRaceFullDistribution(filtered);
-    renderEthnicityDistribution(filtered);
-    renderEthnicityTrends(filtered);
-    renderEthnicitySubcategories(filtered);
-    renderEthnicityReportedParticipants(filtered);
-    renderEthnicityFullDistribution(filtered);
-    renderSexReportedParticipants(filtered);
-    renderSexFullDistribution(filtered);
-    renderSexDistribution(filtered);
-    renderSexTrends(filtered);
-    renderGenderReportedParticipants(filtered);
-    renderGenderFullDistribution(filtered);
-    renderGenderDistribution(filtered);
-    renderGenderTrends(filtered);
 
-    // Render Geography dashboard
-    renderGeographyDashboard();
+    // Determine which tab is currently active and render its charts
+    const activeTab = document.querySelector('.tab.active')?.dataset.tab;
+    if (activeTab === 'race') {
+        renderRaceDistribution(filtered);
+        renderRaceTrends(filtered);
+        renderRaceSubcategories('asian');
+        renderRaceReportedParticipants(filtered);
+        renderRaceFullDistribution(filtered);
+    } else if (activeTab === 'ethnicity') {
+        renderEthnicityDistribution(filtered);
+        renderEthnicityTrends(filtered);
+        renderEthnicitySubcategories(filtered);
+        renderEthnicityReportedParticipants(filtered);
+        renderEthnicityFullDistribution(filtered);
+    } else if (activeTab === 'sex') {
+        renderSexReportedParticipants(filtered);
+        renderSexFullDistribution(filtered);
+        renderSexDistribution(filtered);
+        renderSexTrends(filtered);
+    } else if (activeTab === 'gender') {
+        renderGenderReportedParticipants(filtered);
+        renderGenderFullDistribution(filtered);
+        renderGenderDistribution(filtered);
+        renderGenderTrends(filtered);
+    } else if (activeTab === 'geography') {
+        renderGeographyDashboard();
+    } else if (activeTab === 'fda-oversight') {
+        renderFdaOversight(filtered);
+    }
 
     // Update table if visible
     const studiesTab = document.querySelector('.tab[data-tab="studies"]');
