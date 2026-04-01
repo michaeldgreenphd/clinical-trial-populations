@@ -387,11 +387,11 @@ function getStudyPediatricStatus(study) {
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
-        updateLoadingProgress(5, 'Loading condition ontology...');
+        updateLoadingProgress(5, 'Preparing dashboard...');
         await loadConditionOntology();
-        updateLoadingProgress(10, isMobileDevice ? 'Loading mobile-optimized data...' : 'Fetching clinical trial data...');
+        updateLoadingProgress(10, 'Downloading clinical trial data...');
         await loadData();
-        updateLoadingProgress(75, 'Setting up filters...');
+        updateLoadingProgress(78, 'Initializing filters and controls...');
         initTabs();
         if (!dashboardSummary) {
             // Full desktop mode: initialize filters, table, geography
@@ -404,9 +404,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             disableFiltersForMobile();
         }
         initSubcategoryButtons();
-        updateLoadingProgress(85, 'Rendering overview...');
+        updateLoadingProgress(90, 'Rendering charts...');
         renderDashboard();
-        updateLoadingProgress(100, 'Ready');
+        updateLoadingProgress(100, 'Done');
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
@@ -587,7 +587,7 @@ async function loadData(date) {
 
             const parts = await Promise.all(promises);
 
-            updateLoadingProgress(70, 'Processing studies...');
+            updateLoadingProgress(72, 'Merging dataset...');
             data = parts.flatMap(p => p.data);
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
