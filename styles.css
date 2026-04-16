@@ -2586,6 +2586,37 @@ footer p {
     white-space: nowrap;
 }
 
+/* Summary Document badges (AI Devices table) */
+.pdf-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    line-height: 1.4;
+    white-space: nowrap;
+    text-decoration: none;
+    border: 1px solid transparent;
+}
+
+.pdf-badge-available {
+    background: #d4edda;
+    color: #155724;
+    border-color: #c3e6cb;
+}
+
+.pdf-badge-available:hover {
+    background: #c3e6cb;
+    text-decoration: none;
+}
+
+.pdf-badge-unavailable {
+    background: #e9ecef;
+    color: #6c757d;
+    border-color: #dee2e6;
+    cursor: default;
+}
+
 /* ---------------------------------------------------------------------------
    Extraction Pipeline Tabs (Beta)
 --------------------------------------------------------------------------- */

@@ -45,3 +45,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# FDA summary PDFs (fetched by scripts/extraction/fetch_fda_pdfs.py)
+data/fda_pdfs/
