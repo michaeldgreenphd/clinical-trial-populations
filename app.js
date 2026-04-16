@@ -5406,18 +5406,30 @@ let aiDevicesLoaded = false;
 async function loadAIDevicesTab() {
     if (aiDevicesLoaded) return;
 
-    try {
-        const resp = await fetch('data/ai-ml-enabled-devices-csv_20260305.csv');
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const csvText = await resp.text();
-        aiDevicesData = parseCSV(csvText);
-        aiDevicesLoaded = true;
-        renderAIDevicesTab();
-    } catch (e) {
-        console.warn('Could not load AI devices CSV:', e.message);
-        const tbody = document.getElementById('ai-devices-tbody');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="7">Could not load AI devices data.</td></tr>';
+    // Prefer the enriched CSV (with pdf_url / local_pdf_path columns produced
+    // by scripts/extraction/fetch_fda_pdfs.py). Fall back to the raw FDA CSV
+    // so the tab still renders if the fetch script hasn't been run yet.
+    const sources = [
+        'data/ai-ml-enabled-devices-enriched.csv',
+        'data/ai-ml-enabled-devices-csv_20260305.csv',
+    ];
+
+    for (const src of sources) {
+        try {
+            const resp = await fetch(src);
+            if (!resp.ok) continue;
+            const csvText = await resp.text();
+            aiDevicesData = parseCSV(csvText);
+            aiDevicesLoaded = true;
+            renderAIDevicesTab();
+            return;
+        } catch (e) {
+            console.warn(`Could not load ${src}:`, e.message);
+        }
     }
+
+    const tbody = document.getElementById('ai-devices-tbody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="8">Could not load AI devices data.</td></tr>';
 }
 
 function parseCSV(text) {
@@ -5583,16 +5595,36 @@ function applyAIDevicesView() {
     tbody.innerHTML = pageData.map(d => {
         const subNum = d['Submission Number'] || '';
         const fdaUrl = getFDAUrl(subNum);
+        const subCell = fdaUrl
+            ? `<a href="${fdaUrl}" target="_blank" rel="noopener" class="fda-link">${escapeHtml(subNum)}</a>`
+            : escapeHtml(subNum);
         const linkCell = fdaUrl
-            ? `<a href="${fdaUrl}" target="_blank" class="fda-link">View FDA Application</a>`
+            ? `<a href="${fdaUrl}" target="_blank" rel="noopener" class="fda-link">View FDA Application</a>`
             : `<span class="fda-no-record">No premarket notification found</span>`;
+
+        // Summary Document badge. "PDF Available" requires a cached local copy
+        // (local_pdf_path !== "Not Found"); the badge then links out to the
+        // upstream pdf_url for one-click access. Falls back to "Unavailable"
+        // when either the enriched CSV is not present or the PDF wasn't found.
+        const pdfUrl = d['pdf_url'];
+        const localPath = d['local_pdf_path'];
+        const hasLocalPdf = localPath && localPath !== 'Not Found';
+        const hasPdfUrl = pdfUrl && pdfUrl !== 'Not Found';
+        let pdfCell;
+        if (hasLocalPdf && hasPdfUrl) {
+            pdfCell = `<a href="${escapeHtml(pdfUrl)}" target="_blank" rel="noopener" class="pdf-badge pdf-badge-available" title="Open FDA summary PDF">PDF Available</a>`;
+        } else {
+            pdfCell = `<span class="pdf-badge pdf-badge-unavailable" title="Summary PDF has not been cached locally">Unavailable</span>`;
+        }
+
         return `<tr>
             <td>${escapeHtml(d['Date of Final Decision'] || '')}</td>
-            <td>${escapeHtml(subNum)}</td>
+            <td>${subCell}</td>
             <td>${escapeHtml(d['Device'] || '')}</td>
             <td>${escapeHtml(d['Company'] || '')}</td>
             <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
             <td>${escapeHtml(d['Primary Product Code'] || d['Product Code'] || '')}</td>
+            <td>${pdfCell}</td>
             <td>${linkCell}</td>
         </tr>`;
     }).join('');
