@@ -2,10 +2,14 @@
 """
 FDA AI/ML Device Demographic Extraction Pipeline — 3-Way Model Comparison
 
-Reads the FDA AI/ML-enabled devices CSV, selects 3 devices for a pilot run,
-downloads their full 510(k)/De Novo/PMA summary PDFs, and runs each through
-three Anthropic models (Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare
-extraction quality and cost.
+Reads local FDA 510(k)/De Novo/PMA summary PDFs from
+`Data/pilot_summary_statements/`, enriches each with metadata from the FDA
+devices CSV, and runs each document through three Anthropic models
+(Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare extraction quality and cost.
+
+PDF fetching is handled separately by scripts/extraction/fetch_fda_pdfs.py —
+this script only reads from disk so it can run in constrained environments
+(e.g., GitHub Actions) without outbound access to accessdata.fda.gov.
 
 Outputs:
   - data/fda_demographics_extracted.json  (per-document, per-model results)
@@ -13,23 +17,22 @@ Outputs:
 
 Requires:
   - ANTHROPIC_API_KEY environment variable
-  - pip install anthropic pdfplumber requests
+  - pip install anthropic pdfplumber
 """
 
 import csv
-import io
+import glob
 import json
 import os
-import re
 import sys
 import time
 
 import anthropic
 import pdfplumber
-import requests
 
-PILOT_SIZE = 3
-INPUT_CSV = "data/ai-ml-enabled-devices-csv_20260305.csv"
+PILOT_SIZE = 12
+PILOT_PDF_DIR = "Data/pilot_summary_statements"
+INPUT_CSV = "data/ai-ml-enabled-devices-enriched.csv"
 OUTPUT_DATA = "data/fda_demographics_extracted.json"
 OUTPUT_METRICS = "data/fda_token_metrics.json"
 
@@ -66,29 +69,16 @@ Return a single valid JSON object with this exact schema:
 Return ONLY the JSON object, no other text."""
 
 
-def build_pdf_url(submission_number: str) -> str | None:
-    sn = submission_number.strip().upper()
-    match = re.match(r'[A-Z]+(\d{2})', sn)
-    if not match:
-        return None
-    year_prefix = match.group(1)
-    return f"https://www.accessdata.fda.gov/cdrh_docs/pdf{year_prefix}/{submission_number}.pdf"
-
-
-def download_and_extract_full_text(url: str) -> str | None:
-    """Download a PDF and extract ALL pages — no page limits."""
+def extract_text_from_local_pdf(path: str) -> str | None:
+    """Read a local PDF and return concatenated text from all non-empty pages."""
     try:
-        resp = requests.get(url, timeout=60, headers={
-            "User-Agent": "CivicSample-Research/1.0 (academic research)"
-        })
-        resp.raise_for_status()
-        with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+        with pdfplumber.open(path) as pdf:
             pages = [p.extract_text() for p in pdf.pages if p.extract_text()]
             if not pages:
                 return None
             return "\n\n".join(pages)
     except Exception as e:
-        print(f"  ✗ PDF download/parse failed: {e}", file=sys.stderr)
+        print(f"  ✗ PDF parse failed ({path}): {e}", file=sys.stderr)
         return None
 
 
@@ -123,41 +113,60 @@ def read_fda_csv(path: str) -> list[dict]:
     return rows
 
 
+def build_metadata_index(csv_path: str) -> dict[str, dict]:
+    """Map UPPER(submission number) -> CSV row."""
+    if not os.path.exists(csv_path):
+        print(f"  ! metadata CSV not found: {csv_path} (continuing without it)",
+              file=sys.stderr)
+        return {}
+    idx: dict[str, dict] = {}
+    for row in read_fda_csv(csv_path):
+        sub = (row.get("Submission Number") or "").strip().upper()
+        if sub:
+            idx[sub] = row
+    return idx
+
+
+def discover_pilot_pdfs(pdf_dir: str, limit: int) -> list[tuple[str, str]]:
+    """Return up to `limit` (submission_number, pdf_path) pairs, sorted by name."""
+    if not os.path.isdir(pdf_dir):
+        print(f"Error: pilot PDF directory not found: {pdf_dir}", file=sys.stderr)
+        return []
+    paths = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
+    pairs = [(os.path.splitext(os.path.basename(p))[0].upper(), p) for p in paths]
+    return pairs[:limit]
+
+
 def main():
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
         sys.exit(1)
 
-    print(f"FDA 3-Way Model Comparison Pipeline")
-    devices = read_fda_csv(INPUT_CSV)
-    print(f"  Total devices in CSV: {len(devices)}")
-    pilot = devices[:PILOT_SIZE]
-    print(f"  Pilot size: {len(pilot)} (full PDF, 3 models each)\n")
+    print(f"FDA 3-Way Model Comparison Pipeline (local PDF mode)")
+    print(f"  Pilot PDF dir: {PILOT_PDF_DIR}")
+    print(f"  Metadata CSV:  {INPUT_CSV}")
+
+    metadata = build_metadata_index(INPUT_CSV)
+    pilot = discover_pilot_pdfs(PILOT_PDF_DIR, PILOT_SIZE)
+
+    if not pilot:
+        print(f"  No PDFs found in {PILOT_PDF_DIR}. Aborting.", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"  Pilot size: {len(pilot)} PDFs (max {PILOT_SIZE})\n")
 
     results = []
-    # Per-model aggregate token tracking
     model_totals = {m["id"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
 
-    for i, device in enumerate(pilot):
-        sub_num = device.get("Submission Number", "").strip()
-        device_name = device.get("Device", "Unknown")
-        panel = device.get("Panel (Lead)", "Unknown")
+    for i, (sub_num, pdf_path) in enumerate(pilot):
+        row = metadata.get(sub_num, {})
+        device_name = row.get("Device", "Unknown")
+        panel = row.get("Panel (Lead)", "Unknown")
+        pdf_url = row.get("pdf_url") or None
         print(f"[{i+1}/{len(pilot)}] {sub_num} — {device_name}")
+        print(f"  ↪ {pdf_path}")
 
-        pdf_url = build_pdf_url(sub_num)
-        if not pdf_url:
-            print(f"  ✗ Could not build URL")
-            results.append({
-                "submission_number": sub_num,
-                "device_name": device_name,
-                "panel": panel,
-                "source_url": None,
-                "extraction_status": "no_url",
-                "models": {},
-            })
-            continue
-
-        text = download_and_extract_full_text(pdf_url)
+        text = extract_text_from_local_pdf(pdf_path)
         if not text:
             print(f"  ✗ No text from PDF")
             results.append({
@@ -165,6 +174,7 @@ def main():
                 "device_name": device_name,
                 "panel": panel,
                 "source_url": pdf_url,
+                "local_pdf_path": pdf_path,
                 "extraction_status": "pdf_failed",
                 "models": {},
             })
@@ -204,16 +214,15 @@ def main():
             "device_name": device_name,
             "panel": panel,
             "source_url": pdf_url,
+            "local_pdf_path": pdf_path,
             "extraction_status": "success",
             "models": model_results,
         })
 
-    # Write results
     print(f"\nWriting {len(results)} results to {OUTPUT_DATA}")
     with open(OUTPUT_DATA, "w") as f:
         json.dump(results, f, indent=2)
 
-    # Build per-model metrics
     per_model = {}
     for model in MODELS:
         mid = model["id"]
@@ -232,7 +241,7 @@ def main():
 
     metrics = {
         "pilot_size": len([r for r in results if r["extraction_status"] == "success"]),
-        "total_fda_tools": len(devices),
+        "total_fda_tools": len(metadata) if metadata else None,
         "per_model": per_model,
     }
     print(f"Writing metrics to {OUTPUT_METRICS}")

@@ -46,5 +46,10 @@ Thumbs.db
 .coverage
 htmlcov/
 
-# FDA summary PDFs (fetched by scripts/extraction/fetch_fda_pdfs.py)
+# FDA summary PDFs — full corpus is large (1,400+ files) and lives outside git.
+# The pilot subset in Data/pilot_summary_statements/ IS tracked so GitHub Actions
+# can run the pilot extraction without pulling the full archive.
 data/fda_pdfs/
+Data/FDA Summary Statements/
+!Data/pilot_summary_statements/
+!Data/pilot_summary_statements/**
