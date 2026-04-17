@@ -7,7 +7,7 @@ cross-references each filename (sanitized DOI) with
 `data/fuzzy_matches_pending_review.csv` to inject study metadata
 (FDA submission number, FDA device, publication year, CC license), and runs
 each manuscript through three Anthropic models (Haiku 4.5, Sonnet 4.6,
-Opus 4.6) to compare extraction quality and cost.
+Opus 4.7) to compare extraction quality and cost.
 
 PDF fetching is decoupled from extraction — this script only reads local files
 so it can run in constrained environments (e.g., GitHub Actions) without
@@ -44,7 +44,7 @@ TOTAL_STUDIES = 53841
 MODELS = [
     {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
     {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6",  "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
-    {"id": "claude-opus-4-6",           "label": "Opus 4.6",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
+    {"id": "claude-opus-4-7",           "label": "Opus 4.7",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
 
 client = anthropic.Anthropic()

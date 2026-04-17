@@ -5,7 +5,7 @@ FDA AI/ML Device Demographic Extraction Pipeline — 3-Way Model Comparison
 Reads local FDA 510(k)/De Novo/PMA summary PDFs from
 `data/pilot_summary_statements/`, enriches each with metadata from the FDA
 devices CSV, and runs each document through three Anthropic models
-(Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare extraction quality and cost.
+(Haiku 4.5, Sonnet 4.6, Opus 4.7) to compare extraction quality and cost.
 
 PDF fetching is handled separately by scripts/extraction/fetch_fda_pdfs.py —
 this script only reads from disk so it can run in constrained environments
@@ -39,7 +39,7 @@ OUTPUT_METRICS = "data/fda_token_metrics.json"
 MODELS = [
     {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
     {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6",  "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
-    {"id": "claude-opus-4-6",           "label": "Opus 4.6",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
+    {"id": "claude-opus-4-7",           "label": "Opus 4.7",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
 
 client = anthropic.Anthropic()
