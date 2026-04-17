@@ -45,25 +45,56 @@ MODELS = [
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in FDA medical device submissions.
-Read the provided FDA summary document text and extract the demographic breakdown
-of the clinical validation cohort.
+You are a clinical data extractor specializing in FDA medical device submissions. Your task is to extract demographic and socioeconomic data of the clinical validation cohort.
 
-Extract ONLY information explicitly stated in the text. If a field is not mentioned,
-use "Not Reported".
+Extract ONLY information explicitly stated in the text. If a field is not mentioned, you must return "Not Reported".
+
+CRITICAL DISTINCTION: In clinical demographic reporting, "Unknown" is often an explicit category used by researchers (e.g., a patient checked "Unknown" on a form). Do not confuse an explicit "Unknown" category with missing data. If the document explicitly lists "Unknown" as a category with a count, record that number. If the document simply fails to mention a demographic category at all, record "Not Reported".
 
 Return a single valid JSON object with this exact schema:
 {
   "device_name": "string",
   "panel": "string (medical specialty)",
   "total_participants": integer or "Not Reported",
-  "sex_male": integer or "Not Reported",
-  "sex_female": integer or "Not Reported",
-  "race_white": integer or "Not Reported",
-  "race_black": integer or "Not Reported",
-  "race_asian": integer or "Not Reported",
-  "race_other": integer or "Not Reported",
-  "age_range": "string like '22-84' or 'Not Reported'"
+  "geography": {
+    "us_states": ["list of strings"] or "Not Reported",
+    "countries": ["list of strings"] or "Not Reported",
+    "total_sites": integer or "Not Reported"
+  },
+  "sex": {
+    "female": integer or "Not Reported",
+    "male": integer or "Not Reported",
+    "unknown": integer or "Not Reported"
+  },
+  "gender": {
+    "woman": integer or "Not Reported",
+    "man": integer or "Not Reported",
+    "non_binary": integer or "Not Reported",
+    "transgender": integer or "Not Reported",
+    "other": integer or "Not Reported",
+    "unknown": integer or "Not Reported"
+  },
+  "race_nih_omb": {
+    "american_indian_or_alaska_native": integer or "Not Reported",
+    "asian": integer or "Not Reported",
+    "black_or_african_american": integer or "Not Reported",
+    "native_hawaiian_or_other_pacific_islander": integer or "Not Reported",
+    "white": integer or "Not Reported",
+    "more_than_one_race": integer or "Not Reported",
+    "unknown": integer or "Not Reported"
+  },
+  "ethnicity": {
+    "hispanic_or_latino": integer or "Not Reported",
+    "not_hispanic_or_latino": integer or "Not Reported",
+    "unknown": integer or "Not Reported"
+  },
+  "socioeconomic_status": {
+    "education": "string summary of reporting (e.g., '30% College, 70% High School') or 'Not Reported'",
+    "income": "string summary or 'Not Reported'",
+    "wealth": "string summary or 'Not Reported'",
+    "family_size": "string summary or 'Not Reported'",
+    "adi_area_deprivation_index": "string summary or 'Not Reported'"
+  }
 }
 
 Return ONLY the JSON object, no other text."""
@@ -86,7 +117,7 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     """Run extraction against a single model. Returns (data, token_usage)."""
     response = client.messages.create(
         model=model_id,
-        max_tokens=600,
+        max_tokens=1500,
         temperature=0,
         messages=[{
             "role": "user",
