@@ -2,12 +2,12 @@
 """
 Peer-reviewed Manuscript Demographic Extraction Pipeline — 3-Way Model Comparison
 
-Reads local AI/ML validation manuscript PDFs from `Data/pilot_AIML_manuscripts/`,
+Reads local AI/ML validation manuscript PDFs from `data/pilot_AIML_manuscripts/`,
 cross-references each filename (sanitized DOI) with
 `data/fuzzy_matches_pending_review.csv` to inject study metadata
-(FDA device, publication year, CC license), and runs each manuscript through
-three Anthropic models (Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare extraction
-quality and cost.
+(FDA submission number, FDA device, publication year, CC license), and runs
+each manuscript through three Anthropic models (Haiku 4.5, Sonnet 4.6,
+Opus 4.6) to compare extraction quality and cost.
 
 PDF fetching is decoupled from extraction — this script only reads local files
 so it can run in constrained environments (e.g., GitHub Actions) without
@@ -33,7 +33,7 @@ import anthropic
 import pdfplumber
 
 PILOT_SIZE = 9
-PILOT_PDF_DIR = "Data/pilot_AIML_manuscripts"
+PILOT_PDF_DIR = "data/pilot_AIML_manuscripts"
 METADATA_CSV = "data/fuzzy_matches_pending_review.csv"
 OUTPUT_DATA = "data/lit_ses_extracted.json"
 OUTPUT_METRICS = "data/lit_token_metrics.json"
@@ -50,15 +50,21 @@ MODELS = [
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in published AI/ML validation studies. Extract demographic and socioeconomic data from the methodology and results sections.
+You are a clinical data extractor specializing in published AI/ML validation studies. Extract demographic, socioeconomic, and functional status data.
 
 Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
 
 CRITICAL: "Unknown" is an explicit reporting category. If the paper explicitly lists "Unknown" or "Not Stated" with a count, record that number. Do not confuse this with implicitly missing data.
 
+For Age, Disability/Functional Limitations, and Religion, provide a concise string summary of how the data is reported (e.g., "Mean 65.2 (SD 5.1)" or "ECOG Performance Status 1-2").
+
+LINKAGE CRITICAL: We must link this paper to ClinicalTrials.gov if possible. Scan the text for any ClinicalTrials.gov identifier (format: NCT followed by 8 digits) and list it under associated_nct_ids.
+
 Return a single valid JSON object with this exact schema:
 {
+  "associated_nct_ids": ["list of strings"] or "Not Reported",
   "total_participants": integer or "Not Reported",
+  "age": "string summary or 'Not Reported'",
   "geography": {
     "us_states": ["list of strings"] or "Not Reported",
     "countries": ["list of strings"] or "Not Reported",
@@ -97,7 +103,9 @@ Return a single valid JSON object with this exact schema:
     "wealth": "string summary or 'Not Reported'",
     "family_size": "string summary or 'Not Reported'",
     "adi_area_deprivation_index": "string summary or 'Not Reported'"
-  }
+  },
+  "disability_and_functional_limitations": "string summary or 'Not Reported'",
+  "religion": "string summary or 'Not Reported'"
 }
 
 Return ONLY the JSON object, no other text."""
@@ -148,6 +156,7 @@ def lookup_metadata(index: dict[str, dict], slug: str) -> dict:
     don't have to branch on missing metadata."""
     row = index.get(slug, {})
     return {
+        "fda_submission_number": (row.get("FDA_Submission_Number") or row.get("FDA Submission Number") or "Not Reported").strip() or "Not Reported",
         "fda_device": (row.get("FDA_Device") or row.get("FDA Device") or "Not Reported").strip() or "Not Reported",
         "publication_year": str(row.get("Year") or row.get("publication_year") or "Not Reported").strip() or "Not Reported",
         "cc_license": (row.get("CC_License") or row.get("CC License") or "Not Reported").strip() or "Not Reported",
@@ -171,7 +180,7 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     """Run extraction against a single model. Returns (data, token_usage)."""
     response = client.messages.create(
         model=model_id,
-        max_tokens=1500,
+        max_tokens=2000,
         temperature=0,
         messages=[{
             "role": "user",
@@ -214,7 +223,8 @@ def main():
         metadata = lookup_metadata(metadata_index, slug)
         print(f"[{i+1}/{len(pilot)}] {slug}")
         print(f"  ↪ {pdf_path}")
-        print(f"  metadata: year={metadata['publication_year']} "
+        print(f"  metadata: submission={metadata['fda_submission_number']} "
+              f"year={metadata['publication_year']} "
               f"device={metadata['fda_device']} license={metadata['cc_license']}")
 
         text = extract_text_from_local_pdf(pdf_path)
