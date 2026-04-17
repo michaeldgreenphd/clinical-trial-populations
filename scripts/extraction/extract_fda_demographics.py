@@ -3,7 +3,7 @@
 FDA AI/ML Device Demographic Extraction Pipeline — 3-Way Model Comparison
 
 Reads local FDA 510(k)/De Novo/PMA summary PDFs from
-`Data/pilot_summary_statements/`, enriches each with metadata from the FDA
+`data/pilot_summary_statements/`, enriches each with metadata from the FDA
 devices CSV, and runs each document through three Anthropic models
 (Haiku 4.5, Sonnet 4.6, Opus 4.6) to compare extraction quality and cost.
 
@@ -31,7 +31,7 @@ import anthropic
 import pdfplumber
 
 PILOT_SIZE = 12
-PILOT_PDF_DIR = "Data/pilot_summary_statements"
+PILOT_PDF_DIR = "data/pilot_summary_statements"
 INPUT_CSV = "data/ai-ml-enabled-devices-enriched.csv"
 OUTPUT_DATA = "data/fda_demographics_extracted.json"
 OUTPUT_METRICS = "data/fda_token_metrics.json"
