@@ -45,17 +45,22 @@ MODELS = [
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in FDA medical device submissions. Your task is to extract demographic and socioeconomic data of the clinical validation cohort.
+You are a clinical data extractor specializing in FDA medical device submissions. Extract demographic, socioeconomic, and citation data of the clinical validation cohort.
 
-Extract ONLY information explicitly stated in the text. If a field is not mentioned, you must return "Not Reported".
+Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
 
-CRITICAL DISTINCTION: In clinical demographic reporting, "Unknown" is often an explicit category used by researchers (e.g., a patient checked "Unknown" on a form). Do not confuse an explicit "Unknown" category with missing data. If the document explicitly lists "Unknown" as a category with a count, record that number. If the document simply fails to mention a demographic category at all, record "Not Reported".
+CRITICAL: "Unknown" is often an explicit reporting category. If the document explicitly lists "Unknown" with a count, record that number. If the document simply fails to mention a category, record "Not Reported".
 
 Return a single valid JSON object with this exact schema:
 {
   "device_name": "string",
   "panel": "string (medical specialty)",
   "total_participants": integer or "Not Reported",
+  "cited_clinical_studies": {
+    "nct_ids": ["list of strings"] or "Not Reported",
+    "dois": ["list of strings"] or "Not Reported",
+    "publication_titles": ["list of strings"] or "Not Reported"
+  },
   "geography": {
     "us_states": ["list of strings"] or "Not Reported",
     "countries": ["list of strings"] or "Not Reported",
@@ -89,7 +94,7 @@ Return a single valid JSON object with this exact schema:
     "unknown": integer or "Not Reported"
   },
   "socioeconomic_status": {
-    "education": "string summary of reporting (e.g., '30% College, 70% High School') or 'Not Reported'",
+    "education": "string summary or 'Not Reported'",
     "income": "string summary or 'Not Reported'",
     "wealth": "string summary or 'Not Reported'",
     "family_size": "string summary or 'Not Reported'",
