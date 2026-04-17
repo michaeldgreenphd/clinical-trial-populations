@@ -747,19 +747,20 @@
                         <table class="studies-table" id="fda-extraction-table">
                             <thead>
                                 <tr>
-                                    <th>Device Name</th>
+                                    <th>Device</th>
                                     <th>Panel</th>
                                     <th>Submission #</th>
                                     <th class="text-right">Total N</th>
-                                    <th class="text-right">Male</th>
-                                    <th class="text-right">Female</th>
-                                    <th class="text-right">White</th>
-                                    <th class="text-right">Black</th>
-                                    <th class="text-right">Asian</th>
-                                    <th class="text-right">Other</th>
-                                    <th>Age Range</th>
+                                    <th>Race (NIH/OMB)</th>
+                                    <th>Ethnicity</th>
+                                    <th>Sex</th>
+                                    <th>Gender</th>
+                                    <th>Geography</th>
+                                    <th>SES — Income / Education / Wealth</th>
+                                    <th>Disability</th>
+                                    <th>Household</th>
                                     <th>Agreement</th>
-                                    <th>Source</th>
+                                    <th>Details</th>
                                 </tr>
                             </thead>
                             <tbody id="fda-extraction-tbody"></tbody>
@@ -795,8 +796,13 @@
                     </div>
                 </div>
 
-                <h3>Extracted Literature Data (Pilot Sample)</h3>
-                <p class="note">SES indicators (income, education, insurance) are critical for understanding health equity gaps in clinical trial populations. The <span class="agreement-badge agreement-yes">Agree</span> column indicates whether all 3 models returned the same value.</p>
+                <h3>Manuscript Discrepancy Engine (Pilot Sample)</h3>
+                <p class="note">For each manuscript the LLM-extracted values are compared against the ClinicalTrials.gov record for the linked NCT ID. Each field is flagged
+                    <span class="disc-badge disc-match">Match</span>
+                    <span class="disc-badge disc-addition">Addition</span>
+                    or
+                    <span class="disc-badge disc-conflict">Conflict</span>.
+                    Curators confirm or deny additions and conflicts; the action is gated by a curator password.</p>
                 <div class="model-selector" id="lit-model-selector">
                     <label>View model:</label>
                     <!-- Populated by JS -->
@@ -806,14 +812,16 @@
                         <table class="studies-table" id="lit-extraction-table">
                             <thead>
                                 <tr>
-                                    <th>Study Details</th>
-                                    <th>Income</th>
-                                    <th>Education</th>
-                                    <th>Insurance</th>
-                                    <th>SES Notes</th>
-                                    <th>Race Breakdown</th>
-                                    <th>Agreement</th>
+                                    <th>Manuscript</th>
+                                    <th>Linked NCT</th>
+                                    <th>Total Participants</th>
+                                    <th>Sex</th>
+                                    <th>Race (NIH/OMB)</th>
+                                    <th>Ethnicity</th>
+                                    <th>SES</th>
+                                    <th>Age / Disability</th>
                                     <th>Source PDF</th>
+                                    <th>Details</th>
                                 </tr>
                             </thead>
                             <tbody id="lit-extraction-tbody"></tbody>
@@ -1078,6 +1086,12 @@
 
     <!-- Modal Overlay for Study Details -->
     <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
+
+    <!-- Modal Overlay for Beta Extraction Details -->
+    <div id="extraction-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeExtractionDetails()"></div>
+
+    <!-- Password Gate Overlay (Beta tabs + curator actions) -->
+    <div id="password-gate-overlay" class="modal-overlay"></div>
 
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>

@@ -3051,3 +3051,294 @@ footer p {
     font-weight: 500;
     color: var(--text-primary);
 }
+
+/* ===== Beta tabs: password gate, extraction modal, discrepancy UI ===== */
+
+.password-gate-modal {
+    background: white;
+    border-radius: 10px;
+    width: min(420px, 92vw);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    overflow: hidden;
+    animation: slideUp 0.25s ease-out;
+}
+
+.password-gate-modal .modal-header {
+    background: linear-gradient(135deg, #1b4332, #2d6a4f);
+    color: white;
+    padding: 1.1rem 1.5rem;
+    font-weight: 600;
+    font-size: 1.05rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.password-gate-modal .modal-header .close-btn {
+    background: rgba(255, 255, 255, 0.15);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.password-gate-modal .modal-body {
+    padding: 1.25rem 1.5rem 1.5rem;
+}
+
+.password-gate-modal p {
+    margin: 0 0 0.9rem;
+    color: #555;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.password-gate-modal input[type="password"] {
+    width: 100%;
+    padding: 0.55rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    box-sizing: border-box;
+}
+
+.password-gate-modal input[type="password"]:focus {
+    outline: none;
+    border-color: #2d6a4f;
+    box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+}
+
+.password-gate-error {
+    color: #721c24;
+    background: #f8d7da;
+    padding: 0.45rem 0.65rem;
+    border-radius: 4px;
+    font-size: 0.82rem;
+    margin-top: 0.6rem;
+    display: none;
+}
+
+.password-gate-error.visible {
+    display: block;
+}
+
+.password-gate-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.password-gate-actions button {
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.password-gate-actions .btn-cancel {
+    background: #f3f4f6;
+    color: #374151;
+    border-color: #d1d5db;
+}
+
+.password-gate-actions .btn-submit {
+    background: #2d6a4f;
+    color: white;
+}
+
+.password-gate-actions .btn-submit:hover {
+    background: #1b4332;
+}
+
+/* Discrepancy badges (match / addition / conflict) */
+.disc-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+    margin-right: 4px;
+}
+
+.disc-match {
+    background: #d4edda;
+    color: #155724;
+}
+
+.disc-addition {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+.disc-conflict {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.disc-na {
+    background: #e9ecef;
+    color: #6c757d;
+}
+
+/* Discrepancy cell layout inside table */
+.disc-cell {
+    min-width: 170px;
+    line-height: 1.35;
+}
+
+.disc-cell .disc-values {
+    display: block;
+    font-size: 0.82rem;
+    color: #374151;
+    margin: 2px 0;
+    word-break: break-word;
+}
+
+.disc-cell .disc-values .disc-source {
+    color: #6b7280;
+    font-weight: 500;
+    margin-right: 3px;
+}
+
+.disc-actions {
+    display: flex;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.disc-actions button {
+    padding: 2px 8px;
+    font-size: 0.78rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.disc-actions .btn-confirm {
+    background: #d4edda;
+    color: #155724;
+    border-color: #a9d6b5;
+}
+
+.disc-actions .btn-confirm:hover {
+    background: #a9d6b5;
+}
+
+.disc-actions .btn-deny {
+    background: #f8d7da;
+    color: #721c24;
+    border-color: #e6a6ad;
+}
+
+.disc-actions .btn-deny:hover {
+    background: #e6a6ad;
+}
+
+.disc-resolution {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 4px;
+}
+
+.disc-resolution-confirmed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.disc-resolution-denied {
+    background: #e9ecef;
+    color: #495057;
+}
+
+/* "View Details" button in extraction table row */
+.row-details-btn {
+    background: #f3f4f6;
+    color: #1f2937;
+    border: 1px solid #d1d5db;
+    padding: 3px 10px;
+    font-size: 0.82rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.row-details-btn:hover {
+    background: #e5e7eb;
+}
+
+/* Detail modal — reuses .study-details-modal styling but needs scoped
+   extras for the extraction-specific list layout. */
+.extraction-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem 1.25rem;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.extraction-meta-grid > div strong {
+    display: block;
+    color: #374151;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 2px;
+}
+
+.extraction-kv-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    font-size: 0.9rem;
+}
+
+.extraction-kv-list li {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 4px 0;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.extraction-kv-list li:last-child {
+    border-bottom: none;
+}
+
+.extraction-kv-list .kv-label {
+    color: #475569;
+}
+
+.extraction-kv-list .kv-value {
+    color: #0f172a;
+    font-weight: 500;
+    text-align: right;
+}
+
+.extraction-inline-list {
+    display: inline;
+    color: #374151;
+    font-size: 0.85rem;
+}
+
+.extraction-stacked-values {
+    font-size: 0.82rem;
+    line-height: 1.35;
+    color: #374151;
+}
+
+.extraction-stacked-values .kv-label {
+    color: #6b7280;
+    margin-right: 3px;
+}
+

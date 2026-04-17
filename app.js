@@ -729,8 +729,18 @@ async function initHistorySelector() {
 }
 
 function initTabs() {
+    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction']);
+
     document.querySelectorAll('.tab').forEach(tab => {
-        tab.addEventListener('click', () => {
+        tab.addEventListener('click', async () => {
+            // Gate the Beta extraction tabs behind a session-scoped password.
+            // If the user cancels or enters the wrong password we leave the
+            // currently active tab in place rather than surfacing a dead state.
+            if (BETA_GATED_TABS.has(tab.dataset.tab)) {
+                const granted = await promptForBetaAccess();
+                if (!granted) return;
+            }
+
             document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
 
@@ -783,6 +793,15 @@ function initTabs() {
 
             if (tab.dataset.tab === 'fda-oversight' && filtered.length > 0) {
                 renderFdaOversight(filtered);
+            }
+
+            // Geography tab: unlike the demographic tabs above, this one owns
+            // its own render pipeline (map + stats + charts) and isn't wired
+            // into renderDashboard() on initial page load, so it stays empty
+            // until a filter change triggers a re-render. Call its renderer
+            // directly on tab activation.
+            if (tab.dataset.tab === 'geography' && data && data.length > 0) {
+                renderGeographyDashboard();
             }
 
             // Lazy-load tabs on first visit
@@ -5739,6 +5758,223 @@ function renderAITimelineChart(yearCounts) {
 }
 
 // ---------------------------------------------------------------------------
+// Beta / Curator password gate
+// ---------------------------------------------------------------------------
+// The two Beta tabs display raw LLM output that has not been reviewed. We
+// gate them behind a shared password so internal reviewers can see the work
+// in progress without exposing unverified numbers to the public dashboard.
+// Curator actions (Confirm / Deny on discrepancy rows) use a separate list
+// of per-curator passwords so the eventual audit trail records who did what.
+const BETA_PASSWORD = 'claude4science';
+const CURATOR_PASSWORDS = ['maryam', 'michael'];
+const BETA_UNLOCKED_KEY = 'betaExtractionUnlocked';
+const LIT_CURATION_STATE_KEY = 'litCurationState';
+
+function isBetaUnlocked() {
+    try { return sessionStorage.getItem(BETA_UNLOCKED_KEY) === '1'; }
+    catch (_) { return false; }
+}
+
+function unlockBeta() {
+    try { sessionStorage.setItem(BETA_UNLOCKED_KEY, '1'); }
+    catch (_) { /* sessionStorage unavailable — fall through */ }
+}
+
+/**
+ * Modal password prompt. Returns a Promise that resolves to the matched
+ * password string on success, or `null` if the user cancels. The caller
+ * provides a `validator` which inspects the entered value and returns the
+ * matched identity string (or a truthy value) on success.
+ */
+function showPasswordGate({ title, message, validator, errorMessage }) {
+    return new Promise((resolve) => {
+        const overlay = document.getElementById('password-gate-overlay');
+        if (!overlay) { resolve(null); return; }
+
+        overlay.innerHTML = `
+            <div class="password-gate-modal" role="dialog" aria-modal="true">
+                <div class="modal-header">
+                    <span>${escapeHtml(title)}</span>
+                    <button class="close-btn" type="button" aria-label="Cancel">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>${escapeHtml(message)}</p>
+                    <input type="password" id="password-gate-input" autocomplete="off" autofocus>
+                    <div class="password-gate-error" id="password-gate-error">${escapeHtml(errorMessage || 'Incorrect password.')}</div>
+                    <div class="password-gate-actions">
+                        <button type="button" class="btn-cancel">Cancel</button>
+                        <button type="button" class="btn-submit">Unlock</button>
+                    </div>
+                </div>
+            </div>`;
+        overlay.style.display = 'flex';
+
+        const input = overlay.querySelector('#password-gate-input');
+        const errorEl = overlay.querySelector('#password-gate-error');
+        const submitBtn = overlay.querySelector('.btn-submit');
+        const cancelBtn = overlay.querySelector('.btn-cancel');
+        const closeBtn = overlay.querySelector('.close-btn');
+
+        const cleanup = () => {
+            overlay.style.display = 'none';
+            overlay.innerHTML = '';
+            overlay.onclick = null;
+            document.removeEventListener('keydown', onKey);
+        };
+
+        const finishSuccess = (match) => { cleanup(); resolve(match); };
+        const finishCancel = () => { cleanup(); resolve(null); };
+
+        const tryUnlock = () => {
+            const pw = input.value || '';
+            const match = validator(pw);
+            if (match) { finishSuccess(typeof match === 'string' ? match : pw); return; }
+            errorEl.classList.add('visible');
+            input.select();
+        };
+
+        const onKey = (e) => {
+            if (e.key === 'Escape') finishCancel();
+            if (e.key === 'Enter') tryUnlock();
+        };
+
+        submitBtn.addEventListener('click', tryUnlock);
+        cancelBtn.addEventListener('click', finishCancel);
+        closeBtn.addEventListener('click', finishCancel);
+        overlay.onclick = (e) => { if (e.target === overlay) finishCancel(); };
+        document.addEventListener('keydown', onKey);
+
+        setTimeout(() => input.focus(), 30);
+    });
+}
+
+async function promptForBetaAccess() {
+    if (isBetaUnlocked()) return true;
+    const match = await showPasswordGate({
+        title: 'Beta Extraction — Reviewers Only',
+        message: 'These tabs display raw LLM output awaiting curator review. Enter the shared Beta password to continue.',
+        validator: (pw) => pw === BETA_PASSWORD,
+        errorMessage: 'Incorrect password — access denied.'
+    });
+    if (match) { unlockBeta(); return true; }
+    return false;
+}
+
+async function promptForCuratorAccess() {
+    const match = await showPasswordGate({
+        title: 'Curator Action',
+        message: 'Curator password required to persist this resolution.',
+        validator: (pw) => CURATOR_PASSWORDS.includes((pw || '').toLowerCase()) ? (pw || '').toLowerCase() : null,
+        errorMessage: 'Not a recognized curator password.'
+    });
+    return match; // returns lowercase curator name or null
+}
+
+function closeExtractionDetails() {
+    const overlay = document.getElementById('extraction-details-overlay');
+    if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
+}
+window.closeExtractionDetails = closeExtractionDetails;
+
+// ---------------------------------------------------------------------------
+// Beta extraction — value formatting helpers (shared by FDA + Literature)
+// ---------------------------------------------------------------------------
+// The extraction schema intentionally uses the sentinel string "Not Reported"
+// so downstream UI can visually distinguish "the source didn't mention it"
+// from "the source reported zero". These helpers preserve that distinction.
+const NOT_REPORTED = 'Not Reported';
+
+function isNR(v) {
+    return v === undefined || v === null || v === '' || v === NOT_REPORTED;
+}
+
+function fmtVal(v) {
+    if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
+    if (typeof v === 'number') return v.toLocaleString();
+    return escapeHtml(String(v));
+}
+
+function fmtList(v) {
+    if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
+    if (Array.isArray(v)) {
+        if (v.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
+        return v.map(x => escapeHtml(String(x))).join(', ');
+    }
+    return escapeHtml(String(v));
+}
+
+/**
+ * Render a breakdown object (e.g. race_nih_omb, sex, ethnicity) as a compact
+ * stacked list. Fields that are "Not Reported" for every subcategory collapse
+ * to a single Not Reported badge; otherwise each reported subcategory is shown
+ * on its own line.
+ */
+function fmtBreakdown(obj, labelMap) {
+    if (!obj || typeof obj !== 'object' || isNR(obj)) {
+        return '<span class="not-reported-badge">Not Reported</span>';
+    }
+    const reported = Object.entries(obj).filter(([_, v]) => !isNR(v));
+    if (reported.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
+    return `<div class="extraction-stacked-values">${reported.map(([k, v]) => {
+        const label = (labelMap && labelMap[k]) || k.replace(/_/g, ' ');
+        const val = typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
+        return `<div><span class="kv-label">${escapeHtml(label)}:</span> ${val}</div>`;
+    }).join('')}</div>`;
+}
+
+const RACE_OMB_LABELS = {
+    american_indian_or_alaska_native: 'AI/AN',
+    asian: 'Asian',
+    black_or_african_american: 'Black / African American',
+    native_hawaiian_or_other_pacific_islander: 'NH/PI',
+    white: 'White',
+    more_than_one_race: 'More than one race',
+    unknown: 'Unknown',
+};
+const SEX_LABELS = { female: 'Female', male: 'Male', unknown: 'Unknown' };
+const GENDER_LABELS = {
+    woman: 'Woman', man: 'Man', non_binary: 'Non-binary',
+    transgender: 'Transgender', other: 'Other', unknown: 'Unknown',
+};
+const ETHNICITY_LABELS = {
+    hispanic_or_latino: 'Hispanic or Latino',
+    not_hispanic_or_latino: 'Not Hispanic or Latino',
+    unknown: 'Unknown',
+};
+const SES_LABELS = {
+    education: 'Education', income: 'Income', wealth: 'Wealth',
+    family_size: 'Family size', adi_area_deprivation_index: 'ADI',
+};
+
+function fmtGeography(geo) {
+    if (!geo || typeof geo !== 'object') return '<span class="not-reported-badge">Not Reported</span>';
+    const parts = [];
+    if (!isNR(geo.us_states)) {
+        const states = Array.isArray(geo.us_states) ? geo.us_states.join(', ') : geo.us_states;
+        parts.push(`<div><span class="kv-label">US states:</span> ${escapeHtml(String(states))}</div>`);
+    }
+    if (!isNR(geo.countries)) {
+        const countries = Array.isArray(geo.countries) ? geo.countries.join(', ') : geo.countries;
+        parts.push(`<div><span class="kv-label">Countries:</span> ${escapeHtml(String(countries))}</div>`);
+    }
+    if (!isNR(geo.total_sites)) {
+        parts.push(`<div><span class="kv-label">Total sites:</span> ${escapeHtml(String(geo.total_sites))}</div>`);
+    }
+    if (parts.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
+    return `<div class="extraction-stacked-values">${parts.join('')}</div>`;
+}
+
+function fmtSESShort(ses) {
+    if (!ses || typeof ses !== 'object') return '<span class="not-reported-badge">Not Reported</span>';
+    const keys = ['income', 'education', 'wealth'];
+    const reported = keys.filter(k => !isNR(ses[k]));
+    if (reported.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
+    return `<div class="extraction-stacked-values">${reported.map(k =>
+        `<div><span class="kv-label">${escapeHtml(SES_LABELS[k])}:</span> ${escapeHtml(String(ses[k]))}</div>`
+    ).join('')}</div>`;
+}
+
+// ---------------------------------------------------------------------------
 // (Beta) AI Demographic Extraction Tab — 3-Way Model Comparison
 // ---------------------------------------------------------------------------
 let fdaExtractionLoaded = false;
@@ -5749,7 +5985,7 @@ let _fdaSelectedModel = 'claude-sonnet-4-6'; // default view
 const MODEL_ORDER = [
     { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', tier: 'Fast / Low Cost' },
     { id: 'claude-sonnet-4-6',         label: 'Sonnet 4.6', tier: 'Balanced Baseline' },
-    { id: 'claude-opus-4-6',           label: 'Opus 4.6',   tier: 'Highest Quality' },
+    { id: 'claude-opus-4-7',           label: 'Opus 4.7',   tier: 'Highest Quality' },
 ];
 
 /**
@@ -5841,24 +6077,30 @@ function renderModelSelector(containerId, selectedModel, onChange) {
 }
 
 /**
- * Check if all 3 models agree on a specific field for an FDA document.
+ * Deep JSON-equality check across all models for a given dotted field path.
+ * Returns null if we can't compare (< 2 models), true if every model returned
+ * the same serialization, false otherwise.
  */
-function checkFDAFieldAgreement(doc, field) {
+function checkFDAFieldAgreement(doc, fieldPath) {
     const models = doc.models || {};
     const modelIds = Object.keys(models);
-    if (modelIds.length < 2) return null; // can't compare
-    const values = modelIds.map(mid => {
-        const d = models[mid]?.data || {};
-        return JSON.stringify(d[field]);
-    });
+    if (modelIds.length < 2) return null;
+    const getByPath = (obj, path) => path.split('.').reduce((acc, k) => (acc == null ? acc : acc[k]), obj);
+    const values = modelIds.map(mid => JSON.stringify(getByPath(models[mid]?.data || {}, fieldPath)));
     return values.every(v => v === values[0]);
 }
 
 /**
- * Check overall agreement across key fields for an FDA document.
+ * Check overall agreement across key schema fields for an FDA document. The
+ * field list tracks the new extraction schema (race/sex/ethnicity/geography
+ * as nested objects).
  */
 function checkFDAOverallAgreement(doc) {
-    const fields = ['total_participants', 'sex_male', 'sex_female', 'race_white', 'race_black', 'race_asian', 'age_range'];
+    const fields = [
+        'total_participants',
+        'sex', 'race_nih_omb', 'ethnicity', 'gender',
+        'geography.total_sites', 'socioeconomic_status',
+    ];
     return fields.every(f => checkFDAFieldAgreement(doc, f));
 }
 
@@ -5899,7 +6141,7 @@ function renderFDAReportingFreq(data) {
     const container = document.getElementById('fda-reporting-freq');
     if (!container) return;
 
-    // Use Sonnet as the reference model for reporting frequency
+    // Sonnet is the reference model for the reporting-frequency strip.
     const refModel = 'claude-sonnet-4-6';
     const successDocs = data.filter(d => d.extraction_status === 'success' && d.models && d.models[refModel]);
     const total = successDocs.length;
@@ -5908,14 +6150,21 @@ function renderFDAReportingFreq(data) {
         return;
     }
 
-    const raceReported = successDocs.filter(d => d.models[refModel]?.data?.race_white !== 'Not Reported').length;
-    const sexReported = successDocs.filter(d => d.models[refModel]?.data?.sex_male !== 'Not Reported').length;
-    const ageReported = successDocs.filter(d => d.models[refModel]?.data?.age_range !== 'Not Reported').length;
+    // A breakdown object counts as "reported" when at least one subcategory
+    // has a concrete value (i.e. not the "Not Reported" sentinel).
+    const anyReported = (obj) => obj && typeof obj === 'object'
+        && Object.values(obj).some(v => !isNR(v));
+
+    const raceReported = successDocs.filter(d => anyReported(d.models[refModel]?.data?.race_nih_omb)).length;
+    const ethReported = successDocs.filter(d => anyReported(d.models[refModel]?.data?.ethnicity)).length;
+    const sexReported = successDocs.filter(d => anyReported(d.models[refModel]?.data?.sex)).length;
+    const sesReported = successDocs.filter(d => anyReported(d.models[refModel]?.data?.socioeconomic_status)).length;
 
     const items = [
         { label: '% Reporting Race', count: raceReported, color: '#2f4f4f' },
+        { label: '% Reporting Ethnicity', count: ethReported, color: '#3d6a6a' },
         { label: '% Reporting Sex', count: sexReported, color: '#4a7c7c' },
-        { label: '% Reporting Age', count: ageReported, color: '#6aacac' }
+        { label: '% Reporting SES', count: sesReported, color: '#6aacac' },
     ];
 
     container.innerHTML = items.map(item => {
@@ -5936,7 +6185,7 @@ function renderFDAExtractionTable(data, modelId) {
     modelId = modelId || _fdaSelectedModel;
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="13" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+        tbody.innerHTML = `<tr><td colspan="14" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
             No extracted data yet. Trigger the extraction pipeline via
             <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
             or run <code>scripts/extraction/extract_fda_demographics.py</code> locally.
@@ -5944,72 +6193,340 @@ function renderFDAExtractionTable(data, modelId) {
         return;
     }
 
-    tbody.innerHTML = data.map(doc => {
+    tbody.innerHTML = data.map((doc, idx) => {
         if (doc.extraction_status !== 'success') {
             return `<tr>
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td>${escapeHtml(doc.panel || '')}</td>
                 <td>${escapeHtml(doc.submission_number || '')}</td>
-                <td colspan="8" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
+                <td colspan="9" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
                 <td>—</td>
                 <td>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>` : '—'}</td>
             </tr>`;
         }
 
         const d = doc.models?.[modelId]?.data || {};
-        const fmt = (v) => v === 'Not Reported'
-            ? '<span class="not-reported-badge">Not Reported</span>'
-            : escapeHtml(String(v));
-        const fmtNum = (v) => v === 'Not Reported'
-            ? '<span class="not-reported-badge">Not Reported</span>'
-            : typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
-        const sourceLink = doc.source_url
-            ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>`
-            : '—';
-
         const allAgree = checkFDAOverallAgreement(doc);
         const agreeBadge = allAgree === null ? '—'
             : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
             : '<span class="agreement-badge agreement-no">Differs</span>';
 
+        // Disability isn't in the FDA extraction schema (FDA summary PDFs
+        // typically don't report it); show a consistent Not Reported so the
+        // column is visually parseable rather than leaving blank cells.
+        const household = d.socioeconomic_status?.family_size;
+
         return `<tr>
             <td>${escapeHtml(doc.device_name || '')}</td>
             <td>${escapeHtml(doc.panel || '')}</td>
             <td>${escapeHtml(doc.submission_number || '')}</td>
-            <td class="text-right">${fmtNum(d.total_participants)}</td>
-            <td class="text-right">${fmtNum(d.sex_male)}</td>
-            <td class="text-right">${fmtNum(d.sex_female)}</td>
-            <td class="text-right">${fmtNum(d.race_white)}</td>
-            <td class="text-right">${fmtNum(d.race_black)}</td>
-            <td class="text-right">${fmtNum(d.race_asian)}</td>
-            <td class="text-right">${fmtNum(d.race_other)}</td>
-            <td>${fmt(d.age_range)}</td>
+            <td class="text-right">${fmtVal(d.total_participants)}</td>
+            <td>${fmtBreakdown(d.race_nih_omb, RACE_OMB_LABELS)}</td>
+            <td>${fmtBreakdown(d.ethnicity, ETHNICITY_LABELS)}</td>
+            <td>${fmtBreakdown(d.sex, SEX_LABELS)}</td>
+            <td>${fmtBreakdown(d.gender, GENDER_LABELS)}</td>
+            <td>${fmtGeography(d.geography)}</td>
+            <td>${fmtSESShort(d.socioeconomic_status)}</td>
+            <td><span class="not-reported-badge">Not Reported</span></td>
+            <td>${fmtVal(household)}</td>
             <td>${agreeBadge}</td>
-            <td>${sourceLink}</td>
+            <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
 }
 
+/**
+ * Detail modal for a single FDA device row. Mirrors the Studies tab modal
+ * so the visual language stays consistent across the dashboard.
+ */
+function showFDAExtractionDetails(idx) {
+    const doc = _fdaExtractedData[idx];
+    if (!doc) return;
+    const overlay = document.getElementById('extraction-details-overlay');
+    if (!overlay) return;
+
+    const d = doc.models?.[_fdaSelectedModel]?.data || {};
+    const cited = d.cited_clinical_studies || {};
+
+    const citedBlock = (() => {
+        const ncts = !isNR(cited.nct_ids) && Array.isArray(cited.nct_ids) ? cited.nct_ids : [];
+        const dois = !isNR(cited.dois) && Array.isArray(cited.dois) ? cited.dois : [];
+        const pubs = !isNR(cited.publication_titles) && Array.isArray(cited.publication_titles) ? cited.publication_titles : [];
+        if (ncts.length + dois.length + pubs.length === 0) {
+            return `<p class="note">None cited in the FDA summary.</p>`;
+        }
+        const nctHtml = ncts.map(n => `<li><a href="https://clinicaltrials.gov/study/${escapeHtml(n)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(n)}</a></li>`).join('');
+        const doiHtml = dois.map(x => `<li><a href="https://doi.org/${escapeHtml(x)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(x)}</a></li>`).join('');
+        const pubHtml = pubs.map(x => `<li>${escapeHtml(x)}</li>`).join('');
+        return `<ul class="publications-list">${nctHtml}${doiHtml}${pubHtml}</ul>`;
+    })();
+
+    const sesBlock = (() => {
+        const ses = d.socioeconomic_status;
+        if (!ses || typeof ses !== 'object') return '<p class="note">Not reported.</p>';
+        const rows = Object.entries(SES_LABELS).map(([k, label]) =>
+            `<li><span class="kv-label">${escapeHtml(label)}</span><span class="kv-value">${fmtVal(ses[k])}</span></li>`
+        ).join('');
+        return `<ul class="extraction-kv-list">${rows}</ul>`;
+    })();
+
+    const html = `
+        <div class="study-details-modal">
+            <div class="modal-header">
+                <h3>${escapeHtml(doc.device_name || 'FDA Device')}</h3>
+                <button class="close-btn" onclick="closeExtractionDetails()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="extraction-meta-grid">
+                    <div><strong>Submission #</strong>${escapeHtml(doc.submission_number || '—')}</div>
+                    <div><strong>Panel</strong>${escapeHtml(doc.panel || '—')}</div>
+                    <div><strong>Total Participants</strong>${fmtVal(d.total_participants)}</div>
+                    <div><strong>Model</strong>${escapeHtml(doc.models?.[_fdaSelectedModel]?.label || _fdaSelectedModel)}</div>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Race (NIH / OMB)</h5>
+                    ${fmtBreakdown(d.race_nih_omb, RACE_OMB_LABELS)}
+                </div>
+                <div class="detail-section">
+                    <h5>Ethnicity</h5>
+                    ${fmtBreakdown(d.ethnicity, ETHNICITY_LABELS)}
+                </div>
+                <div class="detail-section">
+                    <h5>Sex</h5>
+                    ${fmtBreakdown(d.sex, SEX_LABELS)}
+                </div>
+                <div class="detail-section">
+                    <h5>Gender</h5>
+                    ${fmtBreakdown(d.gender, GENDER_LABELS)}
+                </div>
+                <div class="detail-section">
+                    <h5>Geography</h5>
+                    ${fmtGeography(d.geography)}
+                </div>
+                <div class="detail-section">
+                    <h5>Socioeconomic Status</h5>
+                    ${sesBlock}
+                </div>
+                <div class="detail-section">
+                    <h5>Cited Clinical Studies</h5>
+                    ${citedBlock}
+                </div>
+                <div class="detail-section">
+                    <h5>Source Document</h5>
+                    <p>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">Open FDA summary PDF</a>` : '<span class="note">No source URL recorded.</span>'}</p>
+                </div>
+            </div>
+        </div>`;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+window.showFDAExtractionDetails = showFDAExtractionDetails;
+
 // ---------------------------------------------------------------------------
-// (Beta) Paper Data Extraction Tab — 3-Way Model Comparison
+// (Beta) Paper Data Extraction Tab — Discrepancy Engine
 // ---------------------------------------------------------------------------
 let litExtractionLoaded = false;
 let _litExtractedData = [];
 let _litSelectedModel = 'claude-sonnet-4-6';
 
-/**
- * Check overall agreement across key fields for a literature document.
- */
-function checkLitOverallAgreement(doc) {
-    const models = doc.models || {};
-    const modelIds = Object.keys(models);
-    if (modelIds.length < 2) return null;
-    const fields = ['income_reported', 'education_reported', 'insurance_status_reported', 'study_name'];
-    return fields.every(field => {
-        const values = modelIds.map(mid => JSON.stringify(models[mid]?.data?.[field]));
-        return values.every(v => v === values[0]);
-    });
+// Curator resolutions keyed by `${doi_slug}::${field_path}`. Persisted to
+// sessionStorage so resolutions survive tab switches within the session but
+// never leave the user's browser (intentional — curation output lives in
+// source-controlled CSVs, not sessionStorage).
+let _litCurationState = (() => {
+    try { return JSON.parse(sessionStorage.getItem(LIT_CURATION_STATE_KEY) || '{}'); }
+    catch (_) { return {}; }
+})();
+
+function persistCurationState() {
+    try { sessionStorage.setItem(LIT_CURATION_STATE_KEY, JSON.stringify(_litCurationState)); }
+    catch (_) { /* storage disabled — keep in-memory copy */ }
 }
+
+// --- ClinicalTrials.gov comparison helpers ------------------------------
+
+// Maps between the two competing taxonomies. The FDA/paper extraction schema
+// uses the NIH/OMB long-form names; the CT.gov records use short underscore
+// keys. Both refer to the same OMB categories — we normalise on the NIH/OMB
+// side because that's what the curators will review.
+const CTGOV_RACE_MAP = {
+    american_indian_or_alaska_native: 'american_indian_alaska_native',
+    asian: 'asian',
+    black_or_african_american: 'black_african_american',
+    native_hawaiian_or_other_pacific_islander: 'native_hawaiian_pacific_islander',
+    white: 'white',
+    more_than_one_race: 'more_than_one_race',
+    unknown: 'unknown_not_reported',
+};
+const CTGOV_ETHNICITY_MAP = {
+    hispanic_or_latino: 'hispanic_or_latino',
+    not_hispanic_or_latino: 'not_hispanic_or_latino',
+    unknown: 'unknown_not_reported',
+};
+
+function findCTGovStudy(nctId) {
+    if (!nctId || !Array.isArray(data)) return null;
+    return data.find(s => s.nct_id === nctId) || null;
+}
+
+function valuesEqual(a, b) {
+    if (a == null && b == null) return true;
+    if (typeof a === 'number' && typeof b === 'number') return a === b;
+    if (Array.isArray(a) && Array.isArray(b)) {
+        const sa = a.map(x => String(x).toLowerCase().trim()).sort();
+        const sb = b.map(x => String(x).toLowerCase().trim()).sort();
+        return sa.length === sb.length && sa.every((v, i) => v === sb[i]);
+    }
+    return String(a).toLowerCase().trim() === String(b).toLowerCase().trim();
+}
+
+/**
+ * Classify a single field's API ↔ PDF comparison.
+ *   Match    – both reported and equal
+ *   Addition – API missing / not reported, PDF provides a value
+ *   Conflict – both reported and different
+ *   NA       – neither side has data
+ */
+function classifyDiscrepancy(apiVal, pdfVal) {
+    const apiMissing = isNR(apiVal) || (Array.isArray(apiVal) && apiVal.length === 0);
+    const pdfMissing = isNR(pdfVal) || (Array.isArray(pdfVal) && pdfVal.length === 0);
+    if (apiMissing && pdfMissing) return 'na';
+    if (apiMissing && !pdfMissing) return 'addition';
+    if (!apiMissing && pdfMissing) return 'match'; // PDF silent; API unchanged
+    return valuesEqual(apiVal, pdfVal) ? 'match' : 'conflict';
+}
+
+function discBadge(status) {
+    const map = {
+        match:    '<span class="disc-badge disc-match">Match</span>',
+        addition: '<span class="disc-badge disc-addition">Addition</span>',
+        conflict: '<span class="disc-badge disc-conflict">Conflict</span>',
+        na:       '<span class="disc-badge disc-na">—</span>',
+    };
+    return map[status] || map.na;
+}
+
+function resolutionBadge(resolution) {
+    if (!resolution) return '';
+    if (resolution.status === 'confirmed') {
+        return `<span class="disc-resolution disc-resolution-confirmed">Confirmed by ${escapeHtml(resolution.curator)}</span>`;
+    }
+    return `<span class="disc-resolution disc-resolution-denied">Denied by ${escapeHtml(resolution.curator)}</span>`;
+}
+
+/**
+ * Pull every comparable field from a manuscript record and the linked CT.gov
+ * study into a flat list. Used by both the table cells (summarising worst
+ * status per group) and the detail modal (showing every cell).
+ */
+function buildDiscrepancyRows(extractedData, ctgov) {
+    const rows = [];
+    const addRow = (group, label, path, apiVal, pdfVal) => {
+        rows.push({ group, label, path, apiVal, pdfVal, status: classifyDiscrepancy(apiVal, pdfVal) });
+    };
+
+    // Totals
+    addRow('totals', 'Total Participants', 'total_participants',
+        ctgov?.enrollment, extractedData.total_participants);
+
+    // Sex breakdown
+    const ctSex = ctgov?.sex?.omb_totals || {};
+    const pdfSex = extractedData.sex || {};
+    ['female', 'male', 'unknown'].forEach(k => {
+        const apiKey = k === 'unknown' ? 'unknown_not_reported' : k;
+        addRow('sex', `Sex — ${SEX_LABELS[k]}`, `sex.${k}`, ctSex[apiKey], pdfSex[k]);
+    });
+
+    // Race breakdown (NIH/OMB)
+    const ctRace = ctgov?.race?.omb_totals || {};
+    const pdfRace = extractedData.race_nih_omb || {};
+    Object.entries(CTGOV_RACE_MAP).forEach(([pdfKey, apiKey]) => {
+        addRow('race', `Race — ${RACE_OMB_LABELS[pdfKey]}`, `race_nih_omb.${pdfKey}`,
+            ctRace[apiKey], pdfRace[pdfKey]);
+    });
+
+    // Ethnicity
+    const ctEth = ctgov?.ethnicity?.omb_totals || {};
+    const pdfEth = extractedData.ethnicity || {};
+    Object.entries(CTGOV_ETHNICITY_MAP).forEach(([pdfKey, apiKey]) => {
+        addRow('ethnicity', `Ethnicity — ${ETHNICITY_LABELS[pdfKey]}`, `ethnicity.${pdfKey}`,
+            ctEth[apiKey], pdfEth[pdfKey]);
+    });
+
+    // Geography — countries list and total site count
+    const ctCountries = Array.isArray(ctgov?.countries)
+        ? ctgov.countries.map(c => typeof c === 'object' ? c.country : c).filter(Boolean)
+        : null;
+    addRow('geography', 'Countries', 'geography.countries',
+        ctCountries, extractedData.geography?.countries);
+
+    const ctSiteCount = Array.isArray(ctgov?.study_sites) ? ctgov.study_sites.length : null;
+    addRow('geography', 'Total Sites', 'geography.total_sites',
+        ctSiteCount, extractedData.geography?.total_sites);
+
+    // Fields the API doesn't carry — PDF-only. These manifest as Addition when
+    // the PDF reports anything and NA otherwise.
+    const ses = extractedData.socioeconomic_status || {};
+    Object.entries(SES_LABELS).forEach(([k, label]) => {
+        addRow('ses', `SES — ${label}`, `socioeconomic_status.${k}`, null, ses[k]);
+    });
+    addRow('age', 'Age', 'age', null, extractedData.age);
+    addRow('disability', 'Disability / Functional Limitations',
+        'disability_and_functional_limitations', null,
+        extractedData.disability_and_functional_limitations);
+    addRow('religion', 'Religion', 'religion', null, extractedData.religion);
+
+    return rows;
+}
+
+/**
+ * Pick the most severe status for a group so the table cell can show a single
+ * summary badge (Conflict > Addition > Match > NA).
+ */
+function worstStatus(rows) {
+    const rank = { conflict: 3, addition: 2, match: 1, na: 0 };
+    return rows.reduce((worst, r) => rank[r.status] > rank[worst] ? r.status : worst, 'na');
+}
+
+function formatValueForDisc(v) {
+    if (isNR(v)) return '<em>Not Reported</em>';
+    if (Array.isArray(v)) return escapeHtml(v.join(', '));
+    if (typeof v === 'number') return v.toLocaleString();
+    return escapeHtml(String(v));
+}
+
+function resolutionKey(slug, path) {
+    return `${slug}::${path}`;
+}
+
+async function confirmDiscrepancy(slug, path) {
+    const curator = await promptForCuratorAccess();
+    if (!curator) return;
+    _litCurationState[resolutionKey(slug, path)] = {
+        status: 'confirmed', curator, timestamp: new Date().toISOString(),
+    };
+    persistCurationState();
+    renderLitExtractionTable(_litExtractedData, _litSelectedModel);
+    // If detail modal is open, re-render it too
+    const openIdx = document.getElementById('extraction-details-overlay')?.dataset?.litIdx;
+    if (openIdx != null) showLitExtractionDetails(Number(openIdx));
+}
+window.confirmDiscrepancy = confirmDiscrepancy;
+
+async function denyDiscrepancy(slug, path) {
+    const curator = await promptForCuratorAccess();
+    if (!curator) return;
+    _litCurationState[resolutionKey(slug, path)] = {
+        status: 'denied', curator, timestamp: new Date().toISOString(),
+    };
+    persistCurationState();
+    renderLitExtractionTable(_litExtractedData, _litSelectedModel);
+    const openIdx = document.getElementById('extraction-details-overlay')?.dataset?.litIdx;
+    if (openIdx != null) showLitExtractionDetails(Number(openIdx));
+}
+window.denyDiscrepancy = denyDiscrepancy;
 
 async function loadLitExtractionTab() {
     if (litExtractionLoaded) return;
@@ -6038,89 +6555,176 @@ async function loadLitExtractionTab() {
         console.warn('Could not load literature extraction data:', e.message);
         const tbody = document.getElementById('lit-extraction-tbody');
         if (tbody) tbody.innerHTML =
-            '<tr><td colspan="8">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+            '<tr><td colspan="10">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
     }
 }
 
-function renderLitExtractionTable(extractedData, modelId) {
+function renderLitExtractionTable(extractedList, modelId) {
     const tbody = document.getElementById('lit-extraction-tbody');
     if (!tbody) return;
     modelId = modelId || _litSelectedModel;
 
-    if (!extractedData || extractedData.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
-            No extracted data yet. Trigger the extraction pipeline via
-            <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
-            or run <code>scripts/extraction/extract_paper_ses.py</code> locally.
+    if (!extractedList || extractedList.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+            No extracted data yet. Run <code>scripts/extraction/extract_paper_ses.py</code>.
         </td></tr>`;
         return;
     }
 
-    tbody.innerHTML = extractedData.map(doc => {
-        const boolBadge = (v) => v
-            ? '<span class="bool-yes">Yes</span>'
-            : '<span class="bool-no">No</span>';
-
+    tbody.innerHTML = extractedList.map((doc, idx) => {
         if (doc.extraction_status !== 'success') {
-            let statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
+            const statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
             return `<tr>
-                <td class="study-details-cell">
-                    <strong>${escapeHtml(doc.study_title || 'Title Not Found')}</strong>
-                    <span class="study-details-meta">${doc.doi ? `<a href="https://doi.org/${escapeHtml(doc.doi)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi)}</a>` : ''}</span>
-                </td>
-                <td colspan="5" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
+                <td class="study-details-cell"><strong>${escapeHtml(doc.doi_slug || 'Manuscript')}</strong></td>
+                <td colspan="7" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
                 <td>—</td>
-                <td>${doc.oa_pdf_url ? `<a href="${escapeHtml(doc.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>` : '<span class="fda-no-record">No PDF</span>'}</td>
+                <td>—</td>
             </tr>`;
         }
 
-        const d = doc.models?.[modelId]?.data || {};
+        const wrapped = doc.models?.[modelId]?.data || {};
+        const extracted = wrapped.extracted_data || {};
+        const meta = doc.metadata || wrapped.metadata || {};
 
-        const hasRealPdf = doc.oa_pdf_url && !doc.oa_pdf_url.startsWith('https://doi.org/');
-        const pdfLink = hasRealPdf
-            ? `<a href="${escapeHtml(doc.oa_pdf_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Source</a>`
-            : '<span class="fda-no-record">No PDF</span>';
+        // Pick first linked NCT (manuscripts may cite >1 but we compare against the primary)
+        const ncts = !isNR(extracted.associated_nct_ids) && Array.isArray(extracted.associated_nct_ids)
+            ? extracted.associated_nct_ids
+            : [];
+        const primaryNct = ncts[0] || null;
+        const ctgov = findCTGovStudy(primaryNct);
 
-        const sesNotes = (!d.ses_notes || d.ses_notes === 'None')
-            ? '<span class="not-reported-badge">None</span>'
-            : escapeHtml(d.ses_notes);
+        const rows = buildDiscrepancyRows(extracted, ctgov);
 
-        const raceBreak = (!d.detailed_race_breakdown || d.detailed_race_breakdown === 'None' || d.detailed_race_breakdown === 'Not Reported')
-            ? '<span class="not-reported-badge">Not Reported</span>'
-            : escapeHtml(d.detailed_race_breakdown);
+        // Attach any persisted curator resolutions
+        rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(doc.doi_slug, r.path)] || null; });
 
-        const title = doc.study_title || 'Title Not Found';
-        const studyName = d.study_name || 'Not Reported';
-        const doi = doc.doi || '';
-        const nctId = d.nct_id || 'Not Reported';
-        const nctDisplay = nctId !== 'Not Reported'
-            ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(nctId)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(nctId)}</a>`
+        // Build a compact per-group summary cell.
+        const groupCell = (group) => {
+            const groupRows = rows.filter(r => r.group === group);
+            const status = worstStatus(groupRows);
+            if (status === 'na') return '<span class="disc-badge disc-na">—</span>';
+            const nAction = groupRows.filter(r => (r.status === 'addition' || r.status === 'conflict') && !r.resolution).length;
+            const actionNote = nAction > 0
+                ? `<div style="font-size:0.75rem;color:#6b7280;margin-top:2px;">${nAction} unresolved</div>`
+                : '';
+            return `${discBadge(status)}${actionNote}`;
+        };
+
+        const manuscriptCell = `<div class="study-details-cell">
+            <strong>${escapeHtml(meta.fda_device || 'Linked Device Unknown')}</strong>
+            <span class="study-details-meta">${escapeHtml(doc.doi_slug)}</span>
+            <span class="study-details-meta">${escapeHtml(meta.publication_year || '')} ${meta.cc_license && meta.cc_license !== 'Not Reported' ? `· ${escapeHtml(meta.cc_license)}` : ''}</span>
+        </div>`;
+
+        const nctCell = primaryNct
+            ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
             : '<span class="not-reported-badge">Not Reported</span>';
-        const studyNameDisplay = studyName !== 'Not Reported'
-            ? escapeHtml(studyName)
-            : '<span class="not-reported-badge">Not Reported</span>';
-        const doiDisplay = doi
-            ? `<a href="https://doi.org/${escapeHtml(doi)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doi)}</a>`
-            : '';
 
-        const allAgree = checkLitOverallAgreement(doc);
-        const agreeBadge = allAgree === null ? '—'
-            : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
-            : '<span class="agreement-badge agreement-no">Differs</span>';
+        const pdfPath = doc.local_pdf_path || '';
 
         return `<tr>
-            <td class="study-details-cell">
-                <strong>${escapeHtml(title)}</strong>
-                <span class="study-details-study-name">${studyNameDisplay}</span>
-                <span class="study-details-meta">${doiDisplay}${doi && nctId !== 'Not Reported' ? ' | ' : ''}${nctDisplay}</span>
-            </td>
-            <td>${boolBadge(d.income_reported)}</td>
-            <td>${boolBadge(d.education_reported)}</td>
-            <td>${boolBadge(d.insurance_status_reported)}</td>
-            <td>${sesNotes}</td>
-            <td>${raceBreak}</td>
-            <td>${agreeBadge}</td>
-            <td>${pdfLink}</td>
+            <td>${manuscriptCell}</td>
+            <td>${nctCell}</td>
+            <td>${groupCell('totals')}</td>
+            <td>${groupCell('sex')}</td>
+            <td>${groupCell('race')}</td>
+            <td>${groupCell('ethnicity')}</td>
+            <td>${groupCell('ses')}</td>
+            <td>${groupCell('age')} ${groupCell('disability')}</td>
+            <td>${pdfPath ? escapeHtml(pdfPath.split('/').pop()) : '—'}</td>
+            <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
 }
+
+/**
+ * Detail modal for a manuscript. Shows every API-vs-PDF comparison row with
+ * Confirm / Deny buttons for any unresolved Addition or Conflict.
+ */
+function showLitExtractionDetails(idx) {
+    const doc = _litExtractedData[idx];
+    if (!doc) return;
+    const overlay = document.getElementById('extraction-details-overlay');
+    if (!overlay) return;
+    overlay.dataset.litIdx = String(idx);
+
+    const wrapped = doc.models?.[_litSelectedModel]?.data || {};
+    const extracted = wrapped.extracted_data || {};
+    const meta = doc.metadata || wrapped.metadata || {};
+    const ncts = !isNR(extracted.associated_nct_ids) && Array.isArray(extracted.associated_nct_ids)
+        ? extracted.associated_nct_ids : [];
+    const primaryNct = ncts[0] || null;
+    const ctgov = findCTGovStudy(primaryNct);
+
+    const rows = buildDiscrepancyRows(extracted, ctgov);
+    rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(doc.doi_slug, r.path)] || null; });
+
+    const groups = [
+        { key: 'totals', title: 'Totals' },
+        { key: 'sex', title: 'Sex' },
+        { key: 'race', title: 'Race (NIH / OMB)' },
+        { key: 'ethnicity', title: 'Ethnicity' },
+        { key: 'geography', title: 'Geography' },
+        { key: 'ses', title: 'Socioeconomic Status' },
+        { key: 'age', title: 'Age' },
+        { key: 'disability', title: 'Disability / Functional Limitations' },
+        { key: 'religion', title: 'Religion' },
+    ];
+
+    const renderActions = (row) => {
+        if (row.resolution) return resolutionBadge(row.resolution);
+        if (row.status !== 'addition' && row.status !== 'conflict') return '';
+        const slug = doc.doi_slug;
+        return `<div class="disc-actions">
+            <button type="button" class="btn-confirm" onclick="confirmDiscrepancy('${escapeHtml(slug)}','${escapeHtml(row.path)}')">Confirm</button>
+            <button type="button" class="btn-deny" onclick="denyDiscrepancy('${escapeHtml(slug)}','${escapeHtml(row.path)}')">Deny</button>
+        </div>`;
+    };
+
+    const sectionsHtml = groups.map(g => {
+        const gRows = rows.filter(r => r.group === g.key);
+        if (gRows.length === 0) return '';
+        const body = gRows.map(r => `
+            <div style="padding:0.6rem 0;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
+                    <strong style="font-size:0.9rem;color:#1f2937;">${escapeHtml(r.label)}</strong>
+                    ${discBadge(r.status)}
+                </div>
+                <div class="disc-cell" style="margin-top:4px;">
+                    <div class="disc-values"><span class="disc-source">CT.gov API:</span> ${formatValueForDisc(r.apiVal)}</div>
+                    <div class="disc-values"><span class="disc-source">PDF extraction:</span> ${formatValueForDisc(r.pdfVal)}</div>
+                    ${renderActions(r)}
+                </div>
+            </div>`).join('');
+        return `<div class="detail-section">
+            <h5>${escapeHtml(g.title)}</h5>
+            ${body}
+        </div>`;
+    }).join('');
+
+    const html = `
+        <div class="study-details-modal">
+            <div class="modal-header">
+                <h3>${escapeHtml(meta.fda_device || 'Manuscript Discrepancy Report')}</h3>
+                <button class="close-btn" onclick="closeExtractionDetails()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="extraction-meta-grid">
+                    <div><strong>DOI</strong><a href="https://doi.org/${escapeHtml(doc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi_slug)}</a></div>
+                    <div><strong>Linked NCT</strong>${primaryNct
+                        ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
+                        : '<span class="not-reported-badge">Not Reported</span>'}</div>
+                    <div><strong>FDA Submission</strong>${escapeHtml(meta.fda_submission_number || '—')}</div>
+                    <div><strong>Publication Year</strong>${escapeHtml(meta.publication_year || '—')}</div>
+                    <div><strong>License</strong>${escapeHtml(meta.cc_license || '—')}</div>
+                    <div><strong>Model</strong>${escapeHtml(doc.models?.[_litSelectedModel]?.label || _litSelectedModel)}</div>
+                </div>
+                ${ctgov ? '' : `<p class="note" style="color:#856404;background:#fff3cd;padding:0.5rem 0.75rem;border-radius:4px;">No ClinicalTrials.gov record found for the linked NCT — all PDF values are shown as Additions.</p>`}
+                ${sectionsHtml}
+            </div>
+        </div>`;
+
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+window.showLitExtractionDetails = showLitExtractionDetails;

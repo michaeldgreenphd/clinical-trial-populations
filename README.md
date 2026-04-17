@@ -160,6 +160,33 @@ The interactive dashboard is hosted on GitHub Pages and includes:
 - Gender identity reporting
 - Filterable by year range, study type, and sponsor
 
+## Beta & Curation Access
+
+This repository is private and the dashboard exposes two Beta tabs that display
+raw LLM extractions awaiting review. Access to those tabs and to the curator
+actions on the manuscript discrepancy report is password-gated. Because the
+repository is private, the passwords live in source.
+
+| Scope | Password(s) | What it unlocks |
+|-------|-------------|-----------------|
+| **Beta tab access** | `claude4science` | Opens the two Beta tabs — *(Beta) AI Demographic Extraction* and *(Beta) Paper Data Extraction*. Once entered, the tabs stay unlocked for the rest of the browser session (`sessionStorage`). |
+| **Curator actions** | `maryam` *or* `michael` | Required when a curator clicks **Confirm** or **Deny** on an Addition or Conflict row in the manuscript discrepancy engine. The matched lowercase identity is stored alongside the resolution so we have a lightweight audit trail for the pilot. |
+
+These gates are deliberately lightweight — they're a speed bump that keeps
+unreviewed numbers from being shared casually, not a real authentication
+system. Treat the passwords as shared secrets: rotate them if the repository
+is ever made public, and don't paste them into issues or public PRs.
+
+### Where the passwords live in code
+
+- `app.js` — `BETA_PASSWORD`, `CURATOR_PASSWORDS`, and the `showPasswordGate()`
+  modal. Session-scoped unlock state is kept in `sessionStorage` under
+  `betaExtractionUnlocked`.
+- The curator resolution map (manuscript slug + field path → `{status,
+  curator, timestamp}`) is kept in `sessionStorage` under `litCurationState`
+  for the pilot. Persistent curation output belongs in a reviewed CSV, not in
+  browser storage.
+
 ## Contributing
 
 Contributions are welcome! Areas for improvement:
