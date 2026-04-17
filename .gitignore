@@ -53,3 +53,10 @@ data/fda_pdfs/
 Data/FDA Summary Statements/
 !Data/pilot_summary_statements/
 !Data/pilot_summary_statements/**
+
+# Peer-reviewed AI/ML manuscript PDFs — same pattern: the full archive is
+# ignored; the small pilot set used by scripts/extraction/extract_paper_ses.py
+# IS tracked so GitHub Actions can run the literature pilot.
+Data/AIML Manuscripts/
+!Data/pilot_AIML_manuscripts/
+!Data/pilot_AIML_manuscripts/**
