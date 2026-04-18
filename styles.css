@@ -2834,6 +2834,19 @@ footer p {
     font-weight: 500;
 }
 
+.tier-badge {
+    display: inline-block;
+    background: #e0f2fe;
+    color: #075985;
+    border: 1px solid #7dd3fc;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    margin-top: 4px;
+}
+
 .reported-badge {
     display: inline-block;
     background: #d4edda;

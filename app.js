@@ -5979,13 +5979,15 @@ function fmtSESShort(ses) {
 // ---------------------------------------------------------------------------
 let fdaExtractionLoaded = false;
 let _fdaExtractedData = [];
-let _fdaSelectedModel = 'claude-sonnet-4-6'; // default view
+let _fdaSelectedModel = 'sonnet_4_6'; // default view
 
-// Model display order and labels
+// Model display order and labels. `id` is the JSON key emitted by the
+// extraction scripts (opus_4_7 / sonnet_4_6 / haiku_4_5); `modelId` is the
+// Anthropic API identifier for display only.
 const MODEL_ORDER = [
-    { id: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5', tier: 'Fast / Low Cost' },
-    { id: 'claude-sonnet-4-6',         label: 'Sonnet 4.6', tier: 'Balanced Baseline' },
-    { id: 'claude-opus-4-7',           label: 'Opus 4.7',   tier: 'Highest Quality' },
+    { id: 'haiku_4_5',  modelId: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5',  tier: 'Fast / Low Cost' },
+    { id: 'sonnet_4_6', modelId: 'claude-sonnet-4-6',         label: 'Sonnet 4.6', tier: 'Balanced Baseline' },
+    { id: 'opus_4_7',   modelId: 'claude-opus-4-7',           label: 'Opus 4.7',   tier: 'Highest Quality' },
 ];
 
 /**
@@ -6142,7 +6144,7 @@ function renderFDAReportingFreq(data) {
     if (!container) return;
 
     // Sonnet is the reference model for the reporting-frequency strip.
-    const refModel = 'claude-sonnet-4-6';
+    const refModel = 'sonnet_4_6';
     const successDocs = data.filter(d => d.extraction_status === 'success' && d.models && d.models[refModel]);
     const total = successDocs.length;
     if (total === 0) {
@@ -6329,7 +6331,7 @@ window.showFDAExtractionDetails = showFDAExtractionDetails;
 // ---------------------------------------------------------------------------
 let litExtractionLoaded = false;
 let _litExtractedData = [];
-let _litSelectedModel = 'claude-sonnet-4-6';
+let _litSelectedModel = 'sonnet_4_6';
 
 // Curator resolutions keyed by `${doi_slug}::${field_path}`. Persisted to
 // sessionStorage so resolutions survive tab switches within the session but
@@ -6610,10 +6612,18 @@ function renderLitExtractionTable(extractedList, modelId) {
             return `${discBadge(status)}${actionNote}`;
         };
 
+        // Tier is a clinical-trial-manuscript quality label (Tier 1 / Tier 2 …)
+        // parsed from the source filename. It's absent on AI/ML manuscript
+        // records, so we only render the badge when present.
+        const tierBadge = (doc.tier && doc.tier !== 'Not Reported')
+            ? `<span class="tier-badge" title="Manuscript quality tier">${escapeHtml(doc.tier)}</span>`
+            : '';
+
         const manuscriptCell = `<div class="study-details-cell">
-            <strong>${escapeHtml(meta.fda_device || 'Linked Device Unknown')}</strong>
-            <span class="study-details-meta">${escapeHtml(doc.doi_slug)}</span>
+            <strong>${escapeHtml(meta.fda_device || doc.identifier || 'Linked Device Unknown')}</strong>
+            <span class="study-details-meta">${escapeHtml(doc.doi_slug || doc.nct_id || '')}</span>
             <span class="study-details-meta">${escapeHtml(meta.publication_year || '')} ${meta.cc_license && meta.cc_license !== 'Not Reported' ? `· ${escapeHtml(meta.cc_license)}` : ''}</span>
+            ${tierBadge}
         </div>`;
 
         const nctCell = primaryNct
@@ -6710,13 +6720,14 @@ function showLitExtractionDetails(idx) {
             </div>
             <div class="modal-body">
                 <div class="extraction-meta-grid">
-                    <div><strong>DOI</strong><a href="https://doi.org/${escapeHtml(doc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi_slug)}</a></div>
+                    ${doc.doi_slug ? `<div><strong>DOI</strong><a href="https://doi.org/${escapeHtml(doc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi_slug)}</a></div>` : ''}
                     <div><strong>Linked NCT</strong>${primaryNct
                         ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
                         : '<span class="not-reported-badge">Not Reported</span>'}</div>
-                    <div><strong>FDA Submission</strong>${escapeHtml(meta.fda_submission_number || '—')}</div>
-                    <div><strong>Publication Year</strong>${escapeHtml(meta.publication_year || '—')}</div>
-                    <div><strong>License</strong>${escapeHtml(meta.cc_license || '—')}</div>
+                    ${meta.fda_submission_number ? `<div><strong>FDA Submission</strong>${escapeHtml(meta.fda_submission_number)}</div>` : ''}
+                    ${meta.publication_year ? `<div><strong>Publication Year</strong>${escapeHtml(meta.publication_year)}</div>` : ''}
+                    ${meta.cc_license ? `<div><strong>License</strong>${escapeHtml(meta.cc_license)}</div>` : ''}
+                    ${(doc.tier && doc.tier !== 'Not Reported') ? `<div><strong>Manuscript Tier</strong><span class="tier-badge">${escapeHtml(doc.tier)}</span></div>` : ''}
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_litSelectedModel]?.label || _litSelectedModel)}</div>
                 </div>
                 ${ctgov ? '' : `<p class="note" style="color:#856404;background:#fff3cd;padding:0.5rem 0.75rem;border-radius:4px;">No ClinicalTrials.gov record found for the linked NCT — all PDF values are shown as Additions.</p>`}
