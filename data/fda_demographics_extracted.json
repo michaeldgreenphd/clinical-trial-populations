@@ -97,7 +97,7 @@
           "error": "Failed to parse response"
         },
         "input_tokens": 15232,
-        "output_tokens": 502
+        "output_tokens": 500
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
