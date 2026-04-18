@@ -1,21 +1,30 @@
 #!/usr/bin/env python3
 """
-Peer-reviewed Manuscript Demographic Extraction Pipeline — 3-Way Model Comparison
+Clinical Trial Manuscript Demographic Extraction Pipeline — 3-Way Model Comparison
 
-Reads local AI/ML validation manuscript PDFs from `data/pilot_AIML_manuscripts/`,
-cross-references each filename (sanitized DOI) with
-`data/fuzzy_matches_pending_review.csv` to inject study metadata
-(FDA submission number, FDA device, publication year, CC license), and runs
-each manuscript through three Anthropic models (Haiku 4.5, Sonnet 4.6,
-Opus 4.7) to compare extraction quality and cost.
+Reads open-access clinical trial manuscript PDFs from
+`data/Clinical Trials Manuscripts/`, cross-references each filename (NCT ID)
+with `data/pilot_clinical_trials_targets.csv` to inject trial metadata
+(Condition, Intervention, Total Participants), and runs each manuscript
+through three Anthropic models (Haiku 4.5, Sonnet 4.6, Opus 4.7) to
+compare extraction quality and cost.
 
-PDF fetching is decoupled from extraction — this script only reads local files
-so it can run in constrained environments (e.g., GitHub Actions) without
-outbound access to publisher sites or Unpaywall.
+Filenames are expected to start with the NCT identifier, e.g.
+`NCT06199934.pdf` or `NCT06199934_primary_results.pdf`. Anything that isn't
+obviously an NCT ID falls back to the sanitized filename stem so the pipeline
+still runs; the metadata join will simply miss on those rows.
+
+PDF fetching is decoupled from extraction — this script only reads local
+files so it can run in constrained environments (e.g., GitHub Actions)
+without outbound access to publisher sites.
+
+Safety valve:
+  - `RUN_MODE=pilot-test` (default)  → process at most `PILOT_LIMIT` PDFs
+  - `RUN_MODE=full-extraction`       → process every PDF in the folder
 
 Outputs:
-  - data/lit_ses_extracted.json    (per-document, per-model results)
-  - data/lit_token_metrics.json    (aggregate per-model token usage)
+  - data/trials_lit_extracted.json    (per-document, per-model results)
+  - data/trials_lit_token_metrics.json (aggregate per-model token usage)
 
 Requires:
   - ANTHROPIC_API_KEY environment variable
@@ -26,6 +35,7 @@ import csv
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -33,14 +43,14 @@ import anthropic
 import pdfplumber
 
 PILOT_LIMIT = 2
-PILOT_SIZE = 9
-PILOT_PDF_DIR = "data/pilot_AIML_manuscripts"
-METADATA_CSV = "data/fuzzy_matches_pending_review.csv"
-OUTPUT_DATA = "data/lit_ses_extracted.json"
-OUTPUT_METRICS = "data/lit_token_metrics.json"
+PILOT_PDF_DIR = "data/Clinical Trials Manuscripts"
+METADATA_CSV = "data/pilot_clinical_trials_targets.csv"
+OUTPUT_DATA = "data/trials_lit_extracted.json"
+OUTPUT_METRICS = "data/trials_lit_token_metrics.json"
 
-# Total studies in the full AACT dataset (for scaling projections)
-TOTAL_STUDIES = 53841
+# Total clinical trials in the AACT dataset — used for cost-projection math
+# alongside the pilot token counts.
+TOTAL_STUDIES = 77347
 
 MODELS = [
     {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
@@ -48,10 +58,12 @@ MODELS = [
     {"id": "claude-opus-4-7",           "label": "Opus 4.7",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
 
+NCT_RE = re.compile(r"(NCT\d{8})", re.IGNORECASE)
+
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in published AI/ML validation studies. Extract demographic, socioeconomic, and functional status data.
+You are a clinical data extractor specializing in published clinical trial manuscripts. Extract demographic, socioeconomic, and functional status data of the trial cohort.
 
 Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
 
@@ -59,7 +71,7 @@ CRITICAL: "Unknown" is an explicit reporting category. If the paper explicitly l
 
 For Age, Disability/Functional Limitations, and Religion, provide a concise string summary of how the data is reported (e.g., "Mean 65.2 (SD 5.1)" or "ECOG Performance Status 1-2").
 
-LINKAGE CRITICAL: We must link this paper to ClinicalTrials.gov if possible. Scan the text for any ClinicalTrials.gov identifier (format: NCT followed by 8 digits) and list it under associated_nct_ids.
+LINKAGE CRITICAL: We must link this manuscript to ClinicalTrials.gov if possible. Scan the text for any ClinicalTrials.gov identifier (format: NCT followed by 8 digits) and list it under associated_nct_ids.
 
 Return a single valid JSON object with this exact schema:
 {
@@ -112,35 +124,6 @@ Return a single valid JSON object with this exact schema:
 Return ONLY the JSON object, no other text."""
 
 
-def doi_slug(value: str) -> str:
-    """Normalize a DOI (or DOI-derived filename stem) into a comparable slug.
-
-    PDFs are stored on disk with their DOI sanitized — typically by replacing
-    `/` with `_`. The metadata CSV may or may not carry that same
-    transformation. Normalizing both sides by lowercasing and mapping every
-    `/` to `_` gives a stable join key regardless of which side applied the
-    sanitization.
-    """
-    return (value or "").strip().lower().replace("/", "_")
-
-
-def build_metadata_index(csv_path: str) -> dict[str, dict]:
-    """Map DOI slug -> CSV row. Returns {} if the CSV is missing."""
-    if not os.path.exists(csv_path):
-        print(f"  ! metadata CSV not found: {csv_path} "
-              f"(continuing with empty metadata)", file=sys.stderr)
-        return {}
-    idx: dict[str, dict] = {}
-    with open(csv_path, "r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            doi = row.get("DOI") or row.get("doi") or ""
-            key = doi_slug(doi)
-            if key:
-                idx[key] = row
-    return idx
-
-
 def resolve_limit() -> int | None:
     """Translate RUN_MODE into an optional cap on the number of PDFs processed.
 
@@ -156,30 +139,63 @@ def resolve_limit() -> int | None:
     return PILOT_LIMIT
 
 
-def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str]]:
-    """Return (doi_slug, pdf_path) pairs sorted by filename."""
-    if not os.path.isdir(pdf_dir):
-        print(f"Error: pilot PDF directory not found: {pdf_dir}", file=sys.stderr)
-        return []
-    paths = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
-    return [(doi_slug(os.path.splitext(os.path.basename(p))[0]), p) for p in paths]
+def nct_from_filename(stem: str) -> str | None:
+    """Extract the first NCT identifier from a filename stem, upper-cased.
+    Returns None if the stem doesn't contain one."""
+    m = NCT_RE.search(stem)
+    return m.group(1).upper() if m else None
 
 
-def lookup_metadata(index: dict[str, dict], slug: str) -> dict:
-    """Return the metadata block for the results payload, injecting whatever the
-    CSV provides. Always returns the expected shape so downstream consumers
-    don't have to branch on missing metadata."""
-    row = index.get(slug, {})
+def build_metadata_index(csv_path: str) -> dict[str, dict]:
+    """Map NCT ID -> CSV row. Returns {} if the CSV is missing."""
+    if not os.path.exists(csv_path):
+        print(f"  ! metadata CSV not found: {csv_path} "
+              f"(continuing with empty metadata)", file=sys.stderr)
+        return {}
+    idx: dict[str, dict] = {}
+    with open(csv_path, "r", encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            nct = (row.get("NCT Number") or row.get("nct_id") or "").strip().upper()
+            if nct:
+                idx[nct] = row
+    return idx
+
+
+def lookup_metadata(index: dict[str, dict], nct: str | None) -> dict:
+    """Return the metadata block for the results payload, injecting whatever
+    the CSV provides. Always returns the expected shape so downstream
+    consumers don't have to branch on missing metadata."""
+    row = index.get(nct or "", {})
+    total = row.get("Total Participants") or row.get("total_participants") or ""
+    try:
+        total_int = int(total) if str(total).strip().isdigit() else None
+    except (ValueError, TypeError):
+        total_int = None
     return {
-        "fda_submission_number": (row.get("FDA_Submission_Number") or row.get("FDA Submission Number") or "Not Reported").strip() or "Not Reported",
-        "fda_device": (row.get("FDA_Device") or row.get("FDA Device") or "Not Reported").strip() or "Not Reported",
-        "publication_year": str(row.get("Year") or row.get("publication_year") or "Not Reported").strip() or "Not Reported",
-        "cc_license": (row.get("CC_License") or row.get("CC License") or "Not Reported").strip() or "Not Reported",
+        "nct_id": nct or "Not Reported",
+        "condition": (row.get("Condition") or "Not Reported").strip() or "Not Reported",
+        "intervention": (row.get("Intervention") or "Not Reported").strip() or "Not Reported",
+        "ctgov_total_participants": total_int if total_int is not None else "Not Reported",
     }
 
 
+def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str]]:
+    """Return (identifier, pdf_path) pairs sorted by filename. Identifier is
+    the NCT ID if parseable from the filename, else the raw stem."""
+    if not os.path.isdir(pdf_dir):
+        print(f"Error: manuscript directory not found: {pdf_dir}", file=sys.stderr)
+        return []
+    paths = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
+    pairs: list[tuple[str, str]] = []
+    for p in paths:
+        stem = os.path.splitext(os.path.basename(p))[0]
+        nct = nct_from_filename(stem)
+        pairs.append((nct or stem, p))
+    return pairs
+
+
 def extract_text_from_local_pdf(path: str) -> str | None:
-    """Read a local PDF and return concatenated text from all non-empty pages."""
     try:
         with pdfplumber.open(path) as pdf:
             pages = [p.extract_text() for p in pdf.pages if p.extract_text()]
@@ -192,7 +208,6 @@ def extract_text_from_local_pdf(path: str) -> str | None:
 
 
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
-    """Run extraction against a single model. Returns (data, token_usage)."""
     response = client.messages.create(
         model=model_id,
         max_tokens=2000,
@@ -221,8 +236,8 @@ def main():
     limit = resolve_limit()
     run_mode = os.environ.get("RUN_MODE", "pilot-test")
 
-    print(f"Paper SES 3-Way Model Comparison Pipeline (local PDF mode)")
-    print(f"  Pilot PDF dir: {PILOT_PDF_DIR}")
+    print("Clinical Trial Manuscript 3-Way Model Comparison Pipeline")
+    print(f"  PDF dir:       {PILOT_PDF_DIR}")
     print(f"  Metadata CSV:  {METADATA_CSV}")
     print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
 
@@ -239,19 +254,21 @@ def main():
     results = []
     model_totals = {m["id"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
 
-    for i, (slug, pdf_path) in enumerate(pilot):
-        metadata = lookup_metadata(metadata_index, slug)
-        print(f"[{i+1}/{len(pilot)}] {slug}")
+    for i, (ident, pdf_path) in enumerate(pilot):
+        nct = ident if NCT_RE.fullmatch(ident) else None
+        metadata = lookup_metadata(metadata_index, nct)
+        print(f"[{i+1}/{len(pilot)}] {ident}")
         print(f"  ↪ {pdf_path}")
-        print(f"  metadata: submission={metadata['fda_submission_number']} "
-              f"year={metadata['publication_year']} "
-              f"device={metadata['fda_device']} license={metadata['cc_license']}")
+        print(f"  metadata: condition={metadata['condition']} "
+              f"intervention={metadata['intervention']} "
+              f"N={metadata['ctgov_total_participants']}")
 
         text = extract_text_from_local_pdf(pdf_path)
         if not text:
             print(f"  ✗ No text from PDF")
             results.append({
-                "doi_slug": slug,
+                "identifier": ident,
+                "nct_id": nct or "Not Reported",
                 "local_pdf_path": pdf_path,
                 "metadata": metadata,
                 "extraction_status": "pdf_failed",
@@ -268,9 +285,6 @@ def main():
             print(f"    → {label} ({mid})...", end=" ", flush=True)
             try:
                 data, tokens = extract_with_model(text, mid)
-                # Wrap the LLM's extracted_data payload with the CSV-injected
-                # metadata block so the final record matches the dashboard
-                # schema: { "metadata": ..., "extracted_data": ... }
                 wrapped = {"metadata": metadata, "extracted_data": data}
                 model_results[mid] = {
                     "label": label,
@@ -293,7 +307,8 @@ def main():
             time.sleep(1)
 
         results.append({
-            "doi_slug": slug,
+            "identifier": ident,
+            "nct_id": nct or "Not Reported",
             "local_pdf_path": pdf_path,
             "metadata": metadata,
             "extraction_status": "success",
@@ -301,6 +316,7 @@ def main():
         })
 
     print(f"\nWriting {len(results)} results to {OUTPUT_DATA}")
+    os.makedirs(os.path.dirname(OUTPUT_DATA), exist_ok=True)
     with open(OUTPUT_DATA, "w") as f:
         json.dump(results, f, indent=2)
 
