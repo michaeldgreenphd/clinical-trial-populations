@@ -4,13 +4,23 @@ on:
   workflow_dispatch:
     inputs:
       pipeline:
-        description: "Which pipeline to run"
+        description: "Which extraction stream(s) to run"
         required: true
         type: choice
+        default: all
         options:
-          - both
+          - all
           - fda-only
-          - literature-only
+          - aiml-lit-only
+          - trials-lit-only
+      run_mode:
+        description: "Pilot test (cap at 2 docs per stream) or full extraction"
+        required: true
+        type: choice
+        default: pilot-test
+        options:
+          - pilot-test
+          - full-extraction
 
 jobs:
   extract:
@@ -31,16 +41,25 @@ jobs:
         run: pip install -r scripts/extraction/requirements.txt
 
       - name: Run FDA Demographics Extraction
-        if: inputs.pipeline == 'both' || inputs.pipeline == 'fda-only'
+        if: inputs.pipeline == 'all' || inputs.pipeline == 'fda-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_MODE: ${{ inputs.run_mode }}
         run: python scripts/extraction/extract_fda_demographics.py
 
-      - name: Run Literature SES Extraction
-        if: inputs.pipeline == 'both' || inputs.pipeline == 'literature-only'
+      - name: Run AI/ML Literature Extraction
+        if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_MODE: ${{ inputs.run_mode }}
         run: python scripts/extraction/extract_paper_ses.py
+
+      - name: Run Clinical Trials Literature Extraction
+        if: inputs.pipeline == 'all' || inputs.pipeline == 'trials-lit-only'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_MODE: ${{ inputs.run_mode }}
+        run: python scripts/extraction/extract_trial_papers.py
 
       - name: Commit extraction results
         run: |
@@ -49,7 +68,10 @@ jobs:
           git add data/fda_demographics_extracted.json \
                   data/fda_token_metrics.json \
                   data/lit_ses_extracted.json \
-                  data/lit_token_metrics.json
+                  data/lit_token_metrics.json \
+                  data/trials_lit_extracted.json \
+                  data/trials_lit_token_metrics.json \
+                  2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
@@ -57,6 +79,7 @@ jobs:
 
             Triggered by: ${{ github.actor }}
             Pipeline: ${{ inputs.pipeline }}
+            Run mode: ${{ inputs.run_mode }}
             Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             git push
           fi

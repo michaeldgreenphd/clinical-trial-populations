@@ -30,6 +30,7 @@ import time
 import anthropic
 import pdfplumber
 
+PILOT_LIMIT = 2
 PILOT_SIZE = 12
 PILOT_PDF_DIR = "data/pilot_summary_statements"
 INPUT_CSV = "data/ai-ml-enabled-devices-enriched.csv"
@@ -163,14 +164,28 @@ def build_metadata_index(csv_path: str) -> dict[str, dict]:
     return idx
 
 
-def discover_pilot_pdfs(pdf_dir: str, limit: int) -> list[tuple[str, str]]:
-    """Return up to `limit` (submission_number, pdf_path) pairs, sorted by name."""
+def resolve_limit() -> int | None:
+    """Translate RUN_MODE into an optional cap on the number of PDFs processed.
+
+    Defaults to pilot-test so an accidental workflow trigger can't burn through
+    the full corpus. `None` means "no limit" (full extraction).
+    """
+    mode = (os.environ.get("RUN_MODE") or "pilot-test").strip().lower()
+    if mode == "full-extraction":
+        return None
+    if mode == "pilot-test":
+        return PILOT_LIMIT
+    print(f"  ! Unknown RUN_MODE {mode!r} — defaulting to pilot-test", file=sys.stderr)
+    return PILOT_LIMIT
+
+
+def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str]]:
+    """Return (submission_number, pdf_path) pairs sorted by name."""
     if not os.path.isdir(pdf_dir):
         print(f"Error: pilot PDF directory not found: {pdf_dir}", file=sys.stderr)
         return []
     paths = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
-    pairs = [(os.path.splitext(os.path.basename(p))[0].upper(), p) for p in paths]
-    return pairs[:limit]
+    return [(os.path.splitext(os.path.basename(p))[0].upper(), p) for p in paths]
 
 
 def main():
@@ -178,18 +193,23 @@ def main():
         print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
         sys.exit(1)
 
+    limit = resolve_limit()
+    run_mode = os.environ.get("RUN_MODE", "pilot-test")
+
     print(f"FDA 3-Way Model Comparison Pipeline (local PDF mode)")
     print(f"  Pilot PDF dir: {PILOT_PDF_DIR}")
     print(f"  Metadata CSV:  {INPUT_CSV}")
+    print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
 
     metadata = build_metadata_index(INPUT_CSV)
-    pilot = discover_pilot_pdfs(PILOT_PDF_DIR, PILOT_SIZE)
+    all_pdfs = discover_pilot_pdfs(PILOT_PDF_DIR)
+    pilot = all_pdfs if limit is None else all_pdfs[:limit]
 
     if not pilot:
         print(f"  No PDFs found in {PILOT_PDF_DIR}. Aborting.", file=sys.stderr)
         sys.exit(1)
 
-    print(f"  Pilot size: {len(pilot)} PDFs (max {PILOT_SIZE})\n")
+    print(f"  Found {len(all_pdfs)} PDFs; processing {len(pilot)}\n")
 
     results = []
     model_totals = {m["id"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
@@ -276,6 +296,7 @@ def main():
         }
 
     metrics = {
+        "run_mode": run_mode,
         "pilot_size": len([r for r in results if r["extraction_status"] == "success"]),
         "total_fda_tools": len(metadata) if metadata else None,
         "per_model": per_model,
