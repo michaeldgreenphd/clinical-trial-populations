@@ -5888,8 +5888,22 @@ function isNR(v) {
     return v === undefined || v === null || v === '' || v === NOT_REPORTED;
 }
 
+// Detect a scalar value that the researchers explicitly labeled "Unknown"
+// / "Not Stated" (as opposed to simply not mentioning the field).
+// The distinction matters for reviewers: "unknown for 12 participants" is
+// data, "field never mentioned" is a reporting gap.
+const EXPLICIT_UNKNOWN_STRINGS = new Set([
+    'unknown', 'not stated', 'not known', 'unknown or not reported',
+]);
+function isExplicitUnknown(v) {
+    if (v == null) return false;
+    if (typeof v !== 'string') return false;
+    return EXPLICIT_UNKNOWN_STRINGS.has(v.trim().toLowerCase());
+}
+
 function fmtVal(v) {
     if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
+    if (isExplicitUnknown(v)) return '<span class="explicit-unknown-badge">Unknown</span>';
     if (typeof v === 'number') return v.toLocaleString();
     return escapeHtml(String(v));
 }
@@ -5915,11 +5929,46 @@ function fmtBreakdown(obj, labelMap) {
     }
     const reported = Object.entries(obj).filter(([_, v]) => !isNR(v));
     if (reported.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
+    // If the only reported subcategory is `unknown`, surface this as an
+    // Explicit Unknown badge — otherwise the cell collapses visually to the
+    // same "Reported" state as a fully-disclosed breakdown.
+    const nonUnknownReported = reported.filter(([k, _]) => k !== 'unknown');
+    if (nonUnknownReported.length === 0) {
+        const [, uv] = reported[0];
+        const val = typeof uv === 'number' ? uv.toLocaleString() : escapeHtml(String(uv));
+        return `<span class="explicit-unknown-badge">Unknown: ${val}</span>`;
+    }
     return `<div class="extraction-stacked-values">${reported.map(([k, v]) => {
         const label = (labelMap && labelMap[k]) || k.replace(/_/g, ' ');
         const val = typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
-        return `<div><span class="kv-label">${escapeHtml(label)}:</span> ${val}</div>`;
+        const cls = k === 'unknown' ? 'kv-label kv-label-unknown' : 'kv-label';
+        return `<div><span class="${cls}">${escapeHtml(label)}:</span> ${val}</div>`;
     }).join('')}</div>`;
+}
+
+// Classify a breakdown object (race/sex/ethnicity/gender) by reporting state.
+// Returns 'not_reported' | 'explicit_unknown' | 'reported'.
+function breakdownStatus(obj) {
+    if (!obj || typeof obj !== 'object') return 'not_reported';
+    const reported = Object.entries(obj).filter(([_, v]) => !isNR(v));
+    if (reported.length === 0) return 'not_reported';
+    if (reported.every(([k, _]) => k === 'unknown')) return 'explicit_unknown';
+    return 'reported';
+}
+
+// Scalar equivalent of breakdownStatus() for plain string/integer fields.
+function scalarStatus(v) {
+    if (isNR(v)) return 'not_reported';
+    if (isExplicitUnknown(v)) return 'explicit_unknown';
+    return 'reported';
+}
+
+// Badge for a Not Reported / Explicit Unknown state. Returns '' for reported
+// so the caller can inline the actual value alongside.
+function statusBadge(status) {
+    if (status === 'not_reported') return '<span class="not-reported-badge">Not Reported</span>';
+    if (status === 'explicit_unknown') return '<span class="explicit-unknown-badge">Explicit Unknown</span>';
+    return '';
 }
 
 const RACE_OMB_LABELS = {
@@ -6201,7 +6250,7 @@ function renderFDAExtractionTable(data, modelId) {
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td>${escapeHtml(doc.panel || '')}</td>
                 <td>${escapeHtml(doc.submission_number || '')}</td>
-                <td colspan="9" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
+                <td colspan="10" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
                 <td>—</td>
                 <td>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>` : '—'}</td>
             </tr>`;
@@ -6213,9 +6262,9 @@ function renderFDAExtractionTable(data, modelId) {
             : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
             : '<span class="agreement-badge agreement-no">Differs</span>';
 
-        // Disability isn't in the FDA extraction schema (FDA summary PDFs
-        // typically don't report it); show a consistent Not Reported so the
-        // column is visually parseable rather than leaving blank cells.
+        // Household pulls from the SES block's family_size; Disability is
+        // absent from the FDA extraction schema (summary PDFs typically
+        // omit it) and renders as Not Reported via fmtVal().
         const household = d.socioeconomic_status?.family_size;
 
         return `<tr>
@@ -6223,13 +6272,14 @@ function renderFDAExtractionTable(data, modelId) {
             <td>${escapeHtml(doc.panel || '')}</td>
             <td>${escapeHtml(doc.submission_number || '')}</td>
             <td class="text-right">${fmtVal(d.total_participants)}</td>
-            <td>${fmtBreakdown(d.race_nih_omb, RACE_OMB_LABELS)}</td>
-            <td>${fmtBreakdown(d.ethnicity, ETHNICITY_LABELS)}</td>
+            <td>${fmtVal(d.age)}</td>
             <td>${fmtBreakdown(d.sex, SEX_LABELS)}</td>
             <td>${fmtBreakdown(d.gender, GENDER_LABELS)}</td>
+            <td>${fmtBreakdown(d.race_nih_omb, RACE_OMB_LABELS)}</td>
+            <td>${fmtBreakdown(d.ethnicity, ETHNICITY_LABELS)}</td>
             <td>${fmtGeography(d.geography)}</td>
             <td>${fmtSESShort(d.socioeconomic_status)}</td>
-            <td><span class="not-reported-badge">Not Reported</span></td>
+            <td>${fmtVal(d.disability_and_functional_limitations)}</td>
             <td>${fmtVal(household)}</td>
             <td>${agreeBadge}</td>
             <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
@@ -6441,6 +6491,13 @@ function buildDiscrepancyRows(extractedData, ctgov) {
         addRow('sex', `Sex — ${SEX_LABELS[k]}`, `sex.${k}`, ctSex[apiKey], pdfSex[k]);
     });
 
+    // Gender breakdown — CT.gov doesn't carry a gender-identity field, so
+    // every reported value will surface as an Addition.
+    const pdfGender = extractedData.gender || {};
+    ['woman', 'man', 'non_binary', 'transgender', 'other', 'unknown'].forEach(k => {
+        addRow('gender', `Gender — ${GENDER_LABELS[k]}`, `gender.${k}`, null, pdfGender[k]);
+    });
+
     // Race breakdown (NIH/OMB)
     const ctRace = ctgov?.race?.omb_totals || {};
     const pdfRace = extractedData.race_nih_omb || {};
@@ -6469,10 +6526,13 @@ function buildDiscrepancyRows(extractedData, ctgov) {
         ctSiteCount, extractedData.geography?.total_sites);
 
     // Fields the API doesn't carry — PDF-only. These manifest as Addition when
-    // the PDF reports anything and NA otherwise.
+    // the PDF reports anything and NA otherwise. Household (family_size) is
+    // split out so it has its own column in the discrepancy table.
     const ses = extractedData.socioeconomic_status || {};
     Object.entries(SES_LABELS).forEach(([k, label]) => {
-        addRow('ses', `SES — ${label}`, `socioeconomic_status.${k}`, null, ses[k]);
+        const group = k === 'family_size' ? 'household' : 'ses';
+        addRow(group, `${group === 'household' ? 'Household' : 'SES'} — ${label}`,
+            `socioeconomic_status.${k}`, null, ses[k]);
     });
     addRow('age', 'Age', 'age', null, extractedData.age);
     addRow('disability', 'Disability / Functional Limitations',
@@ -6577,8 +6637,8 @@ function renderLitExtractionTable(extractedList, modelId) {
         if (doc.extraction_status !== 'success') {
             const statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
             return `<tr>
-                <td class="study-details-cell"><strong>${escapeHtml(doc.doi_slug || 'Manuscript')}</strong></td>
-                <td colspan="7" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
+                <td class="study-details-cell"><strong>${escapeHtml(doc.doi_slug || doc.identifier || 'Manuscript')}</strong></td>
+                <td colspan="11" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
                 <td>—</td>
                 <td>—</td>
             </tr>`;
@@ -6598,18 +6658,30 @@ function renderLitExtractionTable(extractedList, modelId) {
         const rows = buildDiscrepancyRows(extracted, ctgov);
 
         // Attach any persisted curator resolutions
-        rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(doc.doi_slug, r.path)] || null; });
+        const slugKey = doc.doi_slug || doc.nct_id || doc.identifier;
+        rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(slugKey, r.path)] || null; });
 
-        // Build a compact per-group summary cell.
-        const groupCell = (group) => {
+        // Per-group cell: discrepancy badge stacked with a reporting-status
+        // hint so reviewers can tell Not Reported apart from Explicit Unknown
+        // at a glance. The discrepancy status (Match/Addition/Conflict/NA)
+        // compares API↔PDF; the reporting status reflects what the PDF
+        // actually said.
+        const groupCell = (group, pdfValue) => {
             const groupRows = rows.filter(r => r.group === group);
             const status = worstStatus(groupRows);
-            if (status === 'na') return '<span class="disc-badge disc-na">—</span>';
+            const reporting = typeof pdfValue === 'object' && pdfValue !== null
+                ? breakdownStatus(pdfValue)
+                : scalarStatus(pdfValue);
+            const badge = reporting !== 'reported' ? statusBadge(reporting) : '';
+            if (status === 'na') {
+                return badge || '<span class="disc-badge disc-na">—</span>';
+            }
             const nAction = groupRows.filter(r => (r.status === 'addition' || r.status === 'conflict') && !r.resolution).length;
             const actionNote = nAction > 0
                 ? `<div style="font-size:0.75rem;color:#6b7280;margin-top:2px;">${nAction} unresolved</div>`
                 : '';
-            return `${discBadge(status)}${actionNote}`;
+            const reportingLine = badge ? `<div style="margin-top:4px;">${badge}</div>` : '';
+            return `${discBadge(status)}${reportingLine}${actionNote}`;
         };
 
         // Tier is a clinical-trial-manuscript quality label (Tier 1 / Tier 2 …)
@@ -6631,16 +6703,25 @@ function renderLitExtractionTable(extractedList, modelId) {
             : '<span class="not-reported-badge">Not Reported</span>';
 
         const pdfPath = doc.local_pdf_path || '';
+        const ses = extracted.socioeconomic_status || {};
+        const sesOnly = {
+            income: ses.income, education: ses.education,
+            wealth: ses.wealth, adi_area_deprivation_index: ses.adi_area_deprivation_index,
+        };
 
         return `<tr>
             <td>${manuscriptCell}</td>
             <td>${nctCell}</td>
-            <td>${groupCell('totals')}</td>
-            <td>${groupCell('sex')}</td>
-            <td>${groupCell('race')}</td>
-            <td>${groupCell('ethnicity')}</td>
-            <td>${groupCell('ses')}</td>
-            <td>${groupCell('age')} ${groupCell('disability')}</td>
+            <td>${groupCell('totals', extracted.total_participants)}</td>
+            <td>${groupCell('age', extracted.age)}</td>
+            <td>${groupCell('sex', extracted.sex)}</td>
+            <td>${groupCell('gender', extracted.gender)}</td>
+            <td>${groupCell('race', extracted.race_nih_omb)}</td>
+            <td>${groupCell('ethnicity', extracted.ethnicity)}</td>
+            <td>${groupCell('geography', extracted.geography)}</td>
+            <td>${groupCell('ses', sesOnly)}</td>
+            <td>${groupCell('disability', extracted.disability_and_functional_limitations)}</td>
+            <td>${groupCell('household', ses.family_size)}</td>
             <td>${pdfPath ? escapeHtml(pdfPath.split('/').pop()) : '—'}</td>
             <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
         </tr>`;
@@ -6667,27 +6748,29 @@ function showLitExtractionDetails(idx) {
     const ctgov = findCTGovStudy(primaryNct);
 
     const rows = buildDiscrepancyRows(extracted, ctgov);
-    rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(doc.doi_slug, r.path)] || null; });
+    const slugKey = doc.doi_slug || doc.nct_id || doc.identifier;
+    rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(slugKey, r.path)] || null; });
 
     const groups = [
         { key: 'totals', title: 'Totals' },
+        { key: 'age', title: 'Age' },
         { key: 'sex', title: 'Sex' },
+        { key: 'gender', title: 'Gender' },
         { key: 'race', title: 'Race (NIH / OMB)' },
         { key: 'ethnicity', title: 'Ethnicity' },
         { key: 'geography', title: 'Geography' },
         { key: 'ses', title: 'Socioeconomic Status' },
-        { key: 'age', title: 'Age' },
         { key: 'disability', title: 'Disability / Functional Limitations' },
+        { key: 'household', title: 'Household' },
         { key: 'religion', title: 'Religion' },
     ];
 
     const renderActions = (row) => {
         if (row.resolution) return resolutionBadge(row.resolution);
         if (row.status !== 'addition' && row.status !== 'conflict') return '';
-        const slug = doc.doi_slug;
         return `<div class="disc-actions">
-            <button type="button" class="btn-confirm" onclick="confirmDiscrepancy('${escapeHtml(slug)}','${escapeHtml(row.path)}')">Confirm</button>
-            <button type="button" class="btn-deny" onclick="denyDiscrepancy('${escapeHtml(slug)}','${escapeHtml(row.path)}')">Deny</button>
+            <button type="button" class="btn-confirm" onclick="confirmDiscrepancy('${escapeHtml(slugKey)}','${escapeHtml(row.path)}')">Confirm</button>
+            <button type="button" class="btn-deny" onclick="denyDiscrepancy('${escapeHtml(slugKey)}','${escapeHtml(row.path)}')">Deny</button>
         </div>`;
     };
 

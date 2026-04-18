@@ -2847,6 +2847,42 @@ footer p {
     margin-top: 4px;
 }
 
+/* Horizontal-scroll container for wide extraction tables. The wrapper
+   makes the table scrollable when its columns overflow the viewport;
+   th/td keep nowrap so columns stay readable. */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+}
+
+.table-scroll .studies-table th,
+.table-scroll .studies-table td {
+    white-space: nowrap;
+}
+
+/* Explicit Unknown badge — the researchers stated "Unknown" with a count.
+   Distinct from Not Reported (yellow) so reviewers can tell "measured and
+   unknown" from "not measured". */
+.explicit-unknown-badge {
+    display: inline-block;
+    background: #ede9fe;
+    color: #5b21b6;
+    border: 1px solid #c4b5fd;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+/* Inline label highlight for the `unknown` subcategory inside a breakdown
+   — lets reviewers spot explicit-unknown counts at a glance without the
+   full badge treatment. */
+.kv-label-unknown {
+    color: #5b21b6;
+    font-weight: 600;
+}
+
 .reported-badge {
     display: inline-block;
     background: #d4edda;
