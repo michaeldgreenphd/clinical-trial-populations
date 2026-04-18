@@ -43,9 +43,9 @@ OUTPUT_METRICS = "data/lit_token_metrics.json"
 TOTAL_STUDIES = 53841
 
 MODELS = [
-    {"id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
-    {"id": "claude-sonnet-4-6",         "label": "Sonnet 4.6",  "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
-    {"id": "claude-opus-4-7",           "label": "Opus 4.7",    "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
+    {"key": "haiku_4_5",  "id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
+    {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
+    {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
 
 client = anthropic.Anthropic()
@@ -196,7 +196,6 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     response = client.messages.create(
         model=model_id,
         max_tokens=2000,
-        temperature=0,
         messages=[{
             "role": "user",
             "content": f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{text}"
@@ -231,13 +230,14 @@ def main():
     pilot = all_pdfs if limit is None else all_pdfs[:limit]
 
     if not pilot:
-        print(f"  No PDFs found in {PILOT_PDF_DIR}. Aborting.", file=sys.stderr)
-        sys.exit(1)
+        print(f"  No PDFs found in {PILOT_PDF_DIR}. Nothing to do — exiting cleanly.",
+              file=sys.stderr)
+        sys.exit(0)
 
     print(f"  Found {len(all_pdfs)} PDFs; processing {len(pilot)}\n")
 
     results = []
-    model_totals = {m["id"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
+    model_totals = {m["key"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
 
     for i, (slug, pdf_path) in enumerate(pilot):
         metadata = lookup_metadata(metadata_index, slug)
@@ -263,28 +263,28 @@ def main():
 
         model_results = {}
         for model in MODELS:
+            mkey = model["key"]
             mid = model["id"]
             label = model["label"]
             print(f"    → {label} ({mid})...", end=" ", flush=True)
             try:
                 data, tokens = extract_with_model(text, mid)
-                # Wrap the LLM's extracted_data payload with the CSV-injected
-                # metadata block so the final record matches the dashboard
-                # schema: { "metadata": ..., "extracted_data": ... }
                 wrapped = {"metadata": metadata, "extracted_data": data}
-                model_results[mid] = {
+                model_results[mkey] = {
+                    "model_id": mid,
                     "label": label,
                     "data": wrapped,
                     "input_tokens": tokens["input_tokens"],
                     "output_tokens": tokens["output_tokens"],
                 }
-                model_totals[mid]["input"] += tokens["input_tokens"]
-                model_totals[mid]["output"] += tokens["output_tokens"]
-                model_totals[mid]["docs"] += 1
+                model_totals[mkey]["input"] += tokens["input_tokens"]
+                model_totals[mkey]["output"] += tokens["output_tokens"]
+                model_totals[mkey]["docs"] += 1
                 print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
             except Exception as e:
                 print(f"ERROR: {e}")
-                model_results[mid] = {
+                model_results[mkey] = {
+                    "model_id": mid,
                     "label": label,
                     "data": {"metadata": metadata, "extracted_data": {"error": str(e)}},
                     "input_tokens": 0,
@@ -306,10 +306,11 @@ def main():
 
     per_model = {}
     for model in MODELS:
-        mid = model["id"]
-        t = model_totals[mid]
+        mkey = model["key"]
+        t = model_totals[mkey]
         docs = t["docs"] or 1
-        per_model[mid] = {
+        per_model[mkey] = {
+            "model_id": model["id"],
             "label": model["label"],
             "input_cost_per_m": model["input_cost_per_m"],
             "output_cost_per_m": model["output_cost_per_m"],
