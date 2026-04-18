@@ -742,14 +742,16 @@
                     <label>View model:</label>
                     <!-- Populated by JS -->
                 </div>
+                <p class="note">Each demographic cell is split <strong>FDA Summary</strong> (top) vs. <strong>Matched Manuscript</strong> (bottom). Manuscripts are linked by FDA Submission #.</p>
                 <div class="ai-devices-table-wrapper">
                     <div class="table-scroll">
                         <table class="studies-table" id="fda-extraction-table">
                             <thead>
                                 <tr>
-                                    <th>Device</th>
-                                    <th>Panel</th>
                                     <th>Submission #</th>
+                                    <th>Device Name</th>
+                                    <th>Panel</th>
+                                    <th>Matched Manuscript</th>
                                     <th class="text-right">Total Participants</th>
                                     <th>Age</th>
                                     <th>Sex</th>
@@ -760,7 +762,6 @@
                                     <th>SES — Income / Education / Wealth</th>
                                     <th>Disability</th>
                                     <th>Household</th>
-                                    <th>Agreement</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
@@ -813,8 +814,9 @@
                         <table class="studies-table" id="lit-extraction-table">
                             <thead>
                                 <tr>
-                                    <th>Manuscript</th>
-                                    <th>Linked NCT</th>
+                                    <th>Manuscript Title / DOI</th>
+                                    <th>Trial Name</th>
+                                    <th>Linked NCT ID</th>
                                     <th>Total Participants</th>
                                     <th>Age</th>
                                     <th>Sex</th>
@@ -825,7 +827,6 @@
                                     <th>SES — Income / Education / Wealth</th>
                                     <th>Disability</th>
                                     <th>Household</th>
-                                    <th>Source PDF</th>
                                     <th>Details</th>
                                 </tr>
                             </thead>
