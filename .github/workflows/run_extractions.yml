@@ -65,13 +65,12 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/fda_demographics_extracted.json \
-                  data/fda_token_metrics.json \
-                  data/lit_ses_extracted.json \
-                  data/lit_token_metrics.json \
-                  data/trials_lit_extracted.json \
-                  data/trials_lit_token_metrics.json \
-                  2>/dev/null || true
+          # Stage whatever actually landed on disk. Wildcards + the
+          # `|| true` fallback mean a missing stream (e.g. the trials
+          # manuscript PDFs weren't present on the runner) doesn't abort
+          # the whole commit — the streams that did produce output still
+          # get committed.
+          git add data/*_extracted.json data/*_token_metrics.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else

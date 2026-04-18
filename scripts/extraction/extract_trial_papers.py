@@ -45,7 +45,7 @@ import pdfplumber
 PILOT_LIMIT = 2
 # PDF_DIR is resolved at runtime based on RUN_MODE — pilot-test reads from a
 # small curated pilot folder; full-extraction reads the full manuscript corpus.
-PILOT_PDF_DIR = "data/pilot_trial_manuscripts"
+PILOT_PDF_DIR = "data/pilot_trials_manuscripts"
 FULL_PDF_DIR  = "data/Clinical Trials Manuscripts"
 METADATA_CSV = "data/pilot_clinical_trials_targets.csv"
 OUTPUT_DATA = "data/trials_lit_extracted.json"
@@ -147,7 +147,7 @@ def resolve_limit(mode: str) -> int | None:
 
 
 def resolve_pdf_dir(mode: str) -> str:
-    """Pilot-test reads the curated `pilot_trial_manuscripts/` folder; full
+    """Pilot-test reads the curated `pilot_trials_manuscripts/` folder; full
     extraction reads the full `Clinical Trials Manuscripts/` corpus."""
     return FULL_PDF_DIR if mode == "full-extraction" else PILOT_PDF_DIR
 
