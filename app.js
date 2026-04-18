@@ -6028,6 +6028,8 @@ function fmtSESShort(ses) {
 // ---------------------------------------------------------------------------
 let fdaExtractionLoaded = false;
 let _fdaExtractedData = [];
+let _fdaLitData = [];           // AI/ML manuscript extractions (for side-by-side join)
+let _fdaLitIndex = {};          // submission_number -> manuscript record
 let _fdaSelectedModel = 'sonnet_4_6'; // default view
 
 // Model display order and labels. `id` is the JSON key emitted by the
@@ -6107,23 +6109,35 @@ function renderModelComparisonCards(containerId, perModel, totalDocs, pilotSize)
 }
 
 /**
- * Build model selector radio buttons for a tab.
+ * Render a pill-style toggle-button group for model selection. Each click
+ * flips `aria-pressed` on every button, then invokes onChange(modelId) so
+ * the caller can re-render its table off the new selection.
  */
 function renderModelSelector(containerId, selectedModel, onChange) {
     const container = document.getElementById(containerId);
     if (!container) return;
 
-    const radios = MODEL_ORDER.map(m => {
-        const checked = m.id === selectedModel ? 'checked' : '';
-        return `<label class="model-radio-label">
-            <input type="radio" name="${containerId}-model" value="${m.id}" ${checked}> ${m.label}
-        </label>`;
+    const buttons = MODEL_ORDER.map(m => {
+        const isActive = m.id === selectedModel;
+        return `<button type="button"
+            class="model-toggle-btn${isActive ? ' is-active' : ''}"
+            data-model="${m.id}"
+            aria-pressed="${isActive}">
+            ${m.label}
+        </button>`;
     }).join('');
 
-    // Keep existing <label> and append radios
-    container.innerHTML = `<label>View model:</label> ${radios}`;
-    container.querySelectorAll('input[type="radio"]').forEach(radio => {
-        radio.addEventListener('change', (e) => onChange(e.target.value));
+    container.innerHTML = `<span class="model-selector-label">View model:</span> ${buttons}`;
+    container.querySelectorAll('.model-toggle-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modelId = btn.dataset.model;
+            container.querySelectorAll('.model-toggle-btn').forEach(b => {
+                const active = b.dataset.model === modelId;
+                b.classList.toggle('is-active', active);
+                b.setAttribute('aria-pressed', String(active));
+            });
+            onChange(modelId);
+        });
     });
 }
 
@@ -6158,16 +6172,22 @@ function checkFDAOverallAgreement(doc) {
 async function loadFDAExtractionTab() {
     if (fdaExtractionLoaded) return;
     try {
-        const [metricsResp, dataResp] = await Promise.all([
-            fetch('data/fda_token_metrics.json?v=' + Date.now()),
-            fetch('data/fda_demographics_extracted.json?v=' + Date.now())
+        // Fetch FDA metrics + data in parallel with the AI/ML manuscript
+        // extraction so we can render a side-by-side FDA ↔ manuscript view.
+        // The manuscript file is best-effort: if the lit extraction hasn't
+        // run yet, the FDA side still renders (manuscript cells show "—").
+        const cacheBust = '?v=' + Date.now();
+        const [metricsResp, dataResp, litResp] = await Promise.all([
+            fetch('data/fda_token_metrics.json' + cacheBust),
+            fetch('data/fda_demographics_extracted.json' + cacheBust),
+            fetch('data/lit_ses_extracted.json' + cacheBust).catch(() => null),
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load FDA extraction data');
         const metrics = await metricsResp.json();
         _fdaExtractedData = await dataResp.json();
+        _fdaLitData = (litResp && litResp.ok) ? await litResp.json() : [];
+        _fdaLitIndex = buildFDALitIndex(_fdaLitData);
 
-        // Handle new per_model metrics structure
-        const hasPilot = metrics.pilot_size > 0;
         const totalDocs = metrics.total_fda_tools || 0;
         document.getElementById('fda-pilot-size').textContent = metrics.pilot_size || 0;
         document.getElementById('fda-remaining').textContent = (totalDocs - metrics.pilot_size).toLocaleString();
@@ -6184,8 +6204,30 @@ async function loadFDAExtractionTab() {
         console.warn('Could not load FDA extraction data:', e.message);
         const tbody = document.getElementById('fda-extraction-tbody');
         if (tbody) tbody.innerHTML =
-            '<tr><td colspan="13">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+            '<tr><td colspan="15">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
     }
+}
+
+/**
+ * Build a submission# → manuscript record map so each FDA row can display
+ * the matched manuscript's demographic extraction side by side. Submission
+ * numbers are normalised to upper-case / whitespace-trimmed since they
+ * come from two different CSVs.
+ */
+function buildFDALitIndex(litData) {
+    const index = {};
+    if (!Array.isArray(litData)) return index;
+    for (const lit of litData) {
+        if (lit.extraction_status !== 'success') continue;
+        // Metadata lives at the top level of each manuscript record and
+        // carries the fuzzy-matched FDA submission number.
+        const meta = lit.metadata || {};
+        const sub = meta.fda_submission_number;
+        if (!sub || sub === 'Not Reported') continue;
+        const key = String(sub).trim().toUpperCase();
+        if (!index[key]) index[key] = lit;
+    }
+    return index;
 }
 
 function renderFDAReportingFreq(data) {
@@ -6236,7 +6278,7 @@ function renderFDAExtractionTable(data, modelId) {
     modelId = modelId || _fdaSelectedModel;
 
     if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="14" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+        tbody.innerHTML = `<tr><td colspan="15" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
             No extracted data yet. Trigger the extraction pipeline via
             <code>GitHub Actions &rarr; Run Extraction Pipelines</code>
             or run <code>scripts/extraction/extract_fda_demographics.py</code> locally.
@@ -6244,44 +6286,69 @@ function renderFDAExtractionTable(data, modelId) {
         return;
     }
 
+    // Side-by-side cell: top row is the FDA summary value, bottom row is
+    // the matched-manuscript value (or "—" if no manuscript was matched).
+    // `renderer` stringifies each side's input with the same formatter so
+    // the visual comparison is apples-to-apples.
+    const sbsCell = (fdaVal, litVal, renderer, hasMatch) => {
+        const litRendered = hasMatch
+            ? renderer(litVal)
+            : '<span class="sbs-nomatch">No matched manuscript</span>';
+        return `<div class="side-by-side-cell">
+            <div class="sbs-row sbs-fda"><span class="sbs-label">FDA</span>${renderer(fdaVal)}</div>
+            <div class="sbs-row sbs-manuscript"><span class="sbs-label">Manuscript</span>${litRendered}</div>
+        </div>`;
+    };
+
     tbody.innerHTML = data.map((doc, idx) => {
         if (doc.extraction_status !== 'success') {
             return `<tr>
+                <td>${escapeHtml(doc.submission_number || '')}</td>
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td>${escapeHtml(doc.panel || '')}</td>
-                <td>${escapeHtml(doc.submission_number || '')}</td>
-                <td colspan="10" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
-                <td>—</td>
+                <td colspan="11" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
                 <td>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>` : '—'}</td>
             </tr>`;
         }
 
         const d = doc.models?.[modelId]?.data || {};
-        const allAgree = checkFDAOverallAgreement(doc);
-        const agreeBadge = allAgree === null ? '—'
-            : allAgree ? '<span class="agreement-badge agreement-yes">Agree</span>'
-            : '<span class="agreement-badge agreement-no">Differs</span>';
-
-        // Household pulls from the SES block's family_size; Disability is
-        // absent from the FDA extraction schema (summary PDFs typically
-        // omit it) and renders as Not Reported via fmtVal().
         const household = d.socioeconomic_status?.family_size;
 
+        // Lookup the matched manuscript by submission number. The lit
+        // extraction wraps its payload as { metadata, extracted_data }.
+        const subKey = String(doc.submission_number || '').trim().toUpperCase();
+        const litDoc = _fdaLitIndex[subKey] || null;
+        const litWrapped = litDoc?.models?.[modelId]?.data || {};
+        const litExtracted = litWrapped.extracted_data || {};
+        const litMeta = litDoc?.metadata || litWrapped.metadata || {};
+        const litHousehold = litExtracted.socioeconomic_status?.family_size;
+
+        const hasMatch = !!litDoc;
+        const manuscriptCell = hasMatch
+            ? `<div class="study-details-cell">
+                ${litDoc.doi_slug
+                    ? `<a href="https://doi.org/${escapeHtml(litDoc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link"><strong>${escapeHtml(litDoc.doi_slug)}</strong></a>`
+                    : `<strong>${escapeHtml(litDoc.identifier || 'Manuscript')}</strong>`}
+                ${litMeta.publication_year ? `<span class="study-details-meta">${escapeHtml(litMeta.publication_year)}</span>` : ''}
+                ${litMeta.cc_license && litMeta.cc_license !== 'Not Reported' ? `<span class="study-details-meta">${escapeHtml(litMeta.cc_license)}</span>` : ''}
+              </div>`
+            : '<span class="not-reported-badge">No match</span>';
+
         return `<tr>
+            <td>${escapeHtml(doc.submission_number || '')}</td>
             <td>${escapeHtml(doc.device_name || '')}</td>
             <td>${escapeHtml(doc.panel || '')}</td>
-            <td>${escapeHtml(doc.submission_number || '')}</td>
-            <td class="text-right">${fmtVal(d.total_participants)}</td>
-            <td>${fmtVal(d.age)}</td>
-            <td>${fmtBreakdown(d.sex, SEX_LABELS)}</td>
-            <td>${fmtBreakdown(d.gender, GENDER_LABELS)}</td>
-            <td>${fmtBreakdown(d.race_nih_omb, RACE_OMB_LABELS)}</td>
-            <td>${fmtBreakdown(d.ethnicity, ETHNICITY_LABELS)}</td>
-            <td>${fmtGeography(d.geography)}</td>
-            <td>${fmtSESShort(d.socioeconomic_status)}</td>
-            <td>${fmtVal(d.disability_and_functional_limitations)}</td>
-            <td>${fmtVal(household)}</td>
-            <td>${agreeBadge}</td>
+            <td>${manuscriptCell}</td>
+            <td>${sbsCell(d.total_participants, litExtracted.total_participants, fmtVal, hasMatch)}</td>
+            <td>${sbsCell(d.age, litExtracted.age, fmtVal, hasMatch)}</td>
+            <td>${sbsCell(d.sex, litExtracted.sex, v => fmtBreakdown(v, SEX_LABELS), hasMatch)}</td>
+            <td>${sbsCell(d.gender, litExtracted.gender, v => fmtBreakdown(v, GENDER_LABELS), hasMatch)}</td>
+            <td>${sbsCell(d.race_nih_omb, litExtracted.race_nih_omb, v => fmtBreakdown(v, RACE_OMB_LABELS), hasMatch)}</td>
+            <td>${sbsCell(d.ethnicity, litExtracted.ethnicity, v => fmtBreakdown(v, ETHNICITY_LABELS), hasMatch)}</td>
+            <td>${sbsCell(d.geography, litExtracted.geography, fmtGeography, hasMatch)}</td>
+            <td>${sbsCell(d.socioeconomic_status, litExtracted.socioeconomic_status, fmtSESShort, hasMatch)}</td>
+            <td>${sbsCell(d.disability_and_functional_limitations, litExtracted.disability_and_functional_limitations, fmtVal, hasMatch)}</td>
+            <td>${sbsCell(household, litHousehold, fmtVal, hasMatch)}</td>
             <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
@@ -6594,11 +6661,14 @@ async function loadLitExtractionTab() {
     if (litExtractionLoaded) return;
     try {
         const cacheBust = `?v=${Date.now()}`;
+        // The "(Beta) Paper Data Extraction" tab is strictly for Clinical
+        // Trials manuscripts. Data comes from `trials_lit_extracted.json`
+        // (produced by scripts/extraction/extract_trial_papers.py).
         const [metricsResp, dataResp] = await Promise.all([
-            fetch('data/lit_token_metrics.json' + cacheBust),
-            fetch('data/lit_ses_extracted.json' + cacheBust)
+            fetch('data/trials_lit_token_metrics.json' + cacheBust),
+            fetch('data/trials_lit_extracted.json' + cacheBust)
         ]);
-        if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load literature extraction data');
+        if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load clinical trials manuscript extraction data');
         const metrics = await metricsResp.json();
         _litExtractedData = await dataResp.json();
 
@@ -6614,10 +6684,10 @@ async function loadLitExtractionTab() {
         renderLitExtractionTable(_litExtractedData, _litSelectedModel);
         litExtractionLoaded = true;
     } catch (e) {
-        console.warn('Could not load literature extraction data:', e.message);
+        console.warn('Could not load clinical trials manuscript extraction data:', e.message);
         const tbody = document.getElementById('lit-extraction-tbody');
         if (tbody) tbody.innerHTML =
-            '<tr><td colspan="10">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
+            '<tr><td colspan="14">Could not load extraction data. Run <code>scripts/extraction/extract_trial_papers.py</code> first.</td></tr>';
     }
 }
 
@@ -6627,8 +6697,8 @@ function renderLitExtractionTable(extractedList, modelId) {
     modelId = modelId || _litSelectedModel;
 
     if (!extractedList || extractedList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="10" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
-            No extracted data yet. Run <code>scripts/extraction/extract_paper_ses.py</code>.
+        tbody.innerHTML = `<tr><td colspan="14" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+            No extracted data yet. Run <code>scripts/extraction/extract_trial_papers.py</code>.
         </td></tr>`;
         return;
     }
@@ -6636,10 +6706,10 @@ function renderLitExtractionTable(extractedList, modelId) {
     tbody.innerHTML = extractedList.map((doc, idx) => {
         if (doc.extraction_status !== 'success') {
             const statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
+            const filename = (doc.local_pdf_path || '').split('/').pop() || doc.identifier || 'Manuscript';
             return `<tr>
-                <td class="study-details-cell"><strong>${escapeHtml(doc.doi_slug || doc.identifier || 'Manuscript')}</strong></td>
-                <td colspan="11" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
-                <td>—</td>
+                <td class="study-details-cell"><strong>${escapeHtml(filename)}</strong></td>
+                <td colspan="12" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
                 <td>—</td>
             </tr>`;
         }
@@ -6648,24 +6718,23 @@ function renderLitExtractionTable(extractedList, modelId) {
         const extracted = wrapped.extracted_data || {};
         const meta = doc.metadata || wrapped.metadata || {};
 
-        // Pick first linked NCT (manuscripts may cite >1 but we compare against the primary)
+        // Prefer the NCT parsed from the filename (authoritative for the
+        // trial-manuscripts pipeline); fall back to anything the LLM pulled
+        // out of the manuscript text.
         const ncts = !isNR(extracted.associated_nct_ids) && Array.isArray(extracted.associated_nct_ids)
-            ? extracted.associated_nct_ids
-            : [];
-        const primaryNct = ncts[0] || null;
+            ? extracted.associated_nct_ids : [];
+        const filenameNct = (doc.nct_id && doc.nct_id !== 'Not Reported') ? doc.nct_id : null;
+        const primaryNct = filenameNct || ncts[0] || null;
         const ctgov = findCTGovStudy(primaryNct);
 
         const rows = buildDiscrepancyRows(extracted, ctgov);
-
-        // Attach any persisted curator resolutions
-        const slugKey = doc.doi_slug || doc.nct_id || doc.identifier;
+        const slugKey = filenameNct || doc.identifier || (doc.local_pdf_path || '');
         rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(slugKey, r.path)] || null; });
 
-        // Per-group cell: discrepancy badge stacked with a reporting-status
-        // hint so reviewers can tell Not Reported apart from Explicit Unknown
-        // at a glance. The discrepancy status (Match/Addition/Conflict/NA)
-        // compares API↔PDF; the reporting status reflects what the PDF
-        // actually said.
+        // Per-group cell: discrepancy badge + reporting-status hint so
+        // reviewers can tell Not Reported apart from Explicit Unknown at a
+        // glance. `status` is API↔PDF classification; `reporting` is whether
+        // the PDF actually said anything.
         const groupCell = (group, pdfValue) => {
             const groupRows = rows.filter(r => r.group === group);
             const status = worstStatus(groupRows);
@@ -6684,25 +6753,36 @@ function renderLitExtractionTable(extractedList, modelId) {
             return `${discBadge(status)}${reportingLine}${actionNote}`;
         };
 
-        // Tier is a clinical-trial-manuscript quality label (Tier 1 / Tier 2 …)
-        // parsed from the source filename. It's absent on AI/ML manuscript
-        // records, so we only render the badge when present.
         const tierBadge = (doc.tier && doc.tier !== 'Not Reported')
             ? `<span class="tier-badge" title="Manuscript quality tier">${escapeHtml(doc.tier)}</span>`
             : '';
 
+        // Manuscript-title cell. DOI isn't present in the trials pipeline
+        // yet, so the source PDF filename stands in as the title — the NCT
+        // prefix is removed so the clinically-relevant part is easier to
+        // scan.
+        const pdfFilename = (doc.local_pdf_path || '').split('/').pop() || '';
+        const displayTitle = pdfFilename.replace(/\.pdf$/i, '').replace(/^[0-9-]+_?/, '') || (doc.identifier || 'Manuscript');
         const manuscriptCell = `<div class="study-details-cell">
-            <strong>${escapeHtml(meta.fda_device || doc.identifier || 'Linked Device Unknown')}</strong>
-            <span class="study-details-meta">${escapeHtml(doc.doi_slug || doc.nct_id || '')}</span>
-            <span class="study-details-meta">${escapeHtml(meta.publication_year || '')} ${meta.cc_license && meta.cc_license !== 'Not Reported' ? `· ${escapeHtml(meta.cc_license)}` : ''}</span>
+            <strong>${escapeHtml(displayTitle)}</strong>
+            ${pdfFilename ? `<span class="study-details-meta">${escapeHtml(pdfFilename)}</span>` : ''}
             ${tierBadge}
         </div>`;
+
+        // Trial Name — joined from CT.gov metadata via the filename's NCT.
+        const conditionTxt = meta.condition && meta.condition !== 'Not Reported' ? meta.condition : '';
+        const interventionTxt = meta.intervention && meta.intervention !== 'Not Reported' ? meta.intervention : '';
+        const trialNameCell = (conditionTxt || interventionTxt)
+            ? `<div class="study-details-cell">
+                ${conditionTxt ? `<strong>${escapeHtml(conditionTxt)}</strong>` : ''}
+                ${interventionTxt ? `<span class="study-details-meta">${escapeHtml(interventionTxt)}</span>` : ''}
+              </div>`
+            : '<span class="not-reported-badge">Not Reported</span>';
 
         const nctCell = primaryNct
             ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
             : '<span class="not-reported-badge">Not Reported</span>';
 
-        const pdfPath = doc.local_pdf_path || '';
         const ses = extracted.socioeconomic_status || {};
         const sesOnly = {
             income: ses.income, education: ses.education,
@@ -6711,6 +6791,7 @@ function renderLitExtractionTable(extractedList, modelId) {
 
         return `<tr>
             <td>${manuscriptCell}</td>
+            <td>${trialNameCell}</td>
             <td>${nctCell}</td>
             <td>${groupCell('totals', extracted.total_participants)}</td>
             <td>${groupCell('age', extracted.age)}</td>
@@ -6722,7 +6803,6 @@ function renderLitExtractionTable(extractedList, modelId) {
             <td>${groupCell('ses', sesOnly)}</td>
             <td>${groupCell('disability', extracted.disability_and_functional_limitations)}</td>
             <td>${groupCell('household', ses.family_size)}</td>
-            <td>${pdfPath ? escapeHtml(pdfPath.split('/').pop()) : '—'}</td>
             <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
@@ -6744,11 +6824,12 @@ function showLitExtractionDetails(idx) {
     const meta = doc.metadata || wrapped.metadata || {};
     const ncts = !isNR(extracted.associated_nct_ids) && Array.isArray(extracted.associated_nct_ids)
         ? extracted.associated_nct_ids : [];
-    const primaryNct = ncts[0] || null;
+    const filenameNct = (doc.nct_id && doc.nct_id !== 'Not Reported') ? doc.nct_id : null;
+    const primaryNct = filenameNct || ncts[0] || null;
     const ctgov = findCTGovStudy(primaryNct);
 
     const rows = buildDiscrepancyRows(extracted, ctgov);
-    const slugKey = doc.doi_slug || doc.nct_id || doc.identifier;
+    const slugKey = filenameNct || doc.identifier || (doc.local_pdf_path || '');
     rows.forEach(r => { r.resolution = _litCurationState[resolutionKey(slugKey, r.path)] || null; });
 
     const groups = [
@@ -6795,21 +6876,23 @@ function showLitExtractionDetails(idx) {
         </div>`;
     }).join('');
 
+    const pdfFilename = (doc.local_pdf_path || '').split('/').pop() || '';
+    const modalTitle = pdfFilename.replace(/\.pdf$/i, '') || meta.condition || 'Manuscript Discrepancy Report';
+
     const html = `
         <div class="study-details-modal">
             <div class="modal-header">
-                <h3>${escapeHtml(meta.fda_device || 'Manuscript Discrepancy Report')}</h3>
+                <h3>${escapeHtml(modalTitle)}</h3>
                 <button class="close-btn" onclick="closeExtractionDetails()">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="extraction-meta-grid">
-                    ${doc.doi_slug ? `<div><strong>DOI</strong><a href="https://doi.org/${escapeHtml(doc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(doc.doi_slug)}</a></div>` : ''}
                     <div><strong>Linked NCT</strong>${primaryNct
                         ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
                         : '<span class="not-reported-badge">Not Reported</span>'}</div>
-                    ${meta.fda_submission_number ? `<div><strong>FDA Submission</strong>${escapeHtml(meta.fda_submission_number)}</div>` : ''}
-                    ${meta.publication_year ? `<div><strong>Publication Year</strong>${escapeHtml(meta.publication_year)}</div>` : ''}
-                    ${meta.cc_license ? `<div><strong>License</strong>${escapeHtml(meta.cc_license)}</div>` : ''}
+                    ${meta.condition && meta.condition !== 'Not Reported' ? `<div><strong>Condition</strong>${escapeHtml(meta.condition)}</div>` : ''}
+                    ${meta.intervention && meta.intervention !== 'Not Reported' ? `<div><strong>Intervention</strong>${escapeHtml(meta.intervention)}</div>` : ''}
+                    ${pdfFilename ? `<div><strong>Source PDF</strong>${escapeHtml(pdfFilename)}</div>` : ''}
                     ${(doc.tier && doc.tier !== 'Not Reported') ? `<div><strong>Manuscript Tier</strong><span class="tier-badge">${escapeHtml(doc.tier)}</span></div>` : ''}
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_litSelectedModel]?.label || _litSelectedModel)}</div>
                 </div>

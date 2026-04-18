@@ -2769,40 +2769,100 @@ footer p {
     font-size: 1.15rem;
 }
 
-/* Model Selector Radio Buttons */
+/* Model Selector — pill-style toggle buttons */
 .model-selector {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
     margin: 1rem 0;
     font-size: 0.9rem;
+    flex-wrap: wrap;
 }
 
-.model-selector > label {
+.model-selector-label {
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
     font-size: 0.75rem;
     letter-spacing: 0.5px;
+    margin-right: 0.5rem;
 }
 
-.model-radio-label {
+.model-toggle-btn {
     cursor: pointer;
-    padding: 0.35rem 0.75rem;
+    padding: 0.4rem 0.9rem;
     border: 1px solid var(--border-color);
-    border-radius: 4px;
+    border-radius: 999px;
+    background: white;
+    color: var(--text-primary, #1f2937);
     font-size: 0.85rem;
+    font-weight: 500;
     transition: all 0.15s ease;
+    font-family: inherit;
 }
 
-.model-radio-label:has(input:checked) {
+.model-toggle-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.model-toggle-btn.is-active,
+.model-toggle-btn[aria-pressed="true"] {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
-.model-radio-label input[type="radio"] {
-    display: none;
+.model-toggle-btn:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Side-by-side FDA ↔ Manuscript cells on the FDA extraction table */
+.side-by-side-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 200px;
+}
+
+.sbs-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    border-left: 3px solid transparent;
+    font-size: 0.82rem;
+    line-height: 1.3;
+}
+
+.sbs-row.sbs-fda {
+    background: #eff6ff;
+    border-left-color: #2563eb;
+}
+
+.sbs-row.sbs-manuscript {
+    background: #f0fdf4;
+    border-left-color: #16a34a;
+}
+
+.sbs-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #475569;
+}
+
+.sbs-row.sbs-fda .sbs-label { color: #1d4ed8; }
+.sbs-row.sbs-manuscript .sbs-label { color: #15803d; }
+
+.sbs-nomatch {
+    color: #94a3b8;
+    font-style: italic;
+    font-size: 0.78rem;
 }
 
 /* Agreement Badges */
