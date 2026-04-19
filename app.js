@@ -6215,6 +6215,55 @@ async function loadFDAExtractionTab() {
 }
 
 /**
+ * Resolve an outbound link for a manuscript record so titles/DOIs can be
+ * rendered as proper attributions. Preference order:
+ *   1. Extracted DOI (`extracted.doi` or `extracted.manuscript_doi`)
+ *   2. `doc.doi_slug` (with `_` → `/` reconstructed back to a DOI)
+ *   3. Any explicit URL the extraction schema carried (`source_url`,
+ *      `manuscript_url`, `url`)
+ *   4. `doc.local_pdf_path` — served from the same origin as the dashboard
+ * Returns null when nothing usable is available so callers can render a
+ * non-linked title.
+ */
+function manuscriptLinkUrl(doc, extracted) {
+    extracted = extracted || {};
+    const rawDoi = extracted.doi || extracted.manuscript_doi;
+    if (rawDoi && typeof rawDoi === 'string' && rawDoi !== 'Not Reported') {
+        const clean = rawDoi.trim().replace(/^https?:\/\/(dx\.)?doi\.org\//i, '');
+        if (clean) return `https://doi.org/${clean}`;
+    }
+    if (doc?.doi_slug) {
+        return `https://doi.org/${String(doc.doi_slug).replace(/_/g, '/')}`;
+    }
+    const explicit = extracted.source_url || extracted.manuscript_url || extracted.url
+        || doc?.source_url || doc?.manuscript_url;
+    if (explicit && typeof explicit === 'string' && explicit !== 'Not Reported') {
+        return explicit.trim();
+    }
+    if (doc?.local_pdf_path) {
+        return String(doc.local_pdf_path).trim();
+    }
+    return null;
+}
+
+/**
+ * Strip the `YYYY-MM-DD_` date prefix (and any `.pdf` suffix) off an FDA
+ * submission string. The extraction pipeline carries the raw PDF stem as
+ * the submission_number (e.g. `2026-04-16_DEN140025`), but the enriched
+ * devices CSV keys rows on the clean FDA identifier (`DEN140025`). This
+ * helper normalises both sides so the date-lookup join actually hits.
+ */
+function cleanSubmissionNumber(raw) {
+    if (!raw) return '';
+    return String(raw)
+        .trim()
+        .replace(/^\d{4}[-_]\d{2}[-_]\d{2}[-_]/, '')
+        .replace(/\.pdf$/i, '')
+        .trim()
+        .toUpperCase();
+}
+
+/**
  * Build a submission# → "Date of Final Decision" map from the enriched
  * AI/ML devices CSV. That CSV is the authoritative source for decision
  * dates (the FDA extraction JSON doesn't carry them).
@@ -6228,8 +6277,8 @@ function buildFDADecisionDateIndex(csvText) {
         const sub = row['Submission Number'] || row['submission_number'] || row['Submission #'];
         const date = row['Date of Final Decision'] || row['decision_date'];
         if (!sub || !date) continue;
-        const key = String(sub).trim().toUpperCase();
-        if (!index[key]) index[key] = String(date).trim();
+        const key = cleanSubmissionNumber(sub);
+        if (key && !index[key]) index[key] = String(date).trim();
     }
     return index;
 }
@@ -6250,8 +6299,8 @@ function buildFDALitIndex(litData) {
         const meta = lit.metadata || {};
         const sub = meta.fda_submission_number;
         if (!sub || sub === 'Not Reported') continue;
-        const key = String(sub).trim().toUpperCase();
-        if (!index[key]) index[key] = lit;
+        const key = cleanSubmissionNumber(sub);
+        if (key && !index[key]) index[key] = lit;
     }
     return index;
 }
@@ -6327,7 +6376,11 @@ function renderFDAExtractionTable(data, modelId) {
     };
 
     tbody.innerHTML = data.map((doc, idx) => {
-        const subKey = String(doc.submission_number || '').trim().toUpperCase();
+        // `subKey` is the normalised FDA identifier (date prefix + .pdf
+        // stripped) — used for both display and index lookups against the
+        // enriched-devices CSV and the AI/ML manuscript index.
+        const subKey = cleanSubmissionNumber(doc.submission_number);
+        const subDisplay = subKey || escapeHtml(doc.submission_number || '');
         const decisionDate = _fdaDecisionDateIndex[subKey];
         const dateCell = decisionDate
             ? escapeHtml(decisionDate)
@@ -6335,7 +6388,7 @@ function renderFDAExtractionTable(data, modelId) {
 
         if (doc.extraction_status !== 'success') {
             return `<tr>
-                <td>${escapeHtml(doc.submission_number || '')}</td>
+                <td>${escapeHtml(subDisplay)}</td>
                 <td>${dateCell}</td>
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td>${escapeHtml(doc.panel || '')}</td>
@@ -6356,18 +6409,22 @@ function renderFDAExtractionTable(data, modelId) {
         const litHousehold = litExtracted.socioeconomic_status?.family_size;
 
         const hasMatch = !!litDoc;
+        const matchedUrl = hasMatch ? manuscriptLinkUrl(litDoc, litExtracted) : null;
+        const matchedLabel = litDoc?.doi_slug
+            ? String(litDoc.doi_slug).replace(/_/g, '/')
+            : (litDoc?.identifier || 'Manuscript');
         const manuscriptCell = hasMatch
             ? `<div class="study-details-cell">
-                ${litDoc.doi_slug
-                    ? `<a href="https://doi.org/${escapeHtml(litDoc.doi_slug.replace(/_/g,'/'))}" target="_blank" rel="noopener noreferrer" class="fda-link"><strong>${escapeHtml(litDoc.doi_slug)}</strong></a>`
-                    : `<strong>${escapeHtml(litDoc.identifier || 'Manuscript')}</strong>`}
+                ${matchedUrl
+                    ? `<a href="${escapeHtml(matchedUrl)}" target="_blank" rel="noopener noreferrer" class="fda-link"><strong>${escapeHtml(matchedLabel)}</strong></a>`
+                    : `<strong>${escapeHtml(matchedLabel)}</strong>`}
                 ${litMeta.publication_year ? `<span class="study-details-meta">${escapeHtml(litMeta.publication_year)}</span>` : ''}
                 ${litMeta.cc_license && litMeta.cc_license !== 'Not Reported' ? `<span class="study-details-meta">${escapeHtml(litMeta.cc_license)}</span>` : ''}
               </div>`
             : '<span class="not-reported-badge">No match</span>';
 
         return `<tr>
-            <td>${escapeHtml(doc.submission_number || '')}</td>
+            <td>${escapeHtml(subDisplay)}</td>
             <td>${dateCell}</td>
             <td>${escapeHtml(doc.device_name || '')}</td>
             <td>${escapeHtml(doc.panel || '')}</td>
@@ -6818,27 +6875,40 @@ function renderLitExtractionTable(extractedList, modelId) {
             ? `<span class="tier-badge" title="Manuscript quality tier">${escapeHtml(doc.tier)}</span>`
             : '';
 
-        // Manuscript-title cell. DOI isn't present in the trials pipeline
-        // yet, so the source PDF filename stands in as the title — the NCT
-        // prefix is removed so the clinically-relevant part is easier to
-        // scan.
+        // Manuscript-title cell. The extraction schema may include a DOI or
+        // direct URL; prefer those for attribution. Fall back to the source
+        // PDF path (served statically from the same origin) so the title is
+        // still clickable even without a DOI.
         const pdfFilename = (doc.local_pdf_path || '').split('/').pop() || '';
-        const displayTitle = pdfFilename.replace(/\.pdf$/i, '').replace(/^[0-9-]+_?/, '') || (doc.identifier || 'Manuscript');
+        const displayTitle = pdfFilename.replace(/\.pdf$/i, '').replace(/^[0-9-]+_?/, '')
+            || (doc.identifier || 'Manuscript');
+        const manuscriptUrl = manuscriptLinkUrl(doc, extracted);
+        const titleInner = manuscriptUrl
+            ? `<a href="${escapeHtml(manuscriptUrl)}" target="_blank" rel="noopener noreferrer" class="fda-link"><strong>${escapeHtml(displayTitle)}</strong></a>`
+            : `<strong>${escapeHtml(displayTitle)}</strong>`;
         const manuscriptCell = `<div class="study-details-cell">
-            <strong>${escapeHtml(displayTitle)}</strong>
+            ${titleInner}
             ${pdfFilename ? `<span class="study-details-meta">${escapeHtml(pdfFilename)}</span>` : ''}
             ${tierBadge}
         </div>`;
 
-        // Trial Name — joined from CT.gov metadata via the filename's NCT.
+        // Trial Name — prefer the CT.gov `brief_title` (the canonical public
+        // trial title); fall back to `official_title` and finally the
+        // condition/intervention from the metadata CSV.
+        const trialTitle = ctgov?.brief_title || ctgov?.official_title || '';
         const conditionTxt = meta.condition && meta.condition !== 'Not Reported' ? meta.condition : '';
         const interventionTxt = meta.intervention && meta.intervention !== 'Not Reported' ? meta.intervention : '';
-        const trialNameCell = (conditionTxt || interventionTxt)
+        const trialNameCell = trialTitle
             ? `<div class="study-details-cell">
-                ${conditionTxt ? `<strong>${escapeHtml(conditionTxt)}</strong>` : ''}
-                ${interventionTxt ? `<span class="study-details-meta">${escapeHtml(interventionTxt)}</span>` : ''}
+                <strong>${escapeHtml(trialTitle)}</strong>
+                ${conditionTxt ? `<span class="study-details-meta">${escapeHtml(conditionTxt)}</span>` : ''}
               </div>`
-            : '<span class="not-reported-badge">Not Reported</span>';
+            : (conditionTxt || interventionTxt)
+                ? `<div class="study-details-cell">
+                    ${conditionTxt ? `<strong>${escapeHtml(conditionTxt)}</strong>` : ''}
+                    ${interventionTxt ? `<span class="study-details-meta">${escapeHtml(interventionTxt)}</span>` : ''}
+                  </div>`
+                : '<span class="not-reported-badge">Not Reported</span>';
 
         const ses = extracted.socioeconomic_status || {};
         const sesOnly = {
