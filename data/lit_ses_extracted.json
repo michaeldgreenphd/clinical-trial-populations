@@ -25,7 +25,7 @@
           }
         },
         "input_tokens": 25218,
-        "output_tokens": 484
+        "output_tokens": 489
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -42,7 +42,7 @@
           }
         },
         "input_tokens": 25218,
-        "output_tokens": 469
+        "output_tokens": 468
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",

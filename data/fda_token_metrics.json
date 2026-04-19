@@ -9,9 +9,9 @@
       "input_cost_per_m": 1.0,
       "output_cost_per_m": 5.0,
       "avg_input_per_doc": 9712.5,
-      "avg_output_per_doc": 501.5,
+      "avg_output_per_doc": 507.0,
       "total_input_tokens": 19425,
-      "total_output_tokens": 1003,
+      "total_output_tokens": 1014,
       "docs_processed": 2
     },
     "sonnet_4_6": {
