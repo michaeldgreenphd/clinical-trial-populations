@@ -869,6 +869,19 @@
                 <h3 style="margin-top: 2rem;">Beta Data Extraction &amp; Curation</h3>
 
                 <details class="faq-section">
+                    <summary><h4>How does the pipeline select which manuscript to download?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">For every trial, the pipeline queries manuscript APIs (EuropePMC, Unpaywall) using the NCT ID and receives a list of candidate papers. Rather than taking the first hit, each candidate is passed through an adjusted scoring function:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Title-Based Penalty:</strong> Candidates whose titles contain tokens like <em>protocol</em>, <em>secondary analysis</em>, <em>retrospective</em>, <em>observational</em>, <em>survey</em>, <em>post-hoc</em>, <em>design</em>, or <em>rationale</em> receive a heavy score deduction &mdash; these are almost never the primary-results paper we want.</li>
+                            <li><strong>Temporal Bonus:</strong> Candidates published 0&ndash;24 months after the trial's <code>primary_completion_date</code> (or <code>completion_date</code> as a fallback) receive a score boost, since primary-results manuscripts typically appear within that window.</li>
+                            <li><strong>Selection:</strong> All candidates are sorted by adjusted score (ties broken by newer publication date) and the highest-scoring paper is chosen as the PDF to download and extract.</li>
+                        </ul>
+                        <p class="note" style="margin-top: 0.5rem;">This replaces the naive "first result wins" heuristic and materially reduces the number of design/protocol papers that leak into the extraction set.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
                     <summary><h4>What are the Manuscript Match Tiers?</h4></summary>
                     <div class="faq-answer">
                         <p class="note">Because ClinicalTrials.gov does not always explicitly link to published results, our pipeline uses a 3-tier system to find manuscripts:</p>
