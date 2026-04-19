@@ -6391,9 +6391,9 @@ function renderFDAExtractionTable(data, modelId) {
                 <td>${escapeHtml(subDisplay)}</td>
                 <td>${dateCell}</td>
                 <td>${escapeHtml(doc.device_name || '')}</td>
+                <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
                 <td>${escapeHtml(doc.panel || '')}</td>
                 <td colspan="11" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
-                <td>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">PDF</a>` : '—'}</td>
             </tr>`;
         }
 
@@ -6427,6 +6427,7 @@ function renderFDAExtractionTable(data, modelId) {
             <td>${escapeHtml(subDisplay)}</td>
             <td>${dateCell}</td>
             <td>${escapeHtml(doc.device_name || '')}</td>
+            <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
             <td>${escapeHtml(doc.panel || '')}</td>
             <td>${manuscriptCell}</td>
             <td>${sbsCell(d.total_participants, litExtracted.total_participants, fmtVal, hasMatch)}</td>
@@ -6439,7 +6440,6 @@ function renderFDAExtractionTable(data, modelId) {
             <td>${sbsCell(d.socioeconomic_status, litExtracted.socioeconomic_status, fmtSESShort, hasMatch)}</td>
             <td>${sbsCell(d.disability_and_functional_limitations, litExtracted.disability_and_functional_limitations, fmtVal, hasMatch)}</td>
             <td>${sbsCell(household, litHousehold, fmtVal, hasMatch)}</td>
-            <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
 }
@@ -6456,6 +6456,18 @@ function showFDAExtractionDetails(idx) {
 
     const d = doc.models?.[_fdaSelectedModel]?.data || {};
     const cited = d.cited_clinical_studies || {};
+
+    // Attribution links. `subKey` feeds both the decision-date lookup and the
+    // matched-manuscript lookup so the modal's "Source" section can link
+    // straight to the FDA summary and to the manuscript that was joined on
+    // the same Submission #.
+    const subKey = cleanSubmissionNumber(doc.submission_number);
+    const litDoc = _fdaLitIndex[subKey] || null;
+    const litExtractedForLinks = litDoc?.models?.[_fdaSelectedModel]?.data?.extracted_data || {};
+    const matchedManuscriptUrl = litDoc ? manuscriptLinkUrl(litDoc, litExtractedForLinks) : null;
+    const matchedManuscriptLabel = litDoc?.doi_slug
+        ? String(litDoc.doi_slug).replace(/_/g, '/')
+        : (litDoc?.identifier || 'Matched manuscript');
 
     const citedBlock = (() => {
         const ncts = !isNR(cited.nct_ids) && Array.isArray(cited.nct_ids) ? cited.nct_ids : [];
@@ -6522,8 +6534,22 @@ function showFDAExtractionDetails(idx) {
                     ${citedBlock}
                 </div>
                 <div class="detail-section">
-                    <h5>Source Document</h5>
-                    <p>${doc.source_url ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">Open FDA summary PDF</a>` : '<span class="note">No source URL recorded.</span>'}</p>
+                    <h5>Source Attribution</h5>
+                    <ul class="extraction-kv-list">
+                        <li>
+                            <span class="kv-label">FDA Summary</span>
+                            <span class="kv-value">${doc.source_url
+                                ? `<a href="${escapeHtml(doc.source_url)}" target="_blank" rel="noopener noreferrer" class="fda-link">View FDA Summary</a>`
+                                : '<span class="note">No FDA summary URL recorded.</span>'}</span>
+                        </li>
+                        <li>
+                            <span class="kv-label">Matched Manuscript</span>
+                            <span class="kv-value">${matchedManuscriptUrl
+                                ? `<a href="${escapeHtml(matchedManuscriptUrl)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Manuscript</a>
+                                   <span class="study-details-meta">${escapeHtml(matchedManuscriptLabel)}</span>`
+                                : '<span class="note">No matched manuscript.</span>'}</span>
+                        </li>
+                    </ul>
                 </div>
             </div>
         </div>`;
@@ -6803,7 +6829,7 @@ function renderLitExtractionTable(extractedList, modelId) {
     modelId = modelId || _litSelectedModel;
 
     if (!extractedList || extractedList.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="14" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
+        tbody.innerHTML = `<tr><td colspan="15" class="text-center" style="padding: 2rem; color: var(--secondary-text);">
             No extracted data yet. Run <code>scripts/extraction/extract_trial_papers.py</code>.
         </td></tr>`;
         return;
@@ -6839,9 +6865,10 @@ function renderLitExtractionTable(extractedList, modelId) {
             return `<tr>
                 <td>${nctCell}</td>
                 <td>${dateCell}</td>
-                <td colspan="11" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
-                <td class="study-details-cell"><strong>${escapeHtml(filename)}</strong></td>
                 <td>—</td>
+                <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
+                <td class="study-details-cell"><strong>${escapeHtml(filename)}</strong></td>
+                <td colspan="10" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
             </tr>`;
         }
 
@@ -6920,6 +6947,7 @@ function renderLitExtractionTable(extractedList, modelId) {
             <td>${nctCell}</td>
             <td>${dateCell}</td>
             <td>${trialNameCell}</td>
+            <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
             <td>${manuscriptCell}</td>
             <td>${groupCell('totals', extracted.total_participants)}</td>
             <td>${groupCell('age', extracted.age)}</td>
@@ -6931,7 +6959,6 @@ function renderLitExtractionTable(extractedList, modelId) {
             <td>${groupCell('ses', sesOnly)}</td>
             <td>${groupCell('disability', extracted.disability_and_functional_limitations)}</td>
             <td>${groupCell('household', ses.family_size)}</td>
-            <td><button class="row-details-btn" type="button" onclick="showLitExtractionDetails(${idx})">View</button></td>
         </tr>`;
     }).join('');
 }
@@ -7006,6 +7033,8 @@ function showLitExtractionDetails(idx) {
 
     const pdfFilename = (doc.local_pdf_path || '').split('/').pop() || '';
     const modalTitle = pdfFilename.replace(/\.pdf$/i, '') || meta.condition || 'Manuscript Discrepancy Report';
+    const manuscriptUrl = manuscriptLinkUrl(doc, extracted);
+    const ctgovUrl = primaryNct ? `https://clinicaltrials.gov/study/${primaryNct}` : null;
 
     const html = `
         <div class="study-details-modal">
@@ -7023,6 +7052,25 @@ function showLitExtractionDetails(idx) {
                     ${pdfFilename ? `<div><strong>Source PDF</strong>${escapeHtml(pdfFilename)}</div>` : ''}
                     ${(doc.tier && doc.tier !== 'Not Reported') ? `<div><strong>Manuscript Tier</strong><span class="tier-badge">${escapeHtml(doc.tier)}</span></div>` : ''}
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_litSelectedModel]?.label || _litSelectedModel)}</div>
+                </div>
+                <div class="detail-section">
+                    <h5>Source Attribution</h5>
+                    <ul class="extraction-kv-list">
+                        <li>
+                            <span class="kv-label">ClinicalTrials.gov</span>
+                            <span class="kv-value">${ctgovUrl
+                                ? `<a href="${escapeHtml(ctgovUrl)}" target="_blank" rel="noopener noreferrer" class="fda-link">View CT.gov Record</a>
+                                   <span class="study-details-meta">${escapeHtml(primaryNct)}</span>`
+                                : '<span class="note">No NCT linked.</span>'}</span>
+                        </li>
+                        <li>
+                            <span class="kv-label">Matched Manuscript</span>
+                            <span class="kv-value">${manuscriptUrl
+                                ? `<a href="${escapeHtml(manuscriptUrl)}" target="_blank" rel="noopener noreferrer" class="fda-link">View Manuscript</a>
+                                   ${pdfFilename ? `<span class="study-details-meta">${escapeHtml(pdfFilename)}</span>` : ''}`
+                                : '<span class="note">No manuscript URL recorded.</span>'}</span>
+                        </li>
+                    </ul>
                 </div>
                 ${ctgov ? '' : `<p class="note" style="color:#856404;background:#fff3cd;padding:0.5rem 0.75rem;border-radius:4px;">No ClinicalTrials.gov record found for the linked NCT — all PDF values are shown as Additions.</p>`}
                 ${sectionsHtml}
