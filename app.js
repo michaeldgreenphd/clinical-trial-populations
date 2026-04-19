@@ -6030,6 +6030,7 @@ let fdaExtractionLoaded = false;
 let _fdaExtractedData = [];
 let _fdaLitData = [];           // AI/ML manuscript extractions (for side-by-side join)
 let _fdaLitIndex = {};          // submission_number -> manuscript record
+let _fdaDecisionDateIndex = {}; // submission_number -> Date of Final Decision (from enriched CSV)
 let _fdaSelectedModel = 'sonnet_4_6'; // default view
 
 // Model display order and labels. `id` is the JSON key emitted by the
@@ -6172,21 +6173,26 @@ function checkFDAOverallAgreement(doc) {
 async function loadFDAExtractionTab() {
     if (fdaExtractionLoaded) return;
     try {
-        // Fetch FDA metrics + data in parallel with the AI/ML manuscript
-        // extraction so we can render a side-by-side FDA ↔ manuscript view.
-        // The manuscript file is best-effort: if the lit extraction hasn't
-        // run yet, the FDA side still renders (manuscript cells show "—").
+        // Fetch FDA metrics + extraction data alongside the AI/ML manuscript
+        // extraction (for side-by-side rendering) and the enriched device CSV
+        // (which carries the authoritative "Date of Final Decision"). The
+        // manuscript file and CSV are best-effort: missing sidecars degrade
+        // gracefully to "—" in the affected columns.
         const cacheBust = '?v=' + Date.now();
-        const [metricsResp, dataResp, litResp] = await Promise.all([
+        const [metricsResp, dataResp, litResp, enrichedResp] = await Promise.all([
             fetch('data/fda_token_metrics.json' + cacheBust),
             fetch('data/fda_demographics_extracted.json' + cacheBust),
             fetch('data/lit_ses_extracted.json' + cacheBust).catch(() => null),
+            fetch('data/ai-ml-enabled-devices-enriched.csv' + cacheBust).catch(() => null),
         ]);
         if (!metricsResp.ok || !dataResp.ok) throw new Error('Failed to load FDA extraction data');
         const metrics = await metricsResp.json();
         _fdaExtractedData = await dataResp.json();
         _fdaLitData = (litResp && litResp.ok) ? await litResp.json() : [];
         _fdaLitIndex = buildFDALitIndex(_fdaLitData);
+        _fdaDecisionDateIndex = (enrichedResp && enrichedResp.ok)
+            ? buildFDADecisionDateIndex(await enrichedResp.text())
+            : {};
 
         const totalDocs = metrics.total_fda_tools || 0;
         document.getElementById('fda-pilot-size').textContent = metrics.pilot_size || 0;
@@ -6206,6 +6212,26 @@ async function loadFDAExtractionTab() {
         if (tbody) tbody.innerHTML =
             '<tr><td colspan="15">Could not load extraction data. Run the extraction pipeline first.</td></tr>';
     }
+}
+
+/**
+ * Build a submission# → "Date of Final Decision" map from the enriched
+ * AI/ML devices CSV. That CSV is the authoritative source for decision
+ * dates (the FDA extraction JSON doesn't carry them).
+ */
+function buildFDADecisionDateIndex(csvText) {
+    const index = {};
+    if (!csvText) return index;
+    let rows;
+    try { rows = parseCSV(csvText); } catch (_) { return index; }
+    for (const row of rows) {
+        const sub = row['Submission Number'] || row['submission_number'] || row['Submission #'];
+        const date = row['Date of Final Decision'] || row['decision_date'];
+        if (!sub || !date) continue;
+        const key = String(sub).trim().toUpperCase();
+        if (!index[key]) index[key] = String(date).trim();
+    }
+    return index;
 }
 
 /**
@@ -6301,9 +6327,16 @@ function renderFDAExtractionTable(data, modelId) {
     };
 
     tbody.innerHTML = data.map((doc, idx) => {
+        const subKey = String(doc.submission_number || '').trim().toUpperCase();
+        const decisionDate = _fdaDecisionDateIndex[subKey];
+        const dateCell = decisionDate
+            ? escapeHtml(decisionDate)
+            : '<span class="not-reported-badge">—</span>';
+
         if (doc.extraction_status !== 'success') {
             return `<tr>
                 <td>${escapeHtml(doc.submission_number || '')}</td>
+                <td>${dateCell}</td>
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td>${escapeHtml(doc.panel || '')}</td>
                 <td colspan="11" class="text-center" style="color: var(--secondary-text);">${escapeHtml(doc.extraction_status || 'failed')}</td>
@@ -6316,7 +6349,6 @@ function renderFDAExtractionTable(data, modelId) {
 
         // Lookup the matched manuscript by submission number. The lit
         // extraction wraps its payload as { metadata, extracted_data }.
-        const subKey = String(doc.submission_number || '').trim().toUpperCase();
         const litDoc = _fdaLitIndex[subKey] || null;
         const litWrapped = litDoc?.models?.[modelId]?.data || {};
         const litExtracted = litWrapped.extracted_data || {};
@@ -6336,6 +6368,7 @@ function renderFDAExtractionTable(data, modelId) {
 
         return `<tr>
             <td>${escapeHtml(doc.submission_number || '')}</td>
+            <td>${dateCell}</td>
             <td>${escapeHtml(doc.device_name || '')}</td>
             <td>${escapeHtml(doc.panel || '')}</td>
             <td>${manuscriptCell}</td>
@@ -6467,9 +6500,12 @@ function persistCurationState() {
 // --- ClinicalTrials.gov comparison helpers ------------------------------
 
 // Maps between the two competing taxonomies. The FDA/paper extraction schema
-// uses the NIH/OMB long-form names; the CT.gov records use short underscore
-// keys. Both refer to the same OMB categories — we normalise on the NIH/OMB
-// side because that's what the curators will review.
+// uses the NIH/OMB long-form names; the CT.gov baseline (demographics.part*
+// parsed records) uses short underscore keys. Both refer to the same OMB
+// categories — we normalise on the NIH/OMB side because that's what the
+// curators will review. The right-hand values MUST line up with the keys
+// emitted by the parse pipeline (demographics.json), or the discrepancy
+// engine will mis-classify every field as an Addition.
 const CTGOV_RACE_MAP = {
     american_indian_or_alaska_native: 'american_indian_alaska_native',
     asian: 'asian',
@@ -6480,11 +6516,24 @@ const CTGOV_RACE_MAP = {
     unknown: 'unknown_not_reported',
 };
 const CTGOV_ETHNICITY_MAP = {
-    hispanic_or_latino: 'hispanic_or_latino',
-    not_hispanic_or_latino: 'not_hispanic_or_latino',
+    hispanic_or_latino: 'hispanic_latino',
+    not_hispanic_or_latino: 'not_hispanic_latino',
     unknown: 'unknown_not_reported',
 };
+// Sex is a raw `totals` object on the CT.gov baseline (the parse pipeline
+// doesn't emit `omb_totals` for sex), with the categorical keys already
+// matching the extraction schema 1:1.
+const CTGOV_SEX_MAP = {
+    female: 'female',
+    male: 'male',
+    unknown: 'unknown',
+};
 
+/**
+ * Look up a study record in the main app's CT.gov baseline (populated from
+ * demographics.part*.json.gz). This is the source of truth the discrepancy
+ * engine compares the LLM extraction against.
+ */
 function findCTGovStudy(nctId) {
     if (!nctId || !Array.isArray(data)) return null;
     return data.find(s => s.nct_id === nctId) || null;
@@ -6550,12 +6599,12 @@ function buildDiscrepancyRows(extractedData, ctgov) {
     addRow('totals', 'Total Participants', 'total_participants',
         ctgov?.enrollment, extractedData.total_participants);
 
-    // Sex breakdown
-    const ctSex = ctgov?.sex?.omb_totals || {};
+    // Sex breakdown — baseline uses `sex.totals`, not `omb_totals`.
+    const ctSex = ctgov?.sex?.totals || {};
     const pdfSex = extractedData.sex || {};
-    ['female', 'male', 'unknown'].forEach(k => {
-        const apiKey = k === 'unknown' ? 'unknown_not_reported' : k;
-        addRow('sex', `Sex — ${SEX_LABELS[k]}`, `sex.${k}`, ctSex[apiKey], pdfSex[k]);
+    Object.entries(CTGOV_SEX_MAP).forEach(([pdfKey, apiKey]) => {
+        addRow('sex', `Sex — ${SEX_LABELS[pdfKey]}`, `sex.${pdfKey}`,
+            ctSex[apiKey], pdfSex[pdfKey]);
     });
 
     // Gender breakdown — CT.gov doesn't carry a gender-identity field, so
@@ -6704,16 +6753,6 @@ function renderLitExtractionTable(extractedList, modelId) {
     }
 
     tbody.innerHTML = extractedList.map((doc, idx) => {
-        if (doc.extraction_status !== 'success') {
-            const statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
-            const filename = (doc.local_pdf_path || '').split('/').pop() || doc.identifier || 'Manuscript';
-            return `<tr>
-                <td class="study-details-cell"><strong>${escapeHtml(filename)}</strong></td>
-                <td colspan="12" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
-                <td>—</td>
-            </tr>`;
-        }
-
         const wrapped = doc.models?.[modelId]?.data || {};
         const extracted = wrapped.extracted_data || {};
         const meta = doc.metadata || wrapped.metadata || {};
@@ -6726,6 +6765,28 @@ function renderLitExtractionTable(extractedList, modelId) {
         const filenameNct = (doc.nct_id && doc.nct_id !== 'Not Reported') ? doc.nct_id : null;
         const primaryNct = filenameNct || ncts[0] || null;
         const ctgov = findCTGovStudy(primaryNct);
+        // Date Results Reported is pulled from the main app's loaded CT.gov
+        // baseline (demographics.part*.json.gz) so the Paper Data Extraction
+        // view stays aligned with whatever date the dashboard is showing.
+        const resultsDate = ctgov?.results_date || null;
+        const nctCell = primaryNct
+            ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
+            : '<span class="not-reported-badge">Not Reported</span>';
+        const dateCell = resultsDate
+            ? escapeHtml(resultsDate)
+            : '<span class="not-reported-badge">—</span>';
+
+        if (doc.extraction_status !== 'success') {
+            const statusLabel = doc.extraction_status === 'closed_access' ? 'Closed Access' : 'Failed';
+            const filename = (doc.local_pdf_path || '').split('/').pop() || doc.identifier || 'Manuscript';
+            return `<tr>
+                <td>${nctCell}</td>
+                <td>${dateCell}</td>
+                <td colspan="11" class="text-center" style="color: var(--secondary-text);">${statusLabel}</td>
+                <td class="study-details-cell"><strong>${escapeHtml(filename)}</strong></td>
+                <td>—</td>
+            </tr>`;
+        }
 
         const rows = buildDiscrepancyRows(extracted, ctgov);
         const slugKey = filenameNct || doc.identifier || (doc.local_pdf_path || '');
@@ -6779,10 +6840,6 @@ function renderLitExtractionTable(extractedList, modelId) {
               </div>`
             : '<span class="not-reported-badge">Not Reported</span>';
 
-        const nctCell = primaryNct
-            ? `<a href="https://clinicaltrials.gov/study/${escapeHtml(primaryNct)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(primaryNct)}</a>`
-            : '<span class="not-reported-badge">Not Reported</span>';
-
         const ses = extracted.socioeconomic_status || {};
         const sesOnly = {
             income: ses.income, education: ses.education,
@@ -6790,9 +6847,10 @@ function renderLitExtractionTable(extractedList, modelId) {
         };
 
         return `<tr>
-            <td>${manuscriptCell}</td>
-            <td>${trialNameCell}</td>
             <td>${nctCell}</td>
+            <td>${dateCell}</td>
+            <td>${trialNameCell}</td>
+            <td>${manuscriptCell}</td>
             <td>${groupCell('totals', extracted.total_participants)}</td>
             <td>${groupCell('age', extracted.age)}</td>
             <td>${groupCell('sex', extracted.sex)}</td>
