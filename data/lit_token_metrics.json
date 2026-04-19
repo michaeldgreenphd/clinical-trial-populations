@@ -9,9 +9,9 @@
       "input_cost_per_m": 1.0,
       "output_cost_per_m": 5.0,
       "avg_input_per_doc": 23369.5,
-      "avg_output_per_doc": 517.0,
+      "avg_output_per_doc": 507.0,
       "total_input_tokens": 46739,
-      "total_output_tokens": 1034,
+      "total_output_tokens": 1014,
       "docs_processed": 2
     },
     "sonnet_4_6": {
@@ -20,9 +20,9 @@
       "input_cost_per_m": 3.0,
       "output_cost_per_m": 15.0,
       "avg_input_per_doc": 23369.5,
-      "avg_output_per_doc": 480.0,
+      "avg_output_per_doc": 480.5,
       "total_input_tokens": 46739,
-      "total_output_tokens": 960,
+      "total_output_tokens": 961,
       "docs_processed": 2
     },
     "opus_4_7": {

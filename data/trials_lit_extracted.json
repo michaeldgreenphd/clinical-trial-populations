@@ -28,7 +28,7 @@
           }
         },
         "input_tokens": 11442,
-        "output_tokens": 622
+        "output_tokens": 667
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -46,7 +46,7 @@
           }
         },
         "input_tokens": 11442,
-        "output_tokens": 577
+        "output_tokens": 578
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -62,7 +62,7 @@
           "extracted_data": {
             "associated_nct_ids": "Not Reported",
             "total_participants": 423,
-            "age": "Age groups: 21-30 years 54 (12.8%); 31-40 years 223 (52.7%); 41-50 years 82 (19.4%); 51-60 years 36 (8.5%); >60 years 11 (2.6%). 277 (65.5%) participants <40 years; 125 (29.6%) aged 41-55 years; 47 (11.1%) aged \u226556 years.",
+            "age": "Age groups: 21-30 years 54 (12.8%); 31-40 years 223 (52.7%); 41-50 years 82 (19.4%); 51-60 years 36 (8.5%); >60 years 11 (2.6%). 277 (65.5%) <40 years; 125 (29.6%) 41-55 years; 47 (11.1%) \u226556 years",
             "geography": {
               "us_states": "Not Reported",
               "countries": "Not Reported",
@@ -107,7 +107,7 @@
           }
         },
         "input_tokens": 15781,
-        "output_tokens": 692
+        "output_tokens": 685
       }
     }
   },
@@ -140,7 +140,7 @@
           }
         },
         "input_tokens": 18932,
-        "output_tokens": 557
+        "output_tokens": 494
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -176,7 +176,7 @@
               "NCT02788903"
             ],
             "total_participants": 15725,
-            "age": "Type 2 diabetes: mean 62.3 (SD 14.0) years; At risk of type 2 diabetes: mean 52.4 (SD 17.3) years",
+            "age": "Type 2 diabetes cohort: mean 62.3 (SD 14.0) years; At risk of type 2 diabetes cohort: mean 52.4 (SD 17.3) years. Reported by age group <65 and \u226565.",
             "geography": {
               "us_states": [
                 "Pennsylvania",
@@ -188,8 +188,8 @@
               "total_sites": 5
             },
             "sex": {
-              "female": 7637,
-              "male": 8088,
+              "female": "Not Reported",
+              "male": "Not Reported",
               "unknown": "Not Reported"
             },
             "gender": {
@@ -203,14 +203,14 @@
             "race_nih_omb": {
               "american_indian_or_alaska_native": "Not Reported",
               "asian": "Not Reported",
-              "black_or_african_american": 3688,
+              "black_or_african_american": "Not Reported",
               "native_hawaiian_or_other_pacific_islander": "Not Reported",
-              "white": 7632,
+              "white": "Not Reported",
               "more_than_one_race": "Not Reported",
-              "unknown": 283
+              "unknown": "Not Reported"
             },
             "ethnicity": {
-              "hispanic_or_latino": 1752,
+              "hispanic_or_latino": "Not Reported",
               "not_hispanic_or_latino": "Not Reported",
               "unknown": "Not Reported"
             },
@@ -221,12 +221,12 @@
               "family_size": "Not Reported",
               "adi_area_deprivation_index": "Not Reported"
             },
-            "disability_and_functional_limitations": "Charlson Comorbidity Index: Type 2 diabetes mean 5.4 (SD 3.1); At risk of type 2 diabetes mean 2.2 (SD 2.4)",
+            "disability_and_functional_limitations": "Charlson Comorbidity Index (CCI): mean 5.4 (SD 3.1) in type 2 diabetes cohort; mean 2.2 (SD 2.4) in at-risk cohort",
             "religion": "Not Reported"
           }
         },
         "input_tokens": 24302,
-        "output_tokens": 673
+        "output_tokens": 719
       }
     }
   }
