@@ -866,6 +866,46 @@
                     </div>
                 </details>
 
+                <h3 style="margin-top: 2rem;">Beta Data Extraction &amp; Curation</h3>
+
+                <details class="faq-section">
+                    <summary><h4>What are the Manuscript Match Tiers?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Because ClinicalTrials.gov does not always explicitly link to published results, our pipeline uses a 3-tier system to find manuscripts:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Tier 1 (Explicit Match):</strong> The manuscript explicitly contains the NCT ID. However, this still requires curation! Researchers often link secondary analyses, protocols, or observational spin-offs to their primary NCT ID. While the link is explicit, the paper might not contain the primary trial demographics.</li>
+                            <li><strong>Tier 2 (High-Confidence Fuzzy Match):</strong> The pipeline found a paper where the authors, publication year, and keywords strongly align with the trial's metadata.</li>
+                            <li><strong>Tier 3 (Low-Confidence Fuzzy Match):</strong> A broad keyword search match. These require strict manual curation, as the search may pull in loosely related papers.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How does the Discrepancy Engine work?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">AI models can hallucinate or extract data from improperly matched papers (e.g., a Tier 1 protocol paper instead of the results paper). To ensure data integrity, our engine compares every LLM-extracted demographic value against the original ClinicalTrials.gov API baseline. It flags fields as a <strong>Match</strong>, an <strong>Addition</strong> (finding data the registry missed), or a <strong>Conflict</strong> (contradicting the registry). Curators must manually verify Additions and Conflicts.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What is the difference between "Not Reported" and "Explicit Unknown"?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">In clinical trial demographics, missing data and "unknown" classifications are fundamentally different categories. <strong>"Not Reported"</strong> means the trial investigators completely failed to mention the demographic variable. <strong>"Explicit Unknown"</strong> means the researchers actively collected the data, but the specific demographic identity of certain participants could not be determined or was declined by the participant. Our dashboard explicitly visually separates these two states.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What AI Models are being compared in the Beta?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">We are running a 3-way model comparison to evaluate cost, speed, and extraction quality using Anthropic's Claude family:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Haiku 4.5:</strong> The fastest and most cost-effective model.</li>
+                            <li><strong>Sonnet 4.6:</strong> The balanced baseline for speed and intelligence.</li>
+                            <li><strong>Opus 4.7:</strong> The highest quality model for complex reasoning and navigating dense clinical methodologies.</li>
+                        </ul>
+                    </div>
+                </details>
+
                 <details class="faq-section">
                     <summary><h4>How are AI studies identified?</h4></summary>
                     <div class="faq-answer">
