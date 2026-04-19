@@ -28,7 +28,7 @@
           }
         },
         "input_tokens": 11442,
-        "output_tokens": 631
+        "output_tokens": 681
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -46,7 +46,7 @@
           }
         },
         "input_tokens": 11442,
-        "output_tokens": 577
+        "output_tokens": 590
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -62,7 +62,7 @@
           "extracted_data": {
             "associated_nct_ids": "Not Reported",
             "total_participants": 423,
-            "age": "Age groups: 21-30 years 54 (12.8%); 31-40 years 223 (52.7%); 41-50 years 82 (19.4%); 51-60 years 36 (8.5%); >60 years 11 (2.6%)",
+            "age": "Age groups: 21-30 years: 54 (12.8%); 31-40 years: 223 (52.7%); 41-50 years: 82 (19.4%); 51-60 years: 36 (8.5%); >60 years: 11 (2.6%). 277 (65.5%) participants <40 years; 125 (29.6%) aged 41-55 years; 47 (11.1%) aged \u226556 years.",
             "geography": {
               "us_states": "Not Reported",
               "countries": "Not Reported",
@@ -107,7 +107,7 @@
           }
         },
         "input_tokens": 15781,
-        "output_tokens": 640
+        "output_tokens": 697
       }
     }
   },
@@ -140,7 +140,7 @@
           }
         },
         "input_tokens": 18932,
-        "output_tokens": 494
+        "output_tokens": 570
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -176,7 +176,7 @@
               "NCT02788903"
             ],
             "total_participants": 15725,
-            "age": "Type 2 diabetes cohort: mean 62.3 (SD 14.0) years; At-risk cohort: mean 52.4 (SD 17.3) years. Reported by age group (<65, \u226565).",
+            "age": "Type 2 diabetes: Mean 62.3 (SD 14.0) years; At risk of type 2 diabetes: Mean 52.4 (SD 17.3) years",
             "geography": {
               "us_states": [
                 "Pennsylvania",
@@ -221,12 +221,12 @@
               "family_size": "Not Reported",
               "adi_area_deprivation_index": "Not Reported"
             },
-            "disability_and_functional_limitations": "Charlson Comorbidity Index (CCI) reported; T2DM cohort mean CCI 5.4 (SD 3.1); At-risk cohort mean CCI 2.2 (SD 2.4). Specific comorbidities reported including MI, heart failure, peripheral vascular disease, cerebrovascular disease, chronic pulmonary disease, liver disease, renal disease, and malignancy.",
+            "disability_and_functional_limitations": "Charlson Comorbidity Index (CCI) reported: Type 2 diabetes mean 5.4 (SD 3.1); At risk of type 2 diabetes mean 2.2 (SD 2.4)",
             "religion": "Not Reported"
           }
         },
         "input_tokens": 24302,
-        "output_tokens": 779
+        "output_tokens": 702
       }
     }
   }
