@@ -18,6 +18,9 @@ jobs:
           ref: main
           fetch-depth: 0
 
+      - name: Set current date
+        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -84,3 +87,14 @@ jobs:
           echo "=== Backfill complete ==="
         env:
           GH_TOKEN: ${{ github.token }}
+
+      - name: Zip Snapshots Directory
+        run: zip -r snapshots_backup_${{ env.CURRENT_DATE }}.zip snapshots/
+
+      - name: Backup Snapshots to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        with:
+          target: snapshots_backup_${{ env.CURRENT_DATE }}.zip
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          child_folder: "Backfill_Snapshots"
