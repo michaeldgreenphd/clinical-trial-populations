@@ -48,7 +48,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
+        run: echo "Dummy FDA log for testing Drive upload" > ${{ github.workspace }}/fda_extraction_log.txt
+        # run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
 
       - name: Backup FDA Logs to Google Drive
         uses: willo32/google-drive-upload-action@v1
@@ -65,7 +66,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
+        run: echo "Dummy AIML log for testing Drive upload" > ${{ github.workspace }}/aiml_extraction_log.txt
+        # run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
 
       - name: Backup AI/ML Logs to Google Drive
         uses: willo32/google-drive-upload-action@v1
@@ -82,7 +84,8 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
+        run: echo "Dummy Trials log for testing Drive upload" > ${{ github.workspace }}/trials_extraction_log.txt
+        # run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
 
       - name: Backup Trials Logs to Google Drive
         uses: willo32/google-drive-upload-action@v1
