@@ -54,7 +54,7 @@ jobs:
         uses: willo32/google-drive-upload-action@v1
         if: always()
         with:
-          target: fda_extraction_log.txt
+          target: ${{ github.workspace }}/fda_extraction_log.txt
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           child_folder: "FDA_Summary_Extractions"
@@ -71,7 +71,7 @@ jobs:
         uses: willo32/google-drive-upload-action@v1
         if: always()
         with:
-          target: aiml_extraction_log.txt
+          target: ${{ github.workspace }}/aiml_extraction_log.txt
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           child_folder: "AIML_Literature_Extractions"
@@ -88,7 +88,7 @@ jobs:
         uses: willo32/google-drive-upload-action@v1
         if: always()
         with:
-          target: trials_extraction_log.txt
+          target: ${{ github.workspace }}/trials_extraction_log.txt
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           child_folder: "Trials_Literature_Extractions"

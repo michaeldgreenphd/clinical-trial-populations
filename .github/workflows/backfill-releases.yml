@@ -94,7 +94,7 @@ jobs:
       - name: Backup Snapshots to Google Drive
         uses: willo32/google-drive-upload-action@v1
         with:
-          target: snapshots_backup_${{ env.CURRENT_DATE }}.zip
+          target: ${{ github.workspace }}/snapshots_backup_${{ env.CURRENT_DATE }}.zip
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           child_folder: "Backfill_Snapshots"
