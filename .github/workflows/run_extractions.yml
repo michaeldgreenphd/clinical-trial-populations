@@ -58,40 +58,12 @@ jobs:
           CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: FDA_Summary_Extractions
           FILE_PATH: ${{ github.workspace }}/fda_extraction_log.txt
           FILE_NAME: ${{ env.CURRENT_DATE }}_FDA_extraction_log.txt
         run: |
           pip install requests
-          python -c '
-          import os, requests, json
-          # Get fresh access token
-          token_res = requests.post("https://oauth2.googleapis.com/token", data={
-              "client_id": os.environ["CLIENT_ID"],
-              "client_secret": os.environ["CLIENT_SECRET"],
-              "refresh_token": os.environ["REFRESH_TOKEN"],
-              "grant_type": "refresh_token"
-          })
-          access_token = token_res.json().get("access_token")
-          if not access_token:
-              print("Failed to get access token:", token_res.text)
-              exit(1)
-
-          # Upload file
-          headers = {"Authorization": f"Bearer {access_token}"}
-          metadata = {"name": os.environ["FILE_NAME"], "parents": [os.environ["FOLDER_ID"]]}
-          files = {
-              "metadata": ("metadata", json.dumps(metadata), "application/json; charset=UTF-8"),
-              "file": open(os.environ["FILE_PATH"], "rb")
-          }
-          upload_res = requests.post(
-              "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-              headers=headers,
-              files=files
-          )
-          print("Upload Response:", upload_res.json())
-          if "error" in upload_res.json():
-              exit(1)
-          '
+          python scripts/gdrive_upload.py
 
       - name: Run AI/ML Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
@@ -108,40 +80,12 @@ jobs:
           CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: AIML_Literature_Extractions
           FILE_PATH: ${{ github.workspace }}/aiml_extraction_log.txt
           FILE_NAME: ${{ env.CURRENT_DATE }}_AIML_extraction_log.txt
         run: |
           pip install requests
-          python -c '
-          import os, requests, json
-          # Get fresh access token
-          token_res = requests.post("https://oauth2.googleapis.com/token", data={
-              "client_id": os.environ["CLIENT_ID"],
-              "client_secret": os.environ["CLIENT_SECRET"],
-              "refresh_token": os.environ["REFRESH_TOKEN"],
-              "grant_type": "refresh_token"
-          })
-          access_token = token_res.json().get("access_token")
-          if not access_token:
-              print("Failed to get access token:", token_res.text)
-              exit(1)
-
-          # Upload file
-          headers = {"Authorization": f"Bearer {access_token}"}
-          metadata = {"name": os.environ["FILE_NAME"], "parents": [os.environ["FOLDER_ID"]]}
-          files = {
-              "metadata": ("metadata", json.dumps(metadata), "application/json; charset=UTF-8"),
-              "file": open(os.environ["FILE_PATH"], "rb")
-          }
-          upload_res = requests.post(
-              "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-              headers=headers,
-              files=files
-          )
-          print("Upload Response:", upload_res.json())
-          if "error" in upload_res.json():
-              exit(1)
-          '
+          python scripts/gdrive_upload.py
 
       - name: Run Clinical Trials Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'trials-lit-only'
@@ -158,40 +102,12 @@ jobs:
           CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
           REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: Trials_Literature_Extractions
           FILE_PATH: ${{ github.workspace }}/trials_extraction_log.txt
           FILE_NAME: ${{ env.CURRENT_DATE }}_Trials_extraction_log.txt
         run: |
           pip install requests
-          python -c '
-          import os, requests, json
-          # Get fresh access token
-          token_res = requests.post("https://oauth2.googleapis.com/token", data={
-              "client_id": os.environ["CLIENT_ID"],
-              "client_secret": os.environ["CLIENT_SECRET"],
-              "refresh_token": os.environ["REFRESH_TOKEN"],
-              "grant_type": "refresh_token"
-          })
-          access_token = token_res.json().get("access_token")
-          if not access_token:
-              print("Failed to get access token:", token_res.text)
-              exit(1)
-
-          # Upload file
-          headers = {"Authorization": f"Bearer {access_token}"}
-          metadata = {"name": os.environ["FILE_NAME"], "parents": [os.environ["FOLDER_ID"]]}
-          files = {
-              "metadata": ("metadata", json.dumps(metadata), "application/json; charset=UTF-8"),
-              "file": open(os.environ["FILE_PATH"], "rb")
-          }
-          upload_res = requests.post(
-              "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart",
-              headers=headers,
-              files=files
-          )
-          print("Upload Response:", upload_res.json())
-          if "error" in upload_res.json():
-              exit(1)
-          '
+          python scripts/gdrive_upload.py
 
       - name: Commit extraction results
         run: |
