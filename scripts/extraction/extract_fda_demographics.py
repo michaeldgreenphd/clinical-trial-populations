@@ -46,14 +46,24 @@ MODELS = [
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in FDA medical device submissions. Extract demographic, socioeconomic, and citation data of the clinical validation cohort.
+You are a clinical data extractor specializing in FDA medical device submissions. Extract demographic, socioeconomic, clinical-context, and citation data of the clinical validation cohort.
 
 Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
 
 CRITICAL: "Unknown" is often an explicit reporting category. If the document explicitly lists "Unknown" with a count, record that number. If the document simply fails to mention a category, record "Not Reported".
 
+CLINICAL CONTEXT: Before you extract demographics, scan the "SUMMARY OF CLINICAL INFORMATION", "BACKGROUND", "INDICATIONS FOR USE", and "INTENDED USE" sections for the following context and place them in the top-level fields:
+- `company_sponsor_name`: the manufacturer / applicant / sponsor that submitted the device.
+- `device_tool_title`: the formal name of the device or software tool under review.
+- `target_patient_age_range`: the inclusion-criteria age range for the validation cohort (e.g., "18-80 years of age", ">= 22 years"). Prefer verbatim phrasing. Return "Not Reported" if only a mean/median is given without a range.
+- `clinical_study_design`: a concise 1-2 sentence summary of the validation study design (retrospective vs. prospective, single-arm vs. comparative, number of sites, blinding, ground-truth method, etc.).
+
 Return a single valid JSON object with this exact schema:
 {
+  "company_sponsor_name": "string or 'Not Reported'",
+  "device_tool_title": "string or 'Not Reported'",
+  "target_patient_age_range": "string or 'Not Reported'",
+  "clinical_study_design": "string or 'Not Reported'",
   "device_name": "string",
   "panel": "string (medical specialty)",
   "total_participants": integer or "Not Reported",
