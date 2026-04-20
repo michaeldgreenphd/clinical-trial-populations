@@ -70,7 +70,7 @@ TIER_RE = re.compile(r"Tier[_\s-]*(\d+)", re.IGNORECASE)
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in published clinical trial manuscripts. Extract demographic, socioeconomic, and functional status data of the trial cohort.
+You are a clinical data extractor specializing in published clinical trial manuscripts. Extract demographic, socioeconomic, clinical-context, and functional status data of the trial cohort.
 
 Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
 
@@ -80,9 +80,15 @@ For Age, Disability/Functional Limitations, and Religion, provide a concise stri
 
 LINKAGE CRITICAL: We must link this manuscript to ClinicalTrials.gov if possible. Scan the text for any ClinicalTrials.gov identifier (format: NCT followed by 8 digits) and list it under associated_nct_ids.
 
+CLINICAL CONTEXT: Scan the "Methods", "Study Design", "Patients and Methods", or "Background" sections for:
+- `target_patient_age_range`: the inclusion-criteria age range (e.g., "18-80 years of age", ">=18 years"). Prefer verbatim phrasing. Return "Not Reported" if only a mean/median is given without a range.
+- `study_design`: a concise 1-2 sentence summary of the trial design (randomised vs. single-arm, blinding, comparator, number of sites, primary endpoint).
+
 Return a single valid JSON object with this exact schema:
 {
   "associated_nct_ids": ["list of strings"] or "Not Reported",
+  "target_patient_age_range": "string or 'Not Reported'",
+  "study_design": "string or 'Not Reported'",
   "total_participants": integer or "Not Reported",
   "age": "string summary or 'Not Reported'",
   "geography": {

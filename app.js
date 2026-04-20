@@ -6380,7 +6380,12 @@ function renderFDAExtractionTable(data, modelId) {
         // stripped) — used for both display and index lookups against the
         // enriched-devices CSV and the AI/ML manuscript index.
         const subKey = cleanSubmissionNumber(doc.submission_number);
-        const subDisplay = subKey || escapeHtml(doc.submission_number || '');
+        const subRaw = subKey || (doc.submission_number || '');
+        // Link straight to the FDA De Novo database listing for this
+        // submission so curators can cross-reference the original record.
+        const subCell = subKey
+            ? `<a href="https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/denovo.cfm?id=${encodeURIComponent(subKey)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(subKey)}</a>`
+            : escapeHtml(subRaw);
         const decisionDate = _fdaDecisionDateIndex[subKey];
         const dateCell = decisionDate
             ? escapeHtml(decisionDate)
@@ -6388,7 +6393,7 @@ function renderFDAExtractionTable(data, modelId) {
 
         if (doc.extraction_status !== 'success') {
             return `<tr>
-                <td>${escapeHtml(subDisplay)}</td>
+                <td>${subCell}</td>
                 <td>${dateCell}</td>
                 <td>${escapeHtml(doc.device_name || '')}</td>
                 <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
@@ -6424,7 +6429,7 @@ function renderFDAExtractionTable(data, modelId) {
             : '<span class="not-reported-badge">No match</span>';
 
         return `<tr>
-            <td>${escapeHtml(subDisplay)}</td>
+            <td>${subCell}</td>
             <td>${dateCell}</td>
             <td>${escapeHtml(doc.device_name || '')}</td>
             <td><button class="row-details-btn" type="button" onclick="showFDAExtractionDetails(${idx})">View</button></td>
@@ -6499,10 +6504,22 @@ function showFDAExtractionDetails(idx) {
             </div>
             <div class="modal-body">
                 <div class="extraction-meta-grid">
-                    <div><strong>Submission #</strong>${escapeHtml(doc.submission_number || '—')}</div>
+                    <div><strong>Submission #</strong>${subKey
+                        ? `<a href="https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/denovo.cfm?id=${encodeURIComponent(subKey)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(subKey)}</a>`
+                        : escapeHtml(doc.submission_number || '—')}</div>
                     <div><strong>Panel</strong>${escapeHtml(doc.panel || '—')}</div>
                     <div><strong>Total Participants</strong>${fmtVal(d.total_participants)}</div>
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_fdaSelectedModel]?.label || _fdaSelectedModel)}</div>
+                </div>
+
+                <div class="detail-section">
+                    <h5>Clinical Context</h5>
+                    <ul class="extraction-kv-list">
+                        <li><span class="kv-label">Company / Sponsor</span><span class="kv-value">${fmtVal(d.company_sponsor_name)}</span></li>
+                        <li><span class="kv-label">Device / Tool Title</span><span class="kv-value">${fmtVal(d.device_tool_title)}</span></li>
+                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(d.target_patient_age_range)}</span></li>
+                        <li><span class="kv-label">Clinical Study Design</span><span class="kv-value">${fmtVal(d.clinical_study_design)}</span></li>
+                    </ul>
                 </div>
 
                 <div class="detail-section">
@@ -7052,6 +7069,14 @@ function showLitExtractionDetails(idx) {
                     ${pdfFilename ? `<div><strong>Source PDF</strong>${escapeHtml(pdfFilename)}</div>` : ''}
                     ${(doc.tier && doc.tier !== 'Not Reported') ? `<div><strong>Manuscript Tier</strong><span class="tier-badge">${escapeHtml(doc.tier)}</span></div>` : ''}
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_litSelectedModel]?.label || _litSelectedModel)}</div>
+                </div>
+                <div class="detail-section">
+                    <h5>Clinical Context</h5>
+                    <ul class="extraction-kv-list">
+                        <li><span class="kv-label">Trial Name</span><span class="kv-value">${fmtVal(ctgov?.brief_title || ctgov?.official_title || meta.condition)}</span></li>
+                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(extracted.target_patient_age_range)}</span></li>
+                        <li><span class="kv-label">Study Design / Methodology</span><span class="kv-value">${fmtVal(extracted.study_design)}</span></li>
+                    </ul>
                 </div>
                 <div class="detail-section">
                     <h5>Source Attribution</h5>
