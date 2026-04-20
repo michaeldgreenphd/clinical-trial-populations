@@ -5884,7 +5884,35 @@ window.closeExtractionDetails = closeExtractionDetails;
 // from "the source reported zero". These helpers preserve that distinction.
 const NOT_REPORTED = 'Not Reported';
 
+// Evidence-wrapped leaves are objects of the form
+// `{ value, exact_quote, page_number }` emitted by the tool-use extractors.
+// `evValue()` unwraps them back to a plain value so existing formatters keep
+// working unchanged against both the new schema and any legacy flat payloads
+// still sitting on disk.
+function isEvidenceWrapped(v) {
+    return v !== null
+        && typeof v === 'object'
+        && !Array.isArray(v)
+        && 'value' in v
+        && 'exact_quote' in v;
+}
+
+function evValue(v) {
+    return isEvidenceWrapped(v) ? v.value : v;
+}
+
+// Styled blockquote for an evidence-wrapped value. Returns empty string for
+// flat / Not-Reported / quote-less payloads so callers can safely concatenate.
+function evidenceBlock(v) {
+    if (!isEvidenceWrapped(v)) return '';
+    const quote = (v.exact_quote || '').trim();
+    if (!quote) return '';
+    const pageLabel = v.page_number ? `Page ${v.page_number}` : 'Page —';
+    return `<blockquote class="evidence-quote"><span class="evidence-quote-text">&ldquo;${escapeHtml(quote)}&rdquo;</span><cite class="evidence-quote-cite">(${escapeHtml(pageLabel)})</cite></blockquote>`;
+}
+
 function isNR(v) {
+    v = evValue(v);
     return v === undefined || v === null || v === '' || v === NOT_REPORTED;
 }
 
@@ -5902,6 +5930,7 @@ function isExplicitUnknown(v) {
 }
 
 function fmtVal(v) {
+    v = evValue(v);
     if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
     if (isExplicitUnknown(v)) return '<span class="explicit-unknown-badge">Unknown</span>';
     if (typeof v === 'number') return v.toLocaleString();
@@ -5909,6 +5938,7 @@ function fmtVal(v) {
 }
 
 function fmtList(v) {
+    v = evValue(v);
     if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
     if (Array.isArray(v)) {
         if (v.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
@@ -5935,14 +5965,16 @@ function fmtBreakdown(obj, labelMap) {
     const nonUnknownReported = reported.filter(([k, _]) => k !== 'unknown');
     if (nonUnknownReported.length === 0) {
         const [, uv] = reported[0];
-        const val = typeof uv === 'number' ? uv.toLocaleString() : escapeHtml(String(uv));
+        const uvRaw = evValue(uv);
+        const val = typeof uvRaw === 'number' ? uvRaw.toLocaleString() : escapeHtml(String(uvRaw));
         return `<span class="explicit-unknown-badge">Unknown: ${val}</span>`;
     }
     return `<div class="extraction-stacked-values">${reported.map(([k, v]) => {
         const label = (labelMap && labelMap[k]) || k.replace(/_/g, ' ');
-        const val = typeof v === 'number' ? v.toLocaleString() : escapeHtml(String(v));
+        const raw = evValue(v);
+        const val = typeof raw === 'number' ? raw.toLocaleString() : escapeHtml(String(raw));
         const cls = k === 'unknown' ? 'kv-label kv-label-unknown' : 'kv-label';
-        return `<div><span class="${cls}">${escapeHtml(label)}:</span> ${val}</div>`;
+        return `<div><span class="${cls}">${escapeHtml(label)}:</span> ${val}${evidenceBlock(v)}</div>`;
     }).join('')}</div>`;
 }
 
@@ -5998,16 +6030,19 @@ const SES_LABELS = {
 function fmtGeography(geo) {
     if (!geo || typeof geo !== 'object') return '<span class="not-reported-badge">Not Reported</span>';
     const parts = [];
-    if (!isNR(geo.us_states)) {
-        const states = Array.isArray(geo.us_states) ? geo.us_states.join(', ') : geo.us_states;
-        parts.push(`<div><span class="kv-label">US states:</span> ${escapeHtml(String(states))}</div>`);
+    const states = evValue(geo.us_states);
+    if (!isNR(states)) {
+        const flat = Array.isArray(states) ? states.join(', ') : states;
+        parts.push(`<div><span class="kv-label">US states:</span> ${escapeHtml(String(flat))}${evidenceBlock(geo.us_states)}</div>`);
     }
-    if (!isNR(geo.countries)) {
-        const countries = Array.isArray(geo.countries) ? geo.countries.join(', ') : geo.countries;
-        parts.push(`<div><span class="kv-label">Countries:</span> ${escapeHtml(String(countries))}</div>`);
+    const countries = evValue(geo.countries);
+    if (!isNR(countries)) {
+        const flat = Array.isArray(countries) ? countries.join(', ') : countries;
+        parts.push(`<div><span class="kv-label">Countries:</span> ${escapeHtml(String(flat))}${evidenceBlock(geo.countries)}</div>`);
     }
-    if (!isNR(geo.total_sites)) {
-        parts.push(`<div><span class="kv-label">Total sites:</span> ${escapeHtml(String(geo.total_sites))}</div>`);
+    const totalSites = evValue(geo.total_sites);
+    if (!isNR(totalSites)) {
+        parts.push(`<div><span class="kv-label">Total sites:</span> ${escapeHtml(String(totalSites))}${evidenceBlock(geo.total_sites)}</div>`);
     }
     if (parts.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
     return `<div class="extraction-stacked-values">${parts.join('')}</div>`;
@@ -6019,7 +6054,7 @@ function fmtSESShort(ses) {
     const reported = keys.filter(k => !isNR(ses[k]));
     if (reported.length === 0) return '<span class="not-reported-badge">Not Reported</span>';
     return `<div class="extraction-stacked-values">${reported.map(k =>
-        `<div><span class="kv-label">${escapeHtml(SES_LABELS[k])}:</span> ${escapeHtml(String(ses[k]))}</div>`
+        `<div><span class="kv-label">${escapeHtml(SES_LABELS[k])}:</span> ${escapeHtml(String(evValue(ses[k])))}</div>`
     ).join('')}</div>`;
 }
 
@@ -6491,7 +6526,7 @@ function showFDAExtractionDetails(idx) {
         const ses = d.socioeconomic_status;
         if (!ses || typeof ses !== 'object') return '<p class="note">Not reported.</p>';
         const rows = Object.entries(SES_LABELS).map(([k, label]) =>
-            `<li><span class="kv-label">${escapeHtml(label)}</span><span class="kv-value">${fmtVal(ses[k])}</span></li>`
+            `<li><span class="kv-label">${escapeHtml(label)}</span><span class="kv-value">${fmtVal(ses[k])}${evidenceBlock(ses[k])}</span></li>`
         ).join('');
         return `<ul class="extraction-kv-list">${rows}</ul>`;
     })();
@@ -6508,17 +6543,17 @@ function showFDAExtractionDetails(idx) {
                         ? `<a href="https://www.accessdata.fda.gov/scripts/cdrh/cfdocs/cfpmn/denovo.cfm?id=${encodeURIComponent(subKey)}" target="_blank" rel="noopener noreferrer" class="fda-link">${escapeHtml(subKey)}</a>`
                         : escapeHtml(doc.submission_number || '—')}</div>
                     <div><strong>Panel</strong>${escapeHtml(doc.panel || '—')}</div>
-                    <div><strong>Total Participants</strong>${fmtVal(d.total_participants)}</div>
+                    <div><strong>Total Participants</strong>${fmtVal(d.total_participants)}${evidenceBlock(d.total_participants)}</div>
                     <div><strong>Model</strong>${escapeHtml(doc.models?.[_fdaSelectedModel]?.label || _fdaSelectedModel)}</div>
                 </div>
 
                 <div class="detail-section">
                     <h5>Clinical Context</h5>
                     <ul class="extraction-kv-list">
-                        <li><span class="kv-label">Company / Sponsor</span><span class="kv-value">${fmtVal(d.company_sponsor_name)}</span></li>
-                        <li><span class="kv-label">Device / Tool Title</span><span class="kv-value">${fmtVal(d.device_tool_title)}</span></li>
-                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(d.target_patient_age_range)}</span></li>
-                        <li><span class="kv-label">Clinical Study Design</span><span class="kv-value">${fmtVal(d.clinical_study_design)}</span></li>
+                        <li><span class="kv-label">Company / Sponsor</span><span class="kv-value">${fmtVal(d.company_sponsor_name)}${evidenceBlock(d.company_sponsor_name)}</span></li>
+                        <li><span class="kv-label">Device / Tool Title</span><span class="kv-value">${fmtVal(d.device_tool_title)}${evidenceBlock(d.device_tool_title)}</span></li>
+                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(d.target_patient_age_range)}${evidenceBlock(d.target_patient_age_range)}</span></li>
+                        <li><span class="kv-label">Clinical Study Design</span><span class="kv-value">${fmtVal(d.clinical_study_design)}${evidenceBlock(d.clinical_study_design)}</span></li>
                     </ul>
                 </div>
 
@@ -6691,8 +6726,18 @@ function resolutionBadge(resolution) {
  */
 function buildDiscrepancyRows(extractedData, ctgov) {
     const rows = [];
+    // `pdfRaw` preserves the full evidence-wrapped payload (if any) so the
+    // detail modal can render the exact_quote / page_number cite next to
+    // each row. Classification runs against the unwrapped value.
     const addRow = (group, label, path, apiVal, pdfVal) => {
-        rows.push({ group, label, path, apiVal, pdfVal, status: classifyDiscrepancy(apiVal, pdfVal) });
+        const pdfRaw = pdfVal;
+        const pdfValue = evValue(pdfVal);
+        rows.push({
+            group, label, path, apiVal,
+            pdfVal: pdfValue,
+            pdfRaw,
+            status: classifyDiscrepancy(apiVal, pdfValue),
+        });
     };
 
     // Totals
@@ -7039,6 +7084,7 @@ function showLitExtractionDetails(idx) {
                 <div class="disc-cell" style="margin-top:4px;">
                     <div class="disc-values"><span class="disc-source">CT.gov API:</span> ${formatValueForDisc(r.apiVal)}</div>
                     <div class="disc-values"><span class="disc-source">PDF extraction:</span> ${formatValueForDisc(r.pdfVal)}</div>
+                    ${evidenceBlock(r.pdfRaw)}
                     ${renderActions(r)}
                 </div>
             </div>`).join('');
@@ -7074,8 +7120,8 @@ function showLitExtractionDetails(idx) {
                     <h5>Clinical Context</h5>
                     <ul class="extraction-kv-list">
                         <li><span class="kv-label">Trial Name</span><span class="kv-value">${fmtVal(ctgov?.brief_title || ctgov?.official_title || meta.condition)}</span></li>
-                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(extracted.target_patient_age_range)}</span></li>
-                        <li><span class="kv-label">Study Design / Methodology</span><span class="kv-value">${fmtVal(extracted.study_design)}</span></li>
+                        <li><span class="kv-label">Target Patient Age Range</span><span class="kv-value">${fmtVal(extracted.target_patient_age_range)}${evidenceBlock(extracted.target_patient_age_range)}</span></li>
+                        <li><span class="kv-label">Study Design / Methodology</span><span class="kv-value">${fmtVal(extracted.study_design)}${evidenceBlock(extracted.study_design)}</span></li>
                     </ul>
                 </div>
                 <div class="detail-section">
