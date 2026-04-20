@@ -16,6 +16,9 @@ jobs:
         with:
           ref: main
 
+      - name: Set current date
+        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -26,6 +29,15 @@ jobs:
 
       - name: Run extraction
         run: python -m src.extract_all --output data/demographics.json --results-after 2009-01-01
+
+      - name: Backup CT.gov Data to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        with:
+          target: data/demographics.json
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          child_folder: "CT_gov_API_Data"
+          name: "${{ env.CURRENT_DATE }}_CTgov_demographics.json"
 
       - name: Split, archive snapshot, and commit
         run: |

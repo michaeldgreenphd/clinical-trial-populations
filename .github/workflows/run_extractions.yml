@@ -32,6 +32,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set current date
+        run: echo "CURRENT_DATE=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -45,21 +48,51 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_fda_demographics.py
+        run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
+
+      - name: Backup FDA Logs to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        if: always()
+        with:
+          target: fda_extraction_log.txt
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          child_folder: "FDA_Summary_Extractions"
+          name: "${{ env.CURRENT_DATE }}_FDA_extraction_log.txt"
 
       - name: Run AI/ML Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_paper_ses.py
+        run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
+
+      - name: Backup AI/ML Logs to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        if: always()
+        with:
+          target: aiml_extraction_log.txt
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          child_folder: "AIML_Literature_Extractions"
+          name: "${{ env.CURRENT_DATE }}_AIML_extraction_log.txt"
 
       - name: Run Clinical Trials Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'trials-lit-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: python scripts/extraction/extract_trial_papers.py
+        run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
+
+      - name: Backup Trials Logs to Google Drive
+        uses: willo32/google-drive-upload-action@v1
+        if: always()
+        with:
+          target: trials_extraction_log.txt
+          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
+          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
+          child_folder: "Trials_Literature_Extractions"
+          name: "${{ env.CURRENT_DATE }}_Trials_extraction_log.txt"
 
       - name: Commit extraction results
         run: |
