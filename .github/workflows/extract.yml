@@ -33,7 +33,7 @@ jobs:
       - name: Backup CT.gov Data to Google Drive
         uses: willo32/google-drive-upload-action@v1
         with:
-          target: data/demographics.json
+          target: ${{ github.workspace }}/data/demographics.json
           credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
           parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
           child_folder: "CT_gov_API_Data"
