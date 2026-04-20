@@ -30,14 +30,18 @@ jobs:
       - name: Run extraction
         run: python -m src.extract_all --output data/demographics.json --results-after 2009-01-01
 
-      - name: Backup CT.gov Data to Google Drive
-        uses: willo32/google-drive-upload-action@v1
-        with:
-          target: ${{ github.workspace }}/data/demographics.json
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          child_folder: "CT_gov_API_Data"
-          name: "${{ env.CURRENT_DATE }}_CTgov_demographics.json"
+      - name: Upload CT.gov Data to Google Drive via OAuth
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: CT_gov_API_Data
+          FILE_PATH: ${{ github.workspace }}/data/demographics.json
+          FILE_NAME: ${{ env.CURRENT_DATE }}_CTgov_demographics.json
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py
 
       - name: Split, archive snapshot, and commit
         run: |

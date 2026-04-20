@@ -91,10 +91,15 @@ jobs:
       - name: Zip Snapshots Directory
         run: zip -r snapshots_backup_${{ env.CURRENT_DATE }}.zip snapshots/
 
-      - name: Backup Snapshots to Google Drive
-        uses: willo32/google-drive-upload-action@v1
-        with:
-          target: ${{ github.workspace }}/snapshots_backup_${{ env.CURRENT_DATE }}.zip
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          child_folder: "Backfill_Snapshots"
+      - name: Upload Snapshots to Google Drive via OAuth
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: Backfill_Snapshots
+          FILE_PATH: ${{ github.workspace }}/snapshots_backup_${{ env.CURRENT_DATE }}.zip
+          FILE_NAME: snapshots_backup_${{ env.CURRENT_DATE }}.zip
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py

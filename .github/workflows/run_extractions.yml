@@ -51,15 +51,19 @@ jobs:
         run: echo "Dummy FDA log for testing Drive upload" > ${{ github.workspace }}/fda_extraction_log.txt
         # run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
 
-      - name: Backup FDA Logs to Google Drive
-        uses: willo32/google-drive-upload-action@v1
+      - name: Upload FDA Logs to Google Drive via OAuth
         if: always()
-        with:
-          target: ${{ github.workspace }}/fda_extraction_log.txt
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          child_folder: "FDA_Summary_Extractions"
-          name: "${{ env.CURRENT_DATE }}_FDA_extraction_log.txt"
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: FDA_Summary_Extractions
+          FILE_PATH: ${{ github.workspace }}/fda_extraction_log.txt
+          FILE_NAME: ${{ env.CURRENT_DATE }}_FDA_extraction_log.txt
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py
 
       - name: Run AI/ML Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
@@ -69,15 +73,19 @@ jobs:
         run: echo "Dummy AIML log for testing Drive upload" > ${{ github.workspace }}/aiml_extraction_log.txt
         # run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
 
-      - name: Backup AI/ML Logs to Google Drive
-        uses: willo32/google-drive-upload-action@v1
+      - name: Upload AI/ML Logs to Google Drive via OAuth
         if: always()
-        with:
-          target: ${{ github.workspace }}/aiml_extraction_log.txt
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          child_folder: "AIML_Literature_Extractions"
-          name: "${{ env.CURRENT_DATE }}_AIML_extraction_log.txt"
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: AIML_Literature_Extractions
+          FILE_PATH: ${{ github.workspace }}/aiml_extraction_log.txt
+          FILE_NAME: ${{ env.CURRENT_DATE }}_AIML_extraction_log.txt
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py
 
       - name: Run Clinical Trials Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'trials-lit-only'
@@ -87,15 +95,19 @@ jobs:
         run: echo "Dummy Trials log for testing Drive upload" > ${{ github.workspace }}/trials_extraction_log.txt
         # run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
 
-      - name: Backup Trials Logs to Google Drive
-        uses: willo32/google-drive-upload-action@v1
+      - name: Upload Trials Logs to Google Drive via OAuth
         if: always()
-        with:
-          target: ${{ github.workspace }}/trials_extraction_log.txt
-          credentials: ${{ secrets.GDRIVE_CREDENTIALS }}
-          parent_folder_id: ${{ secrets.GDRIVE_FOLDER_ID }}
-          child_folder: "Trials_Literature_Extractions"
-          name: "${{ env.CURRENT_DATE }}_Trials_extraction_log.txt"
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: Trials_Literature_Extractions
+          FILE_PATH: ${{ github.workspace }}/trials_extraction_log.txt
+          FILE_NAME: ${{ env.CURRENT_DATE }}_Trials_extraction_log.txt
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py
 
       - name: Commit extraction results
         run: |
