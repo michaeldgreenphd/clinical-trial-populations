@@ -46,81 +46,133 @@ MODELS = [
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in FDA medical device submissions. Extract demographic, socioeconomic, clinical-context, and citation data of the clinical validation cohort.
+You are a clinical data extractor specializing in FDA medical device submissions. Extract demographic, socioeconomic, clinical-context, and citation data of the clinical validation cohort and record it via the `record_extracted_data` tool.
 
-Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
+The manuscript text is delimited by `--- PAGE N ---` markers. Every evidence quote you record MUST come from the page that immediately precedes the text you're quoting, and you must record that page number on the field.
 
-CRITICAL: "Unknown" is often an explicit reporting category. If the document explicitly lists "Unknown" with a count, record that number. If the document simply fails to mention a category, record "Not Reported".
+Before calling the extraction tool, use a <thinking> block to locate the sections containing the demographic and clinical context data. Specifically, scan the "SUMMARY OF CLINICAL INFORMATION", "BACKGROUND", "INDICATIONS FOR USE", and "INTENDED USE" sections for the clinical context, and the validation / cohort description sections for demographics.
 
-CLINICAL CONTEXT: Before you extract demographics, scan the "SUMMARY OF CLINICAL INFORMATION", "BACKGROUND", "INDICATIONS FOR USE", and "INTENDED USE" sections for the following context and place them in the top-level fields:
-- `company_sponsor_name`: the manufacturer / applicant / sponsor that submitted the device.
-- `device_tool_title`: the formal name of the device or software tool under review.
-- `target_patient_age_range`: the inclusion-criteria age range for the validation cohort (e.g., "18-80 years of age", ">= 22 years"). Prefer verbatim phrasing. Return "Not Reported" if only a mean/median is given without a range.
-- `clinical_study_design`: a concise 1-2 sentence summary of the validation study design (retrospective vs. prospective, single-arm vs. comparative, number of sites, blinding, ground-truth method, etc.).
+CRITICAL: The "Explicit Unknown" category is a specific reported value, completely distinct from "Not Reported" (missing) data. If researchers explicitly state a value is unknown, unrecorded, or declined, record the count under "unknown". If they fail to mention the category entirely, record "Not Reported".
 
-Return a single valid JSON object with this exact schema:
-{
-  "company_sponsor_name": "string or 'Not Reported'",
-  "device_tool_title": "string or 'Not Reported'",
-  "target_patient_age_range": "string or 'Not Reported'",
-  "clinical_study_design": "string or 'Not Reported'",
-  "device_name": "string",
-  "panel": "string (medical specialty)",
-  "total_participants": integer or "Not Reported",
-  "cited_clinical_studies": {
-    "nct_ids": ["list of strings"] or "Not Reported",
-    "dois": ["list of strings"] or "Not Reported",
-    "publication_titles": ["list of strings"] or "Not Reported"
-  },
-  "geography": {
-    "us_states": ["list of strings"] or "Not Reported",
-    "countries": ["list of strings"] or "Not Reported",
-    "total_sites": integer or "Not Reported"
-  },
-  "sex": {
-    "female": integer or "Not Reported",
-    "male": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "gender": {
-    "woman": integer or "Not Reported",
-    "man": integer or "Not Reported",
-    "non_binary": integer or "Not Reported",
-    "transgender": integer or "Not Reported",
-    "other": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "race_nih_omb": {
-    "american_indian_or_alaska_native": integer or "Not Reported",
-    "asian": integer or "Not Reported",
-    "black_or_african_american": integer or "Not Reported",
-    "native_hawaiian_or_other_pacific_islander": integer or "Not Reported",
-    "white": integer or "Not Reported",
-    "more_than_one_race": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "ethnicity": {
-    "hispanic_or_latino": integer or "Not Reported",
-    "not_hispanic_or_latino": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "socioeconomic_status": {
-    "education": "string summary or 'Not Reported'",
-    "income": "string summary or 'Not Reported'",
-    "wealth": "string summary or 'Not Reported'",
-    "family_size": "string summary or 'Not Reported'",
-    "adi_area_deprivation_index": "string summary or 'Not Reported'"
-  }
+For every field, populate:
+- `value`: the extracted value (or the literal string "Not Reported" for scalars / empty list for list-typed fields when the document is silent).
+- `exact_quote`: a verbatim excerpt from the document that proves the value (empty string when "Not Reported").
+- `page_number`: the integer page number (1-indexed) where the quote appears (0 when "Not Reported").
+"""
+
+
+# ---------------------------------------------------------------------------
+# Evidence-grounded tool schema. Every leaf field is wrapped in a
+# {value, exact_quote, page_number} object so the LLM is forced to cite the
+# source text for every value it records.
+# ---------------------------------------------------------------------------
+
+def _ev(description: str, value_schema: dict) -> dict:
+    return {
+        "type": "object",
+        "description": description,
+        "properties": {
+            "value": value_schema,
+            "exact_quote": {
+                "type": "string",
+                "description": "Verbatim excerpt from the source text proving the value. Empty string if 'Not Reported'.",
+            },
+            "page_number": {
+                "type": "integer",
+                "description": "Page number (1-indexed) from the `--- PAGE N ---` markers. 0 if 'Not Reported'.",
+            },
+        },
+        "required": ["value", "exact_quote", "page_number"],
+    }
+
+
+_EV_STR = {"type": "string", "description": "Extracted value, or the literal string 'Not Reported'."}
+_EV_INT = {"type": ["integer", "string"], "description": "Extracted integer, or the literal string 'Not Reported'."}
+_EV_LIST = {"type": "array", "items": {"type": "string"}, "description": "Extracted list of strings; empty array if none."}
+
+
+def _breakdown(description: str, fields: list[str]) -> dict:
+    return {
+        "type": "object",
+        "description": description,
+        "properties": {f: _ev(f"Count of {f.replace('_', ' ')}", _EV_INT) for f in fields},
+        "required": list(fields),
+    }
+
+
+EXTRACTION_TOOL = {
+    "name": "record_extracted_data",
+    "description": "Record evidence-grounded demographic, clinical-context, and citation data from an FDA summary statement.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "company_sponsor_name": _ev("Manufacturer / applicant / sponsor that submitted the device.", _EV_STR),
+            "device_tool_title": _ev("Formal name of the device or software tool under review.", _EV_STR),
+            "target_patient_age_range": _ev("Inclusion-criteria age range for the validation cohort, verbatim when possible.", _EV_STR),
+            "clinical_study_design": _ev("Concise 1-2 sentence summary of the validation study design.", _EV_STR),
+            "device_name": _ev("Device name as stated in the summary.", _EV_STR),
+            "panel": _ev("Medical specialty / review panel.", _EV_STR),
+            "total_participants": _ev("Total N in the validation cohort.", _EV_INT),
+            "cited_clinical_studies": {
+                "type": "object",
+                "properties": {
+                    "nct_ids": _ev("Referenced ClinicalTrials.gov NCT IDs.", _EV_LIST),
+                    "dois": _ev("Referenced DOIs.", _EV_LIST),
+                    "publication_titles": _ev("Referenced publication titles.", _EV_LIST),
+                },
+                "required": ["nct_ids", "dois", "publication_titles"],
+            },
+            "geography": {
+                "type": "object",
+                "properties": {
+                    "us_states": _ev("US states represented in the validation cohort.", _EV_LIST),
+                    "countries": _ev("Countries represented in the validation cohort.", _EV_LIST),
+                    "total_sites": _ev("Total number of clinical sites.", _EV_INT),
+                },
+                "required": ["us_states", "countries", "total_sites"],
+            },
+            "sex": _breakdown("Participant sex breakdown.", ["female", "male", "unknown"]),
+            "gender": _breakdown("Participant gender identity breakdown.",
+                                 ["woman", "man", "non_binary", "transgender", "other", "unknown"]),
+            "race_nih_omb": _breakdown("Participant race breakdown (NIH/OMB categories).", [
+                "american_indian_or_alaska_native", "asian", "black_or_african_american",
+                "native_hawaiian_or_other_pacific_islander", "white",
+                "more_than_one_race", "unknown",
+            ]),
+            "ethnicity": _breakdown("Participant ethnicity breakdown.",
+                                    ["hispanic_or_latino", "not_hispanic_or_latino", "unknown"]),
+            "socioeconomic_status": {
+                "type": "object",
+                "properties": {
+                    "education": _ev("Education summary.", _EV_STR),
+                    "income": _ev("Income summary.", _EV_STR),
+                    "wealth": _ev("Wealth summary.", _EV_STR),
+                    "family_size": _ev("Family size / household summary.", _EV_STR),
+                    "adi_area_deprivation_index": _ev("ADI summary.", _EV_STR),
+                },
+                "required": ["education", "income", "wealth", "family_size", "adi_area_deprivation_index"],
+            },
+        },
+        "required": [
+            "company_sponsor_name", "device_tool_title", "target_patient_age_range",
+            "clinical_study_design", "device_name", "panel", "total_participants",
+            "cited_clinical_studies", "geography", "sex", "gender", "race_nih_omb",
+            "ethnicity", "socioeconomic_status",
+        ],
+    },
 }
-
-Return ONLY the JSON object, no other text."""
 
 
 def extract_text_from_local_pdf(path: str) -> str | None:
-    """Read a local PDF and return concatenated text from all non-empty pages."""
+    """Read a local PDF and return concatenated text with explicit page markers.
+    Each non-empty page is prefixed with `--- PAGE N ---` so the downstream
+    tool-use extraction can cite the exact page for every evidence quote."""
     try:
         with pdfplumber.open(path) as pdf:
-            pages = [p.extract_text() for p in pdf.pages if p.extract_text()]
+            pages = [
+                f"--- PAGE {i + 1} ---\n{p.extract_text()}"
+                for i, p in enumerate(pdf.pages) if p.extract_text()
+            ]
             if not pages:
                 return None
             return "\n\n".join(pages)
@@ -130,10 +182,14 @@ def extract_text_from_local_pdf(path: str) -> str | None:
 
 
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
-    """Run extraction against a single model. Returns (data, token_usage)."""
+    """Run extraction against a single model via tool use. Returns (data,
+    token_usage). The tool call's `input` IS the evidence-grounded payload,
+    so we never need to parse JSON out of free-form text."""
     response = client.messages.create(
         model=model_id,
-        max_tokens=1500,
+        max_tokens=4000,
+        tools=[EXTRACTION_TOOL],
+        tool_choice={"type": "tool", "name": "record_extracted_data"},
         messages=[{
             "role": "user",
             "content": f"{EXTRACTION_PROMPT}\n\n--- FDA DOCUMENT TEXT ---\n{text}"
@@ -143,10 +199,11 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
-    try:
-        data = json.loads(response.content[0].text)
-    except (json.JSONDecodeError, IndexError):
-        data = {"error": "Failed to parse response"}
+    data: dict = {"error": "No tool call in response"}
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "record_extracted_data":
+            data = block.input
+            break
     return data, token_usage
 
 

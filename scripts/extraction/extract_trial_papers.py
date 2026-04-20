@@ -70,71 +70,102 @@ TIER_RE = re.compile(r"Tier[_\s-]*(\d+)", re.IGNORECASE)
 client = anthropic.Anthropic()
 
 EXTRACTION_PROMPT = """\
-You are a clinical data extractor specializing in published clinical trial manuscripts. Extract demographic, socioeconomic, clinical-context, and functional status data of the trial cohort.
+You are a clinical data extractor specializing in published clinical trial manuscripts. Record demographic, socioeconomic, clinical-context, and functional-status data of the trial cohort via the `record_extracted_data` tool.
 
-Extract ONLY information explicitly stated in the text. If a field is not mentioned, return "Not Reported".
+The manuscript text is delimited by `--- PAGE N ---` markers. Every evidence quote you record MUST come from the page that immediately precedes the text you're quoting, and you must record that page number on the field.
 
-CRITICAL: "Unknown" is an explicit reporting category. If the paper explicitly lists "Unknown" or "Not Stated" with a count, record that number. Do not confuse this with implicitly missing data.
+Before calling the extraction tool, use a <thinking> block to locate the sections containing the demographic and clinical context data. Specifically, scan "Methods", "Study Design", "Patients and Methods", and "Background" sections for clinical context, and the cohort / participants tables for demographics.
 
-For Age, Disability/Functional Limitations, and Religion, provide a concise string summary of how the data is reported (e.g., "Mean 65.2 (SD 5.1)" or "ECOG Performance Status 1-2").
+CRITICAL: The "Explicit Unknown" category is a specific reported value, completely distinct from "Not Reported" (missing) data. If researchers explicitly state a value is unknown, unrecorded, or declined, record the count under "unknown". If they fail to mention the category entirely, record "Not Reported".
 
-LINKAGE CRITICAL: We must link this manuscript to ClinicalTrials.gov if possible. Scan the text for any ClinicalTrials.gov identifier (format: NCT followed by 8 digits) and list it under associated_nct_ids.
+LINKAGE CRITICAL: We must link this manuscript to ClinicalTrials.gov if possible. Scan the text for any NCT identifier (format: NCT followed by 8 digits) and place them under `associated_nct_ids`.
 
-CLINICAL CONTEXT: Scan the "Methods", "Study Design", "Patients and Methods", or "Background" sections for:
-- `target_patient_age_range`: the inclusion-criteria age range (e.g., "18-80 years of age", ">=18 years"). Prefer verbatim phrasing. Return "Not Reported" if only a mean/median is given without a range.
-- `study_design`: a concise 1-2 sentence summary of the trial design (randomised vs. single-arm, blinding, comparator, number of sites, primary endpoint).
+For every field, populate:
+- `value`: the extracted value (or the literal string "Not Reported" for scalars / empty list for list-typed fields when the document is silent).
+- `exact_quote`: a verbatim excerpt from the document that proves the value (empty string when "Not Reported").
+- `page_number`: the integer page number (1-indexed) where the quote appears (0 when "Not Reported").
+"""
 
-Return a single valid JSON object with this exact schema:
-{
-  "associated_nct_ids": ["list of strings"] or "Not Reported",
-  "target_patient_age_range": "string or 'Not Reported'",
-  "study_design": "string or 'Not Reported'",
-  "total_participants": integer or "Not Reported",
-  "age": "string summary or 'Not Reported'",
-  "geography": {
-    "us_states": ["list of strings"] or "Not Reported",
-    "countries": ["list of strings"] or "Not Reported",
-    "total_sites": integer or "Not Reported"
-  },
-  "sex": {
-    "female": integer or "Not Reported",
-    "male": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "gender": {
-    "woman": integer or "Not Reported",
-    "man": integer or "Not Reported",
-    "non_binary": integer or "Not Reported",
-    "transgender": integer or "Not Reported",
-    "other": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "race_nih_omb": {
-    "american_indian_or_alaska_native": integer or "Not Reported",
-    "asian": integer or "Not Reported",
-    "black_or_african_american": integer or "Not Reported",
-    "native_hawaiian_or_other_pacific_islander": integer or "Not Reported",
-    "white": integer or "Not Reported",
-    "more_than_one_race": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "ethnicity": {
-    "hispanic_or_latino": integer or "Not Reported",
-    "not_hispanic_or_latino": integer or "Not Reported",
-    "unknown": integer or "Not Reported"
-  },
-  "socioeconomic_status": {
-    "education": "string summary or 'Not Reported'",
-    "income": "string summary or 'Not Reported'",
-    "wealth": "string summary or 'Not Reported'",
-    "family_size": "string summary or 'Not Reported'",
-    "adi_area_deprivation_index": "string summary or 'Not Reported'"
-  },
-  "disability_and_functional_limitations": "string summary or 'Not Reported'",
-  "religion": "string summary or 'Not Reported'"
+
+def _ev(description: str, value_schema: dict) -> dict:
+    return {
+        "type": "object",
+        "description": description,
+        "properties": {
+            "value": value_schema,
+            "exact_quote": {"type": "string", "description": "Verbatim excerpt proving the value. Empty if Not Reported."},
+            "page_number": {"type": "integer", "description": "1-indexed page number from `--- PAGE N ---` markers. 0 if Not Reported."},
+        },
+        "required": ["value", "exact_quote", "page_number"],
+    }
+
+
+_EV_STR = {"type": "string", "description": "Extracted value, or the literal string 'Not Reported'."}
+_EV_INT = {"type": ["integer", "string"], "description": "Extracted integer, or the literal string 'Not Reported'."}
+_EV_LIST = {"type": "array", "items": {"type": "string"}, "description": "Extracted list of strings; empty array if none."}
+
+
+def _breakdown(description: str, fields: list[str]) -> dict:
+    return {
+        "type": "object",
+        "description": description,
+        "properties": {f: _ev(f"Count of {f.replace('_', ' ')}", _EV_INT) for f in fields},
+        "required": list(fields),
+    }
+
+
+EXTRACTION_TOOL = {
+    "name": "record_extracted_data",
+    "description": "Record evidence-grounded demographic, clinical-context, SES, and functional-status data extracted from a published clinical trial manuscript.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "associated_nct_ids": _ev("ClinicalTrials.gov NCT identifiers referenced in the manuscript.", _EV_LIST),
+            "target_patient_age_range": _ev("Inclusion-criteria age range, verbatim when possible.", _EV_STR),
+            "study_design": _ev("Concise 1-2 sentence summary of the trial design.", _EV_STR),
+            "total_participants": _ev("Total N in the trial cohort.", _EV_INT),
+            "age": _ev("String summary of how age is reported (e.g., 'Mean 65.2 (SD 5.1)').", _EV_STR),
+            "geography": {
+                "type": "object",
+                "properties": {
+                    "us_states": _ev("US states represented.", _EV_LIST),
+                    "countries": _ev("Countries represented.", _EV_LIST),
+                    "total_sites": _ev("Total number of trial sites.", _EV_INT),
+                },
+                "required": ["us_states", "countries", "total_sites"],
+            },
+            "sex": _breakdown("Participant sex breakdown.", ["female", "male", "unknown"]),
+            "gender": _breakdown("Participant gender identity breakdown.",
+                                 ["woman", "man", "non_binary", "transgender", "other", "unknown"]),
+            "race_nih_omb": _breakdown("Participant race breakdown (NIH/OMB categories).", [
+                "american_indian_or_alaska_native", "asian", "black_or_african_american",
+                "native_hawaiian_or_other_pacific_islander", "white",
+                "more_than_one_race", "unknown",
+            ]),
+            "ethnicity": _breakdown("Participant ethnicity breakdown.",
+                                    ["hispanic_or_latino", "not_hispanic_or_latino", "unknown"]),
+            "socioeconomic_status": {
+                "type": "object",
+                "properties": {
+                    "education": _ev("Education summary.", _EV_STR),
+                    "income": _ev("Income summary.", _EV_STR),
+                    "wealth": _ev("Wealth summary.", _EV_STR),
+                    "family_size": _ev("Family size / household summary.", _EV_STR),
+                    "adi_area_deprivation_index": _ev("ADI summary.", _EV_STR),
+                },
+                "required": ["education", "income", "wealth", "family_size", "adi_area_deprivation_index"],
+            },
+            "disability_and_functional_limitations": _ev("Summary of disability / functional-limitation reporting.", _EV_STR),
+            "religion": _ev("Summary of religion reporting.", _EV_STR),
+        },
+        "required": [
+            "associated_nct_ids", "target_patient_age_range", "study_design",
+            "total_participants", "age", "geography", "sex", "gender",
+            "race_nih_omb", "ethnicity", "socioeconomic_status",
+            "disability_and_functional_limitations", "religion",
+        ],
+    },
 }
-
-Return ONLY the JSON object, no other text."""
 
 
 def resolve_mode() -> str:
@@ -225,9 +256,15 @@ def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str, str | None]]:
 
 
 def extract_text_from_local_pdf(path: str) -> str | None:
+    """Read a local PDF and return concatenated text with explicit page markers.
+    Each non-empty page is prefixed with `--- PAGE N ---` so the downstream
+    tool-use extraction can cite the exact page for every evidence quote."""
     try:
         with pdfplumber.open(path) as pdf:
-            pages = [p.extract_text() for p in pdf.pages if p.extract_text()]
+            pages = [
+                f"--- PAGE {i + 1} ---\n{p.extract_text()}"
+                for i, p in enumerate(pdf.pages) if p.extract_text()
+            ]
             if not pages:
                 return None
             return "\n\n".join(pages)
@@ -237,9 +274,13 @@ def extract_text_from_local_pdf(path: str) -> str | None:
 
 
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
+    """Run extraction via tool use. Returns (data, token_usage). The tool
+    call's `input` IS the evidence-grounded payload — no JSON parsing."""
     response = client.messages.create(
         model=model_id,
-        max_tokens=2000,
+        max_tokens=4000,
+        tools=[EXTRACTION_TOOL],
+        tool_choice={"type": "tool", "name": "record_extracted_data"},
         messages=[{
             "role": "user",
             "content": f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{text}"
@@ -249,10 +290,11 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
-    try:
-        data = json.loads(response.content[0].text)
-    except (json.JSONDecodeError, IndexError):
-        data = {"error": "Failed to parse response"}
+    data: dict = {"error": "No tool call in response"}
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "record_extracted_data":
+            data = block.input
+            break
     return data, token_usage
 
 

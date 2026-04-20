@@ -2943,6 +2943,33 @@ footer p {
     font-weight: 600;
 }
 
+/* Evidence-grounded extraction: each leaf value is backed by an exact quote
+   plus page number. Curators see the final value inline, then a styled
+   blockquote below it so the provenance is one glance away. */
+.evidence-quote {
+    margin: 4px 0 2px;
+    padding: 4px 10px;
+    border-left: 3px solid #d1d5db;
+    background: #f9fafb;
+    color: #6b7280;
+    font-style: italic;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.evidence-quote-text {
+    display: inline;
+}
+
+.evidence-quote-cite {
+    display: inline;
+    margin-left: 6px;
+    font-style: normal;
+    font-size: 0.72rem;
+    color: #9ca3af;
+    letter-spacing: 0.02em;
+}
+
 .reported-badge {
     display: inline-block;
     background: #d4edda;
