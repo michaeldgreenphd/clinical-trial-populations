@@ -52,7 +52,7 @@ OUTPUT_METRICS = "data/fda_token_metrics.json"
 # we can slice spend by stream (and by provider) when comparing runs.
 PIPELINE_NAME = "fda"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
-GEMINI_LOCATION = "us-central1"
+GEMINI_LOCATION = "global"
 
 # Keep per-provider model lists side by side so the active one can be chosen
 # at import time; downstream code never has to branch on provider when
