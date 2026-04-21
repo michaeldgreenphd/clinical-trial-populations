@@ -36,7 +36,6 @@ import pdfplumber
 # repo root (the extraction scripts are launched via `python scripts/...`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
-from utils.model_routing import to_vertex_model
 
 PILOT_LIMIT = 2
 PILOT_SIZE = 9
@@ -57,6 +56,16 @@ MODELS = [
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
     {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
+
+# Vertex AI uses its own model identifiers for Claude and rejects the direct
+# Anthropic API IDs with 404 NOT_FOUND. When AI_PROVIDER=vertex_ai we must look
+# up the Vertex equivalent here and pass *that* string to AnthropicVertex.
+# Source: https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai
+VERTEX_MODEL_MAP = {
+    "claude-haiku-4-5-20251001": "claude-haiku-4-5@20251001",
+    "claude-sonnet-4-6":         "claude-sonnet-4-6",
+    "claude-opus-4-7":           "claude-opus-4-7",
+}
 
 
 def _make_client():
@@ -259,11 +268,12 @@ def extract_text_from_local_pdf(path: str) -> str | None:
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     """Run extraction via tool use. Returns (data, token_usage). The tool
     call's `input` IS the evidence-grounded payload — no JSON parsing."""
-    # Vertex AI publishes Claude under `@<version>`-style IDs rather than the
-    # trailing-date IDs used by the direct Anthropic API, so translate before
-    # the call. Cost logging keeps the original (canonical) Anthropic ID so
-    # rows stay comparable across providers.
-    effective_model = to_vertex_model(model_id) if AI_PROVIDER == "vertex_ai" else model_id
+    # Vertex requires its own model IDs (see VERTEX_MODEL_MAP). Cost logging
+    # keeps the canonical Anthropic ID so rows stay comparable across providers.
+    if AI_PROVIDER == "vertex_ai":
+        effective_model = VERTEX_MODEL_MAP.get(model_id, model_id)
+    else:
+        effective_model = model_id
     response = client.messages.create(
         model=effective_model,
         max_tokens=4000,
