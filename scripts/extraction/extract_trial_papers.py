@@ -6,8 +6,13 @@ Reads open-access clinical trial manuscript PDFs from
 `data/Clinical Trials Manuscripts/`, cross-references each filename (NCT ID)
 with `data/pilot_clinical_trials_targets.csv` to inject trial metadata
 (Condition, Intervention, Total Participants), and runs each manuscript
-through three Anthropic models (Haiku 4.5, Sonnet 4.6, Opus 4.7) to
-compare extraction quality and cost.
+through three LLMs (small / medium / large tier) to compare extraction
+quality and cost.
+
+Provider routing (selected via AI_PROVIDER env var):
+  - `anthropic`      → Claude Haiku 4.5 / Sonnet 4.6 / Opus 4.7 (default)
+  - `vertex_gemini`  → Gemini 3.1 Flash-Lite / Flash / Pro preview (native
+                       Vertex AI via google-cloud-aiplatform)
 
 Filenames are expected to start with the NCT identifier, e.g.
 `NCT06199934.pdf` or `NCT06199934_primary_results.pdf`. Anything that isn't
@@ -27,8 +32,9 @@ Outputs:
   - data/trials_lit_token_metrics.json (aggregate per-model token usage)
 
 Requires:
-  - ANTHROPIC_API_KEY environment variable
-  - pip install anthropic pdfplumber
+  - ANTHROPIC_API_KEY (anthropic provider) OR GCP_PROJECT_ID +
+    GOOGLE_APPLICATION_CREDENTIALS (vertex_gemini provider)
+  - pip install -r scripts/extraction/requirements.txt
 """
 
 import csv
@@ -63,22 +69,25 @@ TOTAL_STUDIES = 77347
 # Pipeline identifier recorded against every row in data/token_costs.csv.
 PIPELINE_NAME = "trials-lit"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
+GEMINI_LOCATION = "us-central1"
 
-MODELS = [
+# Keep per-provider model lists side by side so the active one can be chosen
+# at import time; downstream code never has to branch on provider when
+# looking up model IDs, labels, or per-token costs.
+_ANTHROPIC_MODELS = [
     {"key": "haiku_4_5",  "id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
     {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
-
-# Vertex AI uses its own model identifiers for Claude and rejects the direct
-# Anthropic API IDs with 404 NOT_FOUND. When AI_PROVIDER=vertex_ai we must look
-# up the Vertex equivalent here and pass *that* string to AnthropicVertex.
-# Source: https://platform.claude.com/docs/en/build-with-claude/claude-on-vertex-ai
-VERTEX_MODEL_MAP = {
-    "claude-haiku-4-5-20251001": "claude-haiku-4-5@20251001",
-    "claude-sonnet-4-6":         "claude-sonnet-4-6",
-    "claude-opus-4-7":           "claude-opus-4-7",
-}
+# Gemini 3.1 Preview IDs + Standard-tier prices per Vertex AI pricing page
+# (https://cloud.google.com/vertex-ai/generative-ai/pricing). The three tiers
+# line up small→large with the Haiku/Sonnet/Opus tiers above.
+_GEMINI_MODELS = [
+    {"key": "haiku_4_5",  "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
+    {"key": "sonnet_4_6", "id": "gemini-3.1-flash-preview",      "label": "Gemini 3.1 Flash",      "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
+    {"key": "opus_4_7",   "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
+]
+MODELS = _GEMINI_MODELS if AI_PROVIDER == "vertex_gemini" else _ANTHROPIC_MODELS
 
 NCT_RE = re.compile(r"(NCT\d{8})", re.IGNORECASE)
 # Filenames are structured like `2026-04-18_NCT02349132_01_Tier1.pdf`; the
@@ -88,14 +97,16 @@ TIER_RE = re.compile(r"Tier[_\s-]*(\d+)", re.IGNORECASE)
 
 
 def _make_client():
-    """Route to the Vertex-backed Anthropic client when AI_PROVIDER=vertex_ai;
-    otherwise use the standard Anthropic API client."""
-    if AI_PROVIDER == "vertex_ai":
-        from anthropic import AnthropicVertex
-        return AnthropicVertex(
-            project_id=os.environ.get("GCP_PROJECT_ID"),
-            region="us-east5",
+    """Initialize the active provider. For Anthropic, return an Anthropic
+    client. For vertex_gemini, call vertexai.init() and return None — Gemini
+    uses one `GenerativeModel` per model name rather than one shared client."""
+    if AI_PROVIDER == "vertex_gemini":
+        import vertexai
+        vertexai.init(
+            project=os.environ.get("GCP_PROJECT_ID"),
+            location=GEMINI_LOCATION,
         )
+        return None
     return anthropic.Anthropic()
 
 
@@ -305,29 +316,45 @@ def extract_text_from_local_pdf(path: str) -> str | None:
         return None
 
 
+def _to_gemini_schema(schema):
+    """Recursively normalize an Anthropic-style JSON schema into the subset
+    Gemini function declarations accept. Gemini forbids union types
+    (e.g. `["integer", "string"]`), so we flatten them to `"string"` — ints
+    round-trip fine through a string and "Not Reported" is the common sentinel
+    anyway. `properties` and `items` recurse."""
+    if not isinstance(schema, dict):
+        return schema
+    out = dict(schema)
+    t = out.get("type")
+    if isinstance(t, list):
+        out["type"] = "string"
+    if "properties" in out:
+        out["properties"] = {k: _to_gemini_schema(v) for k, v in out["properties"].items()}
+    if "items" in out:
+        out["items"] = _to_gemini_schema(out["items"])
+    return out
+
+
+def _proto_to_dict(val):
+    """Convert Gemini's protobuf MapComposite / RepeatedComposite return
+    values into plain Python dicts and lists so the result is JSON-serialisable
+    the same way the Anthropic `tool_use.input` payload already is."""
+    if hasattr(val, "items") and not isinstance(val, (str, bytes)):
+        return {k: _proto_to_dict(v) for k, v in val.items()}
+    if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
+        return [_proto_to_dict(v) for v in val]
+    return val
+
+
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
-    """Run extraction via tool use. Returns (data, token_usage). The tool
-    call's `input` IS the evidence-grounded payload — no JSON parsing."""
-    # Vertex requires its own model IDs (see VERTEX_MODEL_MAP). Cost logging
-    # keeps the canonical Anthropic ID so rows stay comparable across providers.
-    if AI_PROVIDER == "vertex_ai":
-        effective_model = VERTEX_MODEL_MAP.get(model_id, model_id)
+    """Run extraction via tool / function calling. Returns (data, token_usage).
+    The tool call's arguments ARE the evidence-grounded payload — no free-form
+    JSON parsing needed."""
+    prompt = f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{text}"
+    if AI_PROVIDER == "vertex_gemini":
+        data, token_usage = _extract_gemini(prompt, model_id)
     else:
-        effective_model = model_id
-    response = client.messages.create(
-        model=effective_model,
-        max_tokens=4000,
-        tools=[EXTRACTION_TOOL],
-        tool_choice={"type": "tool", "name": "record_extracted_data"},
-        messages=[{
-            "role": "user",
-            "content": f"{EXTRACTION_PROMPT}\n\n--- MANUSCRIPT TEXT ---\n{text}"
-        }]
-    )
-    token_usage = {
-        "input_tokens": response.usage.input_tokens,
-        "output_tokens": response.usage.output_tokens,
-    }
+        data, token_usage = _extract_anthropic(prompt, model_id)
     log_api_cost(
         provider=AI_PROVIDER,
         pipeline_name=PIPELINE_NAME,
@@ -335,18 +362,89 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
         output_tokens=token_usage["output_tokens"],
         model=model_id,
     )
+    return data, token_usage
+
+
+def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
+    response = client.messages.create(
+        model=model_id,
+        max_tokens=4000,
+        tools=[EXTRACTION_TOOL],
+        tool_choice={"type": "tool", "name": "record_extracted_data"},
+        messages=[{"role": "user", "content": prompt}],
+    )
     data: dict = {"error": "No tool call in response"}
     for block in response.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "record_extracted_data":
             data = block.input
             break
-    return data, token_usage
+    return data, {
+        "input_tokens": response.usage.input_tokens,
+        "output_tokens": response.usage.output_tokens,
+    }
+
+
+def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
+    """Vertex AI Gemini path. Uses google-cloud-aiplatform's GenerativeModel
+    with function-calling forced to `ANY` so the model must emit a
+    record_extracted_data call. Token usage comes from `usage_metadata`:
+    prompt_token_count → input; candidates_token_count → output."""
+    from vertexai.generative_models import (
+        FunctionDeclaration,
+        GenerativeModel,
+        Tool,
+        ToolConfig,
+    )
+
+    gemini_tool = Tool(function_declarations=[
+        FunctionDeclaration(
+            name=EXTRACTION_TOOL["name"],
+            description=EXTRACTION_TOOL["description"],
+            parameters=_to_gemini_schema(EXTRACTION_TOOL["input_schema"]),
+        )
+    ])
+    tool_config = ToolConfig(
+        function_calling_config=ToolConfig.FunctionCallingConfig(
+            mode=ToolConfig.FunctionCallingConfig.Mode.ANY,
+            allowed_function_names=[EXTRACTION_TOOL["name"]],
+        )
+    )
+    model = GenerativeModel(
+        model_name=model_id,
+        tools=[gemini_tool],
+        tool_config=tool_config,
+    )
+    response = model.generate_content(
+        prompt,
+        generation_config={"max_output_tokens": 4000},
+    )
+
+    data: dict = {"error": "No tool call in response"}
+    for cand in response.candidates:
+        for part in cand.content.parts:
+            fc = getattr(part, "function_call", None)
+            if fc and getattr(fc, "name", "") == EXTRACTION_TOOL["name"]:
+                data = _proto_to_dict(fc.args)
+                break
+        if not isinstance(data, dict) or "error" not in data:
+            break
+
+    usage = response.usage_metadata
+    return data, {
+        "input_tokens": getattr(usage, "prompt_token_count", 0) or 0,
+        "output_tokens": getattr(usage, "candidates_token_count", 0) or 0,
+    }
 
 
 def main():
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
-        sys.exit(1)
+    if AI_PROVIDER == "vertex_gemini":
+        if not os.environ.get("GCP_PROJECT_ID"):
+            print("Error: GCP_PROJECT_ID not set (required for vertex_gemini)", file=sys.stderr)
+            sys.exit(1)
+    else:
+        if not os.environ.get("ANTHROPIC_API_KEY"):
+            print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
+            sys.exit(1)
 
     run_mode = resolve_mode()
     limit = resolve_limit(run_mode)
