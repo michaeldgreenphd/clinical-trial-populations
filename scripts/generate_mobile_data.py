@@ -201,6 +201,92 @@ def main():
                 y["gn_nb"] += gnb / study_total
                 y["gn_tg"] += gtg / study_total
 
+    # ── FDA Oversight aggregates ──
+    # Mobile renders the FDA tab from these pre-computed counts since it never
+    # loads the per-study payload. Keep in sync with renderFdaOversight() in app.js.
+    def _is_drug(s): return s.get("is_fda_regulated_drug") is True
+    def _is_device(s): return s.get("is_fda_regulated_device") is True
+    def _is_unapproved(s): return s.get("is_unapproved_device") is True
+    def _is_nonreg(s):
+        return (s.get("is_fda_regulated_drug") is not True
+                and s.get("is_fda_regulated_device") is not True
+                and s.get("is_unapproved_device") is not True)
+
+    def _reporting_pct(subset, field):
+        if not subset:
+            return 0.0
+        rep = sum(1 for s in subset if (s.get(field) or {}).get("reported"))
+        return round(rep / len(subset) * 100, 1)
+
+    drug = [s for s in all_studies if _is_drug(s)]
+    device = [s for s in all_studies if _is_device(s)]
+    unapproved = [s for s in all_studies if _is_unapproved(s)]
+    nonreg = [s for s in all_studies if _is_nonreg(s)]
+
+    fda = {
+        "counts": {
+            "drug": len(drug),
+            "device": len(device),
+            "unapproved": len(unapproved),
+            "nonRegulated": len(nonreg),
+        },
+        "reporting": {
+            # Parallel arrays matching renderFdaOversight's category order:
+            # [Regulated Drug, Regulated Device, Unapproved Device, Non-Regulated]
+            "race": [_reporting_pct(drug, "race"), _reporting_pct(device, "race"),
+                     _reporting_pct(unapproved, "race"), _reporting_pct(nonreg, "race")],
+            "ethnicity": [_reporting_pct(drug, "ethnicity"), _reporting_pct(device, "ethnicity"),
+                          _reporting_pct(unapproved, "ethnicity"), _reporting_pct(nonreg, "ethnicity")],
+            "sex": [_reporting_pct(drug, "sex"), _reporting_pct(device, "sex"),
+                    _reporting_pct(unapproved, "sex"), _reporting_pct(nonreg, "sex")],
+        },
+    }
+
+    # ── Compact recent-studies list for mobile Studies tab ──
+    # Include the most recent ~500 studies by results_date with only the fields
+    # renderStudiesTable() reads. Drops raw_categories/subcategory_totals and
+    # full study_sites so the payload stays under ~300 KB gzipped.
+    RECENT_LIMIT = 500
+
+    def _demo(obj, totals_key):
+        if not obj or not obj.get("reported"):
+            return {"reported": False}
+        return {"reported": True, totals_key: obj.get(totals_key) or {}}
+
+    def _compact(s):
+        return {
+            "nct_id": s.get("nct_id"),
+            "brief_title": s.get("brief_title"),
+            "results_date": s.get("results_date"),
+            "start_date": s.get("start_date"),
+            "primary_completion_date": s.get("primary_completion_date"),
+            "completion_date": s.get("completion_date"),
+            "completion_to_report_days": s.get("completion_to_report_days"),
+            "start_to_report_days": s.get("start_to_report_days"),
+            "min_age": s.get("min_age"),
+            "max_age": s.get("max_age"),
+            "enrollment": s.get("enrollment"),
+            "enrollment_type": s.get("enrollment_type"),
+            "status": s.get("status"),
+            "why_stopped": s.get("why_stopped"),
+            "phase": s.get("phase"),
+            "is_fda_regulated_drug": s.get("is_fda_regulated_drug"),
+            "is_fda_regulated_device": s.get("is_fda_regulated_device"),
+            "is_unapproved_device": s.get("is_unapproved_device"),
+            "race": _demo(s.get("race"), "omb_totals"),
+            "ethnicity": _demo(s.get("ethnicity"), "omb_totals"),
+            "sex": _demo(s.get("sex"), "totals"),
+            "gender": _demo(s.get("gender"), "totals"),
+            # Geography details aren't shipped to mobile (study_sites is heavy
+            # and desktop-only). Leaving countries empty makes the cell show ✗
+            # rather than a ✓ that opens an empty modal.
+            "reference_count": len(s.get("references") or []),
+        }
+
+    with_results = [s for s in all_studies if s.get("results_date")]
+    with_results.sort(key=lambda s: s.get("results_date") or "", reverse=True)
+    recent_studies = [_compact(s) for s in with_results[:RECENT_LIMIT]]
+
     # ── Build summary JSON ──
     summary = {
         "extracted_at": extracted_at,
@@ -219,6 +305,8 @@ def main():
         "raceSubcategories": dict(race_subcats),
         "ethnicitySubcategories": dict(eth_subcats),
         "byYear": {yr: dict(vals) for yr, vals in sorted(years.items())},
+        "fda": fda,
+        "recentStudies": recent_studies,
     }
 
     path = "data/dashboard-summary.json"

@@ -1034,6 +1034,36 @@ footer p {
         padding: 0.5rem;
     }
 
+    /* Pull arrow buttons fully into the viewport and bump contrast so they're
+       obvious on mobile. Tap-target stays at 32x48 to satisfy touch guidelines. */
+    .table-scroll-left {
+        left: 2px;
+    }
+
+    .table-scroll-right {
+        right: 2px;
+    }
+
+    .table-scroll-btn {
+        opacity: 0.85;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    /* Drag bar is mouse-only; swap its label for a swipe hint on mobile. */
+    .table-drag-bar {
+        cursor: default;
+    }
+
+    /* Hide the literal "Drag to scroll" text and replace with a swipe hint. */
+    .drag-bar-label {
+        font-size: 0;
+    }
+
+    .drag-bar-label::before {
+        content: 'Swipe or tap arrows to scroll';
+        font-size: 0.65rem;
+    }
+
     header h1 {
         font-size: 1.5rem;
     }
