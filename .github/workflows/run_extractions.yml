@@ -64,8 +64,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: echo "Dummy FDA log for testing Drive upload" > ${{ github.workspace }}/fda_extraction_log.txt
-        # run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
+        run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
 
       - name: Upload FDA Logs to Google Drive via OAuth
         if: always()
@@ -87,8 +86,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: echo "Dummy AIML log for testing Drive upload" > ${{ github.workspace }}/aiml_extraction_log.txt
-        # run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
+        run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
 
       - name: Upload AI/ML Logs to Google Drive via OAuth
         if: always()
@@ -110,8 +108,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
-        run: echo "Dummy Trials log for testing Drive upload" > ${{ github.workspace }}/trials_extraction_log.txt
-        # run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
+        run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
 
       - name: Upload Trials Logs to Google Drive via OAuth
         if: always()
