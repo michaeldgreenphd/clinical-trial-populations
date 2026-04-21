@@ -21,6 +21,14 @@ on:
         options:
           - pilot-test
           - full-extraction
+      ai_provider:
+        description: 'Which AI provider to use *'
+        required: true
+        type: choice
+        default: anthropic
+        options:
+          - anthropic
+          - vertex_ai
 
 jobs:
   extract:
@@ -43,10 +51,18 @@ jobs:
       - name: Install dependencies
         run: pip install -r scripts/extraction/requirements.txt
 
+      - name: Authenticate Vertex AI
+        if: ${{ github.event.inputs.ai_provider == 'vertex_ai' }}
+        run: |
+          echo '${{ secrets.VERTEX_CREDENTIALS_JSON }}' > vertex_key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/vertex_key.json" >> $GITHUB_ENV
+          echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> $GITHUB_ENV
+
       - name: Run FDA Demographics Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'fda-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: echo "Dummy FDA log for testing Drive upload" > ${{ github.workspace }}/fda_extraction_log.txt
         # run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
@@ -69,6 +85,7 @@ jobs:
         if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: echo "Dummy AIML log for testing Drive upload" > ${{ github.workspace }}/aiml_extraction_log.txt
         # run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
@@ -91,6 +108,7 @@ jobs:
         if: inputs.pipeline == 'all' || inputs.pipeline == 'trials-lit-only'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AI_PROVIDER: ${{ inputs.ai_provider }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: echo "Dummy Trials log for testing Drive upload" > ${{ github.workspace }}/trials_extraction_log.txt
         # run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
@@ -105,6 +123,20 @@ jobs:
           CHILD_FOLDER: Trials_Literature_Extractions
           FILE_PATH: ${{ github.workspace }}/trials_extraction_log.txt
           FILE_NAME: ${{ env.CURRENT_DATE }}_Trials_extraction_log.txt
+        run: |
+          pip install requests
+          python scripts/gdrive_upload.py
+
+      - name: Upload Token Cost Tracker to Google Drive via OAuth
+        if: always() && hashFiles('data/token_costs.csv') != ''
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: Token_Cost_Tracking
+          FILE_PATH: ${{ github.workspace }}/data/token_costs.csv
+          FILE_NAME: ${{ env.CURRENT_DATE }}_token_costs.csv
         run: |
           pip install requests
           python scripts/gdrive_upload.py

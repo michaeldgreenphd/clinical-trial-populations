@@ -32,6 +32,11 @@ import time
 import anthropic
 import pdfplumber
 
+# Make scripts/utils/cost_tracker.py importable when this file runs from the
+# repo root (the extraction scripts are launched via `python scripts/...`).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils.cost_tracker import log_api_cost
+
 PILOT_LIMIT = 2
 PILOT_SIZE = 9
 PILOT_PDF_DIR = "data/pilot_AIML_manuscripts"
@@ -42,13 +47,30 @@ OUTPUT_METRICS = "data/lit_token_metrics.json"
 # Total studies in the full AACT dataset (for scaling projections)
 TOTAL_STUDIES = 53841
 
+# Pipeline identifier recorded against every row in data/token_costs.csv.
+PIPELINE_NAME = "aiml-lit"
+AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
+
 MODELS = [
     {"key": "haiku_4_5",  "id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
     {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
 
-client = anthropic.Anthropic()
+
+def _make_client():
+    """Route to the Vertex-backed Anthropic client when AI_PROVIDER=vertex_ai;
+    otherwise use the standard Anthropic API client."""
+    if AI_PROVIDER == "vertex_ai":
+        from anthropic import AnthropicVertex
+        return AnthropicVertex(
+            project_id=os.environ.get("GCP_PROJECT_ID"),
+            region="us-east5",
+        )
+    return anthropic.Anthropic()
+
+
+client = _make_client()
 
 EXTRACTION_PROMPT = """\
 You are a clinical data extractor specializing in published AI/ML validation studies. Record demographic, socioeconomic, clinical-context, and functional-status data via the `record_extracted_data` tool.
@@ -250,6 +272,13 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
     }
+    log_api_cost(
+        provider=AI_PROVIDER,
+        pipeline_name=PIPELINE_NAME,
+        input_tokens=token_usage["input_tokens"],
+        output_tokens=token_usage["output_tokens"],
+        model=model_id,
+    )
     data: dict = {"error": "No tool call in response"}
     for block in response.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "record_extracted_data":
