@@ -36,6 +36,7 @@ import pdfplumber
 # repo root (the extraction scripts are launched via `python scripts/...`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
+from utils.model_routing import to_vertex_model
 
 PILOT_LIMIT = 2
 PILOT_SIZE = 9
@@ -258,8 +259,13 @@ def extract_text_from_local_pdf(path: str) -> str | None:
 def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     """Run extraction via tool use. Returns (data, token_usage). The tool
     call's `input` IS the evidence-grounded payload — no JSON parsing."""
+    # Vertex AI publishes Claude under `@<version>`-style IDs rather than the
+    # trailing-date IDs used by the direct Anthropic API, so translate before
+    # the call. Cost logging keeps the original (canonical) Anthropic ID so
+    # rows stay comparable across providers.
+    effective_model = to_vertex_model(model_id) if AI_PROVIDER == "vertex_ai" else model_id
     response = client.messages.create(
-        model=model_id,
+        model=effective_model,
         max_tokens=4000,
         tools=[EXTRACTION_TOOL],
         tool_choice={"type": "tool", "name": "record_extracted_data"},
