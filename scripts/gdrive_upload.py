@@ -46,17 +46,34 @@ def get_access_token() -> str:
 
 
 def resolve_or_create_child(headers: dict, parent_id: str, child_name: str) -> str:
+    # Escape any apostrophes in the folder name so the Drive query parser
+    # doesn't truncate it mid-literal.
+    escaped_name = child_name.replace("'", r"\'")
     query = (
-        f"name = '{child_name}' and "
+        f"name = '{escaped_name}' and "
         f"mimeType = '{FOLDER_MIME}' and "
         f"'{parent_id}' in parents and trashed = false"
     )
+    # supportsAllDrives / includeItemsFromAllDrives cover the case where the
+    # shared parent's ownership differs from the OAuth user's — without them
+    # the folder the script created on a previous run can fail to show up in
+    # the search, so every run creates a duplicate.
     search = requests.get(
         DRIVE_FILES_URL,
         headers=headers,
-        params={"q": query, "fields": "files(id, name)"},
+        params={
+            "q": query,
+            "fields": "files(id, name, parents)",
+            "spaces": "drive",
+            "supportsAllDrives": "true",
+            "includeItemsFromAllDrives": "true",
+        },
     )
+    if search.status_code >= 300:
+        print(f"Folder search failed ({search.status_code}):", search.text)
+        sys.exit(1)
     matches = search.json().get("files", [])
+    print(f"Search for {child_name!r} in parent {parent_id}: {len(matches)} match(es)")
     if matches:
         child_id = matches[0]["id"]
         print(f"Using existing child folder {child_name}: {child_id}")
@@ -65,6 +82,7 @@ def resolve_or_create_child(headers: dict, parent_id: str, child_name: str) -> s
     create = requests.post(
         DRIVE_FILES_URL,
         headers={**headers, "Content-Type": "application/json"},
+        params={"supportsAllDrives": "true"},
         data=json.dumps({
             "name": child_name,
             "mimeType": FOLDER_MIME,
@@ -86,6 +104,7 @@ def upload_into_folder(headers: dict, folder_id: str, file_name: str, file_path:
     create = requests.post(
         DRIVE_FILES_URL,
         headers={**headers, "Content-Type": "application/json"},
+        params={"supportsAllDrives": "true"},
         data=json.dumps({"name": file_name, "parents": [folder_id]}),
     )
     if create.status_code >= 300:
@@ -101,6 +120,7 @@ def upload_into_folder(headers: dict, folder_id: str, file_name: str, file_path:
     patch = requests.patch(
         DRIVE_MEDIA_URL.format(file_id=file_id),
         headers={**headers, "Content-Type": "application/octet-stream"},
+        params={"supportsAllDrives": "true"},
         data=content,
     )
     if patch.status_code >= 300:
