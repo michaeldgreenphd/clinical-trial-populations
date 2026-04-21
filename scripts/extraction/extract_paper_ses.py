@@ -56,7 +56,7 @@ TOTAL_STUDIES = 53841
 # Pipeline identifier recorded against every row in data/token_costs.csv.
 PIPELINE_NAME = "aiml-lit"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
-GEMINI_LOCATION = "us-central1"
+GEMINI_LOCATION = "global"
 
 # Keep per-provider model lists side by side so the active one can be chosen
 # at import time; downstream code never has to branch on provider when
