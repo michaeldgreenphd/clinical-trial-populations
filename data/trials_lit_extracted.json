@@ -24,7 +24,7 @@
           },
           "tier": "Tier 3",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-haiku-4-5@20251001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
@@ -42,7 +42,7 @@
           },
           "tier": "Tier 3",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
@@ -60,7 +60,7 @@
           },
           "tier": "Tier 3",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-opus-4-7` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
@@ -93,7 +93,7 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-haiku-4-5@20251001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
@@ -111,7 +111,7 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
@@ -129,7 +129,7 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "error": "('File /home/runner/work/clinical-trial-populations/clinical-trial-populations/vertex_key.json is not a valid json file.', JSONDecodeError('Expecting value: line 2 column 1 (char 1)'))"
+            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-opus-4-7` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
           }
         },
         "input_tokens": 0,
