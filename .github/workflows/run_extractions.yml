@@ -28,7 +28,7 @@ on:
         default: anthropic
         options:
           - anthropic
-          - vertex_ai
+          - vertex_gemini
 
 jobs:
   extract:
@@ -52,7 +52,7 @@ jobs:
         run: pip install -r scripts/extraction/requirements.txt
 
       - name: Authenticate Vertex AI
-        if: ${{ github.event.inputs.ai_provider == 'vertex_ai' }}
+        if: ${{ github.event.inputs.ai_provider == 'vertex_gemini' }}
         run: |
           echo '${{ secrets.VERTEX_CREDENTIALS_JSON }}' > vertex_key.json
           echo "GOOGLE_APPLICATION_CREDENTIALS=${{ github.workspace }}/vertex_key.json" >> $GITHUB_ENV

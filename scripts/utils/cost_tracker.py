@@ -1,9 +1,9 @@
-"""Append-only CSV logger for per-call Claude API token usage and cost.
+"""Append-only CSV logger for per-call LLM token usage and cost.
 
-Extraction pipelines call log_api_cost() after every successful
-messages.create() so we can compare spend between the direct Anthropic API
-and Anthropic-on-Vertex during the Vertex pilot. Rows land in
-data/token_costs.csv; the file is created with a header row on first write.
+Extraction pipelines call log_api_cost() after every successful model call —
+Anthropic messages.create() or Vertex Gemini generate_content() — so we can
+compare spend across providers. Rows land in data/token_costs.csv; the file is
+created with a header row on first write.
 """
 import csv
 import os
@@ -23,10 +23,20 @@ HEADERS = [
 # Per-million-token pricing keyed by model family. Sonnet is the default
 # fallback when the model string doesn't match a known family — this matches
 # the $3 / $15 rates the pilot spec calls out for Sonnet.
+#
+# Order matters: more specific keys come first so "gemini-3.1-flash-lite"
+# matches before the "gemini-3.1-flash" substring (the iteration returns the
+# first hit in insertion order).
+#
+# Gemini 3.1 Preview pricing sourced from the Vertex AI pricing page
+# (https://cloud.google.com/vertex-ai/generative-ai/pricing, Standard tier).
 _PRICING = {
-    "haiku":  (1.00,   5.00),
-    "sonnet": (3.00,  15.00),
-    "opus":  (15.00,  75.00),
+    "gemini-3.1-flash-lite": (0.25,  1.50),
+    "gemini-3.1-flash":      (0.50,  3.00),
+    "gemini-3.1-pro":        (2.00, 12.00),
+    "haiku":                 (1.00,  5.00),
+    "sonnet":                (3.00, 15.00),
+    "opus":                 (15.00, 75.00),
 }
 
 
