@@ -30,6 +30,7 @@ import csv
 import glob
 import json
 import os
+import re
 import sys
 import time
 
@@ -52,6 +53,7 @@ OUTPUT_METRICS = "data/fda_token_metrics.json"
 # we can slice spend by stream (and by provider) when comparing runs.
 PIPELINE_NAME = "fda"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
+GEMINI_VERSION = os.environ.get("GEMINI_VERSION", "gemini-3-preview")
 GEMINI_LOCATION = "global"
 
 # Keep per-provider model lists side by side so the active one can be chosen
@@ -62,14 +64,26 @@ _ANTHROPIC_MODELS = [
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
     {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
-# Gemini 3.1 Preview IDs + Standard-tier prices per Vertex AI pricing page
-# (https://cloud.google.com/vertex-ai/generative-ai/pricing). The three tiers
-# line up small→large with the Haiku/Sonnet/Opus tiers above.
-_GEMINI_MODELS = [
+# Gemini model families. `gemini-3-preview` uses the 3.x preview models on the
+# global endpoint; `gemini-2.5-stable` falls back to the GA 2.5 family when
+# Preview capacity is exhausted. Note the middle tier ID is strictly
+# `gemini-3-flash-preview` (no `.1`) — the Flash-Lite and Pro tiers keep the
+# `3.1` branding. Standard-tier prices per Vertex AI pricing page
+# (https://cloud.google.com/vertex-ai/generative-ai/pricing).
+_GEMINI_3_PREVIEW_MODELS = [
     {"key": "haiku_4_5",  "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
-    {"key": "sonnet_4_6", "id": "gemini-3.1-flash-preview",      "label": "Gemini 3.1 Flash",      "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
+    {"key": "sonnet_4_6", "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
     {"key": "opus_4_7",   "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
 ]
+_GEMINI_2_5_STABLE_MODELS = [
+    {"key": "haiku_4_5",  "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash-Lite", "input_cost_per_m": 0.10, "output_cost_per_m": 0.40},
+    {"key": "sonnet_4_6", "id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "input_cost_per_m": 0.30, "output_cost_per_m": 2.50},
+    {"key": "opus_4_7",   "id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "input_cost_per_m": 1.25, "output_cost_per_m": 10.00},
+]
+_GEMINI_MODELS = (
+    _GEMINI_2_5_STABLE_MODELS if GEMINI_VERSION == "gemini-2.5-stable"
+    else _GEMINI_3_PREVIEW_MODELS
+)
 MODELS = _GEMINI_MODELS if AI_PROVIDER == "vertex_gemini" else _ANTHROPIC_MODELS
 
 
@@ -97,6 +111,8 @@ The manuscript text is delimited by `--- PAGE N ---` markers. Every evidence quo
 Before calling the extraction tool, use a <thinking> block to locate the sections containing the demographic and clinical context data. Specifically, scan the "SUMMARY OF CLINICAL INFORMATION", "BACKGROUND", "INDICATIONS FOR USE", and "INTENDED USE" sections for the clinical context, and the validation / cohort description sections for demographics.
 
 CRITICAL: The "Explicit Unknown" category is a specific reported value, completely distinct from "Not Reported" (missing) data. If researchers explicitly state a value is unknown, unrecorded, or declined, record the count under "unknown". If they fail to mention the category entirely, record "Not Reported".
+
+EVIDENCE-FIRST RULE: Every integer field has a corresponding `<field>_evidence` sibling string (e.g. `total_participants_evidence` next to `total_participants`). You MUST emit the `_evidence` string — a verbatim quote from the source text that establishes the count — BEFORE you commit to the integer itself. If the document is silent about that number, leave `_evidence` as an empty string and record "Not Reported" on the integer field. Do not invent a number for which you cannot first quote a supporting passage.
 
 For every field, populate:
 - `value`: the extracted value (or the literal string "Not Reported" for scalars / empty list for list-typed fields when the document is silent).
@@ -135,12 +151,40 @@ _EV_INT = {"type": ["integer", "string"], "description": "Extracted integer, or 
 _EV_LIST = {"type": "array", "items": {"type": "string"}, "description": "Extracted list of strings; empty array if none."}
 
 
+def _evidence_schema(field_name: str, value_noun: str) -> dict:
+    """Sibling `{field_name}_evidence` string schema. The model is required to
+    emit this BEFORE the numeric field, so any integer it subsequently records
+    is grounded in the quote it just wrote. Empty string == 'Not Reported'."""
+    return {
+        "type": "string",
+        "description": (
+            f"Verbatim quote from the source text that establishes the {value_noun}. "
+            f"You MUST populate this field BEFORE deciding the numeric value of `{field_name}`. "
+            "Empty string if the document is silent on this value."
+        ),
+    }
+
+
+def _with_int_evidence(props: dict, field: str, description: str, value_noun: str | None = None) -> dict:
+    """Insert `{field}_evidence` immediately before `field` in a properties dict."""
+    noun = value_noun or field.replace("_", " ")
+    props[f"{field}_evidence"] = _evidence_schema(field, noun)
+    props[field] = _ev(description, _EV_INT)
+    return props
+
+
 def _breakdown(description: str, fields: list[str]) -> dict:
+    properties: dict = {}
+    required: list[str] = []
+    for f in fields:
+        pretty = f.replace("_", " ")
+        _with_int_evidence(properties, f, f"Count of {pretty}", f"count of {pretty}")
+        required.extend([f"{f}_evidence", f])
     return {
         "type": "object",
         "description": description,
-        "properties": {f: _ev(f"Count of {f.replace('_', ' ')}", _EV_INT) for f in fields},
-        "required": list(fields),
+        "properties": properties,
+        "required": required,
     }
 
 
@@ -156,6 +200,7 @@ EXTRACTION_TOOL = {
             "clinical_study_design": _ev("Concise 1-2 sentence summary of the validation study design.", _EV_STR),
             "device_name": _ev("Device name as stated in the summary.", _EV_STR),
             "panel": _ev("Medical specialty / review panel.", _EV_STR),
+            "total_participants_evidence": _evidence_schema("total_participants", "total number of participants in the validation cohort"),
             "total_participants": _ev("Total N in the validation cohort.", _EV_INT),
             "cited_clinical_studies": {
                 "type": "object",
@@ -171,9 +216,10 @@ EXTRACTION_TOOL = {
                 "properties": {
                     "us_states": _ev("US states represented in the validation cohort.", _EV_LIST),
                     "countries": _ev("Countries represented in the validation cohort.", _EV_LIST),
+                    "total_sites_evidence": _evidence_schema("total_sites", "total number of clinical sites"),
                     "total_sites": _ev("Total number of clinical sites.", _EV_INT),
                 },
-                "required": ["us_states", "countries", "total_sites"],
+                "required": ["us_states", "countries", "total_sites_evidence", "total_sites"],
             },
             "sex": _breakdown("Participant sex breakdown.", ["female", "male", "unknown"]),
             "gender": _breakdown("Participant gender identity breakdown.",
@@ -383,13 +429,44 @@ def resolve_limit() -> int | None:
     return PILOT_LIMIT
 
 
+# Pilot PDFs are named like `2026-04-16_DEN140025.pdf` or `2026-04-16_K253091.pdf`:
+# a fetch-date prefix, underscore, then the FDA submission number. The metadata
+# CSV is keyed by submission number alone, so we strip the date prefix before
+# looking up each PDF.
+_SUBMISSION_RE = re.compile(r"([KPD][A-Z]*\d+)", re.IGNORECASE)
+
+
+def _submission_number_from_path(path: str) -> str:
+    stem = os.path.splitext(os.path.basename(path))[0]
+    m = _SUBMISSION_RE.search(stem)
+    return (m.group(1) if m else stem).upper()
+
+
+def _year_from_decision_date(raw: str) -> int | None:
+    """Pull a 4-digit year out of whatever the `Date of Final Decision` cell
+    holds. The CSV uses `MM/DD/YY` (e.g. `12/30/25`) for recent rows; older
+    rows may be ISO `YYYY-MM-DD`. Returns a full year (20YY for 2-digit input)
+    or None if no digits can be recovered."""
+    raw = (raw or "").strip()
+    if not raw:
+        return None
+    iso = re.match(r"(\d{4})-\d{1,2}-\d{1,2}", raw)
+    if iso:
+        return int(iso.group(1))
+    us = re.match(r"\d{1,2}/\d{1,2}/(\d{2,4})", raw)
+    if us:
+        y = int(us.group(1))
+        return 2000 + y if y < 100 else y
+    return None
+
+
 def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str]]:
     """Return (submission_number, pdf_path) pairs sorted by name."""
     if not os.path.isdir(pdf_dir):
         print(f"Error: pilot PDF directory not found: {pdf_dir}", file=sys.stderr)
         return []
     paths = sorted(glob.glob(os.path.join(pdf_dir, "*.pdf")))
-    return [(os.path.splitext(os.path.basename(p))[0].upper(), p) for p in paths]
+    return [(_submission_number_from_path(p), p) for p in paths]
 
 
 def main():
@@ -430,19 +507,29 @@ def main():
         row = metadata.get(sub_num, {})
         device_name = row.get("Device", "Unknown")
         panel = row.get("Panel (Lead)", "Unknown")
+        company = row.get("Company") or None
         pdf_url = row.get("pdf_url") or None
+        decision_date = row.get("Date of Final Decision") or None
+        decision_year = _year_from_decision_date(decision_date or "")
         print(f"[{i+1}/{len(pilot)}] {sub_num} — {device_name}")
         print(f"  ↪ {pdf_path}")
+
+        base_record = {
+            "submission_number": sub_num,
+            "device_name": device_name,
+            "panel": panel,
+            "company": company,
+            "source_url": pdf_url,
+            "decision_date": decision_date,
+            "decision_year": decision_year,
+            "local_pdf_path": pdf_path,
+        }
 
         text = extract_text_from_local_pdf(pdf_path)
         if not text:
             print(f"  ✗ No text from PDF")
             results.append({
-                "submission_number": sub_num,
-                "device_name": device_name,
-                "panel": panel,
-                "source_url": pdf_url,
-                "local_pdf_path": pdf_path,
+                **base_record,
                 "extraction_status": "pdf_failed",
                 "models": {},
             })
@@ -481,11 +568,7 @@ def main():
             time.sleep(1)
 
         results.append({
-            "submission_number": sub_num,
-            "device_name": device_name,
-            "panel": panel,
-            "source_url": pdf_url,
-            "local_pdf_path": pdf_path,
+            **base_record,
             "extraction_status": "success",
             "models": model_results,
         })

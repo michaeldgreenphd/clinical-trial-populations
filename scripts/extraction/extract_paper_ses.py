@@ -56,6 +56,7 @@ TOTAL_STUDIES = 53841
 # Pipeline identifier recorded against every row in data/token_costs.csv.
 PIPELINE_NAME = "aiml-lit"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
+GEMINI_VERSION = os.environ.get("GEMINI_VERSION", "gemini-3-preview")
 GEMINI_LOCATION = "global"
 
 # Keep per-provider model lists side by side so the active one can be chosen
@@ -66,14 +67,26 @@ _ANTHROPIC_MODELS = [
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
     {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
-# Gemini 3.1 Preview IDs + Standard-tier prices per Vertex AI pricing page
-# (https://cloud.google.com/vertex-ai/generative-ai/pricing). The three tiers
-# line up small→large with the Haiku/Sonnet/Opus tiers above.
-_GEMINI_MODELS = [
+# Gemini model families. `gemini-3-preview` uses the 3.x preview models on the
+# global endpoint; `gemini-2.5-stable` falls back to the GA 2.5 family when
+# Preview capacity is exhausted. Note the middle tier ID is strictly
+# `gemini-3-flash-preview` (no `.1`) — the Flash-Lite and Pro tiers keep the
+# `3.1` branding. Standard-tier prices per Vertex AI pricing page
+# (https://cloud.google.com/vertex-ai/generative-ai/pricing).
+_GEMINI_3_PREVIEW_MODELS = [
     {"key": "haiku_4_5",  "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
-    {"key": "sonnet_4_6", "id": "gemini-3.1-flash-preview",      "label": "Gemini 3.1 Flash",      "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
+    {"key": "sonnet_4_6", "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
     {"key": "opus_4_7",   "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
 ]
+_GEMINI_2_5_STABLE_MODELS = [
+    {"key": "haiku_4_5",  "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash-Lite", "input_cost_per_m": 0.10, "output_cost_per_m": 0.40},
+    {"key": "sonnet_4_6", "id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "input_cost_per_m": 0.30, "output_cost_per_m": 2.50},
+    {"key": "opus_4_7",   "id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "input_cost_per_m": 1.25, "output_cost_per_m": 10.00},
+]
+_GEMINI_MODELS = (
+    _GEMINI_2_5_STABLE_MODELS if GEMINI_VERSION == "gemini-2.5-stable"
+    else _GEMINI_3_PREVIEW_MODELS
+)
 MODELS = _GEMINI_MODELS if AI_PROVIDER == "vertex_gemini" else _ANTHROPIC_MODELS
 
 
@@ -104,6 +117,8 @@ CRITICAL: The "Explicit Unknown" category is a specific reported value, complete
 
 LINKAGE CRITICAL: We must link this paper to ClinicalTrials.gov if possible. Scan the text for any NCT identifier (format: NCT followed by 8 digits) and place them under `associated_nct_ids`.
 
+EVIDENCE-FIRST RULE: Every integer field has a corresponding `<field>_evidence` sibling string (e.g. `total_participants_evidence` next to `total_participants`). You MUST emit the `_evidence` string — a verbatim quote from the source text that establishes the count — BEFORE you commit to the integer itself. If the document is silent about that number, leave `_evidence` as an empty string and record "Not Reported" on the integer field. Do not invent a number for which you cannot first quote a supporting passage.
+
 For every field, populate:
 - `value`: the extracted value (or the literal string "Not Reported" for scalars / empty list for list-typed fields when the document is silent).
 - `exact_quote`: a verbatim excerpt from the document that proves the value (empty string when "Not Reported").
@@ -129,12 +144,33 @@ _EV_INT = {"type": ["integer", "string"], "description": "Extracted integer, or 
 _EV_LIST = {"type": "array", "items": {"type": "string"}, "description": "Extracted list of strings; empty array if none."}
 
 
+def _evidence_schema(field_name: str, value_noun: str) -> dict:
+    """Sibling `{field_name}_evidence` string schema. The model is required to
+    emit this BEFORE the numeric field, so any integer it subsequently records
+    is grounded in the quote it just wrote. Empty string == 'Not Reported'."""
+    return {
+        "type": "string",
+        "description": (
+            f"Verbatim quote from the source text that establishes the {value_noun}. "
+            f"You MUST populate this field BEFORE deciding the numeric value of `{field_name}`. "
+            "Empty string if the document is silent on this value."
+        ),
+    }
+
+
 def _breakdown(description: str, fields: list[str]) -> dict:
+    properties: dict = {}
+    required: list[str] = []
+    for f in fields:
+        pretty = f.replace("_", " ")
+        properties[f"{f}_evidence"] = _evidence_schema(f, f"count of {pretty}")
+        properties[f] = _ev(f"Count of {pretty}", _EV_INT)
+        required.extend([f"{f}_evidence", f])
     return {
         "type": "object",
         "description": description,
-        "properties": {f: _ev(f"Count of {f.replace('_', ' ')}", _EV_INT) for f in fields},
-        "required": list(fields),
+        "properties": properties,
+        "required": required,
     }
 
 
@@ -147,6 +183,7 @@ EXTRACTION_TOOL = {
             "associated_nct_ids": _ev("ClinicalTrials.gov NCT identifiers referenced in the paper.", _EV_LIST),
             "target_patient_age_range": _ev("Inclusion-criteria age range, verbatim when possible.", _EV_STR),
             "study_design": _ev("Concise 1-2 sentence summary of the validation study design.", _EV_STR),
+            "total_participants_evidence": _evidence_schema("total_participants", "total number of participants in the validation cohort"),
             "total_participants": _ev("Total N in the validation cohort.", _EV_INT),
             "age": _ev("String summary of how age is reported (e.g., 'Mean 65.2 (SD 5.1)').", _EV_STR),
             "geography": {
@@ -154,9 +191,10 @@ EXTRACTION_TOOL = {
                 "properties": {
                     "us_states": _ev("US states represented.", _EV_LIST),
                     "countries": _ev("Countries represented.", _EV_LIST),
+                    "total_sites_evidence": _evidence_schema("total_sites", "total number of clinical sites"),
                     "total_sites": _ev("Total number of clinical sites.", _EV_INT),
                 },
-                "required": ["us_states", "countries", "total_sites"],
+                "required": ["us_states", "countries", "total_sites_evidence", "total_sites"],
             },
             "sex": _breakdown("Participant sex breakdown.", ["female", "male", "unknown"]),
             "gender": _breakdown("Participant gender identity breakdown.",
