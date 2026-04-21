@@ -388,7 +388,11 @@ function getStudyPediatricStatus(study) {
 document.addEventListener('DOMContentLoaded', async () => {
     try {
         updateLoadingProgress(5, 'Preparing dashboard...');
-        await loadConditionOntology();
+        // Condition ontology is only needed by the desktop filter dropdown.
+        // Mobile doesn't render filters, so skip the fetch to save bandwidth.
+        if (!isMobileDevice) {
+            await loadConditionOntology();
+        }
         updateLoadingProgress(10, 'Downloading clinical trial data...');
         await loadData();
         updateLoadingProgress(78, 'Initializing filters and controls...');
@@ -482,6 +486,13 @@ async function fetchAndDecompress(url) {
 // Called on-demand when a user opens a study detail modal.
 async function loadDetailData() {
     if (detailsLoaded) return;
+    // Details aren't published for mobile; fetching would crash low-memory
+    // devices and the files may not even exist. Mark as loaded so callers
+    // fall through to whatever compact data is already in `data`.
+    if (isMobileDevice) {
+        detailsLoaded = true;
+        return;
+    }
     try {
         const [d1, d2] = await Promise.all([
             fetchAndDecompress('data/details.part1.json.gz'),
@@ -533,12 +544,15 @@ async function loadData(date) {
             const resp = await fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
             if (resp.ok) {
                 dashboardSummary = await resp.json();
-                data = [];  // empty — charts will use dashboardSummary instead
+                // Use the compact recent-studies list so the Studies tab renders
+                // with real rows + horizontal scroll. Full 77K dataset + details
+                // files aren't served to mobile (would crash low-memory devices).
+                data = dashboardSummary.recentStudies || [];
                 const dateLabel = dashboardSummary.extracted_at
                     ? new Date(dashboardSummary.extracted_at).toLocaleDateString()
                     : '';
                 document.getElementById('last-updated').textContent = dateLabel;
-                console.log(`✓ Mobile summary loaded: ${dashboardSummary.totalStudies} studies pre-aggregated`);
+                console.log(`✓ Mobile summary loaded: ${dashboardSummary.totalStudies} studies pre-aggregated (${data.length} recent shown in table)`);
                 return;
             }
             console.warn('Mobile summary not available, falling back to full data');
@@ -834,8 +848,10 @@ function disableFiltersForMobile() {
         filterSection.prepend(note);
     }
 
-    // Show "desktop only" message on Studies and Geography tabs when clicked
-    document.querySelectorAll('.tab[data-tab="studies"], .tab[data-tab="geography"]').forEach(tab => {
+    // Show "desktop only" message on the Geography tab (still desktop-only —
+    // needs full study_sites data). The Studies tab now renders the compact
+    // recent-studies list with horizontal scroll, so no placeholder there.
+    document.querySelectorAll('.tab[data-tab="geography"]').forEach(tab => {
         tab.addEventListener('click', () => {
             const target = tab.dataset.tab;
             const content = document.getElementById(`${target}-content`) || document.querySelector(`.tab-content[data-tab="${target}"]`);
@@ -849,6 +865,18 @@ function disableFiltersForMobile() {
             }
         });
     });
+
+    // Add a note above the Studies table explaining the recent-N limit.
+    const readyContent = document.getElementById('studies-ready-content');
+    if (readyContent && !readyContent.querySelector('.mobile-studies-note')) {
+        const total = dashboardSummary?.totalStudies || 0;
+        const shown = (dashboardSummary?.recentStudies || []).length;
+        const note = document.createElement('p');
+        note.className = 'mobile-studies-note note';
+        note.style.cssText = 'background:#eff6ff;border-left:3px solid #3b82f6;padding:0.5rem 0.75rem;margin:0 0 0.75rem;font-size:0.85rem;color:#1e40af;';
+        note.textContent = `Showing ${shown.toLocaleString()} most recent studies (of ${total.toLocaleString()} total). Full table with search and filters available on desktop.`;
+        readyContent.prepend(note);
+    }
 }
 
 function initFilters() {
@@ -5206,39 +5234,56 @@ function renderGeoReportingTrendChart(studies) {
 // ── FDA Oversight Tab ──
 
 function renderFdaOversight(filtered) {
-    // Compute counts for each regulatory category
-    const drugTrials = filtered.filter(s => s.is_fda_regulated_drug === true);
-    const deviceTrials = filtered.filter(s => s.is_fda_regulated_device === true);
-    const unapprovedTrials = filtered.filter(s => s.is_unapproved_device === true);
+    // Mobile path: the compact recentStudies list is only ~500 trials, so
+    // computing FDA aggregates from `filtered` would be wildly unrepresentative.
+    // Use the pre-aggregated counts baked into dashboard-summary.json instead.
+    const useSummary = !!(dashboardSummary && dashboardSummary.fda);
 
-    // Non-regulated: none of the three FDA flags are true
-    const nonRegulatedTrials = filtered.filter(s =>
-        s.is_fda_regulated_drug !== true &&
-        s.is_fda_regulated_device !== true &&
-        s.is_unapproved_device !== true
-    );
+    const categories = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated'];
+    const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
+
+    let counts, pctsByField;
+    if (useSummary) {
+        const f = dashboardSummary.fda;
+        counts = [f.counts.drug, f.counts.device, f.counts.unapproved, f.counts.nonRegulated];
+        pctsByField = {
+            race: f.reporting.race,
+            ethnicity: f.reporting.ethnicity,
+            sex: f.reporting.sex,
+        };
+    } else {
+        const drugTrials = filtered.filter(s => s.is_fda_regulated_drug === true);
+        const deviceTrials = filtered.filter(s => s.is_fda_regulated_device === true);
+        const unapprovedTrials = filtered.filter(s => s.is_unapproved_device === true);
+        const nonRegulatedTrials = filtered.filter(s =>
+            s.is_fda_regulated_drug !== true &&
+            s.is_fda_regulated_device !== true &&
+            s.is_unapproved_device !== true
+        );
+        counts = [drugTrials.length, deviceTrials.length, unapprovedTrials.length, nonRegulatedTrials.length];
+
+        function reportingPct(subset, field) {
+            if (subset.length === 0) return 0;
+            const reported = subset.filter(s => s[field]?.reported).length;
+            return parseFloat(((reported / subset.length) * 100).toFixed(1));
+        }
+        const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulatedTrials];
+        pctsByField = {
+            race: subsets.map(s => reportingPct(s, 'race')),
+            ethnicity: subsets.map(s => reportingPct(s, 'ethnicity')),
+            sex: subsets.map(s => reportingPct(s, 'sex')),
+        };
+    }
 
     // Update stat cards
     const drugEl = document.getElementById('fda-drug-count');
     const deviceEl = document.getElementById('fda-device-count');
     const unapprovedEl = document.getElementById('fda-unapproved-count');
     const nonRegEl = document.getElementById('fda-nonregulated-count');
-    if (drugEl) drugEl.textContent = drugTrials.length.toLocaleString();
-    if (deviceEl) deviceEl.textContent = deviceTrials.length.toLocaleString();
-    if (unapprovedEl) unapprovedEl.textContent = unapprovedTrials.length.toLocaleString();
-    if (nonRegEl) nonRegEl.textContent = nonRegulatedTrials.length.toLocaleString();
-
-    // Helper: compute % of trials in a subset that report a given field
-    function reportingPct(subset, field) {
-        if (subset.length === 0) return 0;
-        const reported = subset.filter(s => s[field]?.reported).length;
-        return parseFloat(((reported / subset.length) * 100).toFixed(1));
-    }
-
-    // Categories for comparison (nonRegulatedTrials is consistent with the stat card)
-    const categories = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated'];
-    const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulatedTrials];
-    const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
+    if (drugEl) drugEl.textContent = counts[0].toLocaleString();
+    if (deviceEl) deviceEl.textContent = counts[1].toLocaleString();
+    if (unapprovedEl) unapprovedEl.textContent = counts[2].toLocaleString();
+    if (nonRegEl) nonRegEl.textContent = counts[3].toLocaleString();
 
     // Render grouped bar charts for each demographic
     const demoFields = [
@@ -5252,7 +5297,7 @@ function renderFdaOversight(filtered) {
         if (!ctx) return;
         if (charts[chartKey]) charts[chartKey].destroy();
 
-        const pcts = subsets.map(subset => reportingPct(subset, field));
+        const pcts = pctsByField[field];
 
         charts[chartKey] = new Chart(ctx, {
             type: 'bar',
