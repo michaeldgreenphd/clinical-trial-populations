@@ -11,8 +11,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "claude-haiku-4-5-20251001",
-        "label": "Haiku 4.5",
+        "model_id": "gemini-3.1-flash-lite-preview",
+        "label": "Gemini 3.1 Flash-Lite",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -21,15 +21,200 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-haiku-4-5@20251001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "socioeconomic_status": {
+              "wealth": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "family_size": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "income": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "education": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "non_binary": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "man": {
+                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide",
+                "value": "Not Reported (cohort size)",
+                "page_number": 2
+              },
+              "other": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "transgender": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "religion": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "geography": {
+              "countries": {
+                "exact_quote": "In 2024, 8000 patients underwent MRI for known or suspected prostate cancer in our health system... Authors include ... New York University Grossman School of Medicine, New York, New York, USA",
+                "value": [
+                  "USA"
+                ],
+                "page_number": 8
+              },
+              "us_states": {
+                "exact_quote": "New York University Grossman School of Medicine, New York, New York, USA",
+                "value": [
+                  "New York"
+                ],
+                "page_number": 1
+              },
+              "total_sites": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "target_patient_age_range": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "study_design": {
+              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
+              "value": "Narrative review synthesizing progress across five AI domains in prostate MRI.",
+              "page_number": 3
+            },
+            "sex": {
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "female": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "male": {
+                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide",
+                "value": "Not Reported (cohort size)",
+                "page_number": 2
+              }
+            },
+            "race_nih_omb": {
+              "asian": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "more_than_one_race": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "black_or_african_american": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "white": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "american_indian_or_alaska_native": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "total_participants": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "age": {
+              "exact_quote": "Trained on data from approximately 12,000 patients, the model incorporated age, PSA, body mass index, and either prostate volume or systolic blood pressure.",
+              "value": "Not Reported (as a cohort summary)",
+              "page_number": 4
+            },
+            "disability_and_functional_limitations": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "exact_quote": "In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection.",
+              "value": [],
+              "page_number": 3
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 25970,
+        "output_tokens": 1137
       },
       "sonnet_4_6": {
-        "model_id": "claude-sonnet-4-6",
-        "label": "Sonnet 4.6",
+        "model_id": "gemini-3.1-flash-preview",
+        "label": "Gemini 3.1 Flash",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -38,15 +223,15 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
           }
         },
         "input_tokens": 0,
         "output_tokens": 0
       },
       "opus_4_7": {
-        "model_id": "claude-opus-4-7",
-        "label": "Opus 4.7",
+        "model_id": "gemini-3.1-pro-preview",
+        "label": "Gemini 3.1 Pro",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -55,11 +240,192 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-opus-4-7` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "socioeconomic_status": {
+              "wealth": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "family_size": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "income": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "education": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "non_binary": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "man": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "other": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "transgender": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "sex": {
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "female": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "male": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "study_design": {
+              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis\u2014highlighting the level of evidence, validation status, and barriers to adoption.",
+              "value": "The study is a narrative review evaluating the current progress, level of evidence, and validation status of artificial intelligence applications across the prostate MRI clinical pathway.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "countries": {
+                "exact_quote": "",
+                "value": [],
+                "page_number": 0
+              },
+              "us_states": {
+                "exact_quote": "",
+                "value": [],
+                "page_number": 0
+              },
+              "total_sites": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "religion": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "race_nih_omb": {
+              "asian": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "more_than_one_race": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "black_or_african_american": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "white": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "american_indian_or_alaska_native": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "total_participants": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "age": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "exact_quote": "",
+              "value": [],
+              "page_number": 0
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 25593,
+        "output_tokens": 549
       }
     }
   },
@@ -75,8 +441,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "claude-haiku-4-5-20251001",
-        "label": "Haiku 4.5",
+        "model_id": "gemini-3.1-flash-lite-preview",
+        "label": "Gemini 3.1 Flash-Lite",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -85,15 +451,201 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-haiku-4-5@20251001` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "sex": {
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "female": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "male": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "non_binary": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "man": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "other": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "transgender": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "wealth": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "family_size": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "income": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "education": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "countries": {
+                "exact_quote": "Not Reported",
+                "value": [],
+                "page_number": 0
+              },
+              "us_states": {
+                "exact_quote": "Not Reported",
+                "value": [],
+                "page_number": 0
+              },
+              "total_sites": {
+                "exact_quote": "The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%).",
+                "value": "Not Reported",
+                "page_number": 1
+              }
+            },
+            "target_patient_age_range": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "study_design": {
+              "exact_quote": "Methods We searched the PubMed, FDA, and ClinicalTrials.gov databases for applications of AI in abdominal and pelvic ultrasound imaging. ... After screening, 57 manuscripts were included in the final review.",
+              "value": "Systematic review of AI applications in abdominal/pelvic ultrasound imaging.",
+              "page_number": 1
+            },
+            "religion": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "race_nih_omb": {
+              "asian": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "more_than_one_race": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "black_or_african_american": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "white": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "american_indian_or_alaska_native": {
+                "exact_quote": "Not Reported",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "total_participants": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "age": {
+              "exact_quote": "Yang Y et al. found that clinical variables (age, sex, body mass index, diabetes, fibrosis-4 index, android fat ratio, and skeletal muscle via dual-energy X-ray absorptiometry) have no significant influence on neural network models [5].",
+              "value": "Not Reported",
+              "page_number": 3
+            },
+            "associated_nct_ids": {
+              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346).",
+              "value": [
+                "NCT03812471",
+                "NCT05151939",
+                "NCT05530681",
+                "NCT05637346"
+              ],
+              "page_number": 10
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 23227,
+        "output_tokens": 1288
       },
       "sonnet_4_6": {
-        "model_id": "claude-sonnet-4-6",
-        "label": "Sonnet 4.6",
+        "model_id": "gemini-3.1-flash-preview",
+        "label": "Gemini 3.1 Flash",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -102,15 +654,15 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-sonnet-4-6` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
           }
         },
         "input_tokens": 0,
         "output_tokens": 0
       },
       "opus_4_7": {
-        "model_id": "claude-opus-4-7",
-        "label": "Opus 4.7",
+        "model_id": "gemini-3.1-pro-preview",
+        "label": "Gemini 3.1 Pro",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -119,11 +671,197 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "Error code: 404 - {'error': {'code': 404, 'message': 'Publisher Model `projects/civic-sample-backups/locations/us-east5/publishers/anthropic/models/claude-opus-4-7` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions', 'status': 'NOT_FOUND'}}"
+            "sex": {
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "female": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "male": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "non_binary": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "man": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "other": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "transgender": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "religion": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "study_design": {
+              "exact_quote": "This review aims to provide a comprehensive overview of current state-of-the-art applications for AI in abdominal and pelvic ultrasound imaging.",
+              "value": "Review",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "countries": {
+                "exact_quote": "",
+                "value": [],
+                "page_number": 0
+              },
+              "us_states": {
+                "exact_quote": "",
+                "value": [],
+                "page_number": 0
+              },
+              "total_sites": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "asian": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "unknown": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "more_than_one_race": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "black_or_african_american": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "white": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "american_indian_or_alaska_native": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "wealth": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "family_size": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "income": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              },
+              "education": {
+                "exact_quote": "",
+                "value": "Not Reported",
+                "page_number": 0
+              }
+            },
+            "total_participants": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "age": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346).",
+              "value": [
+                "NCT03812471",
+                "NCT05151939",
+                "NCT05530681",
+                "NCT05637346"
+              ],
+              "page_number": 10
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 22850,
+        "output_tokens": 724
       }
     }
   }
