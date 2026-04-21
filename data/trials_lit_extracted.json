@@ -13,8 +13,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-2.5-flash-lite",
-        "label": "Gemini 2.5 Flash-Lite",
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
         "data": {
           "metadata": {
             "nct_id": "NCT01236053",
@@ -24,51 +24,56 @@
           },
           "tier": "Tier 3",
           "extracted_data": {
-            "age": {
-              "value": "31-40 years 223 (52.7); 41-55 years 83 (19.5); >55 years 47 (11.1)",
-              "exact_quote": "Age group 31-40 years 223 (52.7) 41-55 years 83 (19.5) >55 years 47 (11.1)",
-              "page_number": 3
-            },
-            "study_design": {
-              "value": "Global cross-sectional survey analyzing workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption among oncology professionals.",
-              "exact_quote": "We conducted a global cross-sectional survey (27 questions) analyzing workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption among oncology professionals to better understand the real-world adoption of digital health technologies.",
-              "page_number": 1
-            },
-            "ethnicity": {
-              "unknown_evidence": "",
-              "hispanic_or_latino_evidence": "",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino_evidence": "",
-              "hispanic_or_latino": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
             },
             "target_patient_age_range": {
-              "value": "21-30 years, 31-40 years, 41-55 years, >55 years",
-              "exact_quote": "Age group 21-30 years 54 (12.8) 31-40 years 223 (52.7) 41-55 years 83 (19.5) >55 years 47 (11.1)",
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' consisted of 27 questions distributed across multiple domains including participant demographics, workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption.",
+              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' was developed by alumni from the 2022 European Society for Medical Oncology (ESMO) Course in Medical Oncology for Medical Students, in collaboration with the ESMO Young Oncologists Committee, to evaluate the adoption and perceptions of DH technologies among oncology professionals. The survey consisted of 27 questions distributed across multiple domains, including participant demographics, workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption.",
+              "page_number": 2
+            },
+            "total_participants_evidence": "From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.",
+            "total_participants": {
+              "value": 423,
+              "exact_quote": "From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Age distribution skewed toward younger professionals, with 277 (65.5%) participants <40 years of age, 125 (29.6%) aged 41-55 years, and 47 (11.1%) aged \u226556 years. Age groups: 21-30 years 54 (12.8%), 31-40 years 223 (52.7%), 41-50 years 82 (19.4%), 51-60 years 36 (8.5%), >60 years 11 (2.6%).",
+              "exact_quote": "Age distribution skewed toward younger professionals, with 277 (65.5%) participants <40 years of age, 125 (29.6%) aged 41-55 years, and 47 (11.1%) aged \u226556 years.",
               "page_number": 3
             },
             "geography": {
               "countries": {
                 "value": [
-                  "Europe",
-                  "Asia",
-                  "Americas",
-                  "Africa",
-                  "Oceania"
+                  "Argentina",
+                  "Greece",
+                  "Australia",
+                  "United Kingdom",
+                  "Canada",
+                  "Turkey",
+                  "France",
+                  "Germany",
+                  "Georgia",
+                  "United States",
+                  "Pakistan",
+                  "Belgium",
+                  "Poland",
+                  "Austria",
+                  "Croatia",
+                  "China",
+                  "Lithuania",
+                  "Spain",
+                  "Italy"
                 ],
-                "exact_quote": "Europe 192 (45.4) Asia 114 (27.0) Americas 72 (17.0) Africa 31 (7.3) Oceania 14 (3.3)",
+                "exact_quote": "Geographically, participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14), reflecting a global perspective on DH adoption in oncology.",
                 "page_number": 3
               },
               "us_states": {
@@ -83,114 +88,91 @@
                 "page_number": 0
               }
             },
-            "religion": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "total_participants": {
-              "value": "423",
-              "exact_quote": "A total of 423 oncology professionals completed the questionnaire.",
-              "page_number": 1
-            },
-            "gender": {
-              "man": {
-                "value": "206",
-                "exact_quote": "Gender (male) 206 (48.8)",
+            "sex": {
+              "female_evidence": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
+              "female": {
+                "value": 217,
+                "exact_quote": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
                 "page_number": 3
               },
-              "woman_evidence": "51.2% female (n = 217)",
+              "male_evidence": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
+              "male": {
+                "value": 206,
+                "exact_quote": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
+                "page_number": 3
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
               "non_binary_evidence": "",
               "non_binary": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "man_evidence": "Gender (male) 206 (48.8)",
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
               "other_evidence": "",
               "other": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
+              "unknown_evidence": "",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
-              },
-              "woman": {
-                "value": "217",
-                "exact_quote": "51.2% female (n = 217)",
-                "page_number": 3
-              },
-              "unknown_evidence": "",
-              "transgender_evidence": "",
-              "transgender": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
               }
-            },
-            "socioeconomic_status": {
-              "adi_area_deprivation_index": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "family_size": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "wealth": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "income": {
-                "value": "70.1%",
-                "exact_quote": "Lower socioeconomic groups (70.1%, n = 232)",
-                "page_number": 3
-              },
-              "education": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "disability_and_functional_limitations": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "sex": {
-              "male": {
-                "value": "206",
-                "exact_quote": "Gender (male) 206 (48.8)",
-                "page_number": 3
-              },
-              "male_evidence": "Gender (male) 206 (48.8)",
-              "female_evidence": "51.2% female (n = 217)",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "unknown_evidence": "",
-              "female": {
-                "value": "217",
-                "exact_quote": "51.2% female (n = 217)",
-                "page_number": 3
-              }
-            },
-            "associated_nct_ids": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
             },
             "race_nih_omb": {
               "american_indian_or_alaska_native_evidence": "",
               "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
@@ -201,64 +183,298 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "white_evidence": "",
-              "black_or_african_american": {
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "white": {
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "native_hawaiian_or_other_pacific_islander": {
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 18606,
+        "output_tokens": 2428
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT01236053",
+            "condition": "Oncology",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2323608
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Global cross-sectional survey of oncology health care professionals evaluating digital health technology utilization patterns, perceived effectiveness, and barriers to adoption using a 27-question questionnaire distributed via ESMO channels.",
+              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' was developed by alumni from the 2022 European Society for Medical Oncology (ESMO) Course in Medical Oncology for Medical Students, in collaboration with the ESMO Young Oncologists Committee",
+              "page_number": 2
+            },
+            "total_participants_evidence": "\"From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.\"",
+            "total_participants": {
+              "value": 423,
+              "exact_quote": "From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Age distribution: 21-30 years 54 (12.8%), 31-40 years 223 (52.7%), 41-50 years 82 (19.5%), 51-60 years 36 (8.5%), >60 years 11 (2.6%)",
+              "exact_quote": "Age group 21-30 years 54 (12.8) 31-40 years 223 (52.7) 41-50 years 82 (19.5) 51-60 years 36 (8.4) >60 years 11 (2.6)",
+              "page_number": 3
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "total_sites_evidence": "participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14)",
+              "total_sites": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "sex": {
+              "female_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+              "female": {
+                "value": 217,
+                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "page_number": 3
+              },
+              "male_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+              "male": {
+                "value": 206,
+                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "page_number": 3
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "Gender (male) 206 (48.8)",
+              "man": {
+                "value": 206,
+                "exact_quote": "Gender (male) 206 (48.8)",
+                "page_number": 3
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
               "black_or_african_american_evidence": "",
-              "unknown": {
+              "black_or_african_american": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
               "native_hawaiian_or_other_pacific_islander_evidence": "",
-              "asian": {
-                "value": "114",
-                "exact_quote": "Asia 114 (27.0)",
-                "page_number": 3
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
               },
-              "asian_evidence": "Asia 114 (27.0)",
-              "unknown_evidence": ""
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
             },
-            "total_participants_evidence": "A total of 423 oncology professionals completed the questionnaire."
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
           }
         },
-        "input_tokens": 14485,
-        "output_tokens": 1078
-      },
-      "sonnet_4_6": {
-        "model_id": "gemini-2.5-flash",
-        "label": "Gemini 2.5 Flash",
-        "data": {
-          "metadata": {
-            "nct_id": "NCT01236053",
-            "condition": "Oncology",
-            "intervention": "N/A",
-            "ctgov_total_participants": 2323608
-          },
-          "tier": "Tier 3",
-          "extracted_data": {
-            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-flash:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
-          }
-        },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 18607,
+        "output_tokens": 1798
       },
       "opus_4_7": {
-        "model_id": "gemini-2.5-pro",
-        "label": "Gemini 2.5 Pro",
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
         "data": {
           "metadata": {
             "nct_id": "NCT01236053",
@@ -268,11 +484,221 @@
           },
           "tier": "Tier 3",
           "extracted_data": {
-            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
+            "data": {
+              "associated_nct_ids": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "target_patient_age_range": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "study_design": {
+                "value": "Global cross-sectional online survey (27 questions) of oncology health care professionals who were ESMO members, assessing digital health technology adoption, effectiveness, and barriers.",
+                "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally.",
+                "page_number": 2
+              },
+              "total_participants_evidence": "A total of 423 oncology professionals completed the questionnaire.",
+              "total_participants": {
+                "value": 423,
+                "exact_quote": "A total of 423 oncology professionals completed the questionnaire.",
+                "page_number": 1
+              },
+              "age": {
+                "value": "21-30 years: 54 (12.8%); 31-40 years: 223 (52.7%); 41-50 years: 82 (19.4%); 51-60 years: 36 (8.5%); >60 years: 11 (2.6%). 277 (65.5%) were <40 years, 125 (29.6%) aged 41-55, 47 (11.1%) aged \u226556.",
+                "exact_quote": "Age group 21-30 years 54 (12.8) 31-40 years 223 (52.7) 41-50 years 82 (19.4) 51-60 years 36 (8.5) >60 years 11 (2.6)",
+                "page_number": 3
+              },
+              "geography": {
+                "us_states": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "countries": {
+                  "value": [
+                    "Europe",
+                    "Asia",
+                    "Americas",
+                    "Africa",
+                    "Oceania"
+                  ],
+                  "exact_quote": "Geographically, participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14)",
+                  "page_number": 3
+                },
+                "total_sites_evidence": "",
+                "total_sites": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "sex": {
+                "female_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "female": {
+                  "value": 217,
+                  "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                  "page_number": 3
+                },
+                "male_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "male": {
+                  "value": 206,
+                  "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                  "page_number": 3
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "Gender (male) 206 (48.8)",
+                "man": {
+                  "value": 206,
+                  "exact_quote": "Gender (male) 206 (48.8)",
+                  "page_number": 3
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 25673,
+        "output_tokens": 2199
       }
     }
   },
@@ -290,8 +716,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-2.5-flash-lite",
-        "label": "Gemini 2.5 Flash-Lite",
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
         "data": {
           "metadata": {
             "nct_id": "NCT02788903",
@@ -301,172 +727,6 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "age": {
-              "value": "Mean 62.3 years",
-              "exact_quote": "In patients with type 2 diabetes, the mean age was 62.3 years",
-              "page_number": 3
-            },
-            "race_nih_omb": {
-              "american_indian_or_alaska_native_evidence": "NA",
-              "white": {
-                "value": "non-Hispanic White",
-                "exact_quote": "non- Hispanic White",
-                "page_number": 3
-              },
-              "more_than_one_race_evidence": "NA",
-              "more_than_one_race": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "white_evidence": "non- Hispanic White",
-              "black_or_african_american": {
-                "value": "28.8%",
-                "exact_quote": "28.8% were non- Hispanic Black",
-                "page_number": 3
-              },
-              "american_indian_or_alaska_native": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "native_hawaiian_or_other_pacific_islander_evidence": "NA",
-              "black_or_african_american_evidence": "28.8% were non- Hispanic Black",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "native_hawaiian_or_other_pacific_islander": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "unknown_evidence": "NA",
-              "asian_evidence": "3.9% were other non- Hispanic (including Asians)",
-              "asian": {
-                "value": "3.9%",
-                "exact_quote": "3.9% were other non- Hispanic (including Asians)",
-                "page_number": 3
-              }
-            },
-            "ethnicity": {
-              "unknown_evidence": "cinapsiH 0.0 2.1 3.2 1.2 5.0 9.0 3.2 8.1 nwonknU )%(",
-              "unknown": {
-                "value": "2.1%",
-                "exact_quote": "cinapsiH 0.0 2.1 3.2 1.2 5.0 9.0 3.2 8.1 nwonknU )%(",
-                "page_number": 4
-              },
-              "hispanic_or_latino_evidence": "13.4% were Hispanic",
-              "not_hispanic_or_latino": {
-                "value": "28.8% non-Hispanic Black, 3.9% other non-Hispanic",
-                "exact_quote": "28.8% were non- Hispanic Black, 13.4% were Hispanic, 3.9% were other non- Hispanic (including Asians), and 94.5% resided in urban area.",
-                "page_number": 3
-              },
-              "not_hispanic_or_latino_evidence": "28.8% were non- Hispanic Black, 13.4% were Hispanic, 3.9% were other non- Hispanic (including Asians), and 94.5% resided in urban area.",
-              "hispanic_or_latino": {
-                "value": "13.4%",
-                "exact_quote": "13.4% were Hispanic",
-                "page_number": 3
-              }
-            },
-            "target_patient_age_range": {
-              "value": "adult patients (18 years or older)",
-              "exact_quote": "All patients either had type 2 diabetes or were at risk of type 2 diabetes, and all were continuing patients with at least one ambulatory visit (primary care or endocrinology) in the PaTH health system during 2019 (see online supplemental figure S1 for the study flow diagram). Details about the PaTH to Health: Diabetes study were previously described elsewhere.12 This retrospective study included adult patients with type 2 diabetes or at risk of type 2 diabetes using the PaTH Toward a Learning Health System (PaTH) clinical data research network.",
-              "page_number": 2
-            },
-            "geography": {
-              "countries": {
-                "value": [
-                  "Pennsylvania",
-                  "Maryland"
-                ],
-                "exact_quote": "Pennsylvania and Maryland",
-                "page_number": 1
-              },
-              "us_states": {
-                "value": [
-                  "Pennsylvania",
-                  "Maryland"
-                ],
-                "exact_quote": "Pennsylvania and Maryland",
-                "page_number": 2
-              },
-              "total_sites_evidence": "five academic health systems",
-              "total_sites": {
-                "value": "5",
-                "exact_quote": "five academic health systems",
-                "page_number": 2
-              }
-            },
-            "religion": {
-              "value": "Not Reported",
-              "exact_quote": "NA",
-              "page_number": 0
-            },
-            "total_participants": {
-              "value": "15725",
-              "exact_quote": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
-              "page_number": 1
-            },
-            "total_participants_evidence": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
-            "socioeconomic_status": {
-              "adi_area_deprivation_index": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "family_size": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "wealth": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "income": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              },
-              "education": {
-                "value": "Not Reported",
-                "exact_quote": "NA",
-                "page_number": 0
-              }
-            },
-            "disability_and_functional_limitations": {
-              "value": "Not Reported",
-              "exact_quote": "NA",
-              "page_number": 0
-            },
-            "sex": {
-              "male": {
-                "value": "46.2%",
-                "exact_quote": "46.2% were men",
-                "page_number": 3
-              },
-              "male_evidence": "46.2% were men",
-              "female_evidence": "nemoW 0.74 3.95 6.36 3.26 1.84 4.25 2.55 8.35",
-              "unknown": {
-                "value": "8.1%",
-                "exact_quote": "nwonknU )%(",
-                "page_number": 4
-              },
-              "unknown_evidence": "nwonknU )%(",
-              "female": {
-                "value": "53.8%",
-                "exact_quote": "nemoW 0.74 3.95 6.36 3.26 1.84 4.25 2.55 8.35",
-                "page_number": 4
-              }
-            },
-            "study_design": {
-              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes. Patients were classified based on 30-day outcomes.",
-              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes. Patients were classified based on 30- day outcomes: (1) no hospitalization; (2) hospitalization only; or (3) a composite measure including admission to the intensive care unit (ICU), intubation, or death. Analyses were conducted in patients with type 2 diabetes and patients at risk of type 2 diabetes separately.",
-              "page_number": 1
-            },
             "associated_nct_ids": {
               "value": [
                 "NCT02788903"
@@ -474,52 +734,217 @@
               "exact_quote": "Trial registration number NCT02788903.",
               "page_number": 1
             },
-            "gender": {
-              "man": {
-                "value": "46.2%",
-                "exact_quote": "46.2% were men",
-                "page_number": 3
+            "target_patient_age_range": {
+              "value": "18 years or older",
+              "exact_quote": "our analysis included adult patients (18 years or older) with their first COVID-19 diagnosis between 1 March 2020 and 28 February 2021",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with type 2 diabetes or at risk of type 2 diabetes, with outcomes classified over a 30-day period.",
+              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes. Patients were classified based on 30-day outcomes",
+              "page_number": 1
+            },
+            "total_participants_evidence": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.",
+            "total_participants": {
+              "value": 15725,
+              "exact_quote": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Type 2 diabetes cohort: mean 62.3 years; At-risk cohort: mean 52.4 years",
+              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years...In patients at risk of type 2 diabetes, the mean age was 52.4 years",
+              "page_number": 3
+            },
+            "geography": {
+              "us_states": {
+                "value": [
+                  "Pennsylvania",
+                  "Maryland"
+                ],
+                "exact_quote": "from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System",
+                "page_number": 2
               },
-              "unknown_evidence": "nwonknU )%(",
-              "non_binary_evidence": "NA",
-              "non_binary": {
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "from five academic health systems in Pennsylvania and Maryland",
+                "page_number": 2
+              },
+              "total_sites_evidence": "PaTH is one of eight clinical data research networks that comprise PCORnet...EHR data from individual health systems were deidentified per data sharing policies. EHR data from five academic health systems in Pennsylvania and Maryland",
+              "total_sites": {
+                "value": 5,
+                "exact_quote": "EHR data were encoded using standard healthcare terminologies and then combined using the PCORnet-specified Common Data Model (CDM). The PCORnet CDM transforms each healthcare system's dialect into a common language...we included PaTH electronic health record (EHR) data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "in patients with type 2 diabetes...46.2% were men",
+              "female": {
                 "value": "Not Reported",
-                "exact_quote": "NA",
+                "exact_quote": "",
                 "page_number": 0
               },
-              "other": {
+              "male_evidence": "in patients with type 2 diabetes, the mean age was 62.3 years, 46.2% were men...In patients at risk of type 2 diabetes, the mean age was 52.4 years, 37.7% were men",
+              "male": {
                 "value": "Not Reported",
-                "exact_quote": "NA",
+                "exact_quote": "",
                 "page_number": 0
               },
-              "other_evidence": "NA",
-              "man_evidence": "46.2% were men",
+              "unknown_evidence": "",
               "unknown": {
-                "value": "8.1%",
-                "exact_quote": "nwonknU )%(",
-                "page_number": 4
-              },
-              "woman": {
-                "value": "53.8%",
-                "exact_quote": "nemoW 0.74 3.95 6.36 3.26 1.84 4.25 2.55 8.35",
-                "page_number": 4
-              },
-              "woman_evidence": "nemoW 0.74 3.95 6.36 3.26 1.84 4.25 2.55 8.35",
-              "transgender_evidence": "NA",
-              "transgender": {
                 "value": "Not Reported",
-                "exact_quote": "NA",
+                "exact_quote": "",
                 "page_number": 0
               }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "3.9% were other non-Hispanic (including Asians)...3.1% were other non-Hispanic (including Asians)",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "28.8% were non-Hispanic Black...21.0% were non-Hispanic Black",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "Based on the reported percentages and the statement that participants were classified as non-Hispanic White, the proportion can be derived from the table data showing racial/ethnic breakdown",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "13.4% were Hispanic...10.1% were Hispanic",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "28.8% were non-Hispanic Black, 13.4% were Hispanic, 3.9% were other non-Hispanic (including Asians)...21.0% were non-Hispanic Black, 10.1% were Hispanic, 3.1% were other non-Hispanic (including Asians)",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Chronic conditions assessed including chronic pulmonary disease (33.5% in type 2 diabetes cohort; 24.3% in at-risk cohort), renal disease (28.8% in type 2 diabetes cohort), heart failure, peripheral vascular disease, cerebrovascular disease, liver disease; Charlson Comorbidity Index scores used to summarize morbidity",
+              "exact_quote": "Chronic conditions were defined by diagnosis codes based on validated algorithms...Because chronic conditions were not consistently recorded at each encounter...they were instead assessed based on patient records for 3 years prior to COVID-19 diagnosis. Comorbid conditions were further summarized using the Charlson Comorbidity Index (CCI)...33.5% of the patients had chronic pulmonary disease, and 28.8% had renal disease",
+              "page_number": 2
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
             }
           }
         },
-        "input_tokens": 22154,
-        "output_tokens": 1537
+        "input_tokens": 26124,
+        "output_tokens": 2675
       },
       "sonnet_4_6": {
-        "model_id": "gemini-2.5-flash",
-        "label": "Gemini 2.5 Flash",
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
         "data": {
           "metadata": {
             "nct_id": "NCT02788903",
@@ -529,15 +954,224 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-flash:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
+            "associated_nct_ids": {
+              "value": [
+                "NCT02788903"
+              ],
+              "exact_quote": "Trial registration number NCT02788903.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "18 years or older",
+              "exact_quote": "our analysis included adult patients (18 years or older) with their first COVID-19 diagnosis between 1 March 2020 and 28 February 2021.",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes, classified by 30-day outcomes.",
+              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.\"",
+            "total_participants": {
+              "value": 15725,
+              "exact_quote": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Mean 62.3 years (type 2 diabetes); Mean 52.4 years (at risk of type 2 diabetes)",
+              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
+              "page_number": 3
+            },
+            "geography": {
+              "us_states": {
+                "value": [
+                  "Pennsylvania",
+                  "Maryland"
+                ],
+                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "page_number": 2
+              },
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "five academic health systems in Pennsylvania and Maryland",
+                "page_number": 2
+              },
+              "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+              "total_sites": {
+                "value": 5,
+                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "in patients with type 2 diabetes... 46.2% were men... In patients at risk of type 2 diabetes... 37.7% were men",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "in patients with type 2 diabetes... 46.2% were men... In patients at risk of type 2 diabetes... 37.7% were men",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "3.9% were other non-Hispanic (including Asians)... 3.1% were other non-Hispanic (including Asians)",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "3.9% were other non-Hispanic (including Asians)... 3.1% were other non-Hispanic (including Asians)",
+                "page_number": 3
+              },
+              "black_or_african_american_evidence": "28.8% were non-Hispanic Black... 21.0% were non-Hispanic Black",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "28.8% were non-Hispanic Black... 21.0% were non-Hispanic Black",
+                "page_number": 3
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "non-Hispanic White patients... 52.0% White (from table 1 for type 2 diabetes total)",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "Unknown race/ethnicity 1.8% (type 2 diabetes) and 2.1% (at risk)",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "13.4% were Hispanic... 10.1% were Hispanic",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "13.4% were Hispanic... 10.1% were Hispanic",
+                "page_number": 3
+              },
+              "not_hispanic_or_latino_evidence": "28.8% were non-Hispanic Black... 3.9% were other non-Hispanic (including Asians)... non-Hispanic White patients",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "28.8% were non-Hispanic Black, 13.4% were Hispanic, 3.9% were other non-Hispanic (including Asians)",
+                "page_number": 3
+              },
+              "unknown_evidence": "Unknown race/ethnicity reported in table 1 as 1.8% for type 2 diabetes total",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 26125,
+        "output_tokens": 2131
       },
       "opus_4_7": {
-        "model_id": "gemini-2.5-pro",
-        "label": "Gemini 2.5 Pro",
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
         "data": {
           "metadata": {
             "nct_id": "NCT02788903",
@@ -547,11 +1181,220 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
-            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
+            "associated_nct_ids": {
+              "value": [
+                "NCT02788903"
+              ],
+              "exact_quote": "Trial registration number NCT02788903.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "Adults 18 years or older",
+              "exact_quote": "our analysis included adult patients (18 years or older) with their first COVID-19 diagnosis between 1 March 2020 and 28 February 2021.",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Retrospective cohort study using EHR data from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes; outcomes assessed at 30 days.",
+              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID- 19 with type 2 diabetes or at risk of type 2 diabetes.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
+            "total_participants": {
+              "value": 15725,
+              "exact_quote": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
+              "page_number": 1
+            },
+            "age": {
+              "value": "Mean age: 62.3 years (T2DM cohort); 52.4 years (at-risk cohort)",
+              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
+              "page_number": 3
+            },
+            "geography": {
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "data from five academic health systems in Pennsylvania and Maryland",
+                "page_number": 1
+              },
+              "us_states": {
+                "value": [
+                  "Pennsylvania",
+                  "Maryland"
+                ],
+                "exact_quote": "data from five academic health systems in Pennsylvania and Maryland",
+                "page_number": 1
+              },
+              "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+              "total_sites": {
+                "value": 5,
+                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "in patients with type 2 diabetes... 46.2% were men... In patients at risk of type 2 diabetes... 37.7% were men",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "46.2% were men (T2DM); 37.7% were men (at-risk)",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "3.9% were other non- Hispanic (including Asians)",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "28.8% were non- Hispanic Black (T2DM); 21.0% were non-Hispanic Black (at-risk)",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "non- Hispanic White (reported as reference category); percentages in table 1 reference White, non-Hispanic",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "Unknown category reported in table 1 (e.g., 1.8% T2DM, 2.1% at-risk)",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "13.4% were Hispanic (T2DM cohort); 10.1% were Hispanic (at-risk cohort)",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "28.8% were non- Hispanic Black, ... 3.9% were other non- Hispanic (including Asians)",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported - authors note data were not consistently coded",
+                "exact_quote": "additional socioeconomic factors, such as education, income, and census track-l evel deprivation data, were not consistently coded across institutions, which limited the feasibility to study additional factors of COVID- 19 hospitalizations.",
+                "page_number": 10
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
           }
         },
-        "input_tokens": 0,
-        "output_tokens": 0
+        "input_tokens": 34242,
+        "output_tokens": 2693
       }
     }
   }

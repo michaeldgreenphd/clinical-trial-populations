@@ -4,37 +4,37 @@
   "total_studies": 53841,
   "per_model": {
     "haiku_4_5": {
-      "model_id": "gemini-2.5-flash-lite",
-      "label": "Gemini 2.5 Flash-Lite",
-      "input_cost_per_m": 0.1,
-      "output_cost_per_m": 0.4,
-      "avg_input_per_doc": 25489.5,
-      "avg_output_per_doc": 1535.5,
-      "total_input_tokens": 50979,
-      "total_output_tokens": 3071,
+      "model_id": "claude-haiku-4-5-20251001",
+      "label": "Haiku 4.5",
+      "input_cost_per_m": 1.0,
+      "output_cost_per_m": 5.0,
+      "avg_input_per_doc": 30636.5,
+      "avg_output_per_doc": 1879.0,
+      "total_input_tokens": 61273,
+      "total_output_tokens": 3758,
       "docs_processed": 2
     },
     "sonnet_4_6": {
-      "model_id": "gemini-2.5-flash",
-      "label": "Gemini 2.5 Flash",
-      "input_cost_per_m": 0.3,
-      "output_cost_per_m": 2.5,
-      "avg_input_per_doc": 25489.5,
-      "avg_output_per_doc": 0.0,
-      "total_input_tokens": 50979,
-      "total_output_tokens": 0,
+      "model_id": "claude-sonnet-4-6",
+      "label": "Sonnet 4.6",
+      "input_cost_per_m": 3.0,
+      "output_cost_per_m": 15.0,
+      "avg_input_per_doc": 30637.5,
+      "avg_output_per_doc": 1538.0,
+      "total_input_tokens": 61275,
+      "total_output_tokens": 3076,
       "docs_processed": 2
     },
     "opus_4_7": {
-      "model_id": "gemini-2.5-pro",
-      "label": "Gemini 2.5 Pro",
-      "input_cost_per_m": 1.25,
-      "output_cost_per_m": 10.0,
-      "avg_input_per_doc": 0.0,
-      "avg_output_per_doc": 0.0,
-      "total_input_tokens": 0,
-      "total_output_tokens": 0,
-      "docs_processed": 0
+      "model_id": "claude-opus-4-7",
+      "label": "Opus 4.7",
+      "input_cost_per_m": 15.0,
+      "output_cost_per_m": 75.0,
+      "avg_input_per_doc": 42107.0,
+      "avg_output_per_doc": 1914.0,
+      "total_input_tokens": 84214,
+      "total_output_tokens": 3828,
+      "docs_processed": 2
     }
   }
 }
