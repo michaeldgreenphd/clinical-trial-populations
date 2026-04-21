@@ -3348,6 +3348,11 @@ footer p {
     color: #721c24;
 }
 
+.disc-missing-pdf {
+    background: #fff3cd;
+    color: #856404;
+}
+
 .disc-na {
     background: #e9ecef;
     color: #6c757d;

@@ -6732,26 +6732,53 @@ function valuesEqual(a, b) {
 
 /**
  * Classify a single field's API ↔ PDF comparison.
- *   Match    – both reported and equal
- *   Addition – API missing / not reported, PDF provides a value
- *   Conflict – both reported and different
- *   NA       – neither side has data
+ *   Match       – both sides reported AND strictly equal (numeric identity
+ *                 for integers; no type-coerced equality).
+ *   Addition    – API missing / not reported, PDF provides a value
+ *   Missing_pdf – API reported, PDF silent (PDF extraction gap — distinct
+ *                 from a Match; a reviewer should confirm whether the PDF
+ *                 truly omits the value or whether the extractor missed it).
+ *   Conflict    – both reported and different (including Unknown ↔ 0, Unknown ↔ any value)
+ *   NA          – neither side has data
+ *
+ * "Unknown" (as reported by researchers) is a distinct reported value — it is
+ * NOT treated as missing and it is NOT equal to 0 or to any integer count.
  */
 function classifyDiscrepancy(apiVal, pdfVal) {
-    const apiMissing = isNR(apiVal) || (Array.isArray(apiVal) && apiVal.length === 0);
-    const pdfMissing = isNR(pdfVal) || (Array.isArray(pdfVal) && pdfVal.length === 0);
+    const apiRaw = evValue(apiVal);
+    const pdfRaw = evValue(pdfVal);
+    const apiMissing = isNR(apiRaw) || (Array.isArray(apiRaw) && apiRaw.length === 0);
+    const pdfMissing = isNR(pdfRaw) || (Array.isArray(pdfRaw) && pdfRaw.length === 0);
     if (apiMissing && pdfMissing) return 'na';
     if (apiMissing && !pdfMissing) return 'addition';
-    if (!apiMissing && pdfMissing) return 'match'; // PDF silent; API unchanged
-    return valuesEqual(apiVal, pdfVal) ? 'match' : 'conflict';
+    if (!apiMissing && pdfMissing) return 'missing_pdf';
+    // Both sides reported something. Unknown is a distinct reported state.
+    const apiUnknown = isExplicitUnknown(apiRaw);
+    const pdfUnknown = isExplicitUnknown(pdfRaw);
+    if (apiUnknown !== pdfUnknown) return 'conflict';
+    if (apiUnknown && pdfUnknown) return 'match';
+    // Numeric fields: require strict integer identity. Coerce via Number so
+    // the "12" string from a quote-wrapped payload matches the 12 integer
+    // pulled out of CT.gov, but never treat NaN / partially numeric values
+    // as equal.
+    const apiNum = Number(apiRaw);
+    const pdfNum = Number(pdfRaw);
+    const apiIsNumeric = typeof apiRaw === 'number' || (typeof apiRaw === 'string' && apiRaw.trim() !== '' && Number.isFinite(apiNum));
+    const pdfIsNumeric = typeof pdfRaw === 'number' || (typeof pdfRaw === 'string' && pdfRaw.trim() !== '' && Number.isFinite(pdfNum));
+    if (apiIsNumeric && pdfIsNumeric) {
+        return apiNum === pdfNum ? 'match' : 'conflict';
+    }
+    if (apiIsNumeric !== pdfIsNumeric) return 'conflict';
+    return valuesEqual(apiRaw, pdfRaw) ? 'match' : 'conflict';
 }
 
 function discBadge(status) {
     const map = {
-        match:    '<span class="disc-badge disc-match">Match</span>',
-        addition: '<span class="disc-badge disc-addition">Addition</span>',
-        conflict: '<span class="disc-badge disc-conflict">Conflict</span>',
-        na:       '<span class="disc-badge disc-na">—</span>',
+        match:       '<span class="disc-badge disc-match">Match</span>',
+        addition:    '<span class="disc-badge disc-addition">Addition</span>',
+        conflict:    '<span class="disc-badge disc-conflict">Conflict</span>',
+        missing_pdf: '<span class="disc-badge disc-missing-pdf">Missing in PDF</span>',
+        na:          '<span class="disc-badge disc-na">—</span>',
     };
     return map[status] || map.na;
 }
@@ -6851,11 +6878,11 @@ function buildDiscrepancyRows(extractedData, ctgov) {
 
 /**
  * Pick the most severe status for a group so the table cell can show a single
- * summary badge (Conflict > Addition > Match > NA).
+ * summary badge (Conflict > Addition > Missing_pdf > Match > NA).
  */
 function worstStatus(rows) {
-    const rank = { conflict: 3, addition: 2, match: 1, na: 0 };
-    return rows.reduce((worst, r) => rank[r.status] > rank[worst] ? r.status : worst, 'na');
+    const rank = { conflict: 4, addition: 3, missing_pdf: 2, match: 1, na: 0 };
+    return rows.reduce((worst, r) => (rank[r.status] || 0) > (rank[worst] || 0) ? r.status : worst, 'na');
 }
 
 function formatValueForDisc(v) {

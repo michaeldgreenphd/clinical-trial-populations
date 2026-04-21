@@ -29,6 +29,14 @@ on:
         options:
           - anthropic
           - vertex_gemini
+      gemini_version:
+        description: 'Which Gemini model family to use (only applies when ai_provider=vertex_gemini)'
+        required: true
+        type: choice
+        default: gemini-3-preview
+        options:
+          - gemini-2.5-stable
+          - gemini-3-preview
 
 jobs:
   extract:
@@ -63,6 +71,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
+          GEMINI_VERSION: ${{ inputs.gemini_version }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: python scripts/extraction/extract_fda_demographics.py | tee fda_extraction_log.txt
 
@@ -85,6 +94,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
+          GEMINI_VERSION: ${{ inputs.gemini_version }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: python scripts/extraction/extract_paper_ses.py | tee aiml_extraction_log.txt
 
@@ -107,6 +117,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           AI_PROVIDER: ${{ inputs.ai_provider }}
+          GEMINI_VERSION: ${{ inputs.gemini_version }}
           RUN_MODE: ${{ inputs.run_mode }}
         run: python scripts/extraction/extract_trial_papers.py | tee trials_extraction_log.txt
 
