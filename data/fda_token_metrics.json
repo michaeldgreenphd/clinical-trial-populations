@@ -4,37 +4,37 @@
   "total_fda_tools": 1430,
   "per_model": {
     "haiku_4_5": {
-      "model_id": "gemini-3.1-flash-lite-preview",
-      "label": "Gemini 3.1 Flash-Lite",
-      "input_cost_per_m": 0.25,
-      "output_cost_per_m": 1.5,
-      "avg_input_per_doc": 12711.5,
-      "avg_output_per_doc": 1064.0,
-      "total_input_tokens": 25423,
-      "total_output_tokens": 2128,
+      "model_id": "gemini-2.5-flash-lite",
+      "label": "Gemini 2.5 Flash-Lite",
+      "input_cost_per_m": 0.1,
+      "output_cost_per_m": 0.4,
+      "avg_input_per_doc": 13565.5,
+      "avg_output_per_doc": 887.5,
+      "total_input_tokens": 27131,
+      "total_output_tokens": 1775,
       "docs_processed": 2
     },
     "sonnet_4_6": {
-      "model_id": "gemini-3.1-flash-preview",
-      "label": "Gemini 3.1 Flash",
-      "input_cost_per_m": 0.5,
-      "output_cost_per_m": 3.0,
+      "model_id": "gemini-2.5-flash",
+      "label": "Gemini 2.5 Flash",
+      "input_cost_per_m": 0.3,
+      "output_cost_per_m": 2.5,
+      "avg_input_per_doc": 13565.5,
+      "avg_output_per_doc": 367.0,
+      "total_input_tokens": 27131,
+      "total_output_tokens": 734,
+      "docs_processed": 2
+    },
+    "opus_4_7": {
+      "model_id": "gemini-2.5-pro",
+      "label": "Gemini 2.5 Pro",
+      "input_cost_per_m": 1.25,
+      "output_cost_per_m": 10.0,
       "avg_input_per_doc": 0.0,
       "avg_output_per_doc": 0.0,
       "total_input_tokens": 0,
       "total_output_tokens": 0,
       "docs_processed": 0
-    },
-    "opus_4_7": {
-      "model_id": "gemini-3.1-pro-preview",
-      "label": "Gemini 3.1 Pro",
-      "input_cost_per_m": 2.0,
-      "output_cost_per_m": 12.0,
-      "avg_input_per_doc": 12297.5,
-      "avg_output_per_doc": 622.5,
-      "total_input_tokens": 24595,
-      "total_output_tokens": 1245,
-      "docs_processed": 2
     }
   }
 }

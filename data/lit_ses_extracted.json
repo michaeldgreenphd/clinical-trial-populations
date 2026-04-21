@@ -11,8 +11,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-3.1-flash-lite-preview",
-        "label": "Gemini 3.1 Flash-Lite",
+        "model_id": "gemini-2.5-flash-lite",
+        "label": "Gemini 2.5 Flash-Lite",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -21,200 +21,222 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "socioeconomic_status": {
-              "wealth": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "adi_area_deprivation_index": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "family_size": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "income": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "education": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
+            "disability_and_functional_limitations": {
+              "value": "Urinary continence restoration after radical prostatectomy.",
+              "page_number": 13,
+              "exact_quote": "One significant outcome that AI models using MRI can help predict is the restoration of urinary continence after radical prostatectomy, which is a major quality-of-life concern [106]."
             },
-            "gender": {
-              "woman": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "non_binary": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "man": {
-                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide",
-                "value": "Not Reported (cohort size)",
-                "page_number": 2
-              },
-              "other": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "transgender": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
+            "total_participants": {
+              "value": "12000",
+              "page_number": 4,
+              "exact_quote": "Persily et al. developed ProMT-ML, a machine learning model designed to triage patients for prostate MRI by predicting the likelihood of an abnormal scan (PI-RADS \u2265 3) from routinely available clinical parameters [21]. Trained on data from approximately 12,000 patients, the model incorporated age, PSA, body mass index, and either prostate volume or systolic blood pressure."
             },
             "religion": {
-              "exact_quote": "Not Reported",
               "value": "Not Reported",
-              "page_number": 0
+              "page_number": 0,
+              "exact_quote": ""
             },
-            "geography": {
-              "countries": {
-                "exact_quote": "In 2024, 8000 patients underwent MRI for known or suspected prostate cancer in our health system... Authors include ... New York University Grossman School of Medicine, New York, New York, USA",
-                "value": [
-                  "USA"
-                ],
-                "page_number": 8
-              },
-              "us_states": {
-                "exact_quote": "New York University Grossman School of Medicine, New York, New York, USA",
-                "value": [
-                  "New York"
-                ],
-                "page_number": 1
-              },
-              "total_sites": {
-                "exact_quote": "Not Reported",
+            "race_nih_omb": {
+              "white_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "more_than_one_race_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "american_indian_or_alaska_native_evidence": "",
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "page_number": 2,
+                "exact_quote": "The PI-CAI international reader study recently provided the most compelling validation to date for AI-based image interpretation, showing that ensembles of AI models can match or surpass the performance of expert radiologists in diagnosing csPCa [13]. In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection. Taken together, advances in AI and emerging evidence supporting MRI for early detection bring the field to a critical juncture, where transitioning prostate MRI from a specialized diagnostic exam to a first-line screening tool should now be seriously explored."
+              },
+              "unknown": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "black_or_african_american_evidence": "Importantly, model performance must also be carefully assessed in sensitive subgroups to ensure model fairness. For example, a recent study found that a machine learning model predicting survival after radical prostatectomy demonstrated worse performance in Black patients relative to white patients [110]. This disparate model performance is particularly concerning in prostate cancer where Black men in the United States are more likely to be diagnosed with advanced prostate cancer and have a higher mortality than white men [111].",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "page_number": 13,
+                "exact_quote": "Importantly, model performance must also be carefully assessed in sensitive subgroups to ensure model fairness. For example, a recent study found that a machine learning model predicting survival after radical prostatectomy demonstrated worse performance in Black patients relative to white patients [110]. This disparate model performance is particularly concerning in prostate cancer where Black men in the United States are more likely to be diagnosed with advanced prostate cancer and have a higher mortality than white men [111]."
+              },
+              "unknown_evidence": "",
+              "asian_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              }
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "page_number": 2,
+              "exact_quote": "The PI-CAI international reader study recently provided the most compelling validation to date for AI-based image interpretation, showing that ensembles of AI models can match or surpass the performance of expert radiologists in diagnosing csPCa [13]. In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection. Taken together, advances in AI and emerging evidence supporting MRI for early detection bring the field to a critical juncture, where transitioning prostate MRI from a specialized diagnostic exam to a first-line screening tool should now be seriously explored."
+            },
+            "ethnicity": {
+              "not_hispanic_or_latino_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "unknown_evidence": "",
+              "hispanic_or_latino_evidence": ""
+            },
+            "socioeconomic_status": {
+              "wealth": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "income": {
+                "value": "Not Reported",
+                "page_number": 20,
+                "exact_quote": "Disparities in the utilization of magnetic resonance imaging for prostate cancer detection: A population-based study."
+              },
+              "education": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
               }
             },
             "target_patient_age_range": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "ethnicity": {
-              "hispanic_or_latino": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
+              "value": "N/A",
+              "page_number": 2,
+              "exact_quote": "The PI-CAI international reader study recently provided the most compelling validation to date for AI-based image interpretation, showing that ensembles of AI models can match or surpass the performance of expert radiologists in diagnosing csPCa [13]. In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection. Taken together, advances in AI and emerging evidence supporting MRI for early detection bring the field to a critical juncture, where transitioning prostate MRI from a specialized diagnostic exam to a first-line screening tool should now be seriously explored."
             },
             "study_design": {
-              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
-              "value": "Narrative review synthesizing progress across five AI domains in prostate MRI.",
-              "page_number": 3
+              "value": "This is a narrative review synthesizing current progress across five domains: patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis. The review focuses on technical performance, validation status, and barriers to adoption to identify steps needed for AI to move from research prototypes to routine clinical practice.",
+              "page_number": 3,
+              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis. We focus not only on technical performance but also on validation status and barriers to adoption. By mapping where evidence is most mature and where critical gaps remain, we aim to identify the steps needed for AI to move from research prototypes to integrated, valuable tools in routine clinical practice."
             },
             "sex": {
               "unknown": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": ""
               },
               "female": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": ""
               },
+              "male_evidence": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide, with an estimated 1.4 million new cases annually [1].",
+              "unknown_evidence": "",
               "male": {
-                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide",
-                "value": "Not Reported (cohort size)",
-                "page_number": 2
-              }
-            },
-            "race_nih_omb": {
-              "asian": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 2,
+                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide, with an estimated 1.4 million new cases annually [1]."
               },
+              "female_evidence": ""
+            },
+            "gender": {
+              "non_binary_evidence": "",
+              "other_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "non_binary": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "transgender_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": ""
+              },
+              "woman_evidence": "",
+              "man_evidence": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide, with an estimated 1.4 million new cases annually [1].",
               "unknown": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": ""
               },
-              "more_than_one_race": {
-                "exact_quote": "Not Reported",
+              "unknown_evidence": "",
+              "man": {
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 2,
+                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide, with an estimated 1.4 million new cases annually [1]."
               },
-              "native_hawaiian_or_other_pacific_islander": {
-                "exact_quote": "Not Reported",
+              "transgender": {
                 "value": "Not Reported",
-                "page_number": 0
-              },
-              "black_or_african_american": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "white": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "american_indian_or_alaska_native": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": ""
               }
-            },
-            "total_participants": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
             },
             "age": {
-              "exact_quote": "Trained on data from approximately 12,000 patients, the model incorporated age, PSA, body mass index, and either prostate volume or systolic blood pressure.",
-              "value": "Not Reported (as a cohort summary)",
-              "page_number": 4
+              "value": "N/A",
+              "page_number": 2,
+              "exact_quote": "The PI-CAI international reader study recently provided the most compelling validation to date for AI-based image interpretation, showing that ensembles of AI models can match or surpass the performance of expert radiologists in diagnosing csPCa [13]. In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection. Taken together, advances in AI and emerging evidence supporting MRI for early detection bring the field to a critical juncture, where transitioning prostate MRI from a specialized diagnostic exam to a first-line screening tool should now be seriously explored."
             },
-            "disability_and_functional_limitations": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
+            "geography": {
+              "us_states": {
+                "value": [
+                  "New York",
+                  "USA"
+                ],
+                "page_number": 1,
+                "exact_quote": "1 Bernard and Irene Schwartz Center for Biomedical Imaging, Department of Radiology, New York University Grossman School of Medicine, New York, New York, USA"
+              },
+              "total_sites": {
+                "value": "Not Reported",
+                "page_number": 9,
+                "exact_quote": "In 2024, 8000 patients underwent MRI for known or suspected prostate cancer in our health system, with over 1900 biopsies performed."
+              },
+              "total_sites_evidence": "",
+              "countries": {
+                "value": [
+                  "Worldwide"
+                ],
+                "page_number": 2,
+                "exact_quote": "Prostate cancer is the second most commonly diagnosed malignancy in men worldwide, with an estimated 1.4 million new cases annually [1]."
+              }
             },
-            "associated_nct_ids": {
-              "exact_quote": "In parallel, recent population-based screening trials such as STHLM3-MRI [14] and ReIMAGINE [15] have renewed interest in the role of MRI as a screening test for early detection.",
-              "value": [],
-              "page_number": 3
-            }
+            "total_participants_evidence": "Trained on data from approximately 12,000 patients, the model incorporated age, PSA, body mass index, and either prostate volume or systolic blood pressure."
           }
         },
-        "input_tokens": 25970,
-        "output_tokens": 1137
+        "input_tokens": 26861,
+        "output_tokens": 1858
       },
       "sonnet_4_6": {
-        "model_id": "gemini-3.1-flash-preview",
-        "label": "Gemini 3.1 Flash",
+        "model_id": "gemini-2.5-flash",
+        "label": "Gemini 2.5 Flash",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -223,209 +245,28 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+            "error": "No tool call in response"
+          }
+        },
+        "input_tokens": 26861,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "gemini-2.5-pro",
+        "label": "Gemini 2.5 Pro",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
           }
         },
         "input_tokens": 0,
         "output_tokens": 0
-      },
-      "opus_4_7": {
-        "model_id": "gemini-3.1-pro-preview",
-        "label": "Gemini 3.1 Pro",
-        "data": {
-          "metadata": {
-            "fda_submission_number": "Not Reported",
-            "fda_device": "Not Reported",
-            "publication_year": "Not Reported",
-            "cc_license": "Not Reported"
-          },
-          "extracted_data": {
-            "socioeconomic_status": {
-              "wealth": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "adi_area_deprivation_index": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "family_size": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "income": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "education": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "gender": {
-              "woman": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "non_binary": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "man": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "other": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "transgender": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "sex": {
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "female": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "male": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "study_design": {
-              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis\u2014highlighting the level of evidence, validation status, and barriers to adoption.",
-              "value": "The study is a narrative review evaluating the current progress, level of evidence, and validation status of artificial intelligence applications across the prostate MRI clinical pathway.",
-              "page_number": 1
-            },
-            "target_patient_age_range": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "ethnicity": {
-              "hispanic_or_latino": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "geography": {
-              "countries": {
-                "exact_quote": "",
-                "value": [],
-                "page_number": 0
-              },
-              "us_states": {
-                "exact_quote": "",
-                "value": [],
-                "page_number": 0
-              },
-              "total_sites": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "religion": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "race_nih_omb": {
-              "asian": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "more_than_one_race": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "native_hawaiian_or_other_pacific_islander": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "black_or_african_american": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "white": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "american_indian_or_alaska_native": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "total_participants": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "disability_and_functional_limitations": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "age": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "associated_nct_ids": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            }
-          }
-        },
-        "input_tokens": 25593,
-        "output_tokens": 549
       }
     }
   },
@@ -441,8 +282,8 @@
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-3.1-flash-lite-preview",
-        "label": "Gemini 3.1 Flash-Lite",
+        "model_id": "gemini-2.5-flash-lite",
+        "label": "Gemini 2.5 Flash-Lite",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -451,201 +292,222 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "sex": {
-              "unknown": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "female": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "male": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "gender": {
-              "woman": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "non_binary": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "man": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "other": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "transgender": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "socioeconomic_status": {
-              "wealth": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "adi_area_deprivation_index": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "family_size": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "income": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "education": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "geography": {
-              "countries": {
-                "exact_quote": "Not Reported",
-                "value": [],
-                "page_number": 0
-              },
-              "us_states": {
-                "exact_quote": "Not Reported",
-                "value": [],
-                "page_number": 0
-              },
-              "total_sites": {
-                "exact_quote": "The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%).",
-                "value": "Not Reported",
-                "page_number": 1
-              }
-            },
-            "target_patient_age_range": {
-              "exact_quote": "Not Reported",
+            "age": {
               "value": "Not Reported",
-              "page_number": 0
+              "page_number": 1,
+              "exact_quote": "We identified 17 FDA approved AI ultrasound devices, with only a few being specifically used for abdominal/pelvic imaging (infertility monitoring and follicle development)."
             },
             "ethnicity": {
-              "hispanic_or_latino": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
+              "not_hispanic_or_latino_evidence": "",
               "unknown": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": "Not Reported"
               },
               "not_hispanic_or_latino": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "study_design": {
-              "exact_quote": "Methods We searched the PubMed, FDA, and ClinicalTrials.gov databases for applications of AI in abdominal and pelvic ultrasound imaging. ... After screening, 57 manuscripts were included in the final review.",
-              "value": "Systematic review of AI applications in abdominal/pelvic ultrasound imaging.",
-              "page_number": 1
-            },
-            "religion": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "unknown_evidence": "",
+              "hispanic_or_latino_evidence": ""
             },
             "race_nih_omb": {
-              "asian": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "more_than_one_race": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
+              "white_evidence": "",
+              "american_indian_or_alaska_native_evidence": "",
+              "more_than_one_race_evidence": "",
               "native_hawaiian_or_other_pacific_islander": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
-              },
-              "black_or_african_american": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "white": {
-                "exact_quote": "Not Reported",
-                "value": "Not Reported",
-                "page_number": 0
+                "page_number": 0,
+                "exact_quote": "Not Reported"
               },
               "american_indian_or_alaska_native": {
-                "exact_quote": "Not Reported",
                 "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "total_participants": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "disability_and_functional_limitations": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "age": {
-              "exact_quote": "Yang Y et al. found that clinical variables (age, sex, body mass index, diabetes, fibrosis-4 index, android fat ratio, and skeletal muscle via dual-energy X-ray absorptiometry) have no significant influence on neural network models [5].",
-              "value": "Not Reported",
-              "page_number": 3
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "black_or_african_american_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "unknown": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "white": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "asian_evidence": "",
+              "unknown_evidence": ""
             },
             "associated_nct_ids": {
-              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346).",
               "value": [
                 "NCT03812471",
                 "NCT05151939",
                 "NCT05530681",
                 "NCT05637346"
               ],
-              "page_number": 10
+              "page_number": 11,
+              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346)."
+            },
+            "religion": {
+              "value": "Not Reported",
+              "page_number": 0,
+              "exact_quote": "Not Reported"
+            },
+            "total_participants": {
+              "value": "57",
+              "page_number": 1,
+              "exact_quote": "A total of 128 titles were identified from the database search and were eligible for screening. After screening, 57 manuscripts were included in the final review."
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "page_number": 0,
+              "exact_quote": "Not Reported"
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "page_number": 0,
+              "exact_quote": "Not Reported"
+            },
+            "study_design": {
+              "value": "This review identifies and categorizes AI applications in abdominal and pelvic ultrasound imaging based on anatomical location and methodology. The majority of studies were single-center and retrospective.",
+              "page_number": 1,
+              "exact_quote": "The main anatomical applications included multi-organ detection (n = 16, 28%), gynecology (n = 15, 26%), hepatobiliary system (n = 13, 23%), and musculoskeletal (n = 8, 14%). The main methodological applications included deep learning (n = 37, 65%), machine learning (n = 13, 23%), natural language processing (n = 5, 9%), and robots (n = 2, 4%). The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%)."
+            },
+            "total_participants_evidence": "A total of 128 titles were identified from the database search and were eligible for screening. After screening, 57 manuscripts were included in the final review.",
+            "gender": {
+              "non_binary_evidence": "",
+              "other_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "non_binary": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "transgender_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "woman_evidence": "",
+              "man_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "unknown_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "other": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              }
+            },
+            "sex": {
+              "unknown": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "female": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "male_evidence": "",
+              "unknown_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "female_evidence": ""
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "total_sites": {
+                "value": "Not Reported",
+                "page_number": 1,
+                "exact_quote": "The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%)."
+              },
+              "total_sites_evidence": "The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%).",
+              "countries": {
+                "value": [],
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              }
+            },
+            "socioeconomic_status": {
+              "wealth": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "income": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "education": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "page_number": 0,
+                "exact_quote": "Not Reported"
+              }
             }
           }
         },
-        "input_tokens": 23227,
-        "output_tokens": 1288
+        "input_tokens": 24118,
+        "output_tokens": 1213
       },
       "sonnet_4_6": {
-        "model_id": "gemini-3.1-flash-preview",
-        "label": "Gemini 3.1 Flash",
+        "model_id": "gemini-2.5-flash",
+        "label": "Gemini 2.5 Flash",
         "data": {
           "metadata": {
             "fda_submission_number": "Not Reported",
@@ -654,214 +516,28 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+            "error": "No tool call in response"
+          }
+        },
+        "input_tokens": 24118,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "gemini-2.5-pro",
+        "label": "Gemini 2.5 Pro",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
           }
         },
         "input_tokens": 0,
         "output_tokens": 0
-      },
-      "opus_4_7": {
-        "model_id": "gemini-3.1-pro-preview",
-        "label": "Gemini 3.1 Pro",
-        "data": {
-          "metadata": {
-            "fda_submission_number": "Not Reported",
-            "fda_device": "Not Reported",
-            "publication_year": "Not Reported",
-            "cc_license": "Not Reported"
-          },
-          "extracted_data": {
-            "sex": {
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "female": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "male": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "gender": {
-              "woman": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "non_binary": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "man": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "other": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "transgender": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "religion": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "study_design": {
-              "exact_quote": "This review aims to provide a comprehensive overview of current state-of-the-art applications for AI in abdominal and pelvic ultrasound imaging.",
-              "value": "Review",
-              "page_number": 1
-            },
-            "target_patient_age_range": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "ethnicity": {
-              "hispanic_or_latino": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "geography": {
-              "countries": {
-                "exact_quote": "",
-                "value": [],
-                "page_number": 0
-              },
-              "us_states": {
-                "exact_quote": "",
-                "value": [],
-                "page_number": 0
-              },
-              "total_sites": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "race_nih_omb": {
-              "asian": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "unknown": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "more_than_one_race": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "native_hawaiian_or_other_pacific_islander": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "black_or_african_american": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "white": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "american_indian_or_alaska_native": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "socioeconomic_status": {
-              "wealth": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "adi_area_deprivation_index": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "family_size": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "income": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              },
-              "education": {
-                "exact_quote": "",
-                "value": "Not Reported",
-                "page_number": 0
-              }
-            },
-            "total_participants": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "disability_and_functional_limitations": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "age": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "associated_nct_ids": {
-              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346).",
-              "value": [
-                "NCT03812471",
-                "NCT05151939",
-                "NCT05530681",
-                "NCT05637346"
-              ],
-              "page_number": 10
-            }
-          }
-        },
-        "input_tokens": 22850,
-        "output_tokens": 724
       }
     }
   }

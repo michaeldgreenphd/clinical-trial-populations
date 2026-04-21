@@ -1,111 +1,63 @@
 [
   {
-    "submission_number": "2026-04-16_DEN140025",
-    "device_name": "Unknown",
-    "panel": "Unknown",
-    "source_url": null,
+    "submission_number": "DEN140025",
+    "device_name": "BrainScope Ahead 100",
+    "panel": "Neurology",
+    "company": "BRAINSCOPE COMPANY, INC",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf14/DEN140025.pdf",
+    "decision_date": "11/17/14",
+    "decision_year": 2014,
     "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN140025.pdf",
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-3.1-flash-lite-preview",
-        "label": "Gemini 3.1 Flash-Lite",
+        "model_id": "gemini-2.5-flash-lite",
+        "label": "Gemini 2.5 Flash-Lite",
         "data": {
           "ethnicity": {
-            "not_hispanic_or_latino": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
             "hispanic_or_latino": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
-            }
-          },
-          "clinical_study_design": {
-            "exact_quote": "Not Reported",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "panel": {
-            "exact_quote": "Not Reported",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "total_participants": {
-            "exact_quote": "Not Reported",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "race_nih_omb": {
-            "asian": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
             },
-            "black_or_african_american": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
+            "not_hispanic_or_latino_evidence": "Not Reported",
+            "hispanic_or_latino_evidence": "Not Reported",
             "unknown": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
             },
-            "american_indian_or_alaska_native": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "white": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "more_than_one_race": {
+            "unknown_evidence": "Not Reported",
+            "not_hispanic_or_latino": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
             }
           },
-          "company_sponsor_name": {
-            "exact_quote": "BrainScope Company, Inc.",
-            "value": "BrainScope Company, Inc.",
-            "page_number": 1
-          },
-          "device_tool_title": {
-            "exact_quote": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
-            "value": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
-            "page_number": 1
-          },
-          "cited_clinical_studies": {
-            "nct_ids": {
+          "sex": {
+            "female_evidence": "Not Reported",
+            "male_evidence": "Not Reported",
+            "female": {
+              "value": "Not Reported",
               "exact_quote": "Not Reported",
-              "value": [],
               "page_number": 0
             },
-            "dois": {
+            "male": {
               "exact_quote": "Not Reported",
-              "value": [],
+              "value": "Not Reported",
               "page_number": 0
             },
-            "publication_titles": {
+            "unknown": {
+              "value": "Not Reported",
               "exact_quote": "Not Reported",
-              "value": [],
               "page_number": 0
-            }
+            },
+            "unknown_evidence": "Not Reported"
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "Not Reported",
+            "page_number": 0
           },
           "gender": {
             "non_binary": {
@@ -114,6 +66,21 @@
               "page_number": 0
             },
             "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "non_binary_evidence": "Not Reported",
+            "man_evidence": "Not Reported",
+            "unknown_evidence": "Not Reported",
+            "other_evidence": "Not Reported",
+            "woman_evidence": "Not Reported",
+            "other": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "man": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
@@ -128,326 +95,471 @@
               "value": "Not Reported",
               "page_number": 0
             },
-            "man": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "other": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            }
+            "transgender_evidence": "Not Reported"
           },
-          "sex": {
-            "male": {
-              "exact_quote": "Not Reported",
+          "target_patient_age_range": {
+            "exact_quote": "between the ages of 18-80 years",
+            "value": "18-80 years",
+            "page_number": 3
+          },
+          "clinical_study_design": {
+            "value": "The device is indicated for use as an adjunct to standard clinical practice to aid in the evaluation of patients who are being considered for a head CT. It is to be used in patients who sustained a closed head injury within 24 hours, clinically present as a mild traumatic brain injury with a Glasgow Coma Scale score (GCS) of 13-15, and are between the ages of 18-80 years.",
+            "exact_quote": "The Ahead\u00ae 100, consisting of two models, i.e., the Ahead\u00ae M-100 and the Ahead\u00ae CV-100, is indicated for use as an adjunct to standard clinical practice to aid in the evaluation of patients who are being considered for a head CT, but should not be used as a substitute for a CT scan. This device is to be used for this purpose in patients who sustained a closed head injury within 24 hours, clinically present as a mild traumatic brain injury with a Glasgow Coma Scale score (GCS) of 13-15, and are between the ages of 18-80 years.",
+            "page_number": 3
+          },
+          "geography": {
+            "total_sites": {
               "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
             },
-            "unknown": {
+            "countries": {
+              "value": [],
               "exact_quote": "Not Reported",
-              "value": "Not Reported",
               "page_number": 0
             },
-            "female": {
+            "us_states": {
+              "value": [],
               "exact_quote": "Not Reported",
-              "value": "Not Reported",
               "page_number": 0
-            }
+            },
+            "total_sites_evidence": "Not Reported"
           },
           "device_name": {
             "exact_quote": "BrainScope Ahead 100, Models CV-100 and M-100",
             "value": "BrainScope Ahead 100, Models CV-100 and M-100",
             "page_number": 1
           },
-          "geography": {
-            "total_sites": {
+          "company_sponsor_name": {
+            "exact_quote": "BrainScope Company, Inc.",
+            "value": "BrainScope Company, Inc.",
+            "page_number": 1
+          },
+          "total_participants_evidence": "Not Reported",
+          "cited_clinical_studies": {
+            "dois": {
               "exact_quote": "Not Reported",
-              "value": "Not Reported",
+              "value": [],
               "page_number": 0
             },
-            "countries": {
+            "publication_titles": {
               "exact_quote": "Not Reported",
               "value": [],
               "page_number": 0
             },
-            "us_states": {
-              "exact_quote": "Not Reported",
+            "nct_ids": {
               "value": [],
+              "exact_quote": "Not Reported",
               "page_number": 0
             }
           },
-          "target_patient_age_range": {
-            "exact_quote": "are between the ages of 18-80 years.",
-            "value": "18-80 years",
-            "page_number": 1
-          },
           "socioeconomic_status": {
             "education": {
-              "exact_quote": "Not Reported",
               "value": "Not Reported",
-              "page_number": 0
-            },
-            "adi_area_deprivation_index": {
               "exact_quote": "Not Reported",
-              "value": "Not Reported",
               "page_number": 0
             },
             "income": {
-              "exact_quote": "Not Reported",
               "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
             },
             "wealth": {
-              "exact_quote": "Not Reported",
               "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
             },
             "family_size": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            }
+          },
+          "device_tool_title": {
+            "value": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
+            "exact_quote": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
+            "page_number": 2
+          },
+          "panel": {
+            "exact_quote": "Not Reported",
+            "value": "Not Reported",
+            "page_number": 0
+          },
+          "race_nih_omb": {
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "white_evidence": "Not Reported",
+            "american_indian_or_alaska_native": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "unknown_evidence": "Not Reported",
+            "american_indian_or_alaska_native_evidence": "Not Reported",
+            "black_or_african_american_evidence": "Not Reported",
+            "more_than_one_race_evidence": "Not Reported",
+            "asian_evidence": "Not Reported",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "Not Reported",
+            "white": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
             }
           }
         },
-        "input_tokens": 7295,
-        "output_tokens": 1080
+        "input_tokens": 8149,
+        "output_tokens": 1045
       },
       "sonnet_4_6": {
-        "model_id": "gemini-3.1-flash-preview",
-        "label": "Gemini 3.1 Flash",
+        "model_id": "gemini-2.5-flash",
+        "label": "Gemini 2.5 Flash",
         "data": {
-          "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "geography": {
+            "total_sites": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "us_states": {
+              "exact_quote": "",
+              "value": [],
+              "page_number": 0
+            },
+            "total_sites_evidence": ""
+          },
+          "device_name": {
+            "exact_quote": "BrainScope Ahead 100, Models CV-100 and M-100",
+            "value": "BrainScope Ahead 100",
+            "page_number": 1
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "american_indian_or_alaska_native_evidence": "",
+            "more_than_one_race_evidence": "",
+            "black_or_african_american_evidence": "",
+            "asian_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "hispanic_or_latino_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "not_hispanic_or_latino": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "18-80 years",
+            "exact_quote": "between the ages of 18-80 years",
+            "page_number": 1
+          },
+          "sex": {
+            "female_evidence": "",
+            "male": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "female": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "cited_clinical_studies": {
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "adi_area_deprivation_index": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "education": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "device_tool_title": {
+            "exact_quote": "BrainScope Ahead 100, Models CV-100 and M-100",
+            "value": "BrainScope Ahead 100, Models CV-100 and M-100",
+            "page_number": 1
+          },
+          "gender": {
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "other_evidence": "",
+            "unknown_evidence": "",
+            "man_evidence": "",
+            "man": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "other": {
+              "exact_quote": "",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "woman_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": ""
+          },
+          "panel": {
+            "exact_quote": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid.",
+            "value": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
+            "page_number": 2
+          },
+          "company_sponsor_name": {
+            "exact_quote": "BrainScope Company, Inc.",
+            "value": "BrainScope Company, Inc.",
+            "page_number": 1
+          }
+        },
+        "input_tokens": 8149,
+        "output_tokens": 734
+      },
+      "opus_4_7": {
+        "model_id": "gemini-2.5-pro",
+        "label": "Gemini 2.5 Pro",
+        "data": {
+          "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
         },
         "input_tokens": 0,
         "output_tokens": 0
-      },
-      "opus_4_7": {
-        "model_id": "gemini-3.1-pro-preview",
-        "label": "Gemini 3.1 Pro",
-        "data": {
-          "ethnicity": {
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "not_hispanic_or_latino": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "hispanic_or_latino": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "clinical_study_design": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "panel": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "target_patient_age_range": {
-            "exact_quote": "This device is to be used for this purpose in patients who sustained a closed head injury within 24 hours, clinically present as a mild traumatic brain injury with a Glasgow Coma Scale score (GCS) of 13-15, and are between the ages of 18-80 years.",
-            "value": "18-80 years",
-            "page_number": 1
-          },
-          "device_tool_title": {
-            "exact_quote": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
-            "value": "Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
-            "page_number": 1
-          },
-          "company_sponsor_name": {
-            "exact_quote": "BrainScope Company, Inc.",
-            "value": "BrainScope Company, Inc.",
-            "page_number": 1
-          },
-          "total_participants": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "cited_clinical_studies": {
-            "nct_ids": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "dois": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "publication_titles": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            }
-          },
-          "gender": {
-            "non_binary": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "transgender": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "woman": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "man": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "other": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "sex": {
-            "male": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "female": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "race_nih_omb": {
-            "asian": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "black_or_african_american": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "american_indian_or_alaska_native": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "white": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "more_than_one_race": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "geography": {
-            "total_sites": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "us_states": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "countries": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            }
-          },
-          "device_name": {
-            "exact_quote": "BrainScope Ahead 100, Models CV-100 and M-100",
-            "value": "BrainScope Ahead 100, Models CV-100 and M-100",
-            "page_number": 1
-          },
-          "socioeconomic_status": {
-            "education": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "wealth": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "income": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "adi_area_deprivation_index": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "family_size": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          }
-        },
-        "input_tokens": 6881,
-        "output_tokens": 653
       }
     }
   },
   {
-    "submission_number": "2026-04-16_DEN160026",
-    "device_name": "Unknown",
-    "panel": "Unknown",
-    "source_url": null,
+    "submission_number": "DEN160026",
+    "device_name": "23andMe Personal Genome Service (PGS) Genetic Health Risk Test for Hereditary Thrombophilia",
+    "panel": "Immunology",
+    "company": "23andMe, Inc.",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf16/DEN160026.pdf",
+    "decision_date": "4/6/17",
+    "decision_year": 2017,
     "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN160026.pdf",
     "extraction_status": "success",
     "models": {
       "haiku_4_5": {
-        "model_id": "gemini-3.1-flash-lite-preview",
-        "label": "Gemini 3.1 Flash-Lite",
+        "model_id": "gemini-2.5-flash-lite",
+        "label": "Gemini 2.5 Flash-Lite",
         "data": {
           "ethnicity": {
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
             "not_hispanic_or_latino": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "male": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "female": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "unknown": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "Not Reported",
+            "page_number": 0
+          },
+          "gender": {
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "transgender": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "other_evidence": "",
+            "unknown_evidence": "",
+            "man_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "woman_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
             },
             "unknown": {
@@ -455,30 +567,45 @@
               "value": "Not Reported",
               "page_number": 0
             },
-            "hispanic_or_latino": {
-              "exact_quote": "Not Reported",
+            "woman": {
               "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
-            }
+            },
+            "transgender_evidence": ""
           },
+          "total_participants_evidence": "",
           "clinical_study_design": {
-            "exact_quote": "Not Reported",
+            "exact_quote": "",
             "value": "Not Reported",
             "page_number": 0
           },
-          "panel": {
-            "exact_quote": "Division of Immunology and Hematology Devices",
-            "value": "Division of Immunology and Hematology Devices",
-            "page_number": 23
+          "geography": {
+            "total_sites": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "countries": {
+              "exact_quote": "Not Reported",
+              "value": [],
+              "page_number": 0
+            },
+            "us_states": {
+              "exact_quote": "Not Reported",
+              "value": [],
+              "page_number": 0
+            },
+            "total_sites_evidence": ""
           },
           "device_name": {
             "exact_quote": "23andMe Personal Genome Service (PGS) Test",
             "value": "23andMe Personal Genome Service (PGS) Test",
             "page_number": 1
           },
-          "total_participants": {
-            "exact_quote": "Not Reported",
+          "target_patient_age_range": {
             "value": "Not Reported",
+            "exact_quote": "Not Reported",
             "page_number": 0
           },
           "company_sponsor_name": {
@@ -486,148 +613,30 @@
             "value": "23andMe, Inc.",
             "page_number": 1
           },
-          "device_tool_title": {
-            "exact_quote": "Genetic Health Risk Assessment System",
-            "value": "Genetic Health Risk Assessment System",
-            "page_number": 3
-          },
           "cited_clinical_studies": {
-            "nct_ids": {
-              "exact_quote": "Not Reported",
-              "value": [],
-              "page_number": 0
-            },
             "dois": {
-              "exact_quote": "Not Reported",
               "value": [],
+              "exact_quote": "",
               "page_number": 0
             },
             "publication_titles": {
-              "exact_quote": "Not Reported",
-              "value": [],
-              "page_number": 0
-            }
-          },
-          "gender": {
-            "transgender": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "non_binary": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "woman": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "other": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "man": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "sex": {
-            "male": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "female": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "race_nih_omb": {
-            "asian": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "black_or_african_american": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "american_indian_or_alaska_native": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "white": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "more_than_one_race": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "geography": {
-            "total_sites": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "us_states": {
-              "exact_quote": "Not Reported",
+              "exact_quote": "",
               "value": [],
               "page_number": 0
             },
-            "countries": {
-              "exact_quote": "Not Reported",
+            "nct_ids": {
               "value": [],
+              "exact_quote": "",
               "page_number": 0
             }
-          },
-          "target_patient_age_range": {
-            "exact_quote": "Not Reported",
-            "value": "Not Reported",
-            "page_number": 0
           },
           "socioeconomic_status": {
             "education": {
-              "exact_quote": "Not Reported",
               "value": "Not Reported",
+              "exact_quote": "Not Reported",
               "page_number": 0
             },
             "adi_area_deprivation_index": {
-              "exact_quote": "Not Reported",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "income": {
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
@@ -641,227 +650,88 @@
               "exact_quote": "Not Reported",
               "value": "Not Reported",
               "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            }
+          },
+          "device_tool_title": {
+            "value": "Genetic Health Risk Assessment System",
+            "exact_quote": "Genetic Health Risk Assessment System",
+            "page_number": 3
+          },
+          "panel": {
+            "value": "Not Reported",
+            "exact_quote": "Not Reported",
+            "page_number": 0
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "more_than_one_race": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "american_indian_or_alaska_native_evidence": "",
+            "black_or_african_american_evidence": "",
+            "more_than_one_race_evidence": "",
+            "asian_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "Not Reported",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "white": {
+              "exact_quote": "Not Reported",
+              "value": "Not Reported",
+              "page_number": 0
             }
           }
         },
-        "input_tokens": 18128,
-        "output_tokens": 1048
+        "input_tokens": 18982,
+        "output_tokens": 730
       },
       "sonnet_4_6": {
-        "model_id": "gemini-3.1-flash-preview",
-        "label": "Gemini 3.1 Flash",
+        "model_id": "gemini-2.5-flash",
+        "label": "Gemini 2.5 Flash",
         "data": {
-          "error": "404 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview:generateContent?%24alt=json%3Benum-encoding%3Dint: Publisher Model `projects/civic-sample-backups/locations/global/publishers/google/models/gemini-3.1-flash-preview` was not found or your project does not have access to it. Please ensure you are using a valid model version. For more information, see: https://cloud.google.com/vertex-ai/generative-ai/docs/learn/model-versions"
+          "error": "No tool call in response"
         },
-        "input_tokens": 0,
+        "input_tokens": 18982,
         "output_tokens": 0
       },
       "opus_4_7": {
-        "model_id": "gemini-3.1-pro-preview",
-        "label": "Gemini 3.1 Pro",
+        "model_id": "gemini-2.5-pro",
+        "label": "Gemini 2.5 Pro",
         "data": {
-          "ethnicity": {
-            "not_hispanic_or_latino": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "hispanic_or_latino": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "clinical_study_design": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "panel": {
-            "exact_quote": "Division of Immunology and Hematology Devices",
-            "value": "Division of Immunology and Hematology Devices",
-            "page_number": 23
-          },
-          "race_nih_omb": {
-            "asian": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "black_or_african_american": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "more_than_one_race": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "american_indian_or_alaska_native": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "white": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "total_participants": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "company_sponsor_name": {
-            "exact_quote": "23andMe, Inc.",
-            "value": "23andMe, Inc.",
-            "page_number": 1
-          },
-          "target_patient_age_range": {
-            "exact_quote": "",
-            "value": "Not Reported",
-            "page_number": 0
-          },
-          "cited_clinical_studies": {
-            "nct_ids": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "dois": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "publication_titles": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            }
-          },
-          "gender": {
-            "non_binary": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "transgender": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "woman": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "man": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "other": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "sex": {
-            "male": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "unknown": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "female": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          },
-          "device_name": {
-            "exact_quote": "The 23andMe Personal Genome Service (PGS) Test is indicated for use as follows",
-            "value": "23andMe Personal Genome Service (PGS) Test",
-            "page_number": 1
-          },
-          "geography": {
-            "total_sites": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "us_states": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            },
-            "countries": {
-              "exact_quote": "",
-              "value": [],
-              "page_number": 0
-            }
-          },
-          "device_tool_title": {
-            "exact_quote": "classification of the23andMe Personal Genome Service (PGS) Test",
-            "value": "23andMe Personal Genome Service (PGS) Test",
-            "page_number": 1
-          },
-          "socioeconomic_status": {
-            "education": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "wealth": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "income": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "adi_area_deprivation_index": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            },
-            "family_size": {
-              "exact_quote": "",
-              "value": "Not Reported",
-              "page_number": 0
-            }
-          }
+          "error": "400 POST https://aiplatform.googleapis.com/v1/projects/civic-sample-backups/locations/global/publishers/google/models/gemini-2.5-pro:generateContent?%24alt=json%3Benum-encoding%3Dint: The specified schema produces a constraint that has too many states for serving.  Typical causes of this error are schemas with lots of text (for example, very long property or enum names), schemas with long array length limits (especially when nested), or schemas using complex value matchers (for example, integers or numbers with minimum/maximum bounds or strings with complex formats like date-time)"
         },
-        "input_tokens": 17714,
-        "output_tokens": 592
+        "input_tokens": 0,
+        "output_tokens": 0
       }
     }
   }
