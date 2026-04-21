@@ -30,6 +30,10 @@ jobs:
       - name: Run extraction
         run: python -m src.extract_all --output data/demographics.json --results-after 2009-01-01
 
+      - name: Compress CT.gov Data for Drive
+        # -k keeps the original so the split/archive step can still read it.
+        run: gzip -k data/demographics.json
+
       - name: Upload CT.gov Data to Google Drive via OAuth
         env:
           CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
@@ -37,8 +41,8 @@ jobs:
           REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           CHILD_FOLDER: CT_gov_API_Data
-          FILE_PATH: ${{ github.workspace }}/data/demographics.json
-          FILE_NAME: ${{ env.CURRENT_DATE }}_CTgov_demographics.json
+          FILE_PATH: ${{ github.workspace }}/data/demographics.json.gz
+          FILE_NAME: ${{ env.CURRENT_DATE }}_CTgov_demographics.json.gz
         run: |
           pip install requests
           python scripts/gdrive_upload.py
