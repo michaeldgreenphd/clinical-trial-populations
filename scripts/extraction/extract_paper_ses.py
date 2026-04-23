@@ -43,6 +43,7 @@ import pdfplumber
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
 
+PILOT_LIMIT = 8
 PILOT_SIZE = 9
 PILOT_PDF_DIR = "data/pilot_AIML_manuscripts"
 METADATA_CSV = "data/fuzzy_matches_pending_review.csv"
@@ -258,6 +259,51 @@ def build_metadata_index(csv_path: str) -> dict[str, dict]:
     return idx
 
 
+def resolve_limit() -> int | None:
+    """Translate RUN_MODE into an optional cap on the number of PDFs processed.
+
+    `pilot-test` (default) caps the run at PILOT_LIMIT to match the grant's
+    target sample size; `full-extraction` returns None (no cap).
+    """
+    mode = (os.environ.get("RUN_MODE") or "pilot-test").strip().lower()
+    if mode == "full-extraction":
+        return None
+    if mode == "pilot-test":
+        return PILOT_LIMIT
+    print(f"  ! Unknown RUN_MODE {mode!r} — defaulting to pilot-test", file=sys.stderr)
+    return PILOT_LIMIT
+
+
+def print_token_summary(models, model_totals, successful_docs, attempted_docs):
+    """Emit a terminal-friendly per-model token summary for CI logs.
+
+    `successful_docs` is the run-wide count of PDFs where extraction succeeded
+    (the natural denominator for the averages). Per-model `docs` may be lower
+    if a given model errored on a particular document; the per-model block
+    prints that count explicitly so the denominator used is never ambiguous.
+    """
+    bar = "=" * 60
+    print(f"\n{bar}")
+    print("TOKEN USAGE SUMMARY")
+    print(bar)
+    print(f"Denominator: N={successful_docs} documents successfully processed "
+          f"(out of {attempted_docs} attempted)")
+    for model in models:
+        mkey = model["key"]
+        t = model_totals[mkey]
+        docs = t["docs"]
+        denom = docs or 1
+        avg_in = t["input"] / denom
+        avg_out = t["output"] / denom
+        print(f"\n[{model['label']} ({model['id']})]")
+        print(f"  Total Input Tokens:    {t['input']:>12,}")
+        print(f"  Total Output Tokens:   {t['output']:>12,}")
+        print(f"  Average Input / doc:   {avg_in:>12,.1f}")
+        print(f"  Average Output / doc:  {avg_out:>12,.1f}")
+        print(f"  Successful calls:      {docs:>12,}")
+    print(bar)
+
+
 def discover_pilot_pdfs(pdf_dir: str) -> list[tuple[str, str]]:
     """Return (doi_slug, pdf_path) pairs sorted by filename."""
     if not os.path.isdir(pdf_dir):
@@ -429,15 +475,16 @@ def main():
             sys.exit(1)
 
     run_mode = os.environ.get("RUN_MODE", "pilot-test")
+    limit = resolve_limit()
 
     print(f"Paper SES 3-Way Model Comparison Pipeline (local PDF mode)")
     print(f"  Pilot PDF dir: {PILOT_PDF_DIR}")
     print(f"  Metadata CSV:  {METADATA_CSV}")
-    print(f"  RUN_MODE:      {run_mode}")
+    print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
 
     metadata_index = build_metadata_index(METADATA_CSV)
     all_pdfs = discover_pilot_pdfs(PILOT_PDF_DIR)
-    pilot = all_pdfs
+    pilot = all_pdfs if limit is None else all_pdfs[:limit]
 
     if not pilot:
         print(f"  No PDFs found in {PILOT_PDF_DIR}. Nothing to do — exiting cleanly.",
@@ -540,6 +587,9 @@ def main():
     print(f"Writing metrics to {OUTPUT_METRICS}")
     with open(OUTPUT_METRICS, "w") as f:
         json.dump(metrics, f, indent=2)
+
+    successful_docs = sum(1 for r in results if r["extraction_status"] == "success")
+    print_token_summary(MODELS, model_totals, successful_docs, len(pilot))
 
     print("\nDone.")
 

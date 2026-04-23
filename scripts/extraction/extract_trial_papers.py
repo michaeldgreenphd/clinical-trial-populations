@@ -24,7 +24,8 @@ files so it can run in constrained environments (e.g., GitHub Actions)
 without outbound access to publisher sites.
 
 Mode switch:
-  - `RUN_MODE=pilot-test` (default)  → process every PDF in the pilot folder
+  - `RUN_MODE=pilot-test` (default)  → process at most `PILOT_LIMIT` PDFs
+                                       from the pilot folder
   - `RUN_MODE=full-extraction`       → process every PDF in the full corpus
 
 Outputs:
@@ -53,6 +54,7 @@ import pdfplumber
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
 
+PILOT_LIMIT = 20
 # PDF_DIR is resolved at runtime based on RUN_MODE — pilot-test reads from a
 # small curated pilot folder; full-extraction reads the full manuscript corpus.
 PILOT_PDF_DIR = "data/pilot_trials_manuscripts"
@@ -262,6 +264,42 @@ def resolve_pdf_dir(mode: str) -> str:
     """Pilot-test reads the curated `pilot_trials_manuscripts/` folder; full
     extraction reads the full `Clinical Trials Manuscripts/` corpus."""
     return FULL_PDF_DIR if mode == "full-extraction" else PILOT_PDF_DIR
+
+
+def resolve_limit(mode: str) -> int | None:
+    """Pilot-test caps the run at PILOT_LIMIT to match the grant's target
+    sample size; full-extraction returns None (no cap)."""
+    return None if mode == "full-extraction" else PILOT_LIMIT
+
+
+def print_token_summary(models, model_totals, successful_docs, attempted_docs):
+    """Emit a terminal-friendly per-model token summary for CI logs.
+
+    `successful_docs` is the run-wide count of PDFs where extraction succeeded
+    (the natural denominator for the averages). Per-model `docs` may be lower
+    if a given model errored on a particular document; the per-model block
+    prints that count explicitly so the denominator used is never ambiguous.
+    """
+    bar = "=" * 60
+    print(f"\n{bar}")
+    print("TOKEN USAGE SUMMARY")
+    print(bar)
+    print(f"Denominator: N={successful_docs} documents successfully processed "
+          f"(out of {attempted_docs} attempted)")
+    for model in models:
+        mkey = model["key"]
+        t = model_totals[mkey]
+        docs = t["docs"]
+        denom = docs or 1
+        avg_in = t["input"] / denom
+        avg_out = t["output"] / denom
+        print(f"\n[{model['label']} ({model['id']})]")
+        print(f"  Total Input Tokens:    {t['input']:>12,}")
+        print(f"  Total Output Tokens:   {t['output']:>12,}")
+        print(f"  Average Input / doc:   {avg_in:>12,.1f}")
+        print(f"  Average Output / doc:  {avg_out:>12,.1f}")
+        print(f"  Successful calls:      {docs:>12,}")
+    print(bar)
 
 
 def tier_from_filename(stem: str) -> str | None:
@@ -480,15 +518,16 @@ def main():
 
     run_mode = resolve_mode()
     pdf_dir = resolve_pdf_dir(run_mode)
+    limit = resolve_limit(run_mode)
 
     print("Clinical Trial Manuscript 3-Way Model Comparison Pipeline")
-    print(f"  RUN_MODE:      {run_mode}")
+    print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
     print(f"  PDF dir:       {pdf_dir}")
     print(f"  Metadata CSV:  {METADATA_CSV}")
 
     metadata_index = build_metadata_index(METADATA_CSV)
     all_pdfs = discover_pilot_pdfs(pdf_dir)
-    pilot = all_pdfs
+    pilot = all_pdfs if limit is None else all_pdfs[:limit]
 
     if not pilot:
         print(f"  No PDFs found in {pdf_dir}. Nothing to do — exiting cleanly.",
@@ -600,6 +639,9 @@ def main():
     print(f"Writing metrics to {OUTPUT_METRICS}")
     with open(OUTPUT_METRICS, "w") as f:
         json.dump(metrics, f, indent=2)
+
+    successful_docs = sum(1 for r in results if r["extraction_status"] == "success")
+    print_token_summary(MODELS, model_totals, successful_docs, len(pilot))
 
     print("\nDone.")
 
