@@ -32,8 +32,8 @@
               "page_number": 0
             },
             "study_design": {
-              "value": "Narrative review synthesizing progress in artificial intelligence applications across five domains of prostate MRI (triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis), focusing on validation status and barriers to adoption.",
-              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis. We focus not only on technical performance but also on validation status and barriers to adoption.",
+              "value": "Narrative review synthesizing current progress across five domains of AI applications in prostate MRI: patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis",
+              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
               "page_number": 3
             },
             "total_participants": {
@@ -41,7 +41,7 @@
               "exact_quote": "",
               "page_number": 0
             },
-            "total_participants_evidence": "{\n  \"value\": \"\"\n}",
+            "total_participants_evidence": "",
             "age": {
               "value": "Not Reported",
               "exact_quote": "",
@@ -49,14 +49,18 @@
             },
             "geography": {
               "countries": {
-                "value": [],
-                "exact_quote": "",
-                "page_number": 0
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "New York University Grossman School of Medicine, New York, New York, USA",
+                "page_number": 1
               },
               "us_states": {
-                "value": [],
-                "exact_quote": "",
-                "page_number": 0
+                "value": [
+                  "New York"
+                ],
+                "exact_quote": "New York University Grossman School of Medicine, New York, New York, USA",
+                "page_number": 1
               },
               "total_sites_evidence": "",
               "total_sites": {
@@ -227,7 +231,7 @@
           }
         },
         "input_tokens": 32527,
-        "output_tokens": 1819
+        "output_tokens": 1827
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -251,11 +255,11 @@
               "page_number": 0
             },
             "study_design": {
-              "value": "This is a narrative review article synthesizing progress in artificial intelligence for prostate MRI across five domains: patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis. It does not present an original validation cohort.",
-              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
+              "value": "This is a narrative review article synthesizing progress in AI/ML applications for prostate MRI across five domains: patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis. It does not present a primary validation cohort but reviews published AI/ML validation studies.",
+              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis. We focus not only on technical performance but also on validation status and barriers to adoption.",
               "page_number": 3
             },
-            "total_participants_evidence": "",
+            "total_participants_evidence": "\"\"",
             "total_participants": {
               "value": "Not Reported",
               "exact_quote": "",
@@ -273,9 +277,11 @@
                 "page_number": 0
               },
               "countries": {
-                "value": [],
-                "exact_quote": "",
-                "page_number": 0
+                "value": [
+                  "USA"
+                ],
+                "exact_quote": "Bernard and Irene Schwartz Center for Biomedical Imaging, Department of Radiology, New York University Grossman School of Medicine, New York, New York, USA",
+                "page_number": 1
               },
               "total_sites_evidence": "",
               "total_sites": {
@@ -446,7 +452,7 @@
           }
         },
         "input_tokens": 32528,
-        "output_tokens": 1392
+        "output_tokens": 1464
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -459,213 +465,215 @@
             "cc_license": "Not Reported"
           },
           "extracted_data": {
-            "associated_nct_ids": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "target_patient_age_range": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "study_design": {
-              "value": "Narrative review synthesizing progress of AI/ML across five domains of prostate MRI (triage, accelerated acquisition/reconstruction, image quality assurance, diagnosis, and prognosis); not an original validation study.",
-              "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
-              "page_number": 3
-            },
-            "total_participants_evidence": "",
-            "total_participants": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "age": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "geography": {
-              "us_states": {
+            "data": {
+              "associated_nct_ids": {
                 "value": [],
                 "exact_quote": "",
                 "page_number": 0
               },
-              "countries": {
-                "value": [],
+              "target_patient_age_range": {
+                "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "total_sites_evidence": "",
-              "total_sites": {
+              "study_design": {
+                "value": "Narrative review synthesizing current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis, and prognosis\u2014of AI in prostate MRI.",
+                "exact_quote": "This narrative review synthesizes current progress across five domains\u2014patient triage, accelerated acquisition and reconstruction, image quality assurance, diagnosis and prognosis.",
+                "page_number": 3
+              },
+              "total_participants_evidence": "",
+              "total_participants": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "age": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "geography": {
+                "us_states": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "countries": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "total_sites_evidence": "",
+                "total_sites": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "sex": {
+                "female_evidence": "",
+                "female": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "male_evidence": "",
+                "male": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               }
-            },
-            "sex": {
-              "female_evidence": "",
-              "female": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "male_evidence": "",
-              "male": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "unknown_evidence": "",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "gender": {
-              "woman_evidence": "",
-              "woman": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "man_evidence": "",
-              "man": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "non_binary_evidence": "",
-              "non_binary": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "transgender_evidence": "",
-              "transgender": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "other_evidence": "",
-              "other": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "unknown_evidence": "",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "race_nih_omb": {
-              "american_indian_or_alaska_native_evidence": "",
-              "american_indian_or_alaska_native": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "asian_evidence": "",
-              "asian": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "black_or_african_american_evidence": "",
-              "black_or_african_american": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "native_hawaiian_or_other_pacific_islander_evidence": "",
-              "native_hawaiian_or_other_pacific_islander": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "white_evidence": "",
-              "white": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "more_than_one_race_evidence": "",
-              "more_than_one_race": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "unknown_evidence": "",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "ethnicity": {
-              "hispanic_or_latino_evidence": "",
-              "hispanic_or_latino": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "not_hispanic_or_latino_evidence": "",
-              "not_hispanic_or_latino": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "unknown_evidence": "",
-              "unknown": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "socioeconomic_status": {
-              "education": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "income": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "wealth": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "family_size": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              },
-              "adi_area_deprivation_index": {
-                "value": "Not Reported",
-                "exact_quote": "",
-                "page_number": 0
-              }
-            },
-            "disability_and_functional_limitations": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "religion": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
             }
           }
         },
         "input_tokens": 45263,
-        "output_tokens": 1881
+        "output_tokens": 1708
       }
     }
   },
@@ -692,56 +700,14 @@
           },
           "extracted_data": {
             "study_design": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "target_patient_age_range": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "total_participants_evidence": "",
-            "total_participants": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "age": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "associated_nct_ids": {
-              "value": [
-                "NCT03812471",
-                "NCT05151939",
-                "NCT05530681",
-                "NCT05637346"
-              ],
-              "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm for extracting fetal imaging and biometry measurements from 3D ultrasound volumes automatically from abdominal ultrasound imaging (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm that recognizes the abdominal anatomical structures during linear and radial endoscopic ultrasound evaluations (NCT05151939). Jan D et al. are conducting a single-center study using an intelligent algorithm to assess and predict pelvic floor recovery after one year of childbirth based on trans-perineal ultrasound images and patient self-reported symptoms (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels from ultrasound images and will validate it prospectively (NCT05637346).",
-              "page_number": 10
-            },
-            "geography": "{\n  \"us_states\">{\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\">{\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\": \"\",\n  \"total_sites\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "sex": "{\n  \"female_evidence\": \"\",\n  \"female\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"male_evidence\": \"\",\n  \"male\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\": \"\",\n  \"unknown\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "gender": "{\n  \"woman_evidence\": \"\",\n  \"woman\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"man_evidence\": \"\",\n  \"man\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"non_binary_evidence\": \"\",\n  \"non_binary\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"transgender_evidence\": \"\",\n  \"transgender\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"other_evidence\": \"\",\n  \"other\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\": \"\",\n  \"unknown\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "race_nih_omb": "{\n  \"american_indian_or_alaska_native_evidence\": \"\",\n  \"american_indian_or_alaska_native\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"asian_evidence\": \"\",\n  \"asian\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"black_or_african_american_evidence\": \"\",\n  \"black_or_african_american\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"native_hawaiian_or_other_pacific_islander_evidence\": \"\",\n  \"native_hawaiian_or_other_pacific_islander\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"white_evidence\": \"\",\n  \"white\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"more_than_one_race_evidence\": \"\",\n  \"more_than_one_race\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\": \"\",\n  \"unknown\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "ethnicity": "{\n  \"hispanic_or_latino_evidence\": \"\",\n  \"hispanic_or_latino\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"not_hispanic_or_latino_evidence\": \"\",\n  \"not_hispanic_or_latino\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\": \"\",\n  \"unknown\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "socioeconomic_status": "{\n  \"education\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"income\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"wealth\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"family_size\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"adi_area_deprivation_index\">{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
-            "disability_and_functional_limitations": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "religion": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
+              "value": "This is a narrative review of published articles on AI applications in abdominal and pelvic ultrasound imaging. The authors searched PubMed, FDA, and ClinicalTrials.gov databases and included 57 peer-reviewed manuscripts published between 2013 and 2024.",
+              "exact_quote": "We searched the PubMed database using the combination of the keywords: ((((abdominal[Title/Abstract] OR pelvic[Title/Abstract]). AND (ultrasound[Title/Abstract])). AND (machine learning[Title/Abstract] OR deep learning[Title/Abstract] OR artificial intelligence[Title/Abstract] OR intelligent[Title/Abstract] OR natural language processing[Title/Abstract]))). NOT (Review[Publication Type]). Each article was screened by two reviewers for inclusion or exclusion. All peer-reviewed, English-language papers from 2013 to 2024 were eligible.",
+              "page_number": 2
             }
           }
         },
         "input_tokens": 28746,
-        "output_tokens": 1939
+        "output_tokens": 2467
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -770,8 +736,8 @@
               "page_number": 0
             },
             "study_design": {
-              "value": "Systematic narrative review of AI applications in abdominal and pelvic ultrasound imaging, searching PubMed, FDA, and ClinicalTrials.gov databases; 57 manuscripts were included after screening 128 identified titles. The majority of included studies were single-center (75%) and retrospective (98%).",
-              "exact_quote": "We searched the PubMed, FDA, and ClinicalTrials.gov databases for applications of AI in abdominal and pelvic ultrasound imaging. A total of 57 manuscripts were included in the final review. The majority of the studies were single-center (n = 43, 75%) and retrospective (n = 56, 98%).",
+              "value": "Systematic narrative review of AI/ML applications in abdominal and pelvic ultrasound imaging, searching PubMed, FDA, and ClinicalTrials.gov databases; 57 manuscripts were included after screening 128 identified titles, covering deep learning, machine learning, NLP, and robotics applications across hepatobiliary, multi-organ, musculoskeletal, and gynecological domains.",
+              "exact_quote": "We searched the PubMed, FDA, and ClinicalTrials.gov databases for applications of AI in abdominal and pelvic ultrasound imaging... A total of 57 manuscripts were included in the final review.",
               "page_number": 1
             },
             "total_participants_evidence": "\"\"",
@@ -965,7 +931,7 @@
           }
         },
         "input_tokens": 28747,
-        "output_tokens": 1684
+        "output_tokens": 1671
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -986,7 +952,7 @@
                   "NCT05530681",
                   "NCT05637346"
                 ],
-                "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm... (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm... (NCT05151939). Jan D et al. are conducting a single-center study... (NCT05530681). Theo R et al. developed an algorithm that can automatically segment the pelvic vessels... (NCT05637346).",
+                "exact_quote": "Ambroise Grandjean G et al. are conducting a prospective trial using a deep learning algorithm... (NCT03812471). Carlos Robles-M et al. intend to build a CNN algorithm... (NCT05151939). Jan D et al. are conducting a single-center study... (NCT05530681). Theo R et al. developed an algorithm... (NCT05637346).",
                 "page_number": 10
               },
               "target_patient_age_range": {
@@ -995,8 +961,8 @@
                 "page_number": 0
               },
               "study_design": {
-                "value": "Narrative review of 57 peer-reviewed manuscripts on AI/ML applications in abdominal and pelvic ultrasound, identified via PubMed, plus review of FDA-approved devices and ClinicalTrials.gov ongoing trials.",
-                "exact_quote": "This review aims to provide a comprehensive overview of current state-of-the-art applications for AI in abdominal and pelvic ultrasound imaging... A total of 128 titles were identified from the database search and were eligible for screening. After screening, 57 manuscripts were included in the final review.",
+                "value": "Narrative review of 57 peer-reviewed manuscripts (plus FDA-approved devices and ongoing ClinicalTrials.gov trials) on AI applications in abdominal and pelvic ultrasound imaging.",
+                "exact_quote": "This review aims to provide a comprehensive overview of current state-of-the-art applications for AI in abdominal and pelvic ultrasound imaging.",
                 "page_number": 1
               },
               "total_participants_evidence": "",
@@ -1123,11 +1089,11 @@
                   "exact_quote": "",
                   "page_number": 0
                 },
-                "unknown_evidence": "Third, in this review, none of the included studies reported the composition of ethnic groups.",
+                "unknown_evidence": "",
                 "unknown": {
                   "value": "Not Reported",
-                  "exact_quote": "Third, in this review, none of the included studies reported the composition of ethnic groups.",
-                  "page_number": 12
+                  "exact_quote": "",
+                  "page_number": 0
                 }
               },
               "ethnicity": {
@@ -1191,7 +1157,3420 @@
           }
         },
         "input_tokens": 38951,
-        "output_tokens": 1947
+        "output_tokens": 1828
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1007_s11604-025-01830-5",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1007_s11604-025-01830-5.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+            "total_participants": "20",
+            "age": {
+              "value": "Mean 30.9 (SD 5.2)",
+              "exact_quote": "the age, height, weight, and body mass index of the volunteers ranged from 23 to 43 (mean \u00b1 standard deviation [SD], 30.9 \u00b1 5.2) years",
+              "page_number": 2
+            },
+            "target_patient_age_range": {
+              "value": "23-43 years",
+              "exact_quote": "the age, height, weight, and body mass index of the volunteers ranged from 23 to 43",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Prospective comparative study of 20 healthy volunteers undergoing both compressed sensing (CS) coronary magnetic resonance angiography (CMRA) with deep learning reconstruction (CSAI CMRA) and conventional CMRA, comparing imaging time, image quality, signal-to-noise ratio, contrast-to-noise ratio, and vessel sharpness.",
+              "exact_quote": "In this prospective study, we validated the usefulness of non-contrast CSAI CMRA",
+              "page_number": 6
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "sex": {
+              "male_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "male": 20,
+              "female_evidence": "",
+              "female": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "gender": {
+              "man_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "man": 20,
+              "woman_evidence": "",
+              "woman": "Not Reported",
+              "non_binary_evidence": "",
+              "non_binary": "Not Reported",
+              "transgender_evidence": "",
+              "transgender": "Not Reported",
+              "other_evidence": "",
+              "other": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": "Not Reported",
+              "asian_evidence": "",
+              "asian": "Not Reported",
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": "Not Reported",
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": "Not Reported",
+              "white_evidence": "",
+              "white": "Not Reported",
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": "Not Reported",
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "geography": {
+              "countries": {
+                "value": [
+                  "Japan"
+                ],
+                "exact_quote": "Department of Radiology, Ehime University Graduate School of Medicine, Shitsukawa, Toon, Ehime, Japan",
+                "page_number": 1
+              },
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "total_sites_evidence": "",
+              "total_sites": "Not Reported"
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "None of the volunteers had any history or risk of heart disease.",
+              "exact_quote": "None of the volunteers had any history or risk of heart disease.",
+              "page_number": 2
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 21118,
+        "output_tokens": 1212
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "23 to 43 years",
+              "exact_quote": "The age, height, weight, and body mass index of the volunteers ranged from 23 to 43 (mean \u00b1 standard deviation [SD], 30.9 \u00b1 5.2) years",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Prospective study in which 20 healthy male volunteers each underwent both CS CMRA and conventional (PI-based) CMRA at 3 T, with deep learning reconstruction applied offline to CS CMRA data (CSAI CMRA), comparing imaging time, image quality, SNR, CNR, and vessel sharpness across the three techniques.",
+              "exact_quote": "In this prospective study, we validated the usefulness of non-contrast CSAI CMRA.",
+              "page_number": 6
+            },
+            "total_participants_evidence": "\"Twenty healthy volunteers (20 males) were enrolled.\"",
+            "total_participants": {
+              "value": 20,
+              "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+              "page_number": 2
+            },
+            "age": {
+              "value": "Mean 30.9 (SD 5.2), range 23\u201343 years",
+              "exact_quote": "The age, height, weight, and body mass index of the volunteers ranged from 23 to 43 (mean \u00b1 standard deviation [SD], 30.9 \u00b1 5.2) years",
+              "page_number": 2
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Japan"
+                ],
+                "exact_quote": "Department of Radiology, Ehime University Graduate School of Medicine, Shitsukawa, Toon, Ehime, Japan",
+                "page_number": 1
+              },
+              "total_sites_evidence": "All MRI examinations were conducted using a clinical 3 T MR scanner (Signa Architect 3 T; GE Healthcare, Waukesha, WI, USA).",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "All MRI examinations were conducted using a clinical 3 T MR scanner (Signa Architect 3 T; GE Healthcare, Waukesha, WI, USA).",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "female": {
+                "value": 0,
+                "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+                "page_number": 2
+              },
+              "male_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "male": {
+                "value": 20,
+                "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+                "page_number": 2
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 21119,
+        "output_tokens": 1703
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+            "age": {
+              "value": "Mean 30.9 (SD 5.2); range 23-43 years",
+              "exact_quote": "The age, height, weight, and body mass index of the volunteers ranged from 23 to 43 (mean \u00b1 standard deviation [SD], 30.9 \u00b1 5.2) years",
+              "page_number": 2
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Prospective single-center validation study in 20 healthy volunteers who underwent both conventional and compressed-sensing CMRA at 3T, with deep-learning reconstruction (AIR Recon DL) applied offline to CS data; imaging time, image quality, SNR, CNR, and vessel sharpness were compared.",
+              "exact_quote": "In this prospective study, we validated the usefulness of non-contrast CSAI CMRA.",
+              "page_number": 6
+            },
+            "total_participants": {
+              "value": 20,
+              "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+              "page_number": 2
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Japan"
+                ],
+                "exact_quote": "Department of Radiology, Ehime University Graduate School of Medicine, Shitsukawa, Toon, Ehime, Japan",
+                "page_number": 1
+              },
+              "total_sites_evidence": "All MRI examinations were conducted using a clinical 3 T MR scanner (Signa Architect 3 T; GE Healthcare, Waukesha, WI, USA).",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "This prospective study was approved by our institutional review board (Institutional Review Board, Ehime University Hospital No.2311006).",
+                "page_number": 9
+              }
+            },
+            "sex": {
+              "female_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "female": {
+                "value": 0,
+                "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+                "page_number": 2
+              },
+              "male_evidence": "Twenty healthy volunteers (20 males) were enrolled.",
+              "male": {
+                "value": 20,
+                "exact_quote": "Twenty healthy volunteers (20 males) were enrolled.",
+                "page_number": 2
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 28494,
+        "output_tokens": 2223
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1016_j.phro.2026.100935",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1016_j.phro.2026.100935.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "study_design": {
+              "value": "Comparative analysis of 11 AI-based cardiac substructure auto-contouring solutions evaluated on 20 lung cancer patients with paired contrast-enhanced and non-contrast-enhanced CT scans acquired during the same imaging session.",
+              "exact_quote": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session, ensuring identical patient positioning and comparable anatomy.",
+              "page_number": 2
+            },
+            "total_participants_evidence": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session",
+            "total_participants": {
+              "value": 20,
+              "exact_quote": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session, ensuring identical patient positioning and comparable anatomy.",
+              "page_number": 2
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "sex": {
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "countries": {
+                "value": [
+                  "France",
+                  "United States",
+                  "Australia",
+                  "Sweden",
+                  "Romania"
+                ],
+                "exact_quote": "aInstitut de Canc\u00e9rologie de l'Ouest, Saint Herblain, France; bRadiation Oncology Department, Institut de Canc\u00e9rologie de l'Ouest, Saint Herblain, France; cRadiation Oncology Department, Groupe Hospitalier Bretagne Sud, Lorient, France; dSiemens Healthineers, Saint Denis, France; eRadiation Oncology Department, Institut Gustave Roussy, Villejuif, France; fDepartment of Radiation Physics, The University of Texas MD Anderson Cancer Center, Houston, TX, United States; gMedical Physics Department, Northern Sydney Cancer Centre, Sydney, Australia; hMedical Physics Department, Institut de Canc\u00e9rologie de Lorraine, Vandoeuvre-l\u00e8s-Nancy, France; iMachine Learning Department, RaySearch Laboratories AB, Stockholm, Sweden; jMedical Physics Department, Centre Oscar Lambret, Lille, France; kRadiation Oncology Department, Centre de la baie, Avranches, France; lUniversit\u00e9 Paris Saclay, INSERM U1030 Radioth\u00e9rapie Mol\u00e9culaire et Innovation Th\u00e9rapeutique, Institut Gustave Roussy, Villejuif, France; mSynaptiq Technologies SRL, Cluj-Napoca, Romania",
+                "page_number": 1
+              },
+              "us_states": {
+                "value": [
+                  "Texas"
+                ],
+                "exact_quote": "Department of Radiation Physics, The University of Texas MD Anderson Cancer Center, Houston, TX, United States",
+                "page_number": 1
+              },
+              "total_sites_evidence": "Patients at the Institut de Canc\u00e9rologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Patients at the Institut de Canc\u00e9rologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+                "page_number": 2
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 19814,
+        "output_tokens": 2355
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "A comparative analysis study in which contrast-enhanced (CE) and non-contrast-enhanced (NCE) breath-hold thoracic CT scans from twenty lung cancer patients were used to evaluate eleven AI-based automatic contouring solutions for cardiac substructures, assessing inter-solution variability via DSC and HD95 on CE-CTs and the effect of contrast enhancement via volume ratios between NCE-CT and CE-CT.",
+              "exact_quote": "Contrast-enhanced (CE) and non-contrast-enhanced (NCE) breath-hold thoracic computed tomography (CT) scans, sequentially acquired during the same imaging session for twenty lung cancer patients, were used. Seven commercial, three open-source, and one in-house AI solutions were evaluated.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session\"",
+            "total_participants": {
+              "value": 20,
+              "exact_quote": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session",
+              "page_number": 2
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "France"
+                ],
+                "exact_quote": "Patients at the Institut de Canc\u00e9rologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+                "page_number": 2
+              },
+              "total_sites_evidence": "Patients at the Institut de Canc\u00e9rologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Patients at the Institut de Canc\u00e9rologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 19815,
+        "output_tokens": 1689
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "$FUNCTION_NAME": "record_extracted_data",
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "France"
+                ],
+                "exact_quote": "Patients at the Institut de Canc\u00b4erologie de l'Ouest (ICO, Saint Herblain, France) received written information about the research use of their medical data.",
+                "page_number": 2
+              },
+              "total_sites_evidence": "Based on a limited dataset for lung treatments from a single centre and CT scanner",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Based on a limited dataset for lung treatments from a single centre and CT scanner, the findings are not generalisable but remain informative.",
+                "page_number": 5
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "study_design": {
+              "value": "Comparative validation study of eleven AI-based auto-contouring solutions (7 commercial, 3 open-source, 1 in-house) for cardiac substructures using paired contrast-enhanced and non-contrast-enhanced thoracic CT scans from 20 lung cancer patients at a single centre, evaluated via DSC, HD95, sDSC3mm, and volume ratios.",
+              "exact_quote": "Contrast-enhanced (CE) and non-contrast-enhanced (NCE) breath-hold thoracic computed tomography (CT) scans, sequentially acquired during the same imaging session for twenty lung cancer patients, were used. Seven commercial, three open-source, and one in-house AI solutions were evaluated.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_participants_evidence": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans",
+            "total_participants": {
+              "value": 20,
+              "exact_quote": "Twenty patients undergoing radiation therapy for a primary lung cancer were selected based on the availability of both contrast-enhanced (CE) and non-contrast-enhanced (NCE) computed tomography (CT) scans sequentially acquired during the same imaging session",
+              "page_number": 2
+            }
+          }
+        },
+        "input_tokens": 26711,
+        "output_tokens": 2299
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1111_joor.70120",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1111_joor.70120.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "adults aged between 18 and 40 years",
+              "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry between September 2023 and July 2025.",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Cross-sectional observational study examining the predictive value of diagnostic methods (clinical, anamnestic, and imaging) for TMJ hypermobility on masticatory dysfunction and TMD outcomes.",
+              "exact_quote": "This observational cross-sectional study was conducted following the Helsinki Declaration and the recommendations of the Strengthening the Reporting of Observational Studies in Epidemiology (Strobe) guidelines.",
+              "page_number": 2
+            },
+            "total_participants_evidence": "The sample (n = 126) was equally divided into two subgroups of 63 participants (with a history of open-locking and those without such history).",
+            "total_participants": {
+              "value": 126,
+              "exact_quote": "The sample (n = 126) was equally divided into two subgroups of 63 participants (with a history of open-locking and those without such history).",
+              "page_number": 2
+            },
+            "age": {
+              "value": "Mean age not reported; age range 18-40 years",
+              "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry between September 2023 and July 2025.",
+              "page_number": 2
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Brazil"
+                ],
+                "exact_quote": "This research was approved by the Research Ethics Committee of the Bauru School of Dentistry, University of Sao Paulo, Bauru, S\u00e3o Paulo, Brazil",
+                "page_number": 2
+              },
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+                "page_number": 2
+              },
+              "total_sites_evidence": "evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry"
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": "Not Reported",
+              "male_evidence": "",
+              "male": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": "Not Reported",
+              "man_evidence": "",
+              "man": "Not Reported",
+              "non_binary_evidence": "",
+              "non_binary": "Not Reported",
+              "transgender_evidence": "",
+              "transgender": "Not Reported",
+              "other_evidence": "",
+              "other": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": "Not Reported",
+              "asian_evidence": "",
+              "asian": "Not Reported",
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": "Not Reported",
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": "Not Reported",
+              "white_evidence": "",
+              "white": "Not Reported",
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": "Not Reported",
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Participants were assessed for functional limitation using the Jaw Functional Limitation Scale (JFLS); functional limitation in wide-opening tasks was evaluated as an outcome measure.",
+              "exact_quote": "The translated version of the Jaw Functional Limitation Scale (JFLS) from the DC/TMD was used to assess the degree of mandibular functional limitation in the participants.",
+              "page_number": 4
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 25648,
+        "output_tokens": 1409
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "18 to 40 years",
+              "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Observational cross-sectional study of 126 adults recruited at the Bauru School of Dentistry, classified by DC/TMD into painful, dysfunction, or combined groups and balanced by history of open-locking, assessing predictive value of TMJ hypermobility diagnostic methods on masticatory dysfunction and TMD outcomes via bivariate and multivariate binary logistic regression analyses.",
+              "exact_quote": "This observational cross-sectional study was conducted following the Helsinki Declaration and the recommendations of the Strengthening the Reporting of Observational Studies in Epidemiology (Strobe) guidelines",
+              "page_number": 2
+            },
+            "total_participants_evidence": "\"This cross-sectional study included 126 adults recruited at the Bauru School of Dentistry.\"",
+            "total_participants": {
+              "value": 126,
+              "exact_quote": "This cross-sectional study included 126 adults recruited at the Bauru School of Dentistry.",
+              "page_number": 1
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Brazil",
+                  "Italy"
+                ],
+                "exact_quote": "Bauru School of Dentistry, University of S\u00e3o Paulo, Bauru, S\u00e3o Paulo, Brazil | Faculty of Dentistry, University of Naples Federico II, Naples, Italy",
+                "page_number": 1
+              },
+              "total_sites_evidence": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "Male sex was related to greater unassisted opening (p = 0.040)",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Mandibular functional limitation was assessed using the Jaw Functional Limitation Scale (JFLS) from the DC/TMD; painful and non-painful orofacial symptoms (pain, fatigue, weakness, stiffness, and joint instability) were assessed using a VAS; mandibular kinesiophobia was evaluated using the Tampa Scale of Kinesiophobia for TMD (TSK-TMD); specific functional limitation in wide-opening tasks was a key outcome.",
+              "exact_quote": "The translated version of the Jaw Functional Limitation Scale (JFLS) from the DC/TMD was used to assess the degree of mandibular functional limitation in the participants.",
+              "page_number": 4
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 25649,
+        "output_tokens": 1798
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "\"This cross- sectional study included 126 adults recruited at the Bauru School of Dentistry.\"",
+            "total_participants": {
+              "value": 126,
+              "exact_quote": "This cross- sectional study included 126 adults recruited at the Bauru School of Dentistry.",
+              "page_number": 1
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "18\u201340 years",
+              "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry between September 2023 and July 2025.",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Observational cross-sectional regression study of 126 adults classified by DC/TMD into painful, dysfunction, or combined groups, balanced by history of open-locking, assessing predictive value of clinical, anamnestic, and imaging diagnostic methods for TMJ hypermobility.",
+              "exact_quote": "This observational cross- sectional study was conducted following the Helsinki Declaration and the recommendations of the Strengthening the Reporting of Observational Studies in Epidemiology (Strobe) guidelines",
+              "page_number": 2
+            },
+            "age": {
+              "value": "Adults aged 18\u201340 years (specific mean/SD not reported)",
+              "exact_quote": "Participants were adults aged between 18 and 40 years evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+              "page_number": 2
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Brazil"
+                ],
+                "exact_quote": "126 adults recruited at the Bauru School of Dentistry... Bauru, S\u00e3o Paulo, Brazil",
+                "page_number": 1
+              },
+              "total_sites_evidence": "evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "evaluated at the Orofacial Pain Clinical Research Center of the Bauru School of Dentistry between September 2023 and July 2025.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "Male sex was related to greater unassisted opening (p = 0.040)",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Functional limitations assessed via Jaw Functional Limitation Scale (JFLS), Tampa Scale of Kinesiophobia (TSK-TMD), Pain Catastrophizing Scale (PCS), and Pain Vigilance and Awareness Questionnaire (PVAQ); exclusion criteria included systemic conditions affecting joint mobility.",
+              "exact_quote": "The translated version of the Jaw Functional Limitation Scale (JFLS) from the DC/TMD was used to assess the degree of mandibular functional limitation in the participants",
+              "page_number": 4
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 34877,
+        "output_tokens": 2422
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1186_s12872-021-02206-z",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1186_s12872-021-02206-z.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "This was a retrospective analysis of the CCTA images of 155 patients with clinically diagnosed coronary heart disease from September 2019 to January 2020, 79 of whom were considered positive (myocardial ischaemia) and 76 negative (normal myocardial blood supply)",
+            "total_participants": "155",
+            "target_patient_age_range": "\"The 155 coronary heart disease patients enrolled in this study included 79 patients with myocardial ischaemia (positive patients, 63.62 \u00b1 11.61 years) and 76 patients with normal myocardial blood supply (negative patients, 55.37 \u00b1 11.06 years)\"",
+            "study_design": "This was a retrospective analysis of CCTA images of 155 coronary heart disease patients (79 with myocardial ischaemia, 76 controls), randomly divided into training (7:3 ratio) and test cohorts. A multivariable logistic regression model was constructed based on selected texture features to diagnose myocardial ischaemia.",
+            "age": "\n<parameter name=\"value\">Positive group: Mean 63.62 (SD 11.61) years; Negative group: Mean 55.37 (SD 11.06) years",
+            "exact_quote": "the 155 coronary heart disease patients enrolled in this study included 79 patients with myocardial ischaemia (positive patients, 63.62 \u00b1 11.61 years) and 76 patients with normal myocardial blood supply (negative patients, 55.37 \u00b1 11.06 years)",
+            "page_number": 5
+          }
+        },
+        "input_tokens": 18834,
+        "output_tokens": 496
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Retrospective analysis of CCTA images from 155 patients with clinically diagnosed coronary heart disease (79 positive for myocardial ischaemia, 76 negative), divided 7:3 into training and test cohorts; a multivariable logistic regression model was built using selected radiomics texture features and validated on the test cohort.",
+              "exact_quote": "This was a retrospective analysis of the CCTA images of 155 patients with clinically diagnosed coronary heart disease from September 2019 to January 2020, 79 of whom were considered positive (myocardial ischaemia) and 76 negative (normal myocardial blood supply) according to their clinical diagnoses.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"A total of 155 patients were included in this study.\"",
+            "total_participants": {
+              "value": 155,
+              "exact_quote": "A total of 155 patients were included in this study.",
+              "page_number": 5
+            },
+            "age": {
+              "value": "Positive (myocardial ischaemia) group: Mean 63.62 (SD 11.61) years; Negative (normal myocardial blood supply) group: Mean 55.37 (SD 11.06) years",
+              "exact_quote": "79 patients with myocardial ischaemia (positive patients, 63.62 \u00b1 11.61 years) and 76 patients with normal myocardial blood supply (negative patients, 55.37 \u00b1 11.06 years).",
+              "page_number": 5
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "China"
+                ],
+                "exact_quote": "All patients with a diagnosis of myocardial ischaemia with available CCTA images between September 1, 2019, and January 1, 2020, at Xiamen Cardiovascular Hospital Xiamen University in Fujian Province were retrospectively included in this study.",
+                "page_number": 2
+              },
+              "total_sites_evidence": "All patients with a diagnosis of myocardial ischaemia with available CCTA images between September 1, 2019, and January 1, 2020, at Xiamen Cardiovascular Hospital Xiamen University in Fujian Province were retrospectively included in this study.",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "at Xiamen Cardiovascular Hospital Xiamen University in Fujian Province were retrospectively included in this study.",
+                "page_number": 2
+              }
+            },
+            "sex": {
+              "female_evidence": "There were 59 and 47 male patients in the positive group and negative group, respectively, with p = 0.086.",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "There were 59 and 47 male patients in the positive group and negative group, respectively, with p = 0.086.",
+              "male": {
+                "value": 106,
+                "exact_quote": "There were 59 and 47 male patients in the positive group and negative group, respectively, with p = 0.086.",
+                "page_number": 5
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 18835,
+        "output_tokens": 1840
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "data": {
+              "associated_nct_ids": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "target_patient_age_range": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "study_design": {
+                "value": "Retrospective analysis of CCTA images from 155 patients with clinically diagnosed coronary heart disease (79 myocardial ischaemia, 76 normal) at a single hospital; patients randomly divided 7:3 into training and test cohorts to build and validate a multivariable logistic regression model based on myocardial texture features.",
+                "exact_quote": "This was a retrospective analysis of the CCTA images of 155 patients with clinically diagnosed coronary heart disease from September 2019 to January 2020, 79 of whom were considered positive (myocardial ischaemia) and 76 negative (normal myocardial blood supply) according to their clinical diagnoses.",
+                "page_number": 1
+              },
+              "total_participants_evidence": "This was a retrospective analysis of the CCTA images of 155 patients with clinically diagnosed coronary heart disease",
+              "total_participants": {
+                "value": 155,
+                "exact_quote": "This was a retrospective analysis of the CCTA images of 155 patients with clinically diagnosed coronary heart disease from September 2019 to January 2020",
+                "page_number": 1
+              },
+              "age": {
+                "value": "Positive (myocardial ischaemia) group: 63.62 \u00b1 11.61 years; Negative (normal) group: 55.37 \u00b1 11.06 years",
+                "exact_quote": "included 79 patients with myocardial ischaemia (positive patients, 63.62 11.61 years) and 76 patients with normal myocardial blood supply (nega- tive patients, 55.37 11.06 years)",
+                "page_number": 5
+              },
+              "geography": {
+                "us_states": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "countries": {
+                  "value": [
+                    "China"
+                  ],
+                  "exact_quote": "Xiamen Cardiovascular Hospital Xiamen University in Fujian Province",
+                  "page_number": 2
+                },
+                "total_sites_evidence": "All patients with a diagnosis of myocardial ischaemia with available CCTA images between September 1, 2019, and January 1, 2020, at Xiamen Cardiovascular Hospital Xiamen University in Fujian Province were retrospectively included in this study.",
+                "total_sites": {
+                  "value": 1,
+                  "exact_quote": "All patients with a diagnosis of myocardial ischaemia with available CCTA images between September 1, 2019, and January 1, 2020, at Xiamen Cardiovascular Hospital Xiamen University in Fujian Province were retrospectively included in this study.",
+                  "page_number": 2
+                }
+              },
+              "sex": {
+                "female_evidence": "There were 59 and 47 male patients in the positive group and negative group, respectively",
+                "female": {
+                  "value": 49,
+                  "exact_quote": "There were 59 and 47 male patients in the positive group and negative group, respectively, with p 0.086.",
+                  "page_number": 5
+                },
+                "male_evidence": "There were 59 and 47 male patients in the positive group and negative group, respectively",
+                "male": {
+                  "value": 106,
+                  "exact_quote": "There were 59 and 47 male patients in the positive group and negative group, respectively, with p 0.086.",
+                  "page_number": 5
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 25400,
+        "output_tokens": 2372
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1186_s40658-023-00606-y",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1186_s40658-023-00606-y.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "The final study included 209 patients",
+            "total_participants": "209",
+            "age": "Mean 67.34 (SD 7.85)",
+            "study_design": "A retrospective validation study comparing D-SPECT small heart (SH) reconstruction protocol with standard (SD) protocol in patients with small left ventricular volumes, using echocardiography as the reference standard.",
+            "target_patient_age_range": "Not Reported",
+            "geography": {
+              "countries": {
+                "value": [
+                  "China"
+                ],
+                "exact_quote": "Department of Nuclear Medicine, Shanghai Tenth People's Hospital",
+                "page_number": 2
+              },
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "total_sites_evidence": "single center nature of this study",
+              "total_sites": 1
+            },
+            "sex": {
+              "female_evidence": "This study included 209 patients with small LV volumes (mean age 67.34 7.85 years, 73.21% female)",
+              "female": 153,
+              "male_evidence": "female (%) 153(73.21)",
+              "male": 56,
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": "Not Reported",
+              "man_evidence": "",
+              "man": "Not Reported",
+              "non_binary_evidence": "",
+              "non_binary": "Not Reported",
+              "transgender_evidence": "",
+              "transgender": "Not Reported",
+              "other_evidence": "",
+              "other": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "race_nih_omb": {
+              "white_evidence": "",
+              "white": "Not Reported",
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": "Not Reported",
+              "asian_evidence": "",
+              "asian": "Not Reported",
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": "Not Reported",
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": "Not Reported",
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": "Not Reported",
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 19297,
+        "output_tokens": 1207
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Retrospective single-center study of 209 patients with small LV volumes (rESV \u2264 25 mL by SD protocol) who underwent both D-SPECT and echocardiography within one week, comparing the standard (SD) and small heart (SH) reconstruction protocols against echocardiography as reference.",
+              "exact_quote": "We performed a retrospective study of 810 consecutive patients with suspected or known CAD who were referred for rest/stress 99mTc-sestamibi (MIBI) GSPECT from June 2022 to March 2023 at the Department of Nuclear Medicine, Shanghai Tenth People's Hospital.",
+              "page_number": 2
+            },
+            "total_participants_evidence": "\"The final study included 209 patients (73.21% female, age 67.34 \u00b1 7.85 years).\"",
+            "total_participants": {
+              "value": 209,
+              "exact_quote": "The final study included 209 patients (73.21% female, age 67.34 \u00b1 7.85 years).",
+              "page_number": 1
+            },
+            "age": {
+              "value": "Mean 67.34 (SD 7.85) years",
+              "exact_quote": "Age (mean SD) 67.34 7.85",
+              "page_number": 5
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "China"
+                ],
+                "exact_quote": "Department of Nuclear Medicine, Shanghai Tenth People's Hospital, Tongji University School of Medicine, Shanghai, China",
+                "page_number": 1
+              },
+              "total_sites_evidence": "due to the single center nature of this study",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "due to the single center nature of this study",
+                "page_number": 10
+              }
+            },
+            "sex": {
+              "female_evidence": "The final study included 209 patients (73.21% female, age 67.34 \u00b1 7.85 years).",
+              "female": {
+                "value": 153,
+                "exact_quote": "Female (%) 153(73.21)",
+                "page_number": 5
+              },
+              "male_evidence": "Female (%) 153(73.21) \u2014 remainder inferred as male (209 - 153 = 56)",
+              "male": {
+                "value": 56,
+                "exact_quote": "Female (%) 153(73.21)",
+                "page_number": 5
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "This condition is particularly common in Asian populations due to their generally smaller body size. Similar to the distribution of our study population (73% women), Nakajima et al. observed small LV volumes in 74% of Japanese women and 13% of men.",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "This condition is particularly common in Asian populations due to their generally smaller body size.",
+                "page_number": 9
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 19298,
+        "output_tokens": 1729
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Retrospective single-center validation study comparing the Small Heart (SH) and Standard (SD) reconstruction protocols of D-SPECT against echocardiography in patients with small left ventricular volumes.",
+              "exact_quote": "We performed a retrospective study of 810 consecutive patients with suspected or known CAD who were referred for rest/stress 99mTc-sestamibi (MIBI) GSPECT from June 2022 to March 2023 at the Department of Nuclear Medicine, Shanghai Tenth People's Hospital.",
+              "page_number": 2
+            },
+            "total_participants_evidence": "\"The final study included 209 patients (73.21% female, age 67.34 \u00b1 7.85 years).\"",
+            "total_participants": {
+              "value": 209,
+              "exact_quote": "The final study included 209 patients (73.21% female, age 67.34 \u00b1 7.85 years).",
+              "page_number": 1
+            },
+            "age": {
+              "value": "Mean 67.34 (SD 7.85) years",
+              "exact_quote": "Age (mean SD) 67.34 7.85",
+              "page_number": 5
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "China"
+                ],
+                "exact_quote": "Department of Nuclear Medicine, Shanghai Tenth People's Hospital",
+                "page_number": 2
+              },
+              "total_sites_evidence": "due to the single center nature of this study",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "due to the single center nature of this study, we opted for a single postprocessing software package (QGS).",
+                "page_number": 10
+              }
+            },
+            "sex": {
+              "female_evidence": "Female (%) 153(73.21)",
+              "female": {
+                "value": 153,
+                "exact_quote": "Female (%) 153(73.21)",
+                "page_number": 5
+              },
+              "male_evidence": "Female (%) 153(73.21)",
+              "male": {
+                "value": 56,
+                "exact_quote": "The final study included 209 patients (73.21% female... Female (%) 153(73.21)",
+                "page_number": 5
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 25907,
+        "output_tokens": 2131
+      }
+    }
+  },
+  {
+    "doi_slug": "10.1186_s41824-025-00272-6",
+    "local_pdf_path": "data/pilot_AIML_manuscripts/10.1186_s41824-025-00272-6.pdf",
+    "metadata": {
+      "fda_submission_number": "Not Reported",
+      "fda_device": "Not Reported",
+      "publication_year": "Not Reported",
+      "cc_license": "Not Reported"
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "total_participants_evidence": "",
+            "total_participants": "Not Reported",
+            "study_design": "\n<parameter name=\"value\">Phantom study with clinical validation evaluating image quality of simultaneous dual-isotope SPECT imaging using various 99mTc/123I ratios with a cardiac cadmium-zinc-telluride camera, supplemented with a single clinical case of acute coronary syndrome.",
+            "exact_quote": "We created normal and inferior wall defect myocardial models using an anthropomorphic myocardial phantom. Clinical samples at 7 days after coronary revascularization were assessed by SDI acquisition using 99mTc-tetrofosmin (370 MBq) and 123I-BMIPP (111 MBq).",
+            "page_number": 2
+          }
+        },
+        "input_tokens": 20478,
+        "output_tokens": 257
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Phantom-based validation study using an anthropomorphic myocardial phantom to evaluate simultaneous dual-isotope (99mTc/123I) SPECT image quality at various Tc/I ratios (1.0, 3.5, 5.0, 6.5) on a CZT camera (D-SPECT Cardio), supplemented by a single clinical case of a patient with acute coronary syndrome post-PCI.",
+              "exact_quote": "We created normal and inferior wall defect myocardial models using an anthropomorphic myocardial phantom... In addition, these reconstruction conditions were applied to a patient with acute coronary syndrome, supporting the phantom-based findings.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions\"",
+            "total_participants": {
+              "value": 1,
+              "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions",
+              "page_number": 7
+            },
+            "age": {
+              "value": "82-year-old male (single clinical case)",
+              "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions",
+              "page_number": 7
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Japan",
+                  "Israel"
+                ],
+                "exact_quote": "Department of Quantum Medical Technology, Institute of Medical, Pharmaceutical and Health Sciences, Kanazawa University, 5-11-80, Kodatsuno, Kanazawa, Ishikawa, Japan... We acquired images using D-SPECT Cardio with a wide-angle parallel-hole collimator (Spectrum Dynamics Medical Ltd., Caesarea, Israel).",
+                "page_number": 1
+              },
+              "total_sites_evidence": "Clinical image data in Fig. 6 were obtained from Public Central Hospital of Matto Ishikawa, Hakusan, Japan",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Clinical image data in Fig. 6 were obtained from Public Central Hospital of Matto Ishikawa, Hakusan, Japan",
+                "page_number": 10
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions",
+              "male": {
+                "value": 1,
+                "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions",
+                "page_number": 7
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 20479,
+        "output_tokens": 1834
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "fda_submission_number": "Not Reported",
+            "fda_device": "Not Reported",
+            "publication_year": "Not Reported",
+            "cc_license": "Not Reported"
+          },
+          "extracted_data": {
+            "age": {
+              "value": "82-year-old male patient (single clinical case)",
+              "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions (Fig. 8).",
+              "page_number": 7
+            },
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "Polar maps derived from an 82-year-old male patient",
+              "man": {
+                "value": 1,
+                "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions (Fig. 8).",
+                "page_number": 7
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Japan"
+                ],
+                "exact_quote": "The Ethics Committee at Kanazawa University approved the study protocol",
+                "page_number": 4
+              },
+              "total_sites_evidence": "Clinical image data in Fig. 6 were obtained from Public Central Hospital of Matto Ishikawa, Hakusan, Japan",
+              "total_sites": {
+                "value": 1,
+                "exact_quote": "Clinical image data in Fig. 6 were obtained from Public Central Hospital of Matto Ishikawa, Hakusan, Japan, and the anonymized data transfer was approved by Institutional Review Board.",
+                "page_number": 10
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "Polar maps derived from an 82-year-old male patient",
+              "male": {
+                "value": 1,
+                "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions (Fig. 8).",
+                "page_number": 7
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "study_design": {
+              "value": "Phantom-based study evaluating image quality at various 99mTc/123I ratios using a CZT cardiac SPECT camera, with a supporting single clinical case illustration from an ACS patient after PCI.",
+              "exact_quote": "We created normal and inferior wall defect myocardial models using an anthropomorphic myocardial phantom... In addition, these reconstruction conditions were applied to a patient with acute coronary syndrome, supporting the phantom-based findings.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_participants_evidence": "\"Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions (Fig. 8). This patient diagnosed with ACS was treated by percutaneous coronary intervention (PCI)\"",
+            "total_participants": {
+              "value": 1,
+              "exact_quote": "Polar maps derived from an 82-year-old male patient and normal myocardial phantom with Tc/I_3.5 are shown under comparable conditions (Fig. 8). This patient diagnosed with ACS was treated by percutaneous coronary intervention (PCI)",
+              "page_number": 7
+            }
+          }
+        },
+        "input_tokens": 27403,
+        "output_tokens": 2423
       }
     }
   }

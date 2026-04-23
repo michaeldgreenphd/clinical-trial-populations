@@ -16,7 +16,7 @@
         "data": {
           "company_sponsor_name": {
             "value": "BrainScope Company, Inc.",
-            "exact_quote": "BrainScope Company, Inc.\nMichael Singer, Ph.D.\nPresident and CEO",
+            "exact_quote": "BrainScope Company, Inc.",
             "page_number": 1
           },
           "device_tool_title": {
@@ -30,7 +30,7 @@
             "page_number": 2
           },
           "panel": {
-            "value": "Neurology",
+            "value": "Not Reported",
             "exact_quote": "",
             "page_number": 0
           },
@@ -50,145 +50,107 @@
             "exact_quote": "",
             "page_number": 0
           },
-          "sex": {
-            "female_evidence": "",
-            "female": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "male_evidence": "",
-            "male": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
+          "geography": "\n{\n  \"us_states\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\">",
+          "total_sites": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
-          "gender": {
-            "woman_evidence": "",
-            "woman": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "man_evidence": "",
-            "man": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "non_binary_evidence": "",
-            "non_binary": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "transgender_evidence": "",
-            "transgender": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "other_evidence": "",
-            "other": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
+          "sex": "\n{\n  \"female_evidence\">",
+          "female": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
-          "race_nih_omb": {
-            "american_indian_or_alaska_native_evidence": "",
-            "american_indian_or_alaska_native": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "asian_evidence": "",
-            "asian": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "black_or_african_american_evidence": "",
-            "black_or_african_american": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander_evidence": "",
-            "native_hawaiian_or_other_pacific_islander": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "white_evidence": "",
-            "white": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "more_than_one_race_evidence": "",
-            "more_than_one_race": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
+          "male_evidence": "",
+          "male": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
-          "ethnicity": {
-            "hispanic_or_latino_evidence": "",
-            "hispanic_or_latino": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "not_hispanic_or_latino_evidence": "",
-            "not_hispanic_or_latino": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
+          "unknown_evidence": "",
+          "unknown": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
-          "geography": {
-            "us_states": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "countries": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "total_sites_evidence": "",
-            "total_sites": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
+          "gender": "\n{\n  \"woman_evidence\">",
+          "woman": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "man_evidence": "",
+          "man": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "non_binary_evidence": "",
+          "non_binary": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "transgender_evidence": "",
+          "transgender": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "other_evidence": "",
+          "other": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "race_nih_omb": "\n{\n  \"american_indian_or_alaska_native_evidence\">",
+          "american_indian_or_alaska_native": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "asian_evidence": "",
+          "asian": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "black_or_african_american_evidence": "",
+          "black_or_african_american": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "native_hawaiian_or_other_pacific_islander_evidence": "",
+          "native_hawaiian_or_other_pacific_islander": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "white_evidence": "",
+          "white": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "more_than_one_race_evidence": "",
+          "more_than_one_race": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "ethnicity": "\n{\n  \"hispanic_or_latino_evidence\">",
+          "hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "not_hispanic_or_latino_evidence": "",
+          "not_hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
           "socioeconomic_status": {
             "education": {
@@ -236,7 +198,7 @@
           }
         },
         "input_tokens": 12394,
-        "output_tokens": 1554
+        "output_tokens": 2405
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -253,13 +215,13 @@
             "page_number": 1
           },
           "device_name": {
-            "value": "BrainScope Ahead 100 (Models CV-100 and M-100)",
-            "exact_quote": "BrainScope Ahead 100, Models CV-100 and M-100",
+            "value": "BrainScope Ahead 100, Models CV-100 and M-100",
+            "exact_quote": "Re: DEN140025\nBrainScope Ahead 100, Models CV-100 and M-100",
             "page_number": 1
           },
           "panel": {
-            "value": "Neurology (Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid)",
-            "exact_quote": "Regulation Name: Brain Injury Adjunctive Interpretive Electroencephalograph\nAssessment Aid",
+            "value": "Neurology",
+            "exact_quote": "Regulation Name: Brain Injury Adjunctive Interpretive Electroencephalograph Assessment Aid",
             "page_number": 1
           },
           "target_patient_age_range": {
@@ -272,7 +234,7 @@
             "exact_quote": "",
             "page_number": 0
           },
-          "total_participants_evidence": "\"\"",
+          "total_participants_evidence": "",
           "total_participants": {
             "value": "Not Reported",
             "exact_quote": "",
@@ -464,7 +426,7 @@
           }
         },
         "input_tokens": 12395,
-        "output_tokens": 1647
+        "output_tokens": 1630
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -494,7 +456,7 @@
           },
           "company_sponsor_name": {
             "value": "BrainScope Company, Inc.",
-            "exact_quote": "BrainScope Company, Inc.",
+            "exact_quote": "BrainScope Company, Inc.\nMichael Singer, Ph.D.\nPresident and CEO",
             "page_number": 1
           },
           "device_name": {
@@ -684,15 +646,15 @@
             "exact_quote": "clinically present as a mild traumatic brain injury with a Glasgow Coma Scale score (GCS) of 13-15, and are between the ages of 18-80 years.",
             "page_number": 1
           },
+          "total_participants_evidence": "",
           "total_participants": {
             "value": "Not Reported",
             "exact_quote": "",
             "page_number": 0
-          },
-          "total_participants_evidence": ""
+          }
         },
         "input_tokens": 17165,
-        "output_tokens": 2075
+        "output_tokens": 2099
       }
     }
   },
@@ -722,9 +684,9 @@
             "page_number": 1
           },
           "device_name": {
-            "value": "23andMe Personal Genome Service (PGS) Test",
-            "exact_quote": "23andMe Personal Genome Service (PGS) Test",
-            "page_number": 1
+            "value": "Genetic Health Risk Assessment System",
+            "exact_quote": "Genetic Health Risk Assessment System",
+            "page_number": 3
           },
           "panel": {
             "value": "Division of Immunology and Hematology Devices",
@@ -733,13 +695,8 @@
           },
           "target_patient_age_range": {
             "value": "\u226518 years",
-            "exact_quote": "individuals \u226518 years with the OraGene\u2122 model OG-500.001",
+            "exact_quote": "individuals\u226518 years with the OraGeneDx model OGD-500.001",
             "page_number": 1
-          },
-          "clinical_study_design": {
-            "value": "Not Reported",
-            "exact_quote": "",
-            "page_number": 0
           },
           "total_participants_evidence": "",
           "total_participants": {
@@ -747,128 +704,62 @@
             "exact_quote": "",
             "page_number": 0
           },
-          "sex": {
-            "female_evidence": "",
-            "female": {
-              "value": "Not Reported",
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
               "exact_quote": "",
               "page_number": 0
             },
-            "male_evidence": "",
-            "male": {
-              "value": "Not Reported",
+            "dois": {
+              "value": [],
               "exact_quote": "",
               "page_number": 0
             },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
+            "publication_titles": {
+              "value": [],
               "exact_quote": "",
               "page_number": 0
             }
           },
-          "gender": {
-            "woman_evidence": "",
-            "woman": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "man_evidence": "",
-            "man": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "non_binary_evidence": "",
-            "non_binary": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "transgender_evidence": "",
-            "transgender": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "other_evidence": "",
-            "other": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
-          },
-          "race_nih_omb": {
-            "american_indian_or_alaska_native_evidence": "",
-            "american_indian_or_alaska_native": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "asian_evidence": "",
-            "asian": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "black_or_african_american_evidence": "",
-            "black_or_african_american": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "native_hawaiian_or_other_pacific_islander_evidence": "",
-            "native_hawaiian_or_other_pacific_islander": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "white_evidence": "",
-            "white": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "more_than_one_race_evidence": "",
-            "more_than_one_race": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
-          },
-          "ethnicity": {
-            "hispanic_or_latino_evidence": "",
-            "hispanic_or_latino": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "not_hispanic_or_latino_evidence": "",
-            "not_hispanic_or_latino": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "unknown_evidence": "",
-            "unknown": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
-          },
+          "geography": "\n{\n  \"us_states\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\">",
+          "total_sites": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "sex": "\n{\n  \"female_evidence\">",
+          "female": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "male_evidence": "",
+          "male": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "unknown_evidence": "",
+          "unknown": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "gender": "\n{\n  \"woman_evidence\">",
+          "woman": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "man_evidence": "",
+          "man": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "non_binary_evidence": "",
+          "non_binary": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "transgender_evidence": "",
+          "transgender": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "other_evidence": "",
+          "other": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "race_nih_omb": "\n{\n  \"american_indian_or_alaska_native_evidence\">",
+          "american_indian_or_alaska_native": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "asian_evidence": "",
+          "asian": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "black_or_african_american_evidence": "",
+          "black_or_african_american": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "native_hawaiian_or_other_pacific_islander_evidence": "",
+          "native_hawaiian_or_other_pacific_islander": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "white_evidence": "",
+          "white": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "more_than_one_race_evidence": "",
+          "more_than_one_race": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "ethnicity": "\n{\n  \"hispanic_or_latino_evidence\">",
+          "hispanic_or_latino": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
+          "not_hispanic_or_latino_evidence": "",
+          "not_hispanic_or_latino": "\n  {\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}\n",
           "socioeconomic_status": {
             "education": {
               "value": "Not Reported",
@@ -895,45 +786,10 @@
               "exact_quote": "",
               "page_number": 0
             }
-          },
-          "geography": {
-            "us_states": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "countries": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "total_sites_evidence": "",
-            "total_sites": {
-              "value": "Not Reported",
-              "exact_quote": "",
-              "page_number": 0
-            }
-          },
-          "cited_clinical_studies": {
-            "nct_ids": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "dois": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            },
-            "publication_titles": {
-              "value": [],
-              "exact_quote": "",
-              "page_number": 0
-            }
           }
         },
         "input_tokens": 23552,
-        "output_tokens": 1507
+        "output_tokens": 2424
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -955,13 +811,13 @@
             "page_number": 1
           },
           "panel": {
-            "value": "Immunology and Hematology Devices / In Vitro Diagnostics",
-            "exact_quote": "Division of Immunology and Hematology Devices\nOffice of In Vitro Diagnostics and Radiological Health\nCenter for Devices and Radiological Health",
+            "value": "Division of Immunology and Hematology Devices, Office of In Vitro Diagnostics and Radiological Health",
+            "exact_quote": "Division of Immunology and Hematology Devices\nOffice of In Vitro Diagnostics and\nRadiological Health\nCenter for Devices and\nRadiological Health",
             "page_number": 23
           },
           "target_patient_age_range": {
             "value": "\u226518 years",
-            "exact_quote": "collected from individuals \u226518 years with the OrageneDx model OGD-500.001",
+            "exact_quote": "individuals \u226518 years with the Oragene\u0414\u0445 model OGD-500.001",
             "page_number": 1
           },
           "clinical_study_design": {
@@ -1161,20 +1017,463 @@
           }
         },
         "input_tokens": 23553,
-        "output_tokens": 1642
+        "output_tokens": 1653
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
         "label": "Opus 4.7",
         "data": {
+          "data": {
+            "company_sponsor_name": {
+              "value": "23andMe, Inc.",
+              "exact_quote": "23andMe, Inc.",
+              "page_number": 1
+            },
+            "device_tool_title": {
+              "value": "23andMe Personal Genome Service (PGS) Test",
+              "exact_quote": "23andMe Personal Genome Service (PGS) Test",
+              "page_number": 1
+            },
+            "device_name": {
+              "value": "23andMe Personal Genome Service (PGS) Test",
+              "exact_quote": "23andMe Personal Genome Service (PGS) Test",
+              "page_number": 1
+            },
+            "panel": {
+              "value": "Division of Immunology and Hematology Devices, Office of In Vitro Diagnostics and Radiological Health",
+              "exact_quote": "Division of Immunology and Hematology Devices\nOffice of In Vitro Diagnostics and Radiological Health",
+              "page_number": 23
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "clinical_study_design": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_participants_evidence": "",
+            "total_participants": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "cited_clinical_studies": {
+              "nct_ids": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "dois": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "publication_titles": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "total_sites_evidence": "",
+              "total_sites": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 31983,
+        "output_tokens": 2026
+      }
+    }
+  },
+  {
+    "submission_number": "DEN160044",
+    "device_name": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+    "panel": "Cardiovascular",
+    "company": "Edwards Lifesciences LLC",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf16/DEN160044.pdf",
+    "decision_date": "3/16/18",
+    "decision_year": 2018,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN160044.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
           "company_sponsor_name": {
-            "value": "23andMe, Inc.",
-            "exact_quote": "23andMe, Inc.\n(cid:399)(cid:48)(cid:86)(cid:17) (cid:47)(cid:76)(cid:86)(cid:68)(cid:38)(cid:75)(cid:68)(cid:85)(cid:87)(cid:72)(cid:85)\nDirector, Regulatory Affairs and Quality Assurance",
+            "value": "Edwards Lifesciences, LLC",
+            "exact_quote": "Edwards Lifesciences, LLC",
             "page_number": 1
           },
           "device_tool_title": {
-            "value": "23andMe Personal Genome Service (PGS) Test",
-            "exact_quote": "23andMe Personal Genome Service (PGS) Test\nEvaluation of Automatic Class III Designation \u2013De NovoRequest",
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Trade/Device Name: Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Trade/Device Name: Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "sex": "{\n  \"female_evidence\">",
+          "female": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "male_evidence": "",
+          "male": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "unknown_evidence": "",
+          "unknown": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "gender": "{\n  \"woman_evidence\">",
+          "woman": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "man_evidence": "",
+          "man": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "non_binary_evidence": "",
+          "non_binary": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "transgender_evidence": "",
+          "transgender": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "other_evidence": "",
+          "other": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "race_nih_omb": "{\n  \"american_indian_or_alaska_native_evidence\">",
+          "american_indian_or_alaska_native": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "asian_evidence": "",
+          "asian": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "black_or_african_american_evidence": "",
+          "black_or_african_american": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "native_hawaiian_or_other_pacific_islander_evidence": "",
+          "native_hawaiian_or_other_pacific_islander": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "white_evidence": "",
+          "white": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "more_than_one_race_evidence": "",
+          "more_than_one_race": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "ethnicity": "{\n  \"hispanic_or_latino_evidence\">",
+          "hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "not_hispanic_or_latino_evidence": "",
+          "not_hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "geography": "{\n  \"us_states\":{\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\":{\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\">",
+          "total_sites": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11506,
+        "output_tokens": 2336
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Edwards Lifesciences, LLC",
+            "exact_quote": "Edwards Lifesciences, LLC\nLisa Gilman\nSenior Manager, Critical Care Regulatory Affairs\nOne Edwards Way\nIrvine, CA 92614",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Trade/Device Name: Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Trade/Device Name: Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Cardiovascular",
+            "exact_quote": "Regulation Name: Adjunctive predictive cardiovascular indicator",
             "page_number": 1
           },
           "target_patient_age_range": {
@@ -1187,15 +1486,1243 @@
             "exact_quote": "",
             "page_number": 0
           },
+          "total_participants_evidence": "\"\"",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11507,
+        "output_tokens": 1536
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "company_sponsor_name": {
+            "value": "Edwards Lifesciences, LLC",
+            "exact_quote": "Edwards Lifesciences, LLC",
+            "page_number": 1
+          },
           "device_name": {
-            "value": "23andMe Personal Genome Service (PGS) Test",
-            "exact_quote": "Re: DEN160026\n23andMe Personal Genome Service (PGS) Test",
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Trade/Device Name: Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "exact_quote": "Acumen Hypotension Prediction Index (HPI) Feature Software",
+            "page_number": 1
+          },
+          "ethnicity": {
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "panel": {
+            "value": "Adjunctive predictive cardiovascular indicator",
+            "exact_quote": "Regulation Name: Adjunctive predictive cardiovascular indicator",
+            "page_number": 1
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": ""
+        },
+        "input_tokens": 15818,
+        "output_tokens": 2042
+      }
+    }
+  },
+  {
+    "submission_number": "DEN170022",
+    "device_name": "QuantX",
+    "panel": "Radiology",
+    "company": "Quantitative Insights, Inc",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf17/DEN170022.pdf",
+    "decision_date": "7/19/17",
+    "decision_year": 2017,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN170022.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "device_tool_title": {
+            "value": "QuantX",
+            "exact_quote": "QuantX is a computer-aided diagnosis (CADx) software device used to assist radiologists in the assessment and characterization of breast abnormalities using MR image data.",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "QuantX",
+            "exact_quote": "Trade/Device Name: QuantX",
+            "page_number": 1
+          },
+          "company_sponsor_name": {
+            "value": "Quantitative Insights, Inc",
+            "exact_quote": "Quantitative Insights, Inc",
             "page_number": 1
           },
           "panel": {
-            "value": "Division of Immunology and Hematology Devices, Office of In Vitro Diagnostics and Radiological Health",
-            "exact_quote": "Division of Immunology and\nHematology Devices\nOffice of In Vitro Diagnostics and\nRadiological Health",
-            "page_number": 23
+            "value": "Radiological Health",
+            "exact_quote": "Deputy Director for Radiological Health",
+            "page_number": 5
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "sex": "\n{\n  \"female_evidence\">",
+          "female": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "male_evidence": "",
+          "male": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "unknown_evidence": "",
+          "unknown": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "gender": "\n{\n  \"woman_evidence\">",
+          "woman": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "man_evidence": "",
+          "man": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "non_binary_evidence": "",
+          "non_binary": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "transgender_evidence": "",
+          "transgender": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "other_evidence": "",
+          "other": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "race_nih_omb": "\n{\n  \"american_indian_or_alaska_native_evidence\">",
+          "american_indian_or_alaska_native": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "asian_evidence": "",
+          "asian": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "black_or_african_american_evidence": "",
+          "black_or_african_american": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "native_hawaiian_or_other_pacific_islander_evidence": "",
+          "native_hawaiian_or_other_pacific_islander": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "white_evidence": "",
+          "white": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "more_than_one_race_evidence": "",
+          "more_than_one_race": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "ethnicity": "\n{\n  \"hispanic_or_latino_evidence\">",
+          "hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "not_hispanic_or_latino_evidence": "",
+          "not_hispanic_or_latino": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "geography": "\n{\n  \"us_states\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\">",
+          "total_sites": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 12144,
+        "output_tokens": 2444
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Quantitative Insights, Inc",
+            "exact_quote": "Quantitative Insights, Inc\nRobert Tomek\nChief Technology Officer\n1452 E 53rd St\nChicago, Illinois 60615",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "QuantX",
+            "exact_quote": "Trade/Device Name: QuantX",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "QuantX",
+            "exact_quote": "Trade/Device Name: QuantX",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Radiology",
+            "exact_quote": "Regulation Name: Radiological computer-assisted diagnostic (CADx) software for lesions suspicious for cancer",
+            "page_number": 1
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "\"\"",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 12145,
+        "output_tokens": 1494
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "company_sponsor_name": {
+            "value": "Quantitative Insights, Inc",
+            "exact_quote": "Quantitative Insights, Inc",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "QuantX",
+            "exact_quote": "Trade/Device Name: QuantX",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "QuantX",
+            "exact_quote": "Trade/Device Name: QuantX",
+            "page_number": 1
+          },
+          "ethnicity": {
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "gender": {
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "woman_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "panel": {
+            "value": "Radiology",
+            "exact_quote": "Regulation Name: Radiological computer-assisted diagnostic (CADx) software for lesions suspicious for cancer",
+            "page_number": 1
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "american_indian_or_alaska_native_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "sex": {
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "female_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": ""
+        },
+        "input_tokens": 16730,
+        "output_tokens": 1967
+      }
+    }
+  },
+  {
+    "submission_number": "DEN170043",
+    "device_name": "DreaMed Advisor Pro",
+    "panel": "Clinical Chemistry",
+    "company": "DreaMed Diabetes, Ltd.",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf17/DEN170043.pdf",
+    "decision_date": "6/12/18",
+    "decision_year": 2018,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN170043.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "company_sponsor_name": {
+            "value": "DreaMed Diabetes, Ltd.",
+            "exact_quote": "Eran Atlas\nDreaMed Diabetes, Ltd.\n3 Shimshon St., Petah Tikva,\nPOB 3271, IL 4952701",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "Trade/Device Name: DreaMed Advisor Pro",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "DreaMed Advisor Pro is a decision-support software intended for assisting healthcare professionals",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "target_patient_age_range": {
+            "value": "above the age of 6 and under 65 years old",
+            "exact_quote": "are above the age of 6 and under 65 years old; and",
+            "page_number": 1
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": "{\n  \"us_states\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"countries\": {\n    \"value\": [],\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"total_sites_evidence\">",
+          "total_sites": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
+          "sex": "{\n  \"male_evidence\">",
+          "male": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"female_evidence\">",
+          "female": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\">",
+          "unknown": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  }\n}",
+          "gender": "{\n  \"man_evidence\">",
+          "man": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"woman_evidence\">",
+          "woman": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"non_binary_evidence\">",
+          "non_binary": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"transgender_evidence\">",
+          "transgender": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"other_evidence\">",
+          "other": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\">",
+          "race_nih_omb": "{\n  \"white_evidence\">",
+          "white": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"black_or_african_american_evidence\">",
+          "black_or_african_american": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"asian_evidence\">",
+          "asian": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"american_indian_or_alaska_native_evidence\">",
+          "american_indian_or_alaska_native": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"native_hawaiian_or_other_pacific_islander_evidence\">",
+          "native_hawaiian_or_other_pacific_islander": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"more_than_one_race_evidence\">",
+          "more_than_one_race": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\">",
+          "ethnicity": "{\n  \"hispanic_or_latino_evidence\">",
+          "hispanic_or_latino": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"not_hispanic_or_latino_evidence\">",
+          "not_hispanic_or_latino": "{\n    \"value\": \"Not Reported\",\n    \"exact_quote\": \"\",\n    \"page_number\": 0\n  },\n  \"unknown_evidence\">",
+          "socioeconomic_status": {
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11459,
+        "output_tokens": 2145
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "DreaMed Diabetes, Ltd.",
+            "exact_quote": "Eran Atlas\nDreaMed Diabetes, Ltd.\n3 Shimshon St., Petah Tikva,\nPOB 3271, IL 4952701",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "Trade/Device Name: DreaMed Advisor Pro",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "Trade/Device Name: DreaMed Advisor Pro",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Division of Chemistry and Toxicology Devices, Office of In Vitro Diagnostics and Radiological Health",
+            "exact_quote": "Division of Chemistry and Toxicology Devices\nOffice of In Vitro Diagnostics\nand Radiological Health\nCenter for Devices and Radiological Health",
+            "page_number": 4
+          },
+          "target_patient_age_range": {
+            "value": "Above the age of 6 and under 65 years old",
+            "exact_quote": "are above the age of 6 and under 65 years old",
+            "page_number": 1
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
           },
           "total_participants_evidence": "",
           "total_participants": {
@@ -1388,8 +2915,2110 @@
             }
           }
         },
-        "input_tokens": 31983,
-        "output_tokens": 2185
+        "input_tokens": 11460,
+        "output_tokens": 1579
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "company_sponsor_name": {
+            "value": "DreaMed Diabetes, Ltd.",
+            "exact_quote": "DreaMed Diabetes, Ltd.\n3 Shimshon St., Petah Tikva,",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "Trade/Device Name: DreaMed Advisor Pro",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "DreaMed Advisor Pro",
+            "exact_quote": "Trade/Device Name: DreaMed Advisor Pro",
+            "page_number": 1
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "panel": {
+            "value": "Division of Chemistry and Toxicology Devices, Office of In Vitro Diagnostics and Radiological Health",
+            "exact_quote": "Division of Chemistry and Toxicology Devices\nOffice of In Vitro Diagnostics\nand Radiological Health",
+            "page_number": 4
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "above the age of 6 and under 65 years old",
+            "exact_quote": "are above the age of 6 and under 65 years old; and",
+            "page_number": 1
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          }
+        },
+        "input_tokens": 15801,
+        "output_tokens": 2086
+      }
+    }
+  },
+  {
+    "submission_number": "DEN170073",
+    "device_name": "ContaCT",
+    "panel": "Radiology",
+    "company": "Viz.Al, Inc.",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf17/DEN170073.pdf",
+    "decision_date": "2/13/18",
+    "decision_year": 2018,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN170073.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "company_sponsor_name": "\n<parameter name=\"value\">Viz.AI, Inc.",
+          "exact_quote": "Viz.AI, Inc.",
+          "page_number": 1
+        },
+        "input_tokens": 11915,
+        "output_tokens": 3351
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Viz.AI, Inc.",
+            "exact_quote": "Viz.AI, Inc.\n\u2105 John Smith\nPartner\nHogan Lovells US LLP",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "ContaCT",
+            "exact_quote": "Trade/Device Name: ContaCT",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "ContaCT",
+            "exact_quote": "Trade/Device Name: ContaCT",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Radiological Health",
+            "exact_quote": "Regulation Name: Radiological Computer Aided Triage and Notification Software",
+            "page_number": 1
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "\"\"",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11916,
+        "output_tokens": 1474
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "company_sponsor_name": {
+            "value": "Viz.AI, Inc.",
+            "exact_quote": "Viz.AI, Inc.",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "ContaCT",
+            "exact_quote": "Trade/Device Name: ContaCT",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "ContaCT",
+            "exact_quote": "Trade/Device Name: ContaCT",
+            "page_number": 1
+          },
+          "ethnicity": {
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": ""
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "panel": {
+            "value": "Radiology",
+            "exact_quote": "Regulation Name: Radiological Computer Aided Triage and Notification Software",
+            "page_number": 1
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": ""
+        },
+        "input_tokens": 16378,
+        "output_tokens": 1952
+      }
+    }
+  },
+  {
+    "submission_number": "DEN170090",
+    "device_name": "MATRx plus",
+    "panel": "Dental",
+    "company": "Zephyr Sleep Technologies",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf17/DEN170090.pdf",
+    "decision_date": "8/23/18",
+    "decision_year": 2018,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN170090.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Zephyr Sleep Technologies",
+            "exact_quote": "Zephyr Sleep Technologies\nSabina Bruehlmann\nDirector, Technology\n#102, 701 64th Ave SE\nCalgary, Alberta Canada",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11455,
+        "output_tokens": 1476
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Zephyr Sleep Technologies",
+            "exact_quote": "Zephyr Sleep Technologies\nSabina Bruehlmann\nDirector, Technology\n#102, 701 64th Ave SE\nCalgary, Alberta Canada T2H 2C3",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Dental / Ear, Nose and Throat (Regulation: 21 CFR 872.5571)",
+            "exact_quote": "Regulation Number: 21 CFR 872.5571\nRegulation Name: Auto titration device for oral appliances",
+            "page_number": 1
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "\"\"",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11456,
+        "output_tokens": 1536
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "company_sponsor_name": {
+            "value": "Zephyr Sleep Technologies",
+            "exact_quote": "Zephyr Sleep Technologies",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "MATRx plus",
+            "exact_quote": "Trade/Device Name: MATRx plus",
+            "page_number": 1
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "panel": {
+            "value": "Dental (Ear, Nose, and Throat / Sleep Medicine)",
+            "exact_quote": "Regulation Name: Auto titration device for oral appliances",
+            "page_number": 1
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "target_patient_age_range": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": ""
+        },
+        "input_tokens": 15641,
+        "output_tokens": 1974
+      }
+    }
+  },
+  {
+    "submission_number": "DEN170091",
+    "device_name": "EyeBOX",
+    "panel": "Neurology",
+    "company": "Oculogica, Inc.",
+    "source_url": "https://www.accessdata.fda.gov/cdrh_docs/pdf17/DEN170091.pdf",
+    "decision_date": "12/28/18",
+    "decision_year": 2018,
+    "local_pdf_path": "data/pilot_summary_statements/2026-04-16_DEN170091.pdf",
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Oculogica, Inc.",
+            "exact_quote": "Oculogica, Inc. December 28, 2018",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "target_patient_age_range": {
+            "value": "5 through 67 years of age",
+            "exact_quote": "in patients 5 through 67 years of age",
+            "page_number": 1
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "sex": {
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11554,
+        "output_tokens": 1953
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Oculogica, Inc.",
+            "exact_quote": "Oculogica, Inc. December 28, 2018",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "device_name": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Neurology",
+            "exact_quote": "Regulation Name: Traumatic brain injury eye movement assessment aid",
+            "page_number": 1
+          },
+          "target_patient_age_range": {
+            "value": "5 through 67 years of age",
+            "exact_quote": "patients 5 through 67 years of age in conjunction with a standard neurological assessment of concussion.",
+            "page_number": 1
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "total_participants_evidence": "\"\"",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 11555,
+        "output_tokens": 1495
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "company_sponsor_name": {
+            "value": "Oculogica, Inc.",
+            "exact_quote": "Oculogica, Inc. December 28, 2018",
+            "page_number": 1
+          },
+          "device_tool_title": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "target_patient_age_range": {
+            "value": "5 through 67 years of age",
+            "exact_quote": "aid in the diagnosis of concussion within one week of head injury in patients 5 through 67 years of age",
+            "page_number": 1
+          },
+          "clinical_study_design": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "device_name": {
+            "value": "EyeBOX",
+            "exact_quote": "Trade/Device Name: EyeBOX",
+            "page_number": 1
+          },
+          "panel": {
+            "value": "Neurology",
+            "exact_quote": "Regulation Name: Traumatic brain injury eye movement assessment aid",
+            "page_number": 1
+          },
+          "total_participants_evidence": "",
+          "total_participants": {
+            "value": "Not Reported",
+            "exact_quote": "",
+            "page_number": 0
+          },
+          "cited_clinical_studies": {
+            "nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "dois": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "publication_titles": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "geography": {
+            "us_states": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "countries": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "total_sites_evidence": "",
+            "total_sites": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "sex": {
+            "female_evidence": "",
+            "female": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "male_evidence": "",
+            "male": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "gender": {
+            "woman_evidence": "",
+            "woman": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "man_evidence": "",
+            "man": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "non_binary_evidence": "",
+            "non_binary": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "transgender_evidence": "",
+            "transgender": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "other_evidence": "",
+            "other": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "race_nih_omb": {
+            "american_indian_or_alaska_native_evidence": "",
+            "american_indian_or_alaska_native": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "asian_evidence": "",
+            "asian": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "black_or_african_american_evidence": "",
+            "black_or_african_american": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "native_hawaiian_or_other_pacific_islander_evidence": "",
+            "native_hawaiian_or_other_pacific_islander": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "white_evidence": "",
+            "white": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "more_than_one_race_evidence": "",
+            "more_than_one_race": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "ethnicity": {
+            "hispanic_or_latino_evidence": "",
+            "hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "not_hispanic_or_latino_evidence": "",
+            "not_hispanic_or_latino": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "unknown_evidence": "",
+            "unknown": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          },
+          "socioeconomic_status": {
+            "education": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "income": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "wealth": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "family_size": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "adi_area_deprivation_index": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 15812,
+        "output_tokens": 1996
       }
     }
   }

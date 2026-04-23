@@ -35,8 +35,8 @@
               "page_number": 0
             },
             "study_design": {
-              "value": "Cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' consisted of 27 questions distributed across multiple domains including participant demographics, workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption.",
-              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' was developed by alumni from the 2022 European Society for Medical Oncology (ESMO) Course in Medical Oncology for Medical Students, in collaboration with the ESMO Young Oncologists Committee, to evaluate the adoption and perceptions of DH technologies among oncology professionals. The survey consisted of 27 questions distributed across multiple domains, including participant demographics, workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption.",
+              "value": "A global cross-sectional survey design targeting oncology health care professionals, consisting of 27 questions analyzing workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption among oncology professionals.",
+              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' was developed by alumni from the 2022 European Society for Medical Oncology (ESMO) Course in Medical Oncology for Medical Students, in collaboration with the ESMO Young Oncologists Committee, to evaluate the adoption and perceptions of DH technologies among oncology professionals.",
               "page_number": 2
             },
             "total_participants_evidence": "From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.",
@@ -46,7 +46,7 @@
               "page_number": 3
             },
             "age": {
-              "value": "Age distribution skewed toward younger professionals, with 277 (65.5%) participants <40 years of age, 125 (29.6%) aged 41-55 years, and 47 (11.1%) aged \u226556 years. Age groups: 21-30 years 54 (12.8%), 31-40 years 223 (52.7%), 41-50 years 82 (19.4%), 51-60 years 36 (8.5%), >60 years 11 (2.6%).",
+              "value": "Age skewed toward younger professionals: 277 (65.5%) participants <40 years, 125 (29.6%) aged 41-55 years, and 47 (11.1%) aged \u226556 years. Age groups reported: 21-30 years (54, 12.8%), 31-40 years (223, 52.7%), 41-50 years (82, 19.4%), 51-60 years (36, 8.5%), >60 years (11, 2.6%).",
               "exact_quote": "Age distribution skewed toward younger professionals, with 277 (65.5%) participants <40 years of age, 125 (29.6%) aged 41-55 years, and 47 (11.1%) aged \u226556 years.",
               "page_number": 3
             },
@@ -65,12 +65,11 @@
                   "United States",
                   "Pakistan",
                   "Belgium",
-                  "Poland",
                   "Austria",
                   "Croatia",
                   "China",
-                  "Lithuania",
                   "Spain",
+                  "Lithuania",
                   "Italy"
                 ],
                 "exact_quote": "Geographically, participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14), reflecting a global perspective on DH adoption in oncology.",
@@ -250,7 +249,7 @@
           }
         },
         "input_tokens": 18606,
-        "output_tokens": 2428
+        "output_tokens": 1930
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -275,8 +274,8 @@
               "page_number": 0
             },
             "study_design": {
-              "value": "Global cross-sectional survey of oncology health care professionals evaluating digital health technology utilization patterns, perceived effectiveness, and barriers to adoption using a 27-question questionnaire distributed via ESMO channels.",
-              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally. The 'Oncology Healthcare Professional Digital Health Survey' was developed by alumni from the 2022 European Society for Medical Oncology (ESMO) Course in Medical Oncology for Medical Students, in collaboration with the ESMO Young Oncologists Committee",
+              "value": "Global cross-sectional survey of oncology health care professionals evaluating digital health technology adoption, usage patterns, perceived effectiveness, and barriers; the survey consisted of 27 questions and was available online for 60 days.",
+              "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally... The survey consisted of 27 questions distributed across multiple domains, including participant demographics, workplace characteristics, technology usage patterns, effectiveness, and barriers to adoption.",
               "page_number": 2
             },
             "total_participants_evidence": "\"From an initial pool of 469 collected surveys, 423 responses contained sufficient data suitable for the analysis.\"",
@@ -286,8 +285,8 @@
               "page_number": 3
             },
             "age": {
-              "value": "Age distribution: 21-30 years 54 (12.8%), 31-40 years 223 (52.7%), 41-50 years 82 (19.5%), 51-60 years 36 (8.5%), >60 years 11 (2.6%)",
-              "exact_quote": "Age group 21-30 years 54 (12.8) 31-40 years 223 (52.7) 41-50 years 82 (19.5) 51-60 years 36 (8.4) >60 years 11 (2.6)",
+              "value": "Age groups: 21-30 years: 54 (12.8%); 31-40 years: 223 (52.7%); 41-50 years: 82 (19.5%); 51-60 years: 36 (8.4% \u2014 implied from table header '51-60'); >60 years: 11 (2.6%). Majority (65.5%) were <40 years.",
+              "exact_quote": "Age group: 21-30 years 54 (12.8), 31-40 years 223 (52.7), 41-50 years 82 (19.5), 51-60 years 36 (8.4), >60 years 11 (2.6)",
               "page_number": 3
             },
             "geography": {
@@ -298,10 +297,10 @@
               },
               "countries": {
                 "value": [],
-                "exact_quote": "",
-                "page_number": 0
+                "exact_quote": "Geographically, participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14), reflecting a global perspective on DH adoption in oncology.",
+                "page_number": 3
               },
-              "total_sites_evidence": "participants were distributed across Europe (45.4%, n = 192), Asia (27.0%, n = 114), the Americas (17.0%, n = 72), Africa (7.3%, n = 31), and Oceania (3.3%, n = 14)",
+              "total_sites_evidence": "",
               "total_sites": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -309,16 +308,16 @@
               }
             },
             "sex": {
-              "female_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+              "female_evidence": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
               "female": {
                 "value": 217,
-                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
                 "page_number": 3
               },
-              "male_evidence": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+              "male_evidence": "Gender representation was balanced, with 48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
               "male": {
                 "value": 206,
-                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents",
+                "exact_quote": "48.8% (n = 206) male and 51.2% female (n = 217) respondents.",
                 "page_number": 3
               },
               "unknown_evidence": "",
@@ -470,7 +469,7 @@
           }
         },
         "input_tokens": 18607,
-        "output_tokens": 1798
+        "output_tokens": 1837
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -496,7 +495,7 @@
                 "page_number": 0
               },
               "study_design": {
-                "value": "Global cross-sectional online survey (27 questions) of oncology health care professionals who were ESMO members, assessing digital health technology adoption, effectiveness, and barriers.",
+                "value": "Global cross-sectional online survey (27 questions) of oncology healthcare professionals assessing digital health technology adoption, distributed via ESMO channels over 60 days (26 March - 24 May 2024).",
                 "exact_quote": "This study employed a cross-sectional survey design targeting oncology health care professionals globally.",
                 "page_number": 2
               },
@@ -507,7 +506,7 @@
                 "page_number": 1
               },
               "age": {
-                "value": "21-30 years: 54 (12.8%); 31-40 years: 223 (52.7%); 41-50 years: 82 (19.4%); 51-60 years: 36 (8.5%); >60 years: 11 (2.6%). 277 (65.5%) were <40 years, 125 (29.6%) aged 41-55, 47 (11.1%) aged \u226556.",
+                "value": "Age groups: 21-30 years 54 (12.8%); 31-40 years 223 (52.7%); 41-50 years 82 (19.4%); 51-60 years 36 (8.5%); >60 years 11 (2.6%). 277 (65.5%) participants <40 years of age.",
                 "exact_quote": "Age group 21-30 years 54 (12.8) 31-40 years 223 (52.7) 41-50 years 82 (19.4) 51-60 years 36 (8.5) >60 years 11 (2.6)",
                 "page_number": 3
               },
@@ -562,11 +561,11 @@
                   "exact_quote": "",
                   "page_number": 0
                 },
-                "man_evidence": "Gender (male) 206 (48.8)",
+                "man_evidence": "",
                 "man": {
-                  "value": 206,
-                  "exact_quote": "Gender (male) 206 (48.8)",
-                  "page_number": 3
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
                 },
                 "non_binary_evidence": "",
                 "non_binary": {
@@ -698,7 +697,7 @@
           }
         },
         "input_tokens": 25673,
-        "output_tokens": 2199
+        "output_tokens": 2158
       }
     }
   },
@@ -740,101 +739,78 @@
               "page_number": 2
             },
             "study_design": {
-              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with type 2 diabetes or at risk of type 2 diabetes, with outcomes classified over a 30-day period.",
-              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes. Patients were classified based on 30-day outcomes",
+              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes.",
+              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes.",
               "page_number": 1
             },
-            "total_participants_evidence": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.",
+            "total_participants_evidence": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021",
             "total_participants": {
               "value": 15725,
               "exact_quote": "There were 15 725 patients identified (4944 with type 2 diabetes, 10 781 at risk of type 2 diabetes) with a COVID-19 diagnosis between March 2020 and February 2021.",
               "page_number": 3
             },
             "age": {
-              "value": "Type 2 diabetes cohort: mean 62.3 years; At-risk cohort: mean 52.4 years",
-              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years...In patients at risk of type 2 diabetes, the mean age was 52.4 years",
+              "value": "Type 2 diabetes cohort: mean age 62.3 years; At-risk cohort: mean age 52.4 years",
+              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
               "page_number": 3
             },
-            "geography": {
-              "us_states": {
-                "value": [
-                  "Pennsylvania",
-                  "Maryland"
-                ],
-                "exact_quote": "from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System",
-                "page_number": 2
-              },
-              "countries": {
-                "value": [
-                  "United States"
-                ],
-                "exact_quote": "from five academic health systems in Pennsylvania and Maryland",
-                "page_number": 2
-              },
-              "total_sites_evidence": "PaTH is one of eight clinical data research networks that comprise PCORnet...EHR data from individual health systems were deidentified per data sharing policies. EHR data from five academic health systems in Pennsylvania and Maryland",
-              "total_sites": {
-                "value": 5,
-                "exact_quote": "EHR data were encoded using standard healthcare terminologies and then combined using the PCORnet-specified Common Data Model (CDM). The PCORnet CDM transforms each healthcare system's dialect into a common language...we included PaTH electronic health record (EHR) data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
-                "page_number": 2
-              }
-            },
             "sex": {
-              "female_evidence": "in patients with type 2 diabetes...46.2% were men",
               "female": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "male_evidence": "in patients with type 2 diabetes, the mean age was 62.3 years, 46.2% were men...In patients at risk of type 2 diabetes, the mean age was 52.4 years, 37.7% were men",
+              "female_evidence": "",
               "male": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "unknown_evidence": "",
+              "male_evidence": "",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
-              }
+              },
+              "unknown_evidence": ""
             },
             "gender": {
-              "woman_evidence": "",
               "woman": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "man_evidence": "",
+              "woman_evidence": "",
               "man": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "non_binary_evidence": "",
+              "man_evidence": "",
               "non_binary": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "transgender_evidence": "",
+              "non_binary_evidence": "",
               "transgender": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "other_evidence": "",
+              "transgender_evidence": "",
               "other": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "unknown_evidence": "",
+              "other_evidence": "",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
-              }
+              },
+              "unknown_evidence": ""
             },
             "race_nih_omb": {
               "american_indian_or_alaska_native_evidence": "",
@@ -843,13 +819,13 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "asian_evidence": "3.9% were other non-Hispanic (including Asians)...3.1% were other non-Hispanic (including Asians)",
+              "asian_evidence": "3.9% were other non-Hispanic (including Asians)",
               "asian": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "black_or_african_american_evidence": "28.8% were non-Hispanic Black...21.0% were non-Hispanic Black",
+              "black_or_african_american_evidence": "28.8% were non-Hispanic Black",
               "black_or_african_american": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -861,7 +837,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "white_evidence": "Based on the reported percentages and the statement that participants were classified as non-Hispanic White, the proportion can be derived from the table data showing racial/ethnic breakdown",
+              "white_evidence": "",
               "white": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -881,13 +857,13 @@
               }
             },
             "ethnicity": {
-              "hispanic_or_latino_evidence": "13.4% were Hispanic...10.1% were Hispanic",
+              "hispanic_or_latino_evidence": "13.4% were Hispanic",
               "hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "not_hispanic_or_latino_evidence": "28.8% were non-Hispanic Black, 13.4% were Hispanic, 3.9% were other non-Hispanic (including Asians)...21.0% were non-Hispanic Black, 10.1% were Hispanic, 3.1% were other non-Hispanic (including Asians)",
+              "not_hispanic_or_latino_evidence": "",
               "not_hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -898,6 +874,29 @@
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
+              }
+            },
+            "geography": {
+              "us_states": {
+                "value": [
+                  "Pennsylvania",
+                  "Maryland"
+                ],
+                "exact_quote": "EHR data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "page_number": 2
+              },
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "EHR data from five academic health systems in Pennsylvania and Maryland",
+                "page_number": 2
+              },
+              "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System",
+              "total_sites": {
+                "value": 5,
+                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System",
+                "page_number": 2
               }
             },
             "socioeconomic_status": {
@@ -928,9 +927,9 @@
               }
             },
             "disability_and_functional_limitations": {
-              "value": "Chronic conditions assessed including chronic pulmonary disease (33.5% in type 2 diabetes cohort; 24.3% in at-risk cohort), renal disease (28.8% in type 2 diabetes cohort), heart failure, peripheral vascular disease, cerebrovascular disease, liver disease; Charlson Comorbidity Index scores used to summarize morbidity",
-              "exact_quote": "Chronic conditions were defined by diagnosis codes based on validated algorithms...Because chronic conditions were not consistently recorded at each encounter...they were instead assessed based on patient records for 3 years prior to COVID-19 diagnosis. Comorbid conditions were further summarized using the Charlson Comorbidity Index (CCI)...33.5% of the patients had chronic pulmonary disease, and 28.8% had renal disease",
-              "page_number": 2
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
             },
             "religion": {
               "value": "Not Reported",
@@ -940,7 +939,7 @@
           }
         },
         "input_tokens": 26124,
-        "output_tokens": 2675
+        "output_tokens": 1811
       },
       "sonnet_4_6": {
         "model_id": "claude-sonnet-4-6",
@@ -967,7 +966,7 @@
               "page_number": 2
             },
             "study_design": {
-              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes, classified by 30-day outcomes.",
+              "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including adult patients with COVID-19 who had type 2 diabetes or were at risk of type 2 diabetes, with 30-day outcomes classified as no hospitalization, hospitalization only, or ICU/intubation/death.",
               "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes.",
               "page_number": 1
             },
@@ -978,7 +977,7 @@
               "page_number": 3
             },
             "age": {
-              "value": "Mean 62.3 years (type 2 diabetes); Mean 52.4 years (at risk of type 2 diabetes)",
+              "value": "Type 2 diabetes cohort: Mean 62.3 years; At-risk cohort: Mean 52.4 years",
               "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
               "page_number": 3
             },
@@ -988,20 +987,20 @@
                   "Pennsylvania",
                   "Maryland"
                 ],
-                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "exact_quote": "EHR data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
                 "page_number": 2
               },
               "countries": {
                 "value": [
                   "United States"
                 ],
-                "exact_quote": "five academic health systems in Pennsylvania and Maryland",
+                "exact_quote": "EHR data from five academic health systems in Pennsylvania and Maryland",
                 "page_number": 2
               },
-              "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+              "total_sites_evidence": "EHR data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
               "total_sites": {
                 "value": 5,
-                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "exact_quote": "EHR data from five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
                 "page_number": 2
               }
             },
@@ -1012,7 +1011,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "male_evidence": "in patients with type 2 diabetes... 46.2% were men... In patients at risk of type 2 diabetes... 37.7% were men",
+              "male_evidence": "in patients with type 2 diabetes, the mean age was 62.3 years, 46.2% were men... In patients at risk of type 2 diabetes, the mean age was 52.4 years, 37.7% were men",
               "male": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1088,7 +1087,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "white_evidence": "non-Hispanic White patients... 52.0% White (from table 1 for type 2 diabetes total)",
+              "white_evidence": "Table 1 shows White non-Hispanic: T2DM total 52.0%, at-risk total 63.7%",
               "white": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1100,7 +1099,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "unknown_evidence": "Unknown race/ethnicity 1.8% (type 2 diabetes) and 2.1% (at risk)",
+              "unknown_evidence": "Unknown race/ethnicity reported in Table 1: T2DM 1.8%, at-risk 2.1%",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1114,13 +1113,13 @@
                 "exact_quote": "13.4% were Hispanic... 10.1% were Hispanic",
                 "page_number": 3
               },
-              "not_hispanic_or_latino_evidence": "28.8% were non-Hispanic Black... 3.9% were other non-Hispanic (including Asians)... non-Hispanic White patients",
+              "not_hispanic_or_latino_evidence": "28.8% were non-Hispanic Black, 13.4% were Hispanic, 3.9% were other non-Hispanic (including Asians)... 21.0% were non-Hispanic Black, 10.1% were Hispanic, 3.1% were other non-Hispanic",
               "not_hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "28.8% were non-Hispanic Black, 13.4% were Hispanic, 3.9% were other non-Hispanic (including Asians)",
                 "page_number": 3
               },
-              "unknown_evidence": "Unknown race/ethnicity reported in table 1 as 1.8% for type 2 diabetes total",
+              "unknown_evidence": "Unknown race/ethnicity percentages reported in Table 1 (e.g., 1.8% unknown for T2DM, 2.1% for at-risk)",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1167,7 +1166,7 @@
           }
         },
         "input_tokens": 26125,
-        "output_tokens": 2131
+        "output_tokens": 2246
       },
       "opus_4_7": {
         "model_id": "claude-opus-4-7",
@@ -1181,65 +1180,304 @@
           },
           "tier": "Tier 1",
           "extracted_data": {
+            "data": {
+              "associated_nct_ids": {
+                "value": [
+                  "NCT02788903"
+                ],
+                "exact_quote": "Trial registration number NCT02788903.",
+                "page_number": 1
+              },
+              "target_patient_age_range": {
+                "value": "Adults 18 years or older",
+                "exact_quote": "our analysis included adult patients (18 years or older) with their first COVID- 19 diagnosis between 1 March 2020 and 28 February 2021.",
+                "page_number": 2
+              },
+              "study_design": {
+                "value": "Retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes, classifying 30-day outcomes.",
+                "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID- 19 with type 2 diabetes or at risk of type 2 diabetes.",
+                "page_number": 1
+              },
+              "total_participants_evidence": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
+              "total_participants": {
+                "value": 15725,
+                "exact_quote": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
+                "page_number": 1
+              },
+              "age": {
+                "value": "In patients with type 2 diabetes, mean age 62.3 years; in patients at risk of type 2 diabetes, mean age 52.4 years",
+                "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
+                "page_number": 3
+              },
+              "geography": {
+                "us_states": {
+                  "value": [
+                    "Pennsylvania",
+                    "Maryland"
+                  ],
+                  "exact_quote": "data from five health systems in Pennsylvania and Maryland",
+                  "page_number": 1
+                },
+                "countries": {
+                  "value": [
+                    "United States"
+                  ],
+                  "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                  "page_number": 2
+                },
+                "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+                "total_sites": {
+                  "value": 5,
+                  "exact_quote": "PaTH electronic health record (EHR) data from five academic health systems in Pennsylvania and Maryland",
+                  "page_number": 2
+                }
+              },
+              "sex": {
+                "female_evidence": "",
+                "female": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "male_evidence": "",
+                "male": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported; authors note additional socioeconomic factors such as education, income, and census track-level deprivation data were not consistently coded across institutions",
+                  "exact_quote": "additional socioeconomic factors, such as education, income, and census track-l evel deprivation data, were not consistently coded across institutions, which limited the feasibility to study additional factors",
+                  "page_number": 10
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 34242,
+        "output_tokens": 2628
+      }
+    }
+  },
+  {
+    "identifier": "NCT02958995",
+    "nct_id": "NCT02958995",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT02958995_02_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT02958995",
+      "condition": "Endocrine and Metabolic",
+      "intervention": "N/A",
+      "ctgov_total_participants": 2738161
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT02958995",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2738161
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
             "associated_nct_ids": {
-              "value": [
-                "NCT02788903"
-              ],
-              "exact_quote": "Trial registration number NCT02788903.",
-              "page_number": 1
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
             },
             "target_patient_age_range": {
-              "value": "Adults 18 years or older",
-              "exact_quote": "our analysis included adult patients (18 years or older) with their first COVID-19 diagnosis between 1 March 2020 and 28 February 2021.",
-              "page_number": 2
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
             },
             "study_design": {
-              "value": "Retrospective cohort study using EHR data from five academic health systems in Pennsylvania and Maryland, including patients with COVID-19 with type 2 diabetes or at risk of type 2 diabetes; outcomes assessed at 30 days.",
-              "exact_quote": "We conducted a retrospective cohort study using electronic health records from five academic health systems in Pennsylvania and Maryland, including patients with COVID- 19 with type 2 diabetes or at risk of type 2 diabetes.",
-              "page_number": 1
+              "value": "A retrospective study was conducted to assess the effectiveness of WeChat official accounts (WOAs) from both general medical journals (GMJs) and endocrinology medical journals (EMJs) listed in the Chinese Science Citation Database, analyzing articles on endocrine and metabolic diseases published from January 1, 2021, to December 31, 2023.",
+              "exact_quote": "A retrospective study was conducted to assess the effectiveness of WOAs from both general medical journals (GMJs) and endocrinology medical journals (EMJs) listed in the Chinese Science Citation Database.",
+              "page_number": 2
             },
-            "total_participants_evidence": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
+            "total_participants_evidence": "Not applicable - this is a content analysis study, not a clinical trial with human subjects",
             "total_participants": {
-              "value": 15725,
-              "exact_quote": "We included 15 725 patients with COVID- 19 diagnoses between March 2020 and February 2021.",
-              "page_number": 1
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
             },
             "age": {
-              "value": "Mean age: 62.3 years (T2DM cohort); 52.4 years (at-risk cohort)",
-              "exact_quote": "in patients with type 2 diabetes, the mean age was 62.3 years... In patients at risk of type 2 diabetes, the mean age was 52.4 years",
-              "page_number": 3
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
             },
             "geography": {
               "countries": {
                 "value": [
-                  "United States"
+                  "China"
                 ],
-                "exact_quote": "data from five academic health systems in Pennsylvania and Maryland",
-                "page_number": 1
+                "exact_quote": "A retrospective study was conducted to assess the effectiveness of WOAs from both general medical journals (GMJs) and endocrinology medical journals (EMJs) listed in the Chinese Science Citation Database.",
+                "page_number": 2
               },
               "us_states": {
-                "value": [
-                  "Pennsylvania",
-                  "Maryland"
-                ],
-                "exact_quote": "data from five academic health systems in Pennsylvania and Maryland",
-                "page_number": 1
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
               },
-              "total_sites_evidence": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
+              "total_sites_evidence": "Not applicable - this is a content analysis of journal articles, not a clinical trial with physical sites",
               "total_sites": {
-                "value": 5,
-                "exact_quote": "five academic health systems in Pennsylvania and Maryland: Penn State Health Milton S Hershey Medical Center, UPMC, Geisinger Health System, Temple Health System, and the Johns Hopkins Health System.",
-                "page_number": 2
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
               }
             },
             "sex": {
-              "female_evidence": "in patients with type 2 diabetes... 46.2% were men... In patients at risk of type 2 diabetes... 37.7% were men",
+              "female_evidence": "",
               "female": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "male_evidence": "46.2% were men (T2DM); 37.7% were men (at-risk)",
+              "male_evidence": "",
               "male": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1297,13 +1535,13 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "asian_evidence": "3.9% were other non- Hispanic (including Asians)",
+              "asian_evidence": "",
               "asian": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "black_or_african_american_evidence": "28.8% were non- Hispanic Black (T2DM); 21.0% were non-Hispanic Black (at-risk)",
+              "black_or_african_american_evidence": "",
               "black_or_african_american": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1315,7 +1553,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "white_evidence": "non- Hispanic White (reported as reference category); percentages in table 1 reference White, non-Hispanic",
+              "white_evidence": "",
               "white": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1327,7 +1565,7 @@
                 "exact_quote": "",
                 "page_number": 0
               },
-              "unknown_evidence": "Unknown category reported in table 1 (e.g., 1.8% T2DM, 2.1% at-risk)",
+              "unknown_evidence": "",
               "unknown": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1335,13 +1573,13 @@
               }
             },
             "ethnicity": {
-              "hispanic_or_latino_evidence": "13.4% were Hispanic (T2DM cohort); 10.1% were Hispanic (at-risk cohort)",
+              "hispanic_or_latino_evidence": "",
               "hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
                 "page_number": 0
               },
-              "not_hispanic_or_latino_evidence": "28.8% were non- Hispanic Black, ... 3.9% were other non- Hispanic (including Asians)",
+              "not_hispanic_or_latino_evidence": "",
               "not_hispanic_or_latino": {
                 "value": "Not Reported",
                 "exact_quote": "",
@@ -1376,9 +1614,9 @@
                 "page_number": 0
               },
               "adi_area_deprivation_index": {
-                "value": "Not Reported - authors note data were not consistently coded",
-                "exact_quote": "additional socioeconomic factors, such as education, income, and census track-l evel deprivation data, were not consistently coded across institutions, which limited the feasibility to study additional factors of COVID- 19 hospitalizations.",
-                "page_number": 10
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
               }
             },
             "disability_and_functional_limitations": {
@@ -1393,8 +1631,3584 @@
             }
           }
         },
-        "input_tokens": 34242,
-        "output_tokens": 2693
+        "input_tokens": 20347,
+        "output_tokens": 1913
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT02958995",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2738161
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [],
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "target_patient_age_range": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "study_design": {
+              "value": "Retrospective study evaluating the effectiveness of WeChat official accounts (WOAs) from general medical journals (GMJs) and endocrinology medical journals (EMJs) listed in the Chinese Science Citation Database, assessing articles on endocrine and metabolic diseases published from January 1, 2021 to December 31, 2023, and using generalized linear models to identify factors associated with readings and likes.",
+              "exact_quote": "A retrospective study was conducted to assess the effectiveness of WOAs from both general medical journals (GMJs) and endocrinology medical journals (EMJs) listed in the Chinese Science Citation Database.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"\"",
+            "total_participants": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "China"
+                ],
+                "exact_quote": "We searched the WOAs of Chinese medical journals through the WeChat APP and further collected posted articles on endocrine and metabolic diseases from January 1, 2021, to December 31, 2023.",
+                "page_number": 2
+              },
+              "total_sites_evidence": "",
+              "total_sites": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 20348,
+        "output_tokens": 1489
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT02958995",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2738161
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "$PARAMETER_NAME": {}
+          }
+        },
+        "input_tokens": 27206,
+        "output_tokens": 51
+      }
+    }
+  },
+  {
+    "identifier": "NCT03694392",
+    "nct_id": "NCT03694392",
+    "tier": "Tier 1",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT03694392_01_Tier1.pdf",
+    "metadata": {
+      "nct_id": "NCT03694392",
+      "condition": "Respiratory",
+      "intervention": "N/A",
+      "ctgov_total_participants": 2776278
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03694392",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2776278
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03694392"
+              ],
+              "exact_quote": "ClinicalTrials.gov NCT03694392",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "\u226518 years",
+              "exact_quote": "pregnant persons \u226518 years immunized with RIV4 or SD-IIV4",
+              "page_number": 1
+            },
+            "study_design": {
+              "value": "Retrospective observational safety study evaluating pregnant persons vaccinated with RIV4 or SD-IIV4 during routine care as part of a larger cluster-randomized vaccine effectiveness study, comparing pregnancy, birth, and neonatal/infant outcomes.",
+              "exact_quote": "This postlicensure observational safety study conducted at Kaiser Permanente Northern California evaluated the subset of pregnant persons vaccinated in routine care as part of a larger cluster-randomized vaccine effectiveness study comparing RIV4 vs. SD-IIV4",
+              "page_number": 1
+            },
+            "total_participants_evidence": "{\"value\": \"There were 48,781 pregnant persons (RIV4=14,981; SD-IIV4=33,800)\", \"page_number\": 1}",
+            "total_participants": {
+              "value": 48781,
+              "exact_quote": "There were 48,781 vaccinated pregnant persons (RIV4=14,981; SD-IIV4=33,800) in the final pregnancy cohort",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Most pregnant persons were 25\u221234 years of age (63.3%) or 35\u221244 years of age (25.6%)",
+              "exact_quote": "Most pregnant persons were 25\u221234 years of age (63.3%) or 35\u221244 years of age (25.6%)",
+              "page_number": 3
+            },
+            "geography": {
+              "value": {
+                "countries": [
+                  "United States"
+                ],
+                "us_states": [
+                  "California"
+                ],
+                "total_sites_evidence": "Kaiser Permanente Northern California (KPNC) is an integrated healthcare delivery system with 4.6 million members... Members receive nearly all their care at KPNC-owned facilities, which includes 209 medical clinics and 21 hospitals.",
+                "total_sites": 230
+              },
+              "exact_quote": "KPNC is an integrated healthcare delivery system with 4.6 million members... Members receive nearly all their care at KPNC-owned facilities, which includes 209 medical clinics and 21 hospitals.",
+              "page_number": 2
+            },
+            "sex": {
+              "value": {
+                "female_evidence": "Among the infant cohort, 51.4% were male",
+                "female": 23017,
+                "male_evidence": "Among the infant cohort, 51.4% were male",
+                "male": 24377,
+                "unknown_evidence": "",
+                "unknown": "Not Reported"
+              },
+              "exact_quote": "Among the infant cohort, 51.4% were male (Table 2).",
+              "page_number": 3
+            },
+            "gender": {
+              "value": {
+                "woman_evidence": "",
+                "woman": "Not Reported",
+                "man_evidence": "",
+                "man": "Not Reported",
+                "non_binary_evidence": "",
+                "non_binary": "Not Reported",
+                "transgender_evidence": "",
+                "transgender": "Not Reported",
+                "other_evidence": "",
+                "other": "Not Reported",
+                "unknown_evidence": "",
+                "unknown": "Not Reported"
+              },
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "race_nih_omb": {
+              "value": {
+                "american_indian_or_alaska_native_evidence": "Native American 46 0.3(0.2,0.4) ... in the final pregnancy cohort",
+                "american_indian_or_alaska_native": 148,
+                "asian_evidence": "Asian 4620 30.8(30.1,31.6) ... in the final pregnancy cohort",
+                "asian": 14536,
+                "black_or_african_american_evidence": "Black 620 4.1(3.8,4.5) ... in the final pregnancy cohort",
+                "black_or_african_american": 2209,
+                "native_hawaiian_or_other_pacific_islander_evidence": "Pacific Islander 153 1.0(0.9,1.2) ... in the final pregnancy cohort",
+                "native_hawaiian_or_other_pacific_islander": 440,
+                "white_evidence": "White 5506 36.8(36.0,37.5) ... in the final pregnancy cohort",
+                "white": 17172,
+                "more_than_one_race_evidence": "Multiracial 744 5.0(4.6,5.3) ... in the final pregnancy cohort",
+                "more_than_one_race": 2422,
+                "unknown_evidence": "Unknown 3292 22.0(21.3,22.6) ... in the final pregnancy cohort",
+                "unknown": 11854
+              },
+              "exact_quote": "Race Asian 4620 30.8(30.1,31.6)... Black 620 4.1(3.8,4.5)... Multiracial 744 5.0(4.6,5.3)... Native American 46 0.3(0.2,0.4)... Pacific Islander 153 1.0(0.9,1.2)... White 5506 36.8(36.0,37.5)... Unknown 3292 22.0(21.3,22.6)",
+              "page_number": 5
+            },
+            "ethnicity": {
+              "value": {
+                "hispanic_or_latino_evidence": "Hispanic 3450 23.0(22.4,23.7) ... in the final pregnancy cohort",
+                "hispanic_or_latino": 12348,
+                "not_hispanic_or_latino_evidence": "non-Hispanic 11,531 77.0(76.3,77.6) ... in the final pregnancy cohort",
+                "not_hispanic_or_latino": 36433,
+                "unknown_evidence": "",
+                "unknown": "Not Reported"
+              },
+              "exact_quote": "Ethnicity Hispanic 3450 23.0(22.4,23.7)... non-Hispanic 11,531 77.0(76.3,77.6)",
+              "page_number": 5
+            },
+            "socioeconomic_status": {
+              "value": {
+                "education": "Not Reported",
+                "income": "Not Reported",
+                "wealth": "Not Reported",
+                "family_size": "Not Reported",
+                "adi_area_deprivation_index": "Not Reported"
+              },
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 27977,
+        "output_tokens": 1787
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03694392",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2776278
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03694392"
+              ],
+              "exact_quote": "ClinicalTrials.gov NCT03694392",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "\u226518 years",
+              "exact_quote": "all pregnant persons \u226518 years who sought influenza vaccination and were routinely vaccinated as part of standard of care in the KPNC outpatient setting with either RIV4 or SD-IIV4",
+              "page_number": 2
+            },
+            "study_design": {
+              "value": "Postlicensure retrospective observational safety study nested within a larger cluster-randomized vaccine effectiveness study, comparing pregnancy, birth, and neonatal/infant outcomes in pregnant persons vaccinated with RIV4 vs. SD-IIV4 during the 2018/19 and 2019/20 influenza seasons at Kaiser Permanente Northern California (KPNC).",
+              "exact_quote": "This postlicensure observational safety study conducted at Kaiser Permanente Northern California evaluated the subset of pregnant persons vaccinated in routine care as part of a larger cluster-randomized vaccine effectiveness study comparing RIV4 vs. SD-IIV4 (ClinicalTrials.gov NCT03694392).",
+              "page_number": 1
+            },
+            "total_participants_evidence": "\"There were 48,781 vaccinated pregnant persons (RIV4=14,981; SD-IIV4=33,800) in the final pregnancy cohort\"",
+            "total_participants": {
+              "value": 48781,
+              "exact_quote": "There were 48,781 vaccinated pregnant persons (RIV4=14,981; SD-IIV4=33,800) in the final pregnancy cohort",
+              "page_number": 3
+            },
+            "age": {
+              "value": "Most pregnant persons were 25\u201334 years of age (63.3%) or 35\u201344 years of age (25.6%); 17\u201324 years: 10.8%; \u226545 years: 0.3%",
+              "exact_quote": "Most pregnant persons were 25\u221234 years of age (63.3%) or 35\u221244 years of age (25.6%) (Table 1)",
+              "page_number": 3
+            },
+            "geography": {
+              "us_states": {
+                "value": [
+                  "California"
+                ],
+                "exact_quote": "Kaiser Permanente Northern California (KPNC)",
+                "page_number": 1
+              },
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "Kaiser Permanente Northern California (KPNC)",
+                "page_number": 1
+              },
+              "total_sites_evidence": "KPNC is an integrated healthcare delivery system with 4.6 million members... Members receive nearly all their care at KPNC-owned facilities, which includes 209 medical clinics and 21 hospitals.",
+              "total_sites": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "sex": {
+              "female_evidence": "The study population was restricted to pregnant persons \u226518 years; infant sex: Male 51.4%, Female 48.6% (Table 2). All 48,781 participants were pregnant persons (female).",
+              "female": {
+                "value": 48781,
+                "exact_quote": "There were 48,781 vaccinated pregnant persons (RIV4=14,981; SD-IIV4=33,800) in the final pregnancy cohort",
+                "page_number": 3
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "All participants are pregnant persons; the study population included 48,781 pregnant persons.",
+              "woman": {
+                "value": 48781,
+                "exact_quote": "There were 48,781 vaccinated pregnant persons (RIV4=14,981; SD-IIV4=33,800) in the final pregnancy cohort",
+                "page_number": 3
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "NativeAmerican 46 0.3% (RIV4) ... 102 0.3% (SD-IIV4) ... 148 0.3% (Total)",
+              "american_indian_or_alaska_native": {
+                "value": 148,
+                "exact_quote": "NativeAmerican 46 0.3(0.2,0.4) 102 0.3(0.2,0.4) 148 0.3(0.3,0.4)",
+                "page_number": 5
+              },
+              "asian_evidence": "Asian 4620 30.8% (RIV4) ... 9916 29.3% (SD-IIV4) ... 14,536 29.8% (Total)",
+              "asian": {
+                "value": 14536,
+                "exact_quote": "Asian 4620 30.8(30.1,31.6) 9916 29.3(28.9,29.8) 14,536 29.8(29.4,30.2)",
+                "page_number": 5
+              },
+              "black_or_african_american_evidence": "Black 620 4.1% (RIV4) ... 1589 4.7% (SD-IIV4) ... 2209 4.5% (Total)",
+              "black_or_african_american": {
+                "value": 2209,
+                "exact_quote": "Black 620 4.1(3.8,4.5) 1589 4.7(4.5,4.9) 2209 4.5(4.3,4.7)",
+                "page_number": 5
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "PacificIslander 153 1.0% (RIV4) ... 287 0.8% (SD-IIV4) ... 440 0.9% (Total)",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": 440,
+                "exact_quote": "PacificIslander 153 1.0(0.9,1.2) 287 0.8(0.8,1.0) 440 0.9(0.8,1.0)",
+                "page_number": 5
+              },
+              "white_evidence": "White 5506 36.8% (RIV4) ... 11,666 34.5% (SD-IIV4) ... 17,172 35.2% (Total)",
+              "white": {
+                "value": 17172,
+                "exact_quote": "White 5506 36.8(36.0,37.5) 11,666 34.5(34.0,35.0) 17,172 35.2(34.8,35.6)",
+                "page_number": 5
+              },
+              "more_than_one_race_evidence": "Multiracial 744 5.0% (RIV4) ... 1678 5.0% (SD-IIV4) ... 2422 5.0% (Total)",
+              "more_than_one_race": {
+                "value": 2422,
+                "exact_quote": "Multiracial 744 5.0(4.6,5.3) 1678 5.0(4.7,5.2) 2422 5.0(4.8,5.2)",
+                "page_number": 5
+              },
+              "unknown_evidence": "Unknownb 3292 22.0% (RIV4) ... 8562 25.3% (SD-IIV4) ... 11,854 24.3% (Total)",
+              "unknown": {
+                "value": 11854,
+                "exact_quote": "Unknownb 3292 22.0(21.3,22.6) 8562 25.3(24.9,25.8) 11,854 24.3(23.9,24.7)",
+                "page_number": 5
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "Hispanic 3450 23.0% (RIV4) ... 8898 26.3% (SD-IIV4) ... 12,348 25.3% (Total)",
+              "hispanic_or_latino": {
+                "value": 12348,
+                "exact_quote": "Hispanic 3450 23.0(22.4,23.7) 8898 26.3(25.9,26.8) 12,348 25.3(24.9,25.7)",
+                "page_number": 5
+              },
+              "not_hispanic_or_latino_evidence": "non-Hispanic 11,531 77.0% (RIV4) ... 24,902 73.7% (SD-IIV4) ... 36,433 74.7% (Total)",
+              "not_hispanic_or_latino": {
+                "value": 36433,
+                "exact_quote": "non-Hispanic 11,531 77.0(76.3,77.6) 24,902 73.7(73.2,74.1) 36,433 74.7(74.3,75.1)",
+                "page_number": 5
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported; noted that the very lowest incomes are underrepresented in KPNC membership",
+                "exact_quote": "KPNC members comprise approximately a third of Northern California's population and are broadly representative of adults in the state with regard to racial, ethnic, and socioeconomic demographics, although the very lowest incomes are underrepresented.",
+                "page_number": 2
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 27978,
+        "output_tokens": 2862
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03694392",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2776278
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "data": {
+              "associated_nct_ids": {
+                "value": [
+                  "NCT03694392"
+                ],
+                "exact_quote": "a larger cluster-randomized vaccine effectiveness study comparing RIV4 vs. SD-IIV4 (ClinicalTrials.gov NCT03694392)",
+                "page_number": 1
+              },
+              "target_patient_age_range": {
+                "value": "\u226518 years (pregnant persons); larger study was 18 to 64 years",
+                "exact_quote": "pregnant persons \u226518 years immunized with RIV4 or SD-IIV4 during the 2018/19 and 2019/20 influenza seasons",
+                "page_number": 1
+              },
+              "study_design": {
+                "value": "Postlicensure retrospective observational safety study nested within a larger cluster-randomized vaccine effectiveness trial comparing RIV4 vs SD-IIV4 in pregnant persons and their infants at Kaiser Permanente Northern California during the 2018/19 and 2019/20 influenza seasons.",
+                "exact_quote": "This postlicensure observational safety study conducted at Kaiser Permanente Northern California evaluated the subset of pregnant persons vaccinated in routine care as part of a larger cluster-randomized vaccine effectiveness study comparing RIV4 vs. SD-IIV4",
+                "page_number": 1
+              },
+              "total_participants_evidence": "The study population included 48,781 pregnant persons (RIV4=14,981; SD-IIV4=33,800) and 47,394 live births",
+              "total_participants": {
+                "value": 48781,
+                "exact_quote": "The study population included 48,781 pregnant persons (RIV4=14,981; SD-IIV4=33,800)",
+                "page_number": 1
+              },
+              "age": {
+                "value": "Maternal age at conception: 17-24 years 10.8%; 25-34 years 63.3%; 35-44 years 25.6%; \u226545 years 0.3%",
+                "exact_quote": "Most pregnant persons were 25\u221234 years of age (63.3%) or 35\u221244 years of age (25.6%)",
+                "page_number": 3
+              },
+              "geography": {
+                "us_states": {
+                  "value": [
+                    "California"
+                  ],
+                  "exact_quote": "Kaiser Permanente Northern California",
+                  "page_number": 1
+                },
+                "countries": {
+                  "value": [
+                    "United States"
+                  ],
+                  "exact_quote": "Kaiser Permanente Northern California",
+                  "page_number": 1
+                },
+                "total_sites_evidence": "Members receive nearly all their care at KPNC-owned facilities, which includes 209 medical clinics and 21 hospitals.",
+                "total_sites": {
+                  "value": 230,
+                  "exact_quote": "Members receive nearly all their care at KPNC-owned facilities, which includes 209 medical clinics and 21 hospitals.",
+                  "page_number": 2
+                }
+              },
+              "sex": {
+                "female_evidence": "48,781 pregnant persons",
+                "female": {
+                  "value": 48781,
+                  "exact_quote": "The study population included 48,781 pregnant persons",
+                  "page_number": 1
+                },
+                "male_evidence": "",
+                "male": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "Native American 46 0.3 ... 102 0.3 ... 148 0.3",
+                "american_indian_or_alaska_native": {
+                  "value": 148,
+                  "exact_quote": "NativeAmerican 46 0.3(0.2,0.4) 102 0.3(0.2,0.4) 148 0.3(0.3,0.4)",
+                  "page_number": 5
+                },
+                "asian_evidence": "Asian 4620 30.8 ... 9916 29.3 ... 14,536 29.8",
+                "asian": {
+                  "value": 14536,
+                  "exact_quote": "Asian 4620 30.8(30.1,31.6) 9916 29.3(28.9,29.8) 14,536 29.8(29.4,30.2)",
+                  "page_number": 5
+                },
+                "black_or_african_american_evidence": "Black 620 4.1 ... 1589 4.7 ... 2209 4.5",
+                "black_or_african_american": {
+                  "value": 2209,
+                  "exact_quote": "Black 620 4.1(3.8,4.5) 1589 4.7(4.5,4.9) 2209 4.5(4.3,4.7)",
+                  "page_number": 5
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "PacificIslander 153 1.0 ... 287 0.8 ... 440 0.9",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": 440,
+                  "exact_quote": "PacificIslander 153 1.0(0.9,1.2) 287 0.8(0.8,1.0) 440 0.9(0.8,1.0)",
+                  "page_number": 5
+                },
+                "white_evidence": "White 5506 36.8 ... 11,666 34.5 ... 17,172 35.2",
+                "white": {
+                  "value": 17172,
+                  "exact_quote": "White 5506 36.8(36.0,37.5) 11,666 34.5(34.0,35.0) 17,172 35.2(34.8,35.6)",
+                  "page_number": 5
+                },
+                "more_than_one_race_evidence": "Multiracial 744 5.0 ... 1678 5.0 ... 2422 5.0",
+                "more_than_one_race": {
+                  "value": 2422,
+                  "exact_quote": "Multiracial 744 5.0(4.6,5.3) 1678 5.0(4.7,5.2) 2422 5.0(4.8,5.2)",
+                  "page_number": 5
+                },
+                "unknown_evidence": "Unknown 3292 22.0 ... 8562 25.3 ... 11,854 24.3",
+                "unknown": {
+                  "value": 11854,
+                  "exact_quote": "Unknown 3292 22.0(21.3,22.6) 8562 25.3(24.9,25.8) 11,854 24.3(23.9,24.7)",
+                  "page_number": 5
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "Hispanic 3450 23.0 ... 8898 26.3 ... 12,348 25.3",
+                "hispanic_or_latino": {
+                  "value": 12348,
+                  "exact_quote": "Hispanic 3450 23.0(22.4,23.7) 8898 26.3(25.9,26.8) 12,348 25.3(24.9,25.7)",
+                  "page_number": 5
+                },
+                "not_hispanic_or_latino_evidence": "non-Hispanic 11,531 77.0 ... 24,902 73.7 ... 36,433 74.7",
+                "not_hispanic_or_latino": {
+                  "value": 36433,
+                  "exact_quote": "non-Hispanic 11,531 77.0(76.3,77.6) 24,902 73.7(73.2,74.1) 36,433 74.7(74.3,75.1)",
+                  "page_number": 5
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported; noted that lowest incomes are underrepresented in KPNC membership",
+                  "exact_quote": "broadly representative of adults in the state with regard to racial, ethnic, and socioeconomic demographics, although the very lowest incomes are underrepresented.",
+                  "page_number": 2
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 35930,
+        "output_tokens": 3354
+      }
+    }
+  },
+  {
+    "identifier": "NCT03818659",
+    "nct_id": "NCT03818659",
+    "tier": "Tier 1",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT03818659_01_Tier1.pdf",
+    "metadata": {
+      "nct_id": "NCT03818659",
+      "condition": "Cardiovascular",
+      "intervention": "PARALLEL",
+      "ctgov_total_participants": 1238835
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03818659",
+            "condition": "Cardiovascular",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 1238835
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "total_participants_evidence": "A total of 24 safety net clinics from 9 health systems in 4 states were enrolled in the study",
+            "total_participants": "24",
+            "associated_nct_ids": {
+              "value": [
+                "NCT03818659"
+              ],
+              "exact_quote": "The study protocol was registered with clinicaltrials.gov (trial number NCT03818659)",
+              "page_number": 3
+            },
+            "target_patient_age_range": {
+              "value": "Age 18 to 85 years",
+              "exact_quote": "adults with hypertension, defined according to National Quality Forum's BP Control Measure (NQF 0018) criteria, as patients who (1) were age 18 to 85 years on the date of analysis",
+              "page_number": 4
+            },
+            "study_design": {
+              "value": "Pragmatic cluster-randomized comparative effectiveness trial with randomization to Full Support (with practice facilitation) versus Self-Guided intervention, and comparison to a nonrandomized Usual Care control arm.",
+              "exact_quote": "We conducted a pragmatic, cluster- randomized, comparative effectiveness trial designed to compare the effectiveness of the BP MAP program with dedicated practice facilitation ('Full Support') versus a version of the program without practice facilitation ('Self- Guided'), at improving clinic- level BP control at 6 months.",
+              "page_number": 2
+            },
+            "age": {
+              "value": "Mean age 57.1 years in both intervention arms",
+              "exact_quote": "Age, y, mean (weighted SD) 57.1 (2.49) ... 57.1 (2.61)",
+              "page_number": 7
+            },
+            "sex": {
+              "value": "Female: 57.2% in Full Support, 60.7% in Self-Guided; Male: 42.8% in Full Support, 39.3% in Self-Guided",
+              "exact_quote": "Female sex, % (weighted SD) 57.2 (5.80) ... 60.7 (5.75)",
+              "page_number": 7
+            },
+            "gender": {
+              "man_evidence": "",
+              "man": "Not Reported",
+              "woman_evidence": "",
+              "woman": "Not Reported",
+              "non_binary_evidence": "",
+              "non_binary": "Not Reported",
+              "transgender_evidence": "",
+              "transgender": "Not Reported",
+              "other_evidence": "",
+              "other": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "race_nih_omb": {
+              "white_evidence": "Race or ethnicity, % (weighted SD) White 50.3(33.8) ... 29.8 (27.01)",
+              "white": "Not Reported as count",
+              "black_or_african_american_evidence": "Race or ethnicity, % (weighted SD) ... Black 34.9 (33.8) ... 36.8 (34.6)",
+              "black_or_african_american": "Not Reported as count",
+              "asian_evidence": "Race or ethnicity, % (weighted SD) ... Asian 1.6 (2.34) ... 3.8 (5.69)",
+              "asian": "Not Reported as count",
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": "Not Reported",
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": "Not Reported",
+              "more_than_one_race_evidence": "Race or ethnicity, % (weighted SD) ... Other/multiple/missing 3.0 (2.29) ... 3.2 (2.69)",
+              "more_than_one_race": "Not Reported as count",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "Race or ethnicity, % (weighted SD) ... Latinx 10.3 (5.9) ... 26.3 (28.3)",
+              "hispanic_or_latino": "Not Reported as count",
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": "Not Reported",
+              "unknown_evidence": "",
+              "unknown": "Not Reported"
+            },
+            "geography": {
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "A total of 24 safety net clinics from 9 health systems in 4 states were enrolled in the study",
+                "page_number": 5
+              },
+              "us_states": {
+                "value": [
+                  "Louisiana",
+                  "Oregon",
+                  "California",
+                  "Washington"
+                ],
+                "exact_quote": "From REACHnet, a total of 14 clinics from 2 health systems in Louisiana and from Oregon Community Health Information Network, 10 clinics from 7 health systems in Oregon, California, and Washington met criteria and were included in the study",
+                "page_number": 3
+              },
+              "total_sites_evidence": "A total of 24 safety net clinics from 9 health systems in 4 states were enrolled in the study",
+              "total_sites": 24
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Mostly public insurance: Median 43.24% Medicaid in Full Support, 51.65% in Self-Guided; <20% private insurance",
+                "exact_quote": "Proportions of patients primarily covered by Medicaid 43.24 (34.15\u201361.65) ... 51.65 (33.75\u201367.58) ... Proportions of patients primarily covered by private payer 13.70 (7.70\u201318.75) ... 8.97 (6.02\u201317.62)",
+                "page_number": 7
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 31260,
+        "output_tokens": 1662
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03818659",
+            "condition": "Cardiovascular",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 1238835
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03818659"
+              ],
+              "exact_quote": "REGISTRATION: URL: https://www.clinicaltrials.gov; Unique identifier: NCT03818659.",
+              "page_number": 1
+            },
+            "target_patient_age_range": {
+              "value": "18 to 85 years",
+              "exact_quote": "patients who (1) were age 18 to 85 years on the date of analysis",
+              "page_number": 4
+            },
+            "study_design": "{\"value\": \"Pragmatic cluster-randomized comparative effectiveness trial comparing two scalable versions of a quality improvement program (Full Support vs. Self-Guided) in 24 safety-net clinics across 9 health systems, with a nonrandomized Usual Care arm, assessing clinic-level BP control at 6 months using difference-in-differences analysis.\", \"exact_quote\": \"We conducted a pragmatic, cluster-randomized, comparative effectiveness trial designed to compare the effectiveness of the BP MAP program with dedicated practice facilitation (\"Full Support\") versus a version of the program without practice facilitation (\"Self-Guided\"), at improving clinic-level BP control at 6 months.\", \"page_number\": 2}",
+            "total_participants_evidence": "\"Average total number of patients with hypertension, median (IQR): Full-support clinics N=12: 517 (299\u20131049); Self-Guided clinics N=12: 1040 (630\u20131623); Usual Care arm N=18 health system-based PCORnet datamarts: 53 266 (26200\u201374 379)\"",
+            "total_participants": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "age": {
+              "value": "Mean 57.1 (weighted SD 2.49) for Full Support arm; Mean 57.1 (weighted SD 2.61) for Self-Guided arm; Mean 63.47 (weighted SD 1.76) for Usual Care arm",
+              "exact_quote": "Age, y, mean (weighted SD): Full-support clinics N=12: 57.1 (2.49); Self-Guided clinics N=12: 57.1 (2.61); Usual Care: 63.47 (1.76)",
+              "page_number": 7
+            },
+            "geography": {
+              "us_states": {
+                "value": [
+                  "Louisiana",
+                  "Oregon",
+                  "California",
+                  "Washington"
+                ],
+                "exact_quote": "From REACHnet, a total of 14 clinics from 2 health systems in Louisiana and from Oregon Community Health Information Network, 10 clinics from 7 health systems in Oregon, California, and Washington met criteria and were included in the study.",
+                "page_number": 3
+              },
+              "countries": {
+                "value": [
+                  "United States"
+                ],
+                "exact_quote": "Uncontrolled blood pressure (BP) is the leading preventable cause of death in the United States after smoking",
+                "page_number": 1
+              },
+              "total_sites_evidence": "A total of 24 safety net clinics in 9 different health systems underwent randomization and then simultaneous implementation.",
+              "total_sites": {
+                "value": 24,
+                "exact_quote": "A total of 24 safety net clinics in 9 different health systems underwent randomization and then simultaneous implementation.",
+                "page_number": 1
+              }
+            },
+            "sex": {
+              "female_evidence": "Female sex, % (weighted SD): Full-support clinics N=12: 57.2 (5.80); Self-Guided clinics N=12: 60.7 (5.75); Usual Care: 51.4 (3.08)",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "Female sex, % (weighted SD): 57.2 (5.80) Full Support; 60.7 (5.75) Self-Guided; 51.4 (3.08) Usual Care",
+                "page_number": 7
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "Asian: Full-support clinics 1.6 (2.34)%; Self-Guided clinics 3.8 (5.69)%; Usual Care 1.7 (0.67)%",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "Asian: 1.6 (2.34) [Full Support]; 3.8 (5.69) [Self-Guided]; 1.7 (0.67) [Usual Care]",
+                "page_number": 7
+              },
+              "black_or_african_american_evidence": "Black: Full-support clinics 34.9 (33.8)%; Self-Guided clinics 36.8 (34.6)%; Usual Care 13.4 (15.3)%",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "Black: 34.9 (33.8) [Full Support]; 36.8 (34.6) [Self-Guided]; 13.4 (15.3) [Usual Care]",
+                "page_number": 7
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "White: Full-support clinics 50.3 (33.8)%; Self-Guided clinics 29.8 (27.01)%; Usual Care 79.2 (15.56)%",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "White: 50.3 (33.8) [Full Support]; 29.8 (27.01) [Self-Guided]; 79.2 (15.56) [Usual Care]",
+                "page_number": 7
+              },
+              "more_than_one_race_evidence": "Other/multiple/missing: Full-support clinics 3.0 (2.29)%; Self-Guided clinics 3.2 (2.69)%; Usual Care 2.5 (0.95)%",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "Other/multiple/missing: 3.0 (2.29) [Full Support]; 3.2 (2.69) [Self-Guided]; 2.5 (0.95) [Usual Care]",
+                "page_number": 7
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "Latinx: Full-support clinics 10.3 (5.9)%; Self-Guided clinics 26.3 (28.3)%; Usual Care 3.1 (2.01)%",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "Latinx: 10.3 (5.9) [Full Support]; 26.3 (28.3) [Self-Guided]; 3.1 (2.01) [Usual Care]",
+                "page_number": 7
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 31261,
+        "output_tokens": 2468
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03818659",
+            "condition": "Cardiovascular",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 1238835
+          },
+          "tier": "Tier 1",
+          "extracted_data": {}
+        },
+        "input_tokens": 41910,
+        "output_tokens": 2610
+      }
+    }
+  },
+  {
+    "identifier": "NCT03948698",
+    "nct_id": "NCT03948698",
+    "tier": "Tier 1",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT03948698_01_Tier1.pdf",
+    "metadata": {
+      "nct_id": "NCT03948698",
+      "condition": "Infectious Disease",
+      "intervention": "N/A",
+      "ctgov_total_participants": 4159533
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03948698"
+              ],
+              "exact_quote": "This study is registered with ClinicalTrials.gov, number NCT03948698.",
+              "page_number": 4
+            },
+            "target_patient_age_range": {
+              "value": "0-14 years of age",
+              "exact_quote": "The study population included all children aged 0\u221214 years presenting at study sites and household child contacts of TB index cases diagnosed at these sites.",
+              "page_number": 3
+            },
+            "study_design": {
+              "value": "A before-and-after implementation study that compared pre-intervention outcomes (collected retrospectively from facility registers over a 12-month period between March 2017 and August 2018) with prospectively-collected intervention outcomes (December 2018 to June 2021) across 144 health facilities in nine sub-Saharan African countries.",
+              "exact_quote": "A before-and-after study was implemented to evaluate the effect of project interventions. Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project, for which pre-intervention data could be collected.",
+              "page_number": 3
+            },
+            "total_participants_evidence": "Throughout the intervention period, 1991401 children 0\u221214 years of age were screened for TB across 144 CaP-TB sites with pre-intervention data.",
+            "total_participants": {
+              "value": 1991401,
+              "exact_quote": "Throughout the intervention period, 1991401 children 0\u221214 years of age were screened for TB across 144 CaP-TB sites with pre-intervention data",
+              "page_number": 5
+            },
+            "age": {
+              "value": "Children aged 0-14 years (including two age-bands: 0-4 years and 5-14 years)",
+              "exact_quote": "The study population included all children aged 0\u221214 years presenting at study sites and household child contacts of TB index cases diagnosed at these sites.",
+              "page_number": 3
+            },
+            "geography": {
+              "countries": {
+                "value": [
+                  "Cameroon",
+                  "C\u00f4te d'Ivoire",
+                  "Democratic Republic of the Congo",
+                  "Kenya",
+                  "Lesotho",
+                  "Malawi",
+                  "Tanzania",
+                  "Uganda",
+                  "Zimbabwe"
+                ],
+                "exact_quote": "Facilities were selected from nine sub-Saharan African countries (Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo [DRC], Kenya, Lesotho, Malawi, Tanzania, Uganda, and Zimbabwe).",
+                "page_number": 3
+              },
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "total_sites_evidence": "Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project",
+              "total_sites": {
+                "value": 144,
+                "exact_quote": "Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project, for which pre-intervention data could be collected.",
+                "page_number": 3
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 32404,
+        "output_tokens": 2195
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03948698"
+              ],
+              "exact_quote": "This study is registered with ClinicalTrials.gov, number NCT03948698.",
+              "page_number": 4
+            },
+            "target_patient_age_range": {
+              "value": "0\u201314 years",
+              "exact_quote": "The study population included all children aged 0\u221214 years presenting at study sites and household child contacts of TB index cases diagnosed at these sites.",
+              "page_number": 3
+            },
+            "study_design": {
+              "value": "Before-and-after observational study implemented across 144 health facilities in nine sub-Saharan African countries, comparing pre-intervention (retrospective 12-month period ending at least 6 months before data extraction) with intervention period (December 2018 to June 2021) outcomes for paediatric TB case detection and treatment cascade.",
+              "exact_quote": "A before-and-after study was implemented to evaluate the effect of project interventions. Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project, for which pre-intervention data could be collected.",
+              "page_number": 3
+            },
+            "total_participants_evidence": "\"The intervention screened 1991401 children 0\u221214 years of age for TB across 144 healthcare facilities.\"",
+            "total_participants": {
+              "value": 1991401,
+              "exact_quote": "The intervention screened 1991401 children 0\u221214 years of age for TB across 144 healthcare facilities.",
+              "page_number": 5
+            },
+            "age": {
+              "value": "Children aged 0\u201314 years (sub-groups: 0\u20134 years and 5\u201314 years)",
+              "exact_quote": "The study population included all children aged 0\u221214 years presenting at study sites... The age disaggregated analysis showed that the NMR for children 0\u20134 and 5\u201314 years old diagnosed with TB increased by 53.4%... and 39.9%",
+              "page_number": 3
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Cameroon",
+                  "C\u00f4te d'Ivoire",
+                  "Democratic Republic of the Congo",
+                  "Kenya",
+                  "Lesotho",
+                  "Malawi",
+                  "Tanzania",
+                  "Uganda",
+                  "Zimbabwe"
+                ],
+                "exact_quote": "Facilities were selected from nine sub-Saharan African countries (Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo [DRC], Kenya, Lesotho, Malawi, Tanzania, Uganda, and Zimbabwe).",
+                "page_number": 3
+              },
+              "total_sites_evidence": "Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project, for which pre-intervention data could be collected.",
+              "total_sites": {
+                "value": 144,
+                "exact_quote": "Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project, for which pre-intervention data could be collected.",
+                "page_number": 3
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 32405,
+        "output_tokens": 1806
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "data": {
+              "associated_nct_ids": {
+                "value": [
+                  "NCT03948698"
+                ],
+                "exact_quote": "This study is registered with ClinicalTrials.gov, number NCT03948698.",
+                "page_number": 4
+              },
+              "target_patient_age_range": {
+                "value": "0-14 years",
+                "exact_quote": "The study population included all children aged 0\u221214 years presenting at study sites",
+                "page_number": 3
+              },
+              "study_design": {
+                "value": "Before-and-after implementation study evaluating a multi-pronged intervention (systematic TB screening in facility-based child-health entry-points, decentralised TB diagnosis/management, Xpert MTB/RIF testing, and contact investigation) at 144 health facilities across nine sub-Saharan African countries.",
+                "exact_quote": "A before-and-after study was implemented to evaluate the effect of project interventions. Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project",
+                "page_number": 3
+              },
+              "total_participants_evidence": "The intervention screened 1 991 401 children <15 years of age for TB across 144 health care facilities.",
+              "total_participants": {
+                "value": 1991401,
+                "exact_quote": "The intervention screened 1 991 401 children <15 years of age for TB across 144 healthcare facilities.",
+                "page_number": 1
+              },
+              "age": {
+                "value": "Not Reported (children 0-14 years; disaggregated into 0-4 and 5-14 year age bands)",
+                "exact_quote": "The age disaggregated analysis showed that the NMR for children 0\u20134 and 5\u201314 years old diagnosed with TB",
+                "page_number": 6
+              },
+              "geography": {
+                "us_states": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "countries": {
+                  "value": [
+                    "Cameroon",
+                    "C\u00f4te d'Ivoire",
+                    "Democratic Republic of the Congo",
+                    "Kenya",
+                    "Lesotho",
+                    "Malawi",
+                    "Tanzania",
+                    "Uganda",
+                    "Zimbabwe"
+                  ],
+                  "exact_quote": "Facilities were selected from nine sub-Saharan African countries (Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo [DRC], Kenya, Lesotho, Malawi, Tanzania, Uganda, and Zimbabwe).",
+                  "page_number": 3
+                },
+                "total_sites_evidence": "Analyses comparing pre-intervention with findings during intervention are restricted to 144 sites enrolled during the initial phase of the project",
+                "total_sites": {
+                  "value": 144,
+                  "exact_quote": "restricted to 144 sites enrolled during the initial phase of the project",
+                  "page_number": 3
+                }
+              },
+              "sex": {
+                "female_evidence": "",
+                "female": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "male_evidence": "",
+                "male": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 41664,
+        "output_tokens": 2239
+      }
+    }
+  },
+  {
+    "identifier": "NCT03948698",
+    "nct_id": "NCT03948698",
+    "tier": "Tier 1",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT03948698_02_Tier1.pdf",
+    "metadata": {
+      "nct_id": "NCT03948698",
+      "condition": "Infectious Disease",
+      "intervention": "N/A",
+      "ctgov_total_participants": 4159533
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03948698"
+              ],
+              "exact_quote": "This evaluation is part of the TIPPI study, registered with ClinicalTrials.gov (NCT03948698).",
+              "page_number": 2
+            },
+            "target_patient_age_range": {
+              "value": "0 to 14 years",
+              "exact_quote": "We undertook a health systems perspective cost-utility analysis of the CaP-TB intervention for children aged under 15 years against a standard of care (SoC)",
+              "page_number": 4
+            },
+            "study_design": {
+              "value": "Pre/post cost-utility analysis of the CaP-TB intervention across 9 sub-Saharan African countries, comparing paediatric tuberculosis services before and after implementation. Data on tuberculosis diagnosis and ATT/TPT initiation were collected retrospectively for a 12-month pre-intervention period and prospectively from December 2018 to June 2021.",
+              "exact_quote": "Weanalysedclinic-levelpre/postdatatoquantifytheimpactoftheCaP-TBinterventionon ATTandTPTinitiationacross9sub-SaharanAfricancountries.Dataontuberculosisdiag-nosisandATT/TPTinitiationcountswithcorrespondingfollow-uptimewereavailablefor 146sitesacrossthe9countriespriortoandpostprojectimplementation,stratifiedby0to4 and5to14yearage-groups.Preinterventiondatawereretrospectivelycollectedfromfacility registersfora12-monthperiod,andinterventiondatawereprospectivelycollectedfrom December2018toJune2021usingproject-specificforms.",
+              "page_number": 1
+            },
+            "total_participants_evidence": "Before-afterdatawerebasedon146siteswithatotalsite-timeof14,266monthsforATTand 151siteswithatotalsite-timeof14,588monthsforTPT.",
+            "total_participants": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Cameroon",
+                  "C\u00f4te d'Ivoire",
+                  "Democratic Republic of the Congo",
+                  "Kenya",
+                  "Lesotho",
+                  "Malawi",
+                  "Uganda",
+                  "Tanzania",
+                  "Zimbabwe"
+                ],
+                "exact_quote": "We undertook a health systems perspective cost-utility analysis of the CaP-TB intervention for children aged under 15 years against a standard of care (SoC) in Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo (DRC), Kenya, Lesotho, Malawi, Uganda, Tanzania, and Zimbabwe.",
+                "page_number": 4
+              },
+              "total_sites_evidence": "Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.",
+              "total_sites": {
+                "value": 146,
+                "exact_quote": "Before-afterdatawerebasedon146siteswithatotalsite-timeof14,266monthsforATTand 151siteswithatotalsite-timeof14,588monthsforTPT.",
+                "page_number": 7
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 31958,
+        "output_tokens": 2333
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "associated_nct_ids": {
+              "value": [
+                "NCT03948698",
+                "NCT03862261",
+                "NCT03832023"
+              ],
+              "exact_quote": "This evaluation is part of the TIPPI study, registered with ClinicalTrials.gov (NCT03948698).",
+              "page_number": 2
+            },
+            "target_patient_age_range": {
+              "value": "0 to 14 years",
+              "exact_quote": "interventions to improve ATT and TPT initiation in children aged 0 to 14 years",
+              "page_number": 1
+            },
+            "study_design": {
+              "value": "Health system perspective cost-utility analysis using a pre/post quasi-experimental design across 9 sub-Saharan African countries, with Bayesian generalised linear mixed-effects models to estimate country-level rate ratios and mathematical modelling to project health impact and cost-effectiveness of the CaP-TB intervention for children aged under 15 years.",
+              "exact_quote": "We undertook a health systems perspective cost-utility analysis of the CaP-TB intervention for children aged under 15 years against a standard of care (SoC) in Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo (DRC), Kenya, Lesotho, Malawi, Uganda, Tanzania, and Zimbabwe.",
+              "page_number": 4
+            },
+            "total_participants_evidence": "\"Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.\"",
+            "total_participants": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "age": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "geography": {
+              "us_states": {
+                "value": [],
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "countries": {
+                "value": [
+                  "Cameroon",
+                  "C\u00f4te d'Ivoire",
+                  "Democratic Republic of the Congo",
+                  "Kenya",
+                  "Lesotho",
+                  "Malawi",
+                  "Uganda",
+                  "Tanzania",
+                  "Zimbabwe"
+                ],
+                "exact_quote": "cost-utility analysis of the CaP-TB intervention for children aged under 15 years against a standard of care (SoC) in Cameroon, C\u00f4te d'Ivoire, Democratic Republic of the Congo (DRC), Kenya, Lesotho, Malawi, Uganda, Tanzania, and Zimbabwe.",
+                "page_number": 4
+              },
+              "total_sites_evidence": "Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.",
+              "total_sites": {
+                "value": 151,
+                "exact_quote": "151 sites with a total site-time of 14,588 months for TPT",
+                "page_number": 7
+              }
+            },
+            "sex": {
+              "female_evidence": "",
+              "female": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "male_evidence": "",
+              "male": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "gender": {
+              "woman_evidence": "",
+              "woman": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "man_evidence": "",
+              "man": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "non_binary_evidence": "",
+              "non_binary": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "transgender_evidence": "",
+              "transgender": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "other_evidence": "",
+              "other": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "race_nih_omb": {
+              "american_indian_or_alaska_native_evidence": "",
+              "american_indian_or_alaska_native": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "asian_evidence": "",
+              "asian": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "black_or_african_american_evidence": "",
+              "black_or_african_american": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "native_hawaiian_or_other_pacific_islander_evidence": "",
+              "native_hawaiian_or_other_pacific_islander": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "white_evidence": "",
+              "white": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "more_than_one_race_evidence": "",
+              "more_than_one_race": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "ethnicity": {
+              "hispanic_or_latino_evidence": "",
+              "hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "not_hispanic_or_latino_evidence": "",
+              "not_hispanic_or_latino": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "unknown_evidence": "",
+              "unknown": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "socioeconomic_status": {
+              "education": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "income": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "wealth": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "family_size": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "adi_area_deprivation_index": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            },
+            "disability_and_functional_limitations": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            },
+            "religion": {
+              "value": "Not Reported",
+              "exact_quote": "",
+              "page_number": 0
+            }
+          }
+        },
+        "input_tokens": 31959,
+        "output_tokens": 1769
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT03948698",
+            "condition": "Infectious Disease",
+            "intervention": "N/A",
+            "ctgov_total_participants": 4159533
+          },
+          "tier": "Tier 1",
+          "extracted_data": {
+            "data": {
+              "associated_nct_ids": {
+                "value": [
+                  "NCT03948698",
+                  "NCT03862261",
+                  "NCT03832023"
+                ],
+                "exact_quote": "This evaluation is part of the TIPPI study, registered with ClinicalTrials.gov (NCT03948698). ... The INPUT study (NCT03862261) is a stepped-wedge trial in Cameroon and Kenya, evaluating the ICF component [24]. The CONTACT study (NCT03832023) compared 2 models of care for delivery of HHCM",
+                "page_number": 4
+              },
+              "target_patient_age_range": {
+                "value": "0 to 14 years",
+                "exact_quote": "all paediatric patients (0 to 14 years) presenting and receiving tuberculosis services",
+                "page_number": 4
+              },
+              "study_design": {
+                "value": "Health systems perspective cost-utility/cost-effectiveness modelling study using pre/post (quasi-experimental) data from the CaP-TB intervention implemented across 9 sub-Saharan African countries, combined with Bayesian generalised linear mixed-effects modelling and mathematical modelling to estimate impact on ATT/TPT initiation, health outcomes, and cost-effectiveness versus standard of care.",
+                "exact_quote": "We undertook a health systems perspective cost-utility analysis of the CaP-TB intervention for children aged under 15 years against a standard of care (SoC) in Cameroon, Cote d'Ivoire, Democratic Republic of the Congo (DRC), Kenya, Lesotho, Malawi, Uganda, Tanzania, and Zimbabwe.",
+                "page_number": 4
+              },
+              "total_participants_evidence": "Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.",
+              "total_participants": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "age": {
+                "value": "Stratified into 0 to 4 years and 5 to 14 years age groups; no mean/median reported",
+                "exact_quote": "All analyses used probabilistic sensitivity analysis and were stratified by ages 0 to 4 years and 5 to 14 years and HIV.",
+                "page_number": 4
+              },
+              "geography": {
+                "countries": {
+                  "value": [
+                    "Cameroon",
+                    "Cote d'Ivoire",
+                    "Democratic Republic of the Congo",
+                    "Kenya",
+                    "Lesotho",
+                    "Malawi",
+                    "Uganda",
+                    "Tanzania",
+                    "Zimbabwe"
+                  ],
+                  "exact_quote": "against a standard of care (SoC) in Cameroon, Cote d'Ivoire, Democratic Republic of the Congo (DRC), Kenya, Lesotho, Malawi, Uganda, Tanzania, and Zimbabwe.",
+                  "page_number": 4
+                },
+                "total_sites_evidence": "Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.",
+                "total_sites": {
+                  "value": 151,
+                  "exact_quote": "Before-after data were based on 146 sites with a total site-time of 14,266 months for ATT and 151 sites with a total site-time of 14,588 months for TPT.",
+                  "page_number": 7
+                },
+                "us_states": {
+                  "value": [],
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "sex": {
+                "female_evidence": "",
+                "female": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "male_evidence": "",
+                "male": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "gender": {
+                "woman_evidence": "",
+                "woman": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "man_evidence": "",
+                "man": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "non_binary_evidence": "",
+                "non_binary": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "transgender_evidence": "",
+                "transgender": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "other_evidence": "",
+                "other": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "race_nih_omb": {
+                "american_indian_or_alaska_native_evidence": "",
+                "american_indian_or_alaska_native": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "asian_evidence": "",
+                "asian": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "black_or_african_american_evidence": "",
+                "black_or_african_american": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "native_hawaiian_or_other_pacific_islander_evidence": "",
+                "native_hawaiian_or_other_pacific_islander": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "white_evidence": "",
+                "white": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "more_than_one_race_evidence": "",
+                "more_than_one_race": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "ethnicity": {
+                "hispanic_or_latino_evidence": "",
+                "hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "not_hispanic_or_latino_evidence": "",
+                "not_hispanic_or_latino": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "unknown_evidence": "",
+                "unknown": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "socioeconomic_status": {
+                "education": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "income": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "wealth": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "family_size": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                },
+                "adi_area_deprivation_index": {
+                  "value": "Not Reported",
+                  "exact_quote": "",
+                  "page_number": 0
+                }
+              },
+              "disability_and_functional_limitations": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              },
+              "religion": {
+                "value": "Not Reported",
+                "exact_quote": "",
+                "page_number": 0
+              }
+            }
+          }
+        },
+        "input_tokens": 40141,
+        "output_tokens": 2559
+      }
+    }
+  },
+  {
+    "identifier": "NCT04903496",
+    "nct_id": "NCT04903496",
+    "tier": "Tier 2",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT04903496_02_Tier2.pdf",
+    "metadata": {
+      "nct_id": "NCT04903496",
+      "condition": "Endocrine and Metabolic",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1233162
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04903496",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1233162
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNtdo37QF3G8QFW4yyF'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04903496",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1233162
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNtj4YV554Qd9GPiCQf'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04903496",
+            "condition": "Endocrine and Metabolic",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1233162
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNtoqnCw9CwLuFt3e7d'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT04926233",
+    "nct_id": "NCT04926233",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT04926233_03_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT04926233",
+      "condition": "Respiratory",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1371146
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNu2zYe5jE4EcZjGohQ'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNu8DpUQ7LEMA3fCqd8'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNuD3nFjXzMDtnH7SNZ'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT04926233",
+    "nct_id": "NCT04926233",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT04926233_04_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT04926233",
+      "condition": "Respiratory",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1371146
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNuPEhsNZbtVTpvqrkQ'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNuULJBRYXmi9o92iYs'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04926233",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1371146
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNuZ8XS8G79zEnNP1Tv'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT04951310",
+    "nct_id": "NCT04951310",
+    "tier": "Tier 2",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT04951310_04_Tier2.pdf",
+    "metadata": {
+      "nct_id": "NCT04951310",
+      "condition": "Infectious Disease",
+      "intervention": "PARALLEL",
+      "ctgov_total_participants": 3827656
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNugs7V95zDxfn48VKM'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNumioqT1qJv59u5Yh7'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNurvbJeJ4YPENrUuVw'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT04951310",
+    "nct_id": "NCT04951310",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT04951310_05_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT04951310",
+      "condition": "Infectious Disease",
+      "intervention": "PARALLEL",
+      "ctgov_total_participants": 3827656
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNuzRJBVbgXdcKcrKVk'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNv5RRp7tASBxXTSGJ3'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT04951310",
+            "condition": "Infectious Disease",
+            "intervention": "PARALLEL",
+            "ctgov_total_participants": 3827656
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvABB51yRFmrwud8B4'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT05838664",
+    "nct_id": "NCT05838664",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT05838664_04_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT05838664",
+      "condition": "Cardiovascular",
+      "intervention": "N/A",
+      "ctgov_total_participants": 2140403
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvPqx55jZrGVoKVReH'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvUhQGd1fEjsNFt3pP'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvZXrgtHJjfotA7bsf'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT05838664",
+    "nct_id": "NCT05838664",
+    "tier": "Tier 2",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT05838664_05_Tier2.pdf",
+    "metadata": {
+      "nct_id": "NCT05838664",
+      "condition": "Cardiovascular",
+      "intervention": "N/A",
+      "ctgov_total_participants": 2140403
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvkebPmL2jnJEHTey5'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvqS5NsCngWqoUpuf5'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT05838664",
+            "condition": "Cardiovascular",
+            "intervention": "N/A",
+            "ctgov_total_participants": 2140403
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNvvGnPQgSX1iQbFLxj'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06033521",
+    "nct_id": "NCT06033521",
+    "tier": "Tier 2",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06033521_01_Tier2.pdf",
+    "metadata": {
+      "nct_id": "NCT06033521",
+      "condition": "Reproductive and Sexual Health",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1036294
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNw5vi8BnimeZh85WUo'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwAiwSMQ67DuSe6WWR'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwFZtoWLs1UgW3kVHR'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06033521",
+    "nct_id": "NCT06033521",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06033521_02_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT06033521",
+      "condition": "Reproductive and Sexual Health",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1036294
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwPEm8DCZPYwfWRKVW'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwUFtGEq19NN5kTjwi'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwZEXRtCPDS4Furk1o'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06033521",
+    "nct_id": "NCT06033521",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06033521_03_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT06033521",
+      "condition": "Reproductive and Sexual Health",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1036294
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwjY9NoeGcVWRphFTh'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwpP799dVLzfRZ5SeP'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNwuDZgtGizsptMd5cj'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06033521",
+    "nct_id": "NCT06033521",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06033521_05_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT06033521",
+      "condition": "Reproductive and Sexual Health",
+      "intervention": "N/A",
+      "ctgov_total_participants": 1036294
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNx7DPF3Y93s4G28rFF'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxC26zu7qqTKm5WbE3'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06033521",
+            "condition": "Reproductive and Sexual Health",
+            "intervention": "N/A",
+            "ctgov_total_participants": 1036294
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxGo6DwjgkbtpPJifZ'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06053541",
+    "nct_id": "NCT06053541",
+    "tier": "Tier 2",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06053541_03_Tier2.pdf",
+    "metadata": {
+      "nct_id": "NCT06053541",
+      "condition": "Respiratory",
+      "intervention": "N/A",
+      "ctgov_total_participants": 3015000
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxWA23Upr8uKpFcMrH'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxawzpAcPoQWtCpYoA'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 2",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxfkDeNu44xbuKXCgR'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      }
+    }
+  },
+  {
+    "identifier": "NCT06053541",
+    "nct_id": "NCT06053541",
+    "tier": "Tier 3",
+    "local_pdf_path": "data/pilot_trials_manuscripts/2026-04-17_NCT06053541_04_Tier3.pdf",
+    "metadata": {
+      "nct_id": "NCT06053541",
+      "condition": "Respiratory",
+      "intervention": "N/A",
+      "ctgov_total_participants": 3015000
+    },
+    "extraction_status": "success",
+    "models": {
+      "haiku_4_5": {
+        "model_id": "claude-haiku-4-5-20251001",
+        "label": "Haiku 4.5",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxqcJZudBe6YLemF2W'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "sonnet_4_6": {
+        "model_id": "claude-sonnet-4-6",
+        "label": "Sonnet 4.6",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNxvU15VmfDyW7KKDir'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
+      },
+      "opus_4_7": {
+        "model_id": "claude-opus-4-7",
+        "label": "Opus 4.7",
+        "data": {
+          "metadata": {
+            "nct_id": "NCT06053541",
+            "condition": "Respiratory",
+            "intervention": "N/A",
+            "ctgov_total_participants": 3015000
+          },
+          "tier": "Tier 3",
+          "extracted_data": {
+            "error": "Error code: 400 - {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 'request_id': 'req_011CaMNy1KCaPh5vHVZdnY8e'}"
+          }
+        },
+        "input_tokens": 0,
+        "output_tokens": 0
       }
     }
   }
