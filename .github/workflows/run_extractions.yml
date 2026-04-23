@@ -14,7 +14,7 @@ on:
           - aiml-lit-only
           - trials-lit-only
       run_mode:
-        description: "Pilot test (cap at 2 docs per stream) or full extraction"
+        description: "Pilot test (caps: 8 FDA, 8 AIML, 20 Trials) or full extraction"
         required: true
         type: choice
         default: pilot-test
@@ -37,6 +37,7 @@ on:
         options:
           - gemini-2.5-stable
           - gemini-3-preview
+          - N/A - using Claude
 
 jobs:
   extract:
