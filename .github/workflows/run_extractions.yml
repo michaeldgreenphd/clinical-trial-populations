@@ -46,6 +46,14 @@ jobs:
       contents: write
 
     steps:
+      - name: Validate provider / Gemini-version pairing
+        run: |
+          if [ "${{ inputs.ai_provider }}" = "vertex_gemini" ] && [ "${{ inputs.gemini_version }}" = "N/A - using Claude" ]; then
+            echo "::error::Input mismatch: ai_provider='vertex_gemini' requires a real Gemini model family, but gemini_version is set to 'N/A - using Claude'."
+            echo "::error::Pick gemini-2.5-stable or gemini-3-preview for Vertex runs, or switch ai_provider to 'anthropic'."
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
