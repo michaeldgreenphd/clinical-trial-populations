@@ -23,9 +23,9 @@ PDF fetching is decoupled from extraction — this script only reads local
 files so it can run in constrained environments (e.g., GitHub Actions)
 without outbound access to publisher sites.
 
-Safety valve:
-  - `RUN_MODE=pilot-test` (default)  → process at most `PILOT_LIMIT` PDFs
-  - `RUN_MODE=full-extraction`       → process every PDF in the folder
+Mode switch:
+  - `RUN_MODE=pilot-test` (default)  → process every PDF in the pilot folder
+  - `RUN_MODE=full-extraction`       → process every PDF in the full corpus
 
 Outputs:
   - data/trials_lit_extracted.json    (per-document, per-model results)
@@ -53,7 +53,6 @@ import pdfplumber
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
 
-PILOT_LIMIT = 2
 # PDF_DIR is resolved at runtime based on RUN_MODE — pilot-test reads from a
 # small curated pilot folder; full-extraction reads the full manuscript corpus.
 PILOT_PDF_DIR = "data/pilot_trials_manuscripts"
@@ -257,11 +256,6 @@ def resolve_mode() -> str:
               file=sys.stderr)
         return "pilot-test"
     return mode
-
-
-def resolve_limit(mode: str) -> int | None:
-    """Pilot-test caps at PILOT_LIMIT docs; full-extraction removes the cap."""
-    return None if mode == "full-extraction" else PILOT_LIMIT
 
 
 def resolve_pdf_dir(mode: str) -> str:
@@ -485,17 +479,16 @@ def main():
             sys.exit(1)
 
     run_mode = resolve_mode()
-    limit = resolve_limit(run_mode)
     pdf_dir = resolve_pdf_dir(run_mode)
 
     print("Clinical Trial Manuscript 3-Way Model Comparison Pipeline")
-    print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
+    print(f"  RUN_MODE:      {run_mode}")
     print(f"  PDF dir:       {pdf_dir}")
     print(f"  Metadata CSV:  {METADATA_CSV}")
 
     metadata_index = build_metadata_index(METADATA_CSV)
     all_pdfs = discover_pilot_pdfs(pdf_dir)
-    pilot = all_pdfs if limit is None else all_pdfs[:limit]
+    pilot = all_pdfs
 
     if not pilot:
         print(f"  No PDFs found in {pdf_dir}. Nothing to do — exiting cleanly.",

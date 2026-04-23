@@ -38,9 +38,12 @@ _PRICING = {
     "gemini-2.5-flash-lite": (0.10,  0.40),
     "gemini-2.5-flash":      (0.30,  2.50),
     "gemini-2.5-pro":        (1.25, 10.00),
+    "claude-haiku-4-5":      (1.00,  5.00),
+    "claude-sonnet-4-6":     (3.00, 15.00),
+    "claude-opus-4-7":       (5.00, 25.00),
     "haiku":                 (1.00,  5.00),
     "sonnet":                (3.00, 15.00),
-    "opus":                 (15.00, 75.00),
+    "opus":                  (5.00, 25.00),
 }
 
 
