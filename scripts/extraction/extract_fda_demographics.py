@@ -42,7 +42,6 @@ import pdfplumber
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
 
-PILOT_LIMIT = 2
 PILOT_SIZE = 12
 PILOT_PDF_DIR = "data/pilot_summary_statements"
 INPUT_CSV = "data/ai-ml-enabled-devices-enriched.csv"
@@ -414,21 +413,6 @@ def build_metadata_index(csv_path: str) -> dict[str, dict]:
     return idx
 
 
-def resolve_limit() -> int | None:
-    """Translate RUN_MODE into an optional cap on the number of PDFs processed.
-
-    Defaults to pilot-test so an accidental workflow trigger can't burn through
-    the full corpus. `None` means "no limit" (full extraction).
-    """
-    mode = (os.environ.get("RUN_MODE") or "pilot-test").strip().lower()
-    if mode == "full-extraction":
-        return None
-    if mode == "pilot-test":
-        return PILOT_LIMIT
-    print(f"  ! Unknown RUN_MODE {mode!r} — defaulting to pilot-test", file=sys.stderr)
-    return PILOT_LIMIT
-
-
 # Pilot PDFs are named like `2026-04-16_DEN140025.pdf` or `2026-04-16_K253091.pdf`:
 # a fetch-date prefix, underscore, then the FDA submission number. The metadata
 # CSV is keyed by submission number alone, so we strip the date prefix before
@@ -479,17 +463,16 @@ def main():
             print("Error: ANTHROPIC_API_KEY environment variable not set", file=sys.stderr)
             sys.exit(1)
 
-    limit = resolve_limit()
     run_mode = os.environ.get("RUN_MODE", "pilot-test")
 
     print(f"FDA 3-Way Model Comparison Pipeline (local PDF mode)")
     print(f"  Pilot PDF dir: {PILOT_PDF_DIR}")
     print(f"  Metadata CSV:  {INPUT_CSV}")
-    print(f"  RUN_MODE:      {run_mode}  (limit={'none' if limit is None else limit})")
+    print(f"  RUN_MODE:      {run_mode}")
 
     metadata = build_metadata_index(INPUT_CSV)
     all_pdfs = discover_pilot_pdfs(PILOT_PDF_DIR)
-    pilot = all_pdfs if limit is None else all_pdfs[:limit]
+    pilot = all_pdfs
 
     if not pilot:
         # Graceful exit: no PDFs is a valid state (e.g. empty seed folder on
