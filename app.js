@@ -6275,10 +6275,25 @@ async function loadFDAExtractionTab() {
             : {};
 
         const totalDocs = metrics.total_fda_tools || 0;
-        document.getElementById('fda-pilot-size').textContent = metrics.pilot_size || 0;
-        document.getElementById('fda-remaining').textContent = (totalDocs - metrics.pilot_size).toLocaleString();
+        // Prefer the explicit dynamic tally (emitted by the extraction script
+        // even when a mid-run failure cuts the loop short); fall back to the
+        // legacy `pilot_size` field for older metrics files.
+        const successfulDocs = metrics.successful_docs_count
+            ?? metrics.pilot_size
+            ?? 0;
+        const totalPages = metrics.total_pages_processed ?? 0;
+        document.getElementById('fda-pilot-size').textContent = successfulDocs.toLocaleString();
+        document.getElementById('fda-pages-processed').textContent = totalPages.toLocaleString();
+        document.getElementById('fda-remaining').textContent = (totalDocs - successfulDocs).toLocaleString();
+        const fdaSummary = document.getElementById('fda-pilot-summary');
+        if (fdaSummary) {
+            const crashNote = metrics.interrupted_by
+                ? ` Run was interrupted (${metrics.interrupted_by}); partial results shown.`
+                : '';
+            fdaSummary.textContent = `Processed ${successfulDocs.toLocaleString()} documents totaling ${totalPages.toLocaleString()} pages.${crashNote}`;
+        }
 
-        renderModelComparisonCards('fda-model-cards', metrics.per_model, totalDocs, metrics.pilot_size);
+        renderModelComparisonCards('fda-model-cards', metrics.per_model, totalDocs, successfulDocs);
         renderFDAReportingFreq(_fdaExtractedData);
         renderModelSelector('fda-model-selector', _fdaSelectedModel, (modelId) => {
             _fdaSelectedModel = modelId;
@@ -6939,10 +6954,25 @@ async function loadLitExtractionTab() {
         _litExtractedData = await dataResp.json();
 
         const totalDocs = metrics.total_studies || 0;
-        document.getElementById('lit-pilot-size').textContent = metrics.pilot_size || 0;
-        document.getElementById('lit-remaining').textContent = (totalDocs - metrics.pilot_size).toLocaleString();
+        // Prefer the explicit dynamic tally (emitted by the extraction script
+        // even when a mid-run failure cuts the loop short); fall back to the
+        // legacy `pilot_size` field for older metrics files.
+        const successfulDocs = metrics.successful_docs_count
+            ?? metrics.pilot_size
+            ?? 0;
+        const totalPages = metrics.total_pages_processed ?? 0;
+        document.getElementById('lit-pilot-size').textContent = successfulDocs.toLocaleString();
+        document.getElementById('lit-pages-processed').textContent = totalPages.toLocaleString();
+        document.getElementById('lit-remaining').textContent = (totalDocs - successfulDocs).toLocaleString();
+        const litSummary = document.getElementById('lit-pilot-summary');
+        if (litSummary) {
+            const crashNote = metrics.interrupted_by
+                ? ` Run was interrupted (${metrics.interrupted_by}); partial results shown.`
+                : '';
+            litSummary.textContent = `Processed ${successfulDocs.toLocaleString()} documents totaling ${totalPages.toLocaleString()} pages.${crashNote}`;
+        }
 
-        renderModelComparisonCards('lit-model-cards', metrics.per_model, totalDocs, metrics.pilot_size);
+        renderModelComparisonCards('lit-model-cards', metrics.per_model, totalDocs, successfulDocs);
         renderModelSelector('lit-model-selector', _litSelectedModel, (modelId) => {
             _litSelectedModel = modelId;
             renderLitExtractionTable(_litExtractedData, modelId);
