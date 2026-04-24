@@ -274,20 +274,22 @@ def resolve_limit() -> int | None:
     return PILOT_LIMIT
 
 
-def print_token_summary(models, model_totals, successful_docs, attempted_docs):
+def print_token_summary(models, model_totals, successful_docs, total_pages, attempted_docs):
     """Emit a terminal-friendly per-model token summary for CI logs.
 
     `successful_docs` is the run-wide count of PDFs where extraction succeeded
-    (the natural denominator for the averages). Per-model `docs` may be lower
-    if a given model errored on a particular document; the per-model block
-    prints that count explicitly so the denominator used is never ambiguous.
+    (the natural denominator for the averages). `total_pages` is the sum of
+    pdf.pages across those successful documents — surfaced alongside the doc
+    count so the denominator context is unambiguous. Per-model `docs` may be
+    lower if a given model errored on a particular document; the per-model
+    block prints that count explicitly.
     """
     bar = "=" * 60
     print(f"\n{bar}")
     print("TOKEN USAGE SUMMARY")
     print(bar)
     print(f"Denominator: N={successful_docs} documents successfully processed "
-          f"(out of {attempted_docs} attempted)")
+          f"(out of {attempted_docs} attempted), totaling {total_pages:,} pages")
     for model in models:
         mkey = model["key"]
         t = model_totals[mkey]
@@ -326,22 +328,29 @@ def lookup_metadata(index: dict[str, dict], slug: str) -> dict:
     }
 
 
-def extract_text_from_local_pdf(path: str) -> str | None:
-    """Read a local PDF and return concatenated text with explicit page markers.
+def extract_text_from_local_pdf(path: str) -> tuple[str | None, int]:
+    """Read a local PDF and return (text, total_page_count).
+
     Each non-empty page is prefixed with `--- PAGE N ---` so the downstream
-    tool-use extraction can cite the exact page for every evidence quote."""
+    tool-use extraction can cite the exact page for every evidence quote.
+    The page count is the full page total reported by the PDF (not just the
+    pages with extractable text) so dashboard metrics reflect document size.
+    Returns (None, 0) when the PDF cannot be opened at all, and
+    (None, page_count) when it opens but every page extracts as empty.
+    """
     try:
         with pdfplumber.open(path) as pdf:
+            page_count = len(pdf.pages)
             pages = [
                 f"--- PAGE {i + 1} ---\n{p.extract_text()}"
                 for i, p in enumerate(pdf.pages) if p.extract_text()
             ]
             if not pages:
-                return None
-            return "\n\n".join(pages)
+                return None, page_count
+            return "\n\n".join(pages), page_count
     except Exception as e:
         print(f"  ✗ PDF parse failed ({path}): {e}", file=sys.stderr)
-        return None
+        return None, 0
 
 
 def _to_gemini_schema(schema):
@@ -495,102 +504,131 @@ def main():
 
     results = []
     model_totals = {m["key"]: {"input": 0, "output": 0, "docs": 0} for m in MODELS}
+    successful_docs_count = 0
+    total_pages_processed = 0
+    interrupted_by: str | None = None
 
-    for i, (slug, pdf_path) in enumerate(pilot):
-        metadata = lookup_metadata(metadata_index, slug)
-        print(f"[{i+1}/{len(pilot)}] {slug}")
-        print(f"  ↪ {pdf_path}")
-        print(f"  metadata: submission={metadata['fda_submission_number']} "
-              f"year={metadata['publication_year']} "
-              f"device={metadata['fda_device']} license={metadata['cc_license']}")
+    # try/except/finally keeps the pipeline crash-safe: if Anthropic throws
+    # `Insufficient Credits` (or any other fatal error) mid-run, the finally
+    # block still flushes partial results + metrics to disk so the dashboard
+    # reflects the exact number of docs / pages that completed.
+    try:
+        for i, (slug, pdf_path) in enumerate(pilot):
+            metadata = lookup_metadata(metadata_index, slug)
+            print(f"[{i+1}/{len(pilot)}] {slug}")
+            print(f"  ↪ {pdf_path}")
+            print(f"  metadata: submission={metadata['fda_submission_number']} "
+                  f"year={metadata['publication_year']} "
+                  f"device={metadata['fda_device']} license={metadata['cc_license']}")
 
-        text = extract_text_from_local_pdf(pdf_path)
-        if not text:
-            print(f"  ✗ No text from PDF")
+            text, page_count = extract_text_from_local_pdf(pdf_path)
+            if not text:
+                print(f"  ✗ No text from PDF")
+                results.append({
+                    "doi_slug": slug,
+                    "local_pdf_path": pdf_path,
+                    "page_count": page_count,
+                    "metadata": metadata,
+                    "extraction_status": "pdf_failed",
+                    "models": {},
+                })
+                continue
+
+            print(f"  ✓ Full PDF: {len(text):,} chars, {page_count} pages")
+
+            model_results = {}
+            for model in MODELS:
+                mkey = model["key"]
+                mid = model["id"]
+                label = model["label"]
+                print(f"    → {label} ({mid})...", end=" ", flush=True)
+                try:
+                    data, tokens = extract_with_model(text, mid)
+                    wrapped = {"metadata": metadata, "extracted_data": data}
+                    model_results[mkey] = {
+                        "model_id": mid,
+                        "label": label,
+                        "data": wrapped,
+                        "input_tokens": tokens["input_tokens"],
+                        "output_tokens": tokens["output_tokens"],
+                    }
+                    model_totals[mkey]["input"] += tokens["input_tokens"]
+                    model_totals[mkey]["output"] += tokens["output_tokens"]
+                    model_totals[mkey]["docs"] += 1
+                    print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+                except Exception as e:
+                    print(f"ERROR: {e}")
+                    model_results[mkey] = {
+                        "model_id": mid,
+                        "label": label,
+                        "data": {"metadata": metadata, "extracted_data": {"error": str(e)}},
+                        "input_tokens": 0,
+                        "output_tokens": 0,
+                    }
+                time.sleep(1)
+
             results.append({
                 "doi_slug": slug,
                 "local_pdf_path": pdf_path,
+                "page_count": page_count,
                 "metadata": metadata,
-                "extraction_status": "pdf_failed",
-                "models": {},
+                "extraction_status": "success",
+                "models": model_results,
             })
-            continue
+            successful_docs_count += 1
+            total_pages_processed += page_count
+    except KeyboardInterrupt:
+        interrupted_by = "user (Ctrl+C)"
+        print(f"\n✗ Pipeline interrupted by {interrupted_by}.", file=sys.stderr)
+    except Exception as e:
+        interrupted_by = f"{type(e).__name__}: {e}"
+        print(f"\n✗ Pipeline interrupted by {interrupted_by}.", file=sys.stderr)
+    finally:
+        if interrupted_by:
+            print(f"  Saving partial results for {successful_docs_count} successfully "
+                  f"processed documents ({total_pages_processed} pages) before exit...",
+                  file=sys.stderr)
 
-        print(f"  ✓ Full PDF: {len(text):,} chars")
+        print(f"\nWriting {len(results)} results to {OUTPUT_DATA}")
+        with open(OUTPUT_DATA, "w") as f:
+            json.dump(results, f, indent=2)
 
-        model_results = {}
+        per_model = {}
         for model in MODELS:
             mkey = model["key"]
-            mid = model["id"]
-            label = model["label"]
-            print(f"    → {label} ({mid})...", end=" ", flush=True)
-            try:
-                data, tokens = extract_with_model(text, mid)
-                wrapped = {"metadata": metadata, "extracted_data": data}
-                model_results[mkey] = {
-                    "model_id": mid,
-                    "label": label,
-                    "data": wrapped,
-                    "input_tokens": tokens["input_tokens"],
-                    "output_tokens": tokens["output_tokens"],
-                }
-                model_totals[mkey]["input"] += tokens["input_tokens"]
-                model_totals[mkey]["output"] += tokens["output_tokens"]
-                model_totals[mkey]["docs"] += 1
-                print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
-            except Exception as e:
-                print(f"ERROR: {e}")
-                model_results[mkey] = {
-                    "model_id": mid,
-                    "label": label,
-                    "data": {"metadata": metadata, "extracted_data": {"error": str(e)}},
-                    "input_tokens": 0,
-                    "output_tokens": 0,
-                }
-            time.sleep(1)
+            t = model_totals[mkey]
+            docs = t["docs"] or 1
+            per_model[mkey] = {
+                "model_id": model["id"],
+                "label": model["label"],
+                "input_cost_per_m": model["input_cost_per_m"],
+                "output_cost_per_m": model["output_cost_per_m"],
+                "avg_input_per_doc": t["input"] / docs,
+                "avg_output_per_doc": t["output"] / docs,
+                "total_input_tokens": t["input"],
+                "total_output_tokens": t["output"],
+                "docs_processed": t["docs"],
+            }
 
-        results.append({
-            "doi_slug": slug,
-            "local_pdf_path": pdf_path,
-            "metadata": metadata,
-            "extraction_status": "success",
-            "models": model_results,
-        })
-
-    print(f"\nWriting {len(results)} results to {OUTPUT_DATA}")
-    with open(OUTPUT_DATA, "w") as f:
-        json.dump(results, f, indent=2)
-
-    per_model = {}
-    for model in MODELS:
-        mkey = model["key"]
-        t = model_totals[mkey]
-        docs = t["docs"] or 1
-        per_model[mkey] = {
-            "model_id": model["id"],
-            "label": model["label"],
-            "input_cost_per_m": model["input_cost_per_m"],
-            "output_cost_per_m": model["output_cost_per_m"],
-            "avg_input_per_doc": t["input"] / docs,
-            "avg_output_per_doc": t["output"] / docs,
-            "total_input_tokens": t["input"],
-            "total_output_tokens": t["output"],
-            "docs_processed": t["docs"],
+        metrics = {
+            "run_mode": run_mode,
+            "pilot_size": successful_docs_count,
+            "successful_docs_count": successful_docs_count,
+            "total_pages_processed": total_pages_processed,
+            "attempted_docs": len(pilot),
+            "interrupted_by": interrupted_by,
+            "total_studies": TOTAL_STUDIES,
+            "per_model": per_model,
         }
+        print(f"Writing metrics to {OUTPUT_METRICS}")
+        with open(OUTPUT_METRICS, "w") as f:
+            json.dump(metrics, f, indent=2)
 
-    metrics = {
-        "run_mode": run_mode,
-        "pilot_size": len([r for r in results if r["extraction_status"] == "success"]),
-        "total_studies": TOTAL_STUDIES,
-        "per_model": per_model,
-    }
-    print(f"Writing metrics to {OUTPUT_METRICS}")
-    with open(OUTPUT_METRICS, "w") as f:
-        json.dump(metrics, f, indent=2)
+        print_token_summary(MODELS, model_totals, successful_docs_count,
+                            total_pages_processed, len(pilot))
 
-    successful_docs = sum(1 for r in results if r["extraction_status"] == "success")
-    print_token_summary(MODELS, model_totals, successful_docs, len(pilot))
-
+    if interrupted_by:
+        sys.exit(1)
     print("\nDone.")
 
 
