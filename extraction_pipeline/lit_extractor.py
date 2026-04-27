@@ -75,14 +75,37 @@ def _to_gemini_schema(schema):
     return out
 
 
+# Strict integer-string pattern: optional leading minus, then digits only.
+# Used to recover integer typing for fields that `_to_gemini_schema` had to
+# flatten to "string" (Gemini rejects union types in function-call schemas),
+# so the resulting CSV stays numerically typed regardless of provider.
+_INT_STRING_RE = re.compile(r"^-?\d+$")
+
+
 def _proto_to_dict(val):
     """Convert Gemini's protobuf MapComposite / RepeatedComposite return
     values into plain Python dicts and lists so the result matches the
-    Anthropic `tool_use.input` payload shape exactly."""
+    Anthropic `tool_use.input` payload shape exactly.
+
+    Also coerces strings that represent whole integers (e.g. "-1", "42")
+    back into Python `int`. Gemini's schema flattening pushes integer
+    fields with a union type to "string", which means the model returns
+    "−1" instead of -1; that breaks downstream type checks (frontend
+    `typeof === 'number'`) and pandas mixes types when serialising the
+    CSV. Coercing on the way out keeps the dict shape identical to the
+    Anthropic branch.
+    """
     if hasattr(val, "items") and not isinstance(val, (str, bytes)):
         return {k: _proto_to_dict(v) for k, v in val.items()}
     if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
         return [_proto_to_dict(v) for v in val]
+    if isinstance(val, str):
+        s = val.strip()
+        if _INT_STRING_RE.match(s):
+            try:
+                return int(s)
+            except ValueError:
+                pass
     return val
 UNPAYWALL_EMAIL = "michaeldgreen0520@gmail.com"
 EUROPEPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"

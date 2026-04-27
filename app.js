@@ -5964,13 +5964,26 @@ function evidenceBlock(v) {
 // apart from a string sentinel like "Not Reported".
 function isMissingInt(v) {
     v = evValue(v);
-    return typeof v === 'number' && v === -1;
+    if (typeof v === 'number') return v === -1;
+    // Gemini's tool-schema flattening can coerce integer fields to strings
+    // when union types are present, so the sentinel can arrive here as the
+    // string "-1". Match only the exact integer representation (with
+    // optional surrounding whitespace) to avoid false positives on values
+    // like "−1.5" or "abc".
+    if (typeof v === 'string') {
+        const trimmed = v.trim();
+        if (/^-?\d+$/.test(trimmed)) return Number(trimmed) === -1;
+    }
+    return false;
 }
 
 function isNR(v) {
     v = evValue(v);
     if (v === undefined || v === null || v === '' || v === NOT_REPORTED) return true;
-    if (typeof v === 'number' && v === -1) return true;
+    // Delegate to isMissingInt so both the numeric -1 (Anthropic / coerced
+    // Vertex output) and the stringified "-1" (un-coerced Vertex output)
+    // are filtered out of breakdowns and treated as Not Reported.
+    if (isMissingInt(v)) return true;
     return false;
 }
 
