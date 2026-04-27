@@ -161,22 +161,123 @@ def extract_pdf_text_from_url(pdf_url):
         return None
 
 
+# System prompt enforces evidence-first chain of thought: every boolean and
+# every string summary must be preceded by a verbatim quote in the matching
+# `_evidence` field. The booleans must default to false unless the SES
+# evidence quote actually contains language about that indicator.
+LIT_SYSTEM_PROMPT = """You are a population health researcher extracting Socioeconomic Status (SES) indicators and race detail from clinical trial manuscripts.
+
+Use the `record_ses_and_race` tool. For every value on the tool, follow a strict chain of thought:
+  1. FIRST, quote the specific sentence(s) from the manuscript that discuss the topic into the matching `_evidence` field. If no relevant sentence exists, write "Not Reported".
+     - For `ses_indicators_evidence`, copy any sentences mentioning income, education, insurance/payer/coverage, employment, occupation, neighborhood, or other socioeconomic markers.
+     - For `detailed_race_breakdown_evidence`, copy the sentences (or table rows transcribed as sentences) describing race / ethnicity counts or percentages.
+     - For `study_name_evidence`, copy the sentence introducing the formal trial name (e.g., "The ALLHAT Trial", "SPRINT Study").
+     - For `nct_id_evidence`, copy the sentence containing the ClinicalTrials.gov registration (NCT followed by 8 digits).
+  2. ONLY AFTER recording the evidence, derive the booleans (income_reported, education_reported, insurance_status_reported) and the summary strings (ses_notes, detailed_race_breakdown, study_name, nct_id).
+
+The booleans must be `false` unless the SES evidence quote literally contains language about that indicator. Do NOT infer reporting from study setting, country of origin, or insurance-system context alone.
+
+If the manuscript does not name a formal study, set study_name to "Not Reported".
+If no NCT id is present in the text, set nct_id to "Not Reported".
+"""
+
+# Anthropic tool schema. `_evidence` fields are positioned immediately before
+# the values they support so the model fills them first when iterating
+# top-to-bottom over the schema.
+LIT_SES_AND_RACE_TOOL = {
+    "name": "record_ses_and_race",
+    "description": (
+        "Record SES indicators, race breakdown, study name, and NCT ID "
+        "from a clinical trial manuscript. Each value field is paired with "
+        "an `_evidence` field that must contain the verbatim quote(s) "
+        "supporting that value. Fill the evidence first, then the value."
+    ),
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "study_name_evidence": {
+                "type": "string",
+                "description": "Verbatim sentence introducing the formal trial name (e.g., 'The ALLHAT Trial').",
+            },
+            "study_name": {
+                "type": "string",
+                "description": "Formal study name, or 'Not Reported' if absent.",
+            },
+            "nct_id_evidence": {
+                "type": "string",
+                "description": "Verbatim sentence containing the ClinicalTrials.gov NCT id.",
+            },
+            "nct_id": {
+                "type": "string",
+                "description": "Full NCT id (NCT followed by 8 digits), or 'Not Reported'.",
+            },
+            "ses_indicators_evidence": {
+                "type": "string",
+                "description": (
+                    "Verbatim sentence(s) discussing income, education, "
+                    "insurance/payer/coverage, employment, occupation, "
+                    "neighborhood, or other socioeconomic markers. "
+                    "Use 'Not Reported' if the manuscript discusses none."
+                ),
+            },
+            "income_reported": {
+                "type": "boolean",
+                "description": "True only if `ses_indicators_evidence` literally mentions income / earnings / wages.",
+            },
+            "education_reported": {
+                "type": "boolean",
+                "description": "True only if `ses_indicators_evidence` literally mentions education / schooling / degree attainment.",
+            },
+            "insurance_status_reported": {
+                "type": "boolean",
+                "description": "True only if `ses_indicators_evidence` literally mentions insurance, payer, coverage, or Medicare/Medicaid.",
+            },
+            "ses_notes": {
+                "type": "string",
+                "description": "Concise summary of how SES was reported, or 'None' if absent.",
+            },
+            "detailed_race_breakdown_evidence": {
+                "type": "string",
+                "description": "Verbatim sentence(s) (or table rows in prose) reporting race / ethnicity counts or percentages.",
+            },
+            "detailed_race_breakdown": {
+                "type": "string",
+                "description": "Concise summary of the reported race/ethnicity breakdown, or 'None' if absent.",
+            },
+        },
+        "required": [
+            "study_name_evidence", "study_name",
+            "nct_id_evidence", "nct_id",
+            "ses_indicators_evidence",
+            "income_reported", "education_reported",
+            "insurance_status_reported", "ses_notes",
+            "detailed_race_breakdown_evidence", "detailed_race_breakdown",
+        ],
+    },
+}
+
+
 def extract_ses_and_race_with_claude(text):
-    prompt = """
-    You are a population health researcher. Extract the validation cohort demographics, explicitly looking for Socioeconomic Status (SES) indicators.
-    Also, scan the text for:
-    - The formal study name (e.g., "The ALLHAT Trial", "SPRINT Study").
-    - The ClinicalTrials.gov Trial Registry Number (e.g., NCT12345678).
-    Return ONLY a valid JSON object matching this schema exactly:
-    {"income_reported": bool, "education_reported": bool, "insurance_status_reported": bool, "ses_notes": "Summary or 'None'", "detailed_race_breakdown": "Summary or 'None'", "study_name": "string or 'Not Reported'", "nct_id": "NCT Number or 'Not Reported'"}
-    """
     try:
         response = client.messages.create(
             model="claude-sonnet-4-6",
-            max_tokens=800, temperature=0,
-            messages=[{"role": "user", "content": f"{prompt}\n\nManuscript Text:\n{text[:150000]}"}]
+            max_tokens=4096,
+            temperature=0,
+            system=LIT_SYSTEM_PROMPT,
+            tools=[LIT_SES_AND_RACE_TOOL],
+            tool_choice={"type": "tool", "name": LIT_SES_AND_RACE_TOOL["name"]},
+            messages=[{"role": "user", "content": text[:150000]}],
         )
-        data = json.loads(response.content[0].text)
+        tool_block = next(
+            (b for b in response.content if getattr(b, "type", None) == "tool_use"),
+            None,
+        )
+        if tool_block is None:
+            return {"error": "Model returned no tool_use block"}, {
+                "input": response.usage.input_tokens,
+                "output": response.usage.output_tokens,
+            }
+        data = tool_block.input
         tokens = {"input": response.usage.input_tokens, "output": response.usage.output_tokens}
         return data, tokens
     except Exception:
