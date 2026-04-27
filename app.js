@@ -5956,9 +5956,22 @@ function evidenceBlock(v) {
     return `<blockquote class="evidence-quote"><span class="evidence-quote-text">&ldquo;${escapeHtml(quote)}&rdquo;</span><cite class="evidence-quote-cite">(${escapeHtml(pageLabel)})</cite></blockquote>`;
 }
 
+// `-1` is the integer sentinel emitted by the new evidence-first extraction
+// schemas (`record_fda_demographics`, `record_ses_and_race`) to signal that
+// a numeric field is missing from the PDF. We treat it as Not Reported for
+// breakdown filtering / status checks; `fmtVal` then surfaces a distinct
+// "Missing in PDF" badge so reviewers can tell the model-said-missing case
+// apart from a string sentinel like "Not Reported".
+function isMissingInt(v) {
+    v = evValue(v);
+    return typeof v === 'number' && v === -1;
+}
+
 function isNR(v) {
     v = evValue(v);
-    return v === undefined || v === null || v === '' || v === NOT_REPORTED;
+    if (v === undefined || v === null || v === '' || v === NOT_REPORTED) return true;
+    if (typeof v === 'number' && v === -1) return true;
+    return false;
 }
 
 // Detect a scalar value that the researchers explicitly labeled "Unknown"
@@ -5976,6 +5989,10 @@ function isExplicitUnknown(v) {
 
 function fmtVal(v) {
     v = evValue(v);
+    // Differentiate the new -1 integer sentinel ("model says the field is
+    // not in the PDF") from generic Not Reported strings — the badge label
+    // is more specific so reviewers can audit faster.
+    if (isMissingInt(v)) return '<span class="missing-pdf-badge">Missing in PDF</span>';
     if (isNR(v)) return '<span class="not-reported-badge">Not Reported</span>';
     if (isExplicitUnknown(v)) return '<span class="explicit-unknown-badge">Unknown</span>';
     if (typeof v === 'number') return v.toLocaleString();
