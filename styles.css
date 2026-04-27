@@ -2924,6 +2924,21 @@ footer p {
     font-weight: 500;
 }
 
+/* "Missing in PDF" badge — surfaced when the new evidence-first extraction
+   schemas emit -1 for a numeric field. Distinct from .not-reported-badge so
+   reviewers can tell "model audited and said the value isn't in the PDF"
+   (orange) apart from "field never extracted" (yellow). */
+.missing-pdf-badge {
+    display: inline-block;
+    background: #ffe4d6;
+    color: #9a3412;
+    border: 1px solid #fdba74;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
 .tier-badge {
     display: inline-block;
     background: #e0f2fe;
