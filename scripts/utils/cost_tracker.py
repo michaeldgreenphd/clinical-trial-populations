@@ -4,10 +4,21 @@ Extraction pipelines call log_api_cost() after every successful model call —
 Anthropic messages.create() or Vertex Gemini generate_content() — so we can
 compare spend across providers. Rows land in data/token_costs.csv; the file is
 created with a header row on first write.
+
+All timestamps in this module are anchored to America/New_York (24-hour clock,
+EST in winter / EDT in summer) so the log is comparable across machines and
+unambiguous for the team in NYC.
 """
 import csv
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo
+
+# Single source of truth for the project's display timezone. Everywhere a
+# datetime is stamped (CSV log row, run timestamp filenames, metrics JSON)
+# uses this so logs are directly comparable.
+EASTERN_TZ = ZoneInfo("America/New_York")
+LOG_TIMESTAMP_FMT = "%Y-%m-%d %H:%M:%S %Z"
 
 COST_CSV = os.path.join("data", "token_costs.csv")
 HEADERS = [
@@ -55,6 +66,16 @@ def _rates_for(model: str) -> tuple[float, float]:
     return _PRICING["sonnet"]
 
 
+def cost_for(model, input_tokens, output_tokens):
+    """Pure cost calculator used by both `log_api_cost` and the per-run
+    metrics writers in extraction_pipeline/. Returns total USD spend for
+    `(input_tokens, output_tokens)` against the rate-card row that matches
+    `model`. No side effects — safe to call repeatedly.
+    """
+    in_rate, out_rate = _rates_for(model)
+    return (input_tokens / 1_000_000.0) * in_rate + (output_tokens / 1_000_000.0) * out_rate
+
+
 def log_api_cost(provider, pipeline_name, input_tokens, output_tokens, model="claude-3-5-sonnet"):
     """Calculate token cost and append one row to data/token_costs.csv.
 
@@ -62,10 +83,11 @@ def log_api_cost(provider, pipeline_name, input_tokens, output_tokens, model="cl
     model family (haiku/sonnet/opus); unknown models fall back to Sonnet
     pricing ($3 input / $15 output per million tokens).
 
+    The Date column is written in America/New_York with an explicit timezone
+    abbreviation (e.g. `2026-04-28 14:30:45 EDT`), 24-hour clock — never UTC.
     Returns the dollar cost so callers can aggregate in-process if they want.
     """
-    in_rate, out_rate = _rates_for(model)
-    total_cost = (input_tokens / 1_000_000.0) * in_rate + (output_tokens / 1_000_000.0) * out_rate
+    total_cost = cost_for(model, input_tokens, output_tokens)
 
     os.makedirs(os.path.dirname(COST_CSV) or ".", exist_ok=True)
     new_file = not os.path.exists(COST_CSV)
@@ -74,7 +96,7 @@ def log_api_cost(provider, pipeline_name, input_tokens, output_tokens, model="cl
         if new_file:
             writer.writerow(HEADERS)
         writer.writerow([
-            datetime.now().isoformat(timespec="seconds"),
+            datetime.now(EASTERN_TZ).strftime(LOG_TIMESTAMP_FMT),
             provider,
             pipeline_name,
             model,

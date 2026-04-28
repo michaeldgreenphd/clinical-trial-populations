@@ -2,7 +2,8 @@ import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import anthropic
 import pandas as pd
@@ -13,6 +14,23 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+# Import the cost-tracker helper so per-run metrics carry the same USD math
+# as the central token_costs.csv log. The path insert mirrors the pattern in
+# scripts/extraction/* — these batch extractors live one folder up but still
+# want to share the single pricing source of truth.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scripts"))
+from utils.cost_tracker import EASTERN_TZ, cost_for  # noqa: E402
+
+# Filename timestamp anchor: YYYY-MM-DD_HHMM_EST/EDT, 24-hour clock,
+# America/New_York. Generated once per batch so every artifact from one run
+# (CSV + metrics JSON) shares the exact same suffix.
+RUN_TIMESTAMP_FMT = "%Y-%m-%d_%H%M_%Z"
+
+
+def run_timestamp():
+    """Return the YYYY-MM-DD_HHMM_EDT/EST stamp for the current run."""
+    return datetime.now(EASTERN_TZ).strftime(RUN_TIMESTAMP_FMT)
 
 # Provider routing — default to Anthropic so existing CI keeps working unless
 # AI_PROVIDER=vertex_gemini is set explicitly. Both providers share the same
@@ -75,14 +93,37 @@ def _to_gemini_schema(schema):
     return out
 
 
+# Strict integer-string pattern: optional leading minus, then digits only.
+# Used to recover integer typing for fields that `_to_gemini_schema` had to
+# flatten to "string" (Gemini rejects union types in function-call schemas),
+# so the resulting CSV stays numerically typed regardless of provider.
+_INT_STRING_RE = re.compile(r"^-?\d+$")
+
+
 def _proto_to_dict(val):
     """Convert Gemini's protobuf MapComposite / RepeatedComposite return
     values into plain Python dicts and lists so the result matches the
-    Anthropic `tool_use.input` payload shape exactly."""
+    Anthropic `tool_use.input` payload shape exactly.
+
+    Also coerces strings that represent whole integers (e.g. "-1", "42")
+    back into Python `int`. Gemini's schema flattening pushes integer
+    fields with a union type to "string", which means the model returns
+    "−1" instead of -1; that breaks downstream type checks (frontend
+    `typeof === 'number'`) and pandas mixes types when serialising the
+    CSV. Coercing on the way out keeps the dict shape identical to the
+    Anthropic branch.
+    """
     if hasattr(val, "items") and not isinstance(val, (str, bytes)):
         return {k: _proto_to_dict(v) for k, v in val.items()}
     if hasattr(val, "__iter__") and not isinstance(val, (str, bytes)):
         return [_proto_to_dict(v) for v in val]
+    if isinstance(val, str):
+        s = val.strip()
+        if _INT_STRING_RE.match(s):
+            try:
+                return int(s)
+            except ValueError:
+                pass
     return val
 UNPAYWALL_EMAIL = "michaeldgreen0520@gmail.com"
 EUROPEPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
@@ -457,14 +498,33 @@ def resolve_doi_for_row(row):
     return (best["doi"] if best else None), best, ranked
 
 
-def process_literature_batch(input_csv, output_csv, metrics_path="lit_token_metrics.json"):
+def process_literature_batch(input_csv, output_dir="data"):
     """Run the literature pilot batch.
 
     The per-row loop is wrapped in try/except/finally so a hard API failure
     (e.g. Insufficient Credits, auth revocation) still flushes whatever
-    documents completed up to that point to `output_csv` and writes
-    `metrics_path` using the dynamic `success_count` — no hardcoded denominators.
+    documents completed up to that point to disk and writes the metrics JSON
+    using the dynamic `success_count` — no hardcoded denominators.
+
+    Output filenames embed the AI provider and an America/New_York timestamp
+    so concurrent or back-to-back runs (Anthropic vs. Vertex Gemini, or two
+    runs of the same provider an hour apart) never overwrite each other:
+        {output_dir}/lit_extracted_{provider}_{YYYY-MM-DD_HHMM_TZ}.csv
+        {output_dir}/lit_metrics_{provider}_{YYYY-MM-DD_HHMM_TZ}.json
     """
+    timestamp = run_timestamp()
+    os.makedirs(output_dir, exist_ok=True)
+    output_csv = os.path.join(
+        output_dir, f"lit_extracted_{AI_PROVIDER}_{timestamp}.csv"
+    )
+    metrics_path = os.path.join(
+        output_dir, f"lit_metrics_{AI_PROVIDER}_{timestamp}.json"
+    )
+    model_id = GEMINI_MODEL if AI_PROVIDER == "vertex_gemini" else ANTHROPIC_MODEL
+    print(f"Lit batch run @ {timestamp}  provider={AI_PROVIDER}  model={model_id}")
+    print(f"  CSV     → {output_csv}")
+    print(f"  Metrics → {metrics_path}")
+
     df = pd.read_csv(input_csv)
     results = []
     total_input = 0
@@ -522,9 +582,11 @@ def process_literature_batch(input_csv, output_csv, metrics_path="lit_token_metr
             pd.DataFrame(results).to_csv(output_csv, index=False)
 
         denom = success_count or 1
+        total_cost_usd = cost_for(model_id, total_input, total_output)
         metrics = {
+            "run_timestamp": timestamp,
             "provider": AI_PROVIDER,
-            "model": GEMINI_MODEL if AI_PROVIDER == "vertex_gemini" else ANTHROPIC_MODEL,
+            "model": model_id,
             "success_count": success_count,
             "pilot_size": success_count,  # legacy field, mirrors success_count
             "attempted_docs": len(results),
@@ -533,6 +595,7 @@ def process_literature_batch(input_csv, output_csv, metrics_path="lit_token_metr
             "avg_output_per_doc": total_output / denom,
             "total_input_tokens": total_input,
             "total_output_tokens": total_output,
+            "total_cost_usd": round(total_cost_usd, 6),
             "interrupted_by": interrupted_by,
         }
         with open(metrics_path, "w") as f:
@@ -543,7 +606,4 @@ def process_literature_batch(input_csv, output_csv, metrics_path="lit_token_metr
 
 
 if __name__ == "__main__":
-    process_literature_batch(
-        input_csv="data/lit_pilot_input.csv",
-        output_csv="data/lit_ses_extracted.csv",
-    )
+    process_literature_batch(input_csv="data/lit_pilot_input.csv", output_dir="data")
