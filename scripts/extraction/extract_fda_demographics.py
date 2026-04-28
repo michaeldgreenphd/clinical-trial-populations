@@ -579,6 +579,7 @@ def main():
                     **base_record,
                     "page_count": page_count,
                     "extraction_status": "pdf_failed",
+                    "provider": AI_PROVIDER,
                     "models": {},
                 })
                 continue
@@ -593,7 +594,12 @@ def main():
                 print(f"    → {label} ({mid})...", end=" ", flush=True)
                 try:
                     data, tokens = extract_with_model(text, mid)
+                    # `provider` + `model` are stamped on every per-model
+                    # record so back-to-back Anthropic + Vertex runs stay
+                    # unambiguously labelled even after results merge.
                     model_results[mkey] = {
+                        "provider": AI_PROVIDER,
+                        "model": mid,
                         "model_id": mid,
                         "label": label,
                         "data": data,
@@ -607,6 +613,8 @@ def main():
                 except Exception as e:
                     print(f"ERROR: {e}")
                     model_results[mkey] = {
+                        "provider": AI_PROVIDER,
+                        "model": mid,
                         "model_id": mid,
                         "label": label,
                         "data": {"error": str(e)},
@@ -619,6 +627,7 @@ def main():
                 **base_record,
                 "page_count": page_count,
                 "extraction_status": "success",
+                "provider": AI_PROVIDER,
                 "models": model_results,
             })
             successful_docs_count += 1

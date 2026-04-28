@@ -396,14 +396,24 @@ def extract_text_from_local_pdf(path: str) -> tuple[str | None, int]:
 
 
 def _to_gemini_schema(schema):
-    """Recursively normalize an Anthropic-style JSON schema into the subset
-    Gemini function declarations accept. Gemini forbids union types
-    (e.g. `["integer", "string"]`), so we flatten them to `"string"` — ints
-    round-trip fine through a string and "Not Reported" is the common sentinel
-    anyway. `properties` and `items` recurse."""
+    """Recursively normalize an Anthropic-style JSON schema into the strict
+    subset Gemini's Structured Outputs engine accepts as a `response_schema`.
+
+    Drops keys Gemini's state-table compiler rejects:
+      - `anyOf`, `allOf`, `oneOf` — Anthropic uses these for nullability /
+        union shapes; Gemini's `response_schema` validator counts each
+        branch toward its serving-state budget and emits
+        "400 POST: The specified schema produces a constraint that has
+        too many states for serving" once a deeply nested schema includes
+        them. Stripping them keeps types strict.
+      - Union `type` (e.g. `["integer", "string"]`) — flattened to the
+        strict primitive `"string"`. Ints round-trip fine through a string
+        and "Not Reported" is the common sentinel anyway.
+
+    Recurses through `properties` and `items`."""
     if not isinstance(schema, dict):
         return schema
-    out = dict(schema)
+    out = {k: v for k, v in schema.items() if k not in ("anyOf", "allOf", "oneOf")}
     t = out.get("type")
     if isinstance(t, list):
         out["type"] = "string"
@@ -464,49 +474,37 @@ def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
 
 
 def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
-    """Vertex AI Gemini path. Uses google-cloud-aiplatform's GenerativeModel
-    with function-calling forced to `ANY` so the model must emit a
-    record_extracted_data call. Token usage comes from `usage_metadata`:
-    prompt_token_count → input; candidates_token_count → output."""
-    from vertexai.generative_models import (
-        FunctionDeclaration,
-        GenerativeModel,
-        Tool,
-        ToolConfig,
-    )
+    """Vertex AI Gemini path using native Structured Outputs.
 
-    gemini_tool = Tool(function_declarations=[
-        FunctionDeclaration(
-            name=EXTRACTION_TOOL["name"],
-            description=EXTRACTION_TOOL["description"],
-            parameters=_to_gemini_schema(EXTRACTION_TOOL["input_schema"]),
-        )
-    ])
-    tool_config = ToolConfig(
-        function_calling_config=ToolConfig.FunctionCallingConfig(
-            mode=ToolConfig.FunctionCallingConfig.Mode.ANY,
-            allowed_function_names=[EXTRACTION_TOOL["name"]],
-        )
-    )
-    model = GenerativeModel(
-        model_name=model_id,
-        tools=[gemini_tool],
-        tool_config=tool_config,
-    )
+    Uses `response_mime_type="application/json"` + `response_schema=...`
+    instead of FunctionDeclaration tool-calling. The deeply nested
+    EXTRACTION_TOOL schema (paired evidence + value fields, expanded race
+    buckets, SES sub-objects) tripped the function-calling state-table
+    limit and Vertex returned `400 POST: The specified schema produces a
+    constraint that has too many states for serving`. Structured Outputs
+    constrains decoding by streaming-validating against the JSON schema
+    rather than pre-compiling a DFA, which sidesteps that ceiling while
+    still guaranteeing schema-conformant output. Token usage comes from
+    `usage_metadata`: prompt_token_count → input; candidates_token_count →
+    output."""
+    from vertexai.generative_models import GenerationConfig, GenerativeModel
+
+    response_schema = _to_gemini_schema(EXTRACTION_TOOL["input_schema"])
+
+    model = GenerativeModel(model_name=model_id)
     response = model.generate_content(
         prompt,
-        generation_config={"max_output_tokens": 4000},
+        generation_config=GenerationConfig(
+            max_output_tokens=4000,
+            response_mime_type="application/json",
+            response_schema=response_schema,
+        ),
     )
 
-    data: dict = {"error": "No tool call in response"}
-    for cand in response.candidates:
-        for part in cand.content.parts:
-            fc = getattr(part, "function_call", None)
-            if fc and getattr(fc, "name", "") == EXTRACTION_TOOL["name"]:
-                data = _proto_to_dict(fc.args)
-                break
-        if not isinstance(data, dict) or "error" not in data:
-            break
+    try:
+        data = _proto_to_dict(json.loads(response.text))
+    except (json.JSONDecodeError, AttributeError, ValueError) as e:
+        data = {"error": f"Failed to parse Gemini JSON response: {e}"}
 
     usage = response.usage_metadata
     return data, {
@@ -577,6 +575,7 @@ def main():
                     "page_count": page_count,
                     "metadata": metadata,
                     "extraction_status": "pdf_failed",
+                    "provider": AI_PROVIDER,
                     "models": {},
                 })
                 continue
@@ -594,7 +593,12 @@ def main():
                     # Carry the manuscript tier into the per-model payload too so
                     # the dashboard can surface it even from the per-model view.
                     wrapped = {"metadata": metadata, "tier": tier_label, "extracted_data": data}
+                    # `provider` + `model` are stamped on every per-model
+                    # record so back-to-back Anthropic + Vertex runs stay
+                    # unambiguously labelled even after results merge.
                     model_results[mkey] = {
+                        "provider": AI_PROVIDER,
+                        "model": mid,
                         "model_id": mid,
                         "label": label,
                         "data": wrapped,
@@ -608,6 +612,8 @@ def main():
                 except Exception as e:
                     print(f"ERROR: {e}")
                     model_results[mkey] = {
+                        "provider": AI_PROVIDER,
+                        "model": mid,
                         "model_id": mid,
                         "label": label,
                         "data": {"metadata": metadata, "tier": tier_label, "extracted_data": {"error": str(e)}},
@@ -624,6 +630,7 @@ def main():
                 "page_count": page_count,
                 "metadata": metadata,
                 "extraction_status": "success",
+                "provider": AI_PROVIDER,
                 "models": model_results,
             })
             successful_docs_count += 1
