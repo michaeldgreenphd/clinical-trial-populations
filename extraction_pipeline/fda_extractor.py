@@ -274,58 +274,53 @@ def _extract_demographics_anthropic(text):
 
 @retry_api_call
 def _extract_demographics_vertex(text):
-    """Vertex AI / Gemini path. Translates `FDA_DEMOGRAPHICS_TOOL` into a
-    `FunctionDeclaration`, forces tool use via `ToolConfig.Mode.ANY`, and
-    passes the FDA system prompt via `system_instruction` so the user
-    message is just the raw PDF text (matching the Anthropic call shape).
-    Returns the same dict shape as the Anthropic branch.
+    """Vertex AI / Gemini path using native Structured Outputs.
+
+    Uses `response_schema` + `response_mime_type="application/json"` rather
+    than FunctionDeclaration tool-calling. The deeply nested
+    FDA_DEMOGRAPHICS_TOOL schema (paired _evidence + value fields, expanded
+    race buckets) tripped the function-calling state-table limit and
+    Vertex returned `400 POST: The specified schema produces a constraint
+    that has too many states for serving`. Structured Outputs constrains
+    decoding by streaming-validating against the JSON schema, which
+    sidesteps that DFA limit while still guaranteeing schema-conformant
+    output. Returns the same dict shape as the Anthropic branch.
     """
     import vertexai
-    from vertexai.generative_models import (
-        FunctionDeclaration,
-        GenerativeModel,
-        Tool,
-        ToolConfig,
-    )
+    from vertexai.generative_models import GenerativeModel
 
     vertexai.init(
         project=os.environ.get("GCP_PROJECT_ID"),
         location=os.environ.get("GCP_LOCATION", "global"),
     )
 
-    gemini_tool = Tool(function_declarations=[
-        FunctionDeclaration(
-            name=FDA_DEMOGRAPHICS_TOOL["name"],
-            description=FDA_DEMOGRAPHICS_TOOL["description"],
-            parameters=_to_gemini_schema(FDA_DEMOGRAPHICS_TOOL["input_schema"]),
-        )
-    ])
-    tool_config = ToolConfig(
-        function_calling_config=ToolConfig.FunctionCallingConfig(
-            mode=ToolConfig.FunctionCallingConfig.Mode.ANY,
-            allowed_function_names=[FDA_DEMOGRAPHICS_TOOL["name"]],
-        )
-    )
+    response_schema = _to_gemini_schema(FDA_DEMOGRAPHICS_TOOL["input_schema"])
+
     model = GenerativeModel(
         model_name=GEMINI_MODEL,
-        tools=[gemini_tool],
-        tool_config=tool_config,
         system_instruction=FDA_SYSTEM_PROMPT,
     )
     response = model.generate_content(
         text[:100000],
-        generation_config={"max_output_tokens": 4096, "temperature": 0},
+        generation_config={
+            "max_output_tokens": 4096,
+            "temperature": 0,
+            "response_mime_type": "application/json",
+            "response_schema": response_schema,
+        },
     )
 
-    data = {"error": "Model returned no function_call"}
-    for cand in response.candidates:
-        for part in cand.content.parts:
-            fc = getattr(part, "function_call", None)
-            if fc and getattr(fc, "name", "") == FDA_DEMOGRAPHICS_TOOL["name"]:
-                data = _proto_to_dict(fc.args)
-                break
-        if isinstance(data, dict) and "error" not in data:
-            break
+    try:
+        data = json.loads(response.text)
+    except (json.JSONDecodeError, AttributeError, ValueError) as e:
+        data = {"error": f"Failed to parse Gemini JSON response: {e}"}
+    else:
+        # Re-run the proto/dict normaliser on the parsed payload so the
+        # integer-string coercion (e.g. "-1" -> -1) still applies even
+        # though the JSON arrived as a plain dict rather than a proto map.
+        # Gemini's Structured Outputs can still emit string-typed numbers
+        # for fields whose schema type was flattened away from a union.
+        data = _proto_to_dict(data)
 
     usage = getattr(response, "usage_metadata", None)
     tokens = {
