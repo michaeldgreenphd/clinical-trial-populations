@@ -404,58 +404,54 @@ def _extract_ses_and_race_anthropic(text):
 
 @retry_api_call
 def _extract_ses_and_race_vertex(text):
-    """Vertex AI / Gemini path. Translates `LIT_SES_AND_RACE_TOOL` into a
-    `FunctionDeclaration`, forces tool use via `ToolConfig.Mode.ANY`, and
-    passes the literature system prompt via `system_instruction` so the
-    user message is just the manuscript text. Returns the same dict shape
-    as the Anthropic branch.
+    """Vertex AI / Gemini path using native Structured Outputs.
+
+    Uses `response_schema` + `response_mime_type="application/json"` rather
+    than FunctionDeclaration tool-calling. The deeply nested
+    LIT_SES_AND_RACE_TOOL schema (paired _evidence + value fields, booleans
+    gated on quoted SES sentences) tripped the function-calling state-table
+    limit and Vertex returned `400 POST: The specified schema produces a
+    constraint that has too many states for serving`. Structured Outputs
+    constrains decoding by streaming-validating against the JSON schema,
+    which sidesteps that DFA limit while still guaranteeing
+    schema-conformant output. Returns the same dict shape as the Anthropic
+    branch.
     """
     import vertexai
-    from vertexai.generative_models import (
-        FunctionDeclaration,
-        GenerativeModel,
-        Tool,
-        ToolConfig,
-    )
+    from vertexai.generative_models import GenerativeModel
 
     vertexai.init(
         project=os.environ.get("GCP_PROJECT_ID"),
         location=os.environ.get("GCP_LOCATION", "global"),
     )
 
-    gemini_tool = Tool(function_declarations=[
-        FunctionDeclaration(
-            name=LIT_SES_AND_RACE_TOOL["name"],
-            description=LIT_SES_AND_RACE_TOOL["description"],
-            parameters=_to_gemini_schema(LIT_SES_AND_RACE_TOOL["input_schema"]),
-        )
-    ])
-    tool_config = ToolConfig(
-        function_calling_config=ToolConfig.FunctionCallingConfig(
-            mode=ToolConfig.FunctionCallingConfig.Mode.ANY,
-            allowed_function_names=[LIT_SES_AND_RACE_TOOL["name"]],
-        )
-    )
+    response_schema = _to_gemini_schema(LIT_SES_AND_RACE_TOOL["input_schema"])
+
     model = GenerativeModel(
         model_name=GEMINI_MODEL,
-        tools=[gemini_tool],
-        tool_config=tool_config,
         system_instruction=LIT_SYSTEM_PROMPT,
     )
     response = model.generate_content(
         text[:150000],
-        generation_config={"max_output_tokens": 4096, "temperature": 0},
+        generation_config={
+            "max_output_tokens": 4096,
+            "temperature": 0,
+            "response_mime_type": "application/json",
+            "response_schema": response_schema,
+        },
     )
 
-    data = {"error": "Model returned no function_call"}
-    for cand in response.candidates:
-        for part in cand.content.parts:
-            fc = getattr(part, "function_call", None)
-            if fc and getattr(fc, "name", "") == LIT_SES_AND_RACE_TOOL["name"]:
-                data = _proto_to_dict(fc.args)
-                break
-        if isinstance(data, dict) and "error" not in data:
-            break
+    try:
+        data = json.loads(response.text)
+    except (json.JSONDecodeError, AttributeError, ValueError) as e:
+        data = {"error": f"Failed to parse Gemini JSON response: {e}"}
+    else:
+        # Re-run the proto/dict normaliser on the parsed payload so the
+        # integer-string coercion (e.g. "-1" -> -1) still applies even
+        # though the JSON arrived as a plain dict rather than a proto map.
+        # Gemini's Structured Outputs can still emit string-typed numbers
+        # for fields whose schema type was flattened away from a union.
+        data = _proto_to_dict(data)
 
     usage = getattr(response, "usage_metadata", None)
     tokens = {
