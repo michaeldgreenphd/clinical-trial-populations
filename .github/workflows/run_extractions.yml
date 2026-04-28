@@ -206,9 +206,13 @@ jobs:
           FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
           CHILD_FOLDER: Token_Cost_Tracking
           FILE_PATH: ${{ github.workspace }}/data/token_costs.csv
-          FILE_NAME: ${{ env.CURRENT_DATE }}_token_costs.csv
         run: |
           pip install requests
+          # FILE_NAME is computed inline so the upload includes the
+          # America/New_York wall-clock time (24h, with the live EST/EDT
+          # abbreviation). Two runs on the same day no longer overwrite
+          # each other's snapshot in Drive.
+          export FILE_NAME="$(TZ='America/New_York' date +'%Y-%m-%d_%H%M_%Z')_token_costs.csv"
           python scripts/gdrive_upload.py
 
       - name: Commit extraction results
@@ -220,12 +224,19 @@ jobs:
           # manuscript PDFs weren't present on the runner) doesn't abort
           # the whole commit — the streams that did produce output still
           # get committed.
-          # Two filename conventions live side by side here:
+          # Three filename conventions live side by side here:
           #   * legacy static names from scripts/extraction/* —
           #     `data/*_extracted.json` + `data/*_token_metrics.json`
           #   * dynamic timestamped names from extraction_pipeline/* —
           #     `data/{fda,lit}_extracted_*.csv`
           #     `data/{fda,lit}_metrics_*.json`
+          #   * stable `_latest` aliases written alongside each
+          #     timestamped artifact — `data/*_latest.csv`
+          #     + `data/*_latest.json`. These are the patterns that
+          #     guarantee Git detects changes (timestamped names always
+          #     differ, so Git sees them as untracked-but-not-tracked
+          #     additions; the `_latest` aliases overwrite themselves so
+          #     the diff reliably trips a commit and Pages deploy.)
           git add \
             data/*_extracted.json \
             data/*_token_metrics.json \
@@ -233,6 +244,8 @@ jobs:
             data/fda_metrics_*.json \
             data/lit_extracted_*.csv \
             data/lit_metrics_*.json \
+            data/*_latest.csv \
+            data/*_latest.json \
             2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit"

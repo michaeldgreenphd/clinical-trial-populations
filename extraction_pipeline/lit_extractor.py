@@ -77,12 +77,24 @@ retry_api_call = retry(
 
 
 def _to_gemini_schema(schema):
-    """Recursively normalise an Anthropic-style JSON schema into the subset
-    Gemini function declarations accept. Gemini forbids union types, so we
-    flatten them to `"string"`. `properties` and `items` recurse."""
+    """Recursively normalise an Anthropic-style JSON schema into the strict
+    subset Gemini's Structured Outputs engine accepts as a `response_schema`.
+
+    Drops keys Gemini's state-table compiler rejects:
+      - `anyOf`, `allOf`, `oneOf` — Anthropic uses these for nullability /
+        union shapes; Gemini's `response_schema` validator counts each
+        branch toward its serving-state budget and emits
+        "400 POST: The specified schema produces a constraint that has
+        too many states for serving" once a deeply nested schema includes
+        them. Stripping them entirely keeps types strict.
+      - Union `type` (e.g. `["integer", "string"]`) — flattened to the
+        strict primitive `"string"`. The `_proto_to_dict` post-processor
+        then casts integer-shaped strings (`"-1"`, `"42"`) back to int.
+
+    Recurses through `properties` and `items`."""
     if not isinstance(schema, dict):
         return schema
-    out = dict(schema)
+    out = {k: v for k, v in schema.items() if k not in ("anyOf", "allOf", "oneOf")}
     t = out.get("type")
     if isinstance(t, list):
         out["type"] = "string"
@@ -541,6 +553,9 @@ def process_literature_batch(input_csv, output_dir="data"):
                 continue
 
             pdf_url, title = get_open_access_data(doi)
+            # Stamp every row (extracted, closed-access, failed) with the
+            # active provider + model so back-to-back Anthropic vs Vertex
+            # runs remain unambiguously labelled in the merged CSV.
             base_record = {
                 "doi": doi,
                 "nct_id": nct,
@@ -548,6 +563,8 @@ def process_literature_batch(input_csv, output_dir="data"):
                 "oa_pdf_url": pdf_url,
                 "candidate_score": best["score"] if best else None,
                 "candidate_count": len(ranked),
+                "provider": AI_PROVIDER,
+                "model": model_id,
             }
 
             if pdf_url and not pdf_url.startswith("https://doi.org/"):
@@ -574,8 +591,18 @@ def process_literature_batch(input_csv, output_dir="data"):
         if interrupted_by:
             print(f"  Saving partial results for {success_count} successful "
                   f"extractions before exit...", file=sys.stderr)
+        # Stable `_latest` aliases live alongside the timestamped artifacts.
+        # The CI git-add only stages `data/*_latest.{csv,json}` patterns, so
+        # without these aliases the dynamic filenames would never make it
+        # into the commit (and Pages deployment) — the workflow would print
+        # "No changes to commit" forever.
+        latest_csv = os.path.join(output_dir, "lit_extracted_latest.csv")
+        latest_metrics = os.path.join(output_dir, "lit_metrics_latest.json")
+
         if results:
-            pd.DataFrame(results).to_csv(output_csv, index=False)
+            df_out = pd.DataFrame(results)
+            df_out.to_csv(output_csv, index=False)
+            df_out.to_csv(latest_csv, index=False)
 
         denom = success_count or 1
         total_cost_usd = cost_for(model_id, total_input, total_output)
@@ -594,8 +621,9 @@ def process_literature_batch(input_csv, output_dir="data"):
             "total_cost_usd": round(total_cost_usd, 6),
             "interrupted_by": interrupted_by,
         }
-        with open(metrics_path, "w") as f:
-            json.dump(metrics, f, indent=2)
+        for path in (metrics_path, latest_metrics):
+            with open(path, "w") as f:
+                json.dump(metrics, f, indent=2)
 
     if interrupted_by:
         sys.exit(1)
