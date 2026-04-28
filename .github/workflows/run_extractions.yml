@@ -98,6 +98,33 @@ jobs:
           pip install requests
           python scripts/gdrive_upload.py
 
+      # FDA extraction data files now ship with dynamic
+      # `fda_extracted_{provider}_{YYYY-MM-DD_HHMM_TZ}` filenames so two
+      # back-to-back runs never overwrite each other. We loop the glob
+      # rather than naming a single FILE_PATH so each artifact lands in
+      # Drive under its own timestamp. `nullglob` keeps the loop a no-op
+      # when a particular run produced no files (e.g. fda-only was off).
+      - name: Upload FDA Extraction Data to Google Drive via OAuth
+        if: always()
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: FDA_Summary_Extractions
+        run: |
+          pip install requests
+          shopt -s nullglob
+          matched=0
+          for f in data/fda_extracted_*.csv data/fda_metrics_*.json; do
+            [ -f "$f" ] || continue
+            matched=$((matched + 1))
+            FILE_PATH="${GITHUB_WORKSPACE}/$f" \
+            FILE_NAME="$(basename "$f")" \
+            python scripts/gdrive_upload.py
+          done
+          echo "Uploaded ${matched} FDA extraction artifact(s)."
+
       - name: Run AI/ML Literature Extraction
         if: inputs.pipeline == 'all' || inputs.pipeline == 'aiml-lit-only'
         env:
@@ -144,6 +171,32 @@ jobs:
           pip install requests
           python scripts/gdrive_upload.py
 
+      # Literature extraction data files use the same dynamic
+      # `lit_extracted_{provider}_{YYYY-MM-DD_HHMM_TZ}` naming, so we glob
+      # both AIML and Clinical Trials manuscript artifacts together. The
+      # CHILD_FOLDER is the catch-all `Literature_Extractions` to match the
+      # single `lit_*` pattern called out in the task spec.
+      - name: Upload Literature Extraction Data to Google Drive via OAuth
+        if: always()
+        env:
+          CLIENT_ID: ${{ secrets.GDRIVE_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.GDRIVE_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.GDRIVE_REFRESH_TOKEN }}
+          FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+          CHILD_FOLDER: Literature_Extractions
+        run: |
+          pip install requests
+          shopt -s nullglob
+          matched=0
+          for f in data/lit_extracted_*.csv data/lit_metrics_*.json; do
+            [ -f "$f" ] || continue
+            matched=$((matched + 1))
+            FILE_PATH="${GITHUB_WORKSPACE}/$f" \
+            FILE_NAME="$(basename "$f")" \
+            python scripts/gdrive_upload.py
+          done
+          echo "Uploaded ${matched} literature extraction artifact(s)."
+
       - name: Upload Token Cost Tracker to Google Drive via OAuth
         if: always() && hashFiles('data/token_costs.csv') != ''
         env:
@@ -167,7 +220,20 @@ jobs:
           # manuscript PDFs weren't present on the runner) doesn't abort
           # the whole commit — the streams that did produce output still
           # get committed.
-          git add data/*_extracted.json data/*_token_metrics.json 2>/dev/null || true
+          # Two filename conventions live side by side here:
+          #   * legacy static names from scripts/extraction/* —
+          #     `data/*_extracted.json` + `data/*_token_metrics.json`
+          #   * dynamic timestamped names from extraction_pipeline/* —
+          #     `data/{fda,lit}_extracted_*.csv`
+          #     `data/{fda,lit}_metrics_*.json`
+          git add \
+            data/*_extracted.json \
+            data/*_token_metrics.json \
+            data/fda_extracted_*.csv \
+            data/fda_metrics_*.json \
+            data/lit_extracted_*.csv \
+            data/lit_metrics_*.json \
+            2>/dev/null || true
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
