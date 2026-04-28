@@ -98,12 +98,17 @@ jobs:
           pip install requests
           python scripts/gdrive_upload.py
 
-      # FDA extraction data files now ship with dynamic
-      # `fda_extracted_{provider}_{YYYY-MM-DD_HHMM_TZ}` filenames so two
-      # back-to-back runs never overwrite each other. We loop the glob
-      # rather than naming a single FILE_PATH so each artifact lands in
-      # Drive under its own timestamp. `nullglob` keeps the loop a no-op
-      # when a particular run produced no files (e.g. fda-only was off).
+      # FDA artifacts come in two flavours that we both want in Drive:
+      #   * dynamic timestamped names from extraction_pipeline/* —
+      #     `data/fda_extracted_*.csv`, `data/fda_metrics_*.json`
+      #   * static names from scripts/extraction/extract_fda_demographics.py —
+      #     `data/fda_demographics_extracted.json`,
+      #     `data/fda_token_metrics.json`
+      # Earlier runs only matched the timestamped patterns and logged
+      # "Uploaded 0 artifact(s)" because the actual CI script writes to
+      # the static names. The broader globs below capture both. The
+      # `for_basename` set / `nullglob` / `[ -f ]` triple keeps the loop
+      # safely idempotent when a stream produced no files at all.
       - name: Upload FDA Extraction Data to Google Drive via OAuth
         if: always()
         env:
@@ -115,9 +120,16 @@ jobs:
         run: |
           pip install requests
           shopt -s nullglob
+          declare -A seen
           matched=0
-          for f in data/fda_extracted_*.csv data/fda_metrics_*.json; do
+          for f in \
+              data/fda_extracted_*.csv \
+              data/fda_metrics_*.json \
+              data/fda_demographics_extracted*.json \
+              data/fda_token_metrics*.json; do
             [ -f "$f" ] || continue
+            [ -n "${seen[$f]:-}" ] && continue
+            seen[$f]=1
             matched=$((matched + 1))
             FILE_PATH="${GITHUB_WORKSPACE}/$f" \
             FILE_NAME="$(basename "$f")" \
@@ -171,11 +183,13 @@ jobs:
           pip install requests
           python scripts/gdrive_upload.py
 
-      # Literature extraction data files use the same dynamic
-      # `lit_extracted_{provider}_{YYYY-MM-DD_HHMM_TZ}` naming, so we glob
-      # both AIML and Clinical Trials manuscript artifacts together. The
-      # CHILD_FOLDER is the catch-all `Literature_Extractions` to match the
-      # single `lit_*` pattern called out in the task spec.
+      # Literature artifacts come in two flavours that we both want in
+      # Drive — the dynamic timestamped names from
+      # extraction_pipeline/lit_extractor.py *and* the static names that
+      # scripts/extraction/extract_paper_ses.py +
+      # scripts/extraction/extract_trial_papers.py write today. Earlier
+      # runs matched only the timestamped patterns and logged
+      # "Uploaded 0 artifact(s)"; the broader globs below capture both.
       - name: Upload Literature Extraction Data to Google Drive via OAuth
         if: always()
         env:
@@ -187,9 +201,18 @@ jobs:
         run: |
           pip install requests
           shopt -s nullglob
+          declare -A seen
           matched=0
-          for f in data/lit_extracted_*.csv data/lit_metrics_*.json; do
+          for f in \
+              data/lit_extracted_*.csv \
+              data/lit_metrics_*.json \
+              data/lit_ses_extracted*.json \
+              data/lit_token_metrics*.json \
+              data/trials_lit_extracted*.json \
+              data/trials_lit_token_metrics*.json; do
             [ -f "$f" ] || continue
+            [ -n "${seen[$f]:-}" ] && continue
+            seen[$f]=1
             matched=$((matched + 1))
             FILE_PATH="${GITHUB_WORKSPACE}/$f" \
             FILE_NAME="$(basename "$f")" \
@@ -219,34 +242,46 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          # Stage whatever actually landed on disk. Wildcards + the
-          # `|| true` fallback mean a missing stream (e.g. the trials
-          # manuscript PDFs weren't present on the runner) doesn't abort
-          # the whole commit — the streams that did produce output still
-          # get committed.
-          # Three filename conventions live side by side here:
-          #   * legacy static names from scripts/extraction/* —
-          #     `data/*_extracted.json` + `data/*_token_metrics.json`
-          #   * dynamic timestamped names from extraction_pipeline/* —
-          #     `data/{fda,lit}_extracted_*.csv`
-          #     `data/{fda,lit}_metrics_*.json`
-          #   * stable `_latest` aliases written alongside each
-          #     timestamped artifact — `data/*_latest.csv`
-          #     + `data/*_latest.json`. These are the patterns that
-          #     guarantee Git detects changes (timestamped names always
-          #     differ, so Git sees them as untracked-but-not-tracked
-          #     additions; the `_latest` aliases overwrite themselves so
-          #     the diff reliably trips a commit and Pages deploy.)
-          git add \
-            data/*_extracted.json \
-            data/*_token_metrics.json \
-            data/fda_extracted_*.csv \
-            data/fda_metrics_*.json \
-            data/lit_extracted_*.csv \
-            data/lit_metrics_*.json \
-            data/*_latest.csv \
-            data/*_latest.json \
-            2>/dev/null || true
+          # Three filename conventions live side by side here, and we
+          # stage each one explicitly so the workflow can never bail with
+          # "No changes to commit" just because one pattern matched
+          # nothing. Each `git add` is wrapped in `|| true` so a missing
+          # stream (no trials manuscript PDFs on the runner, etc.) no
+          # longer aborts the staging of the streams that *did* produce
+          # output.
+          #
+          #   1. Static outputs from the 3-way scripts/extraction/* runs
+          #      (the ones the GitHub workflow actually invokes today):
+          #        data/fda_demographics_extracted.json
+          #        data/fda_token_metrics.json
+          #        data/lit_ses_extracted.json
+          #        data/lit_token_metrics.json
+          #        data/trials_lit_extracted.json
+          #        data/trials_lit_token_metrics.json
+          #
+          #   2. Dynamic timestamped names from the single-model
+          #      extraction_pipeline/* batch runs:
+          #        data/{fda,lit}_extracted_*.csv
+          #        data/{fda,lit}_metrics_*.json
+          #
+          #   3. Stable `_latest` aliases written alongside each
+          #      timestamped artifact — `data/*_latest.csv` /
+          #      `data/*_latest.json`. The timestamped names always
+          #      differ between runs (so Git treats them as adds), but
+          #      the `_latest` files overwrite themselves and reliably
+          #      produce a diff that trips the commit + Pages deploy.
+          git add data/fda_demographics_extracted*.json || true
+          git add data/fda_token_metrics*.json || true
+          git add data/lit_ses_extracted*.json || true
+          git add data/lit_token_metrics*.json || true
+          git add data/trials_lit_extracted*.json || true
+          git add data/trials_lit_token_metrics*.json || true
+          git add data/fda_extracted_*.csv || true
+          git add data/fda_metrics_*.json || true
+          git add data/lit_extracted_*.csv || true
+          git add data/lit_metrics_*.json || true
+          git add data/*_latest.csv || true
+          git add data/*_latest.json || true
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else

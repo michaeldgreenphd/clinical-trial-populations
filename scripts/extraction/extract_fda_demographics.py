@@ -279,14 +279,24 @@ def extract_text_from_local_pdf(path: str) -> tuple[str | None, int]:
 
 
 def _to_gemini_schema(schema):
-    """Recursively normalize an Anthropic-style JSON schema into the subset
-    Gemini function declarations accept. Gemini forbids union types
-    (e.g. `["integer", "string"]`), so we flatten them to `"string"` — ints
-    round-trip fine through a string and "Not Reported" is the common sentinel
-    anyway. `properties` and `items` recurse."""
+    """Recursively normalize an Anthropic-style JSON schema into the strict
+    subset Gemini's Structured Outputs engine accepts as a `response_schema`.
+
+    Drops keys Gemini's state-table compiler rejects:
+      - `anyOf`, `allOf`, `oneOf` — Anthropic uses these for nullability /
+        union shapes; Gemini's `response_schema` validator counts each
+        branch toward its serving-state budget and emits
+        "400 POST: The specified schema produces a constraint that has
+        too many states for serving" once a deeply nested schema includes
+        them. Stripping them keeps types strict.
+      - Union `type` (e.g. `["integer", "string"]`) — flattened to the
+        strict primitive `"string"`. Ints round-trip fine through a string
+        and "Not Reported" is the common sentinel anyway.
+
+    Recurses through `properties` and `items`."""
     if not isinstance(schema, dict):
         return schema
-    out = dict(schema)
+    out = {k: v for k, v in schema.items() if k not in ("anyOf", "allOf", "oneOf")}
     t = out.get("type")
     if isinstance(t, list):
         out["type"] = "string"
@@ -347,49 +357,37 @@ def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
 
 
 def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
-    """Vertex AI Gemini path. Uses google-cloud-aiplatform's GenerativeModel
-    with function-calling forced to `ANY` so the model must emit a
-    record_extracted_data call. Token usage comes from `usage_metadata`:
-    prompt_token_count → input; candidates_token_count → output."""
-    from vertexai.generative_models import (
-        FunctionDeclaration,
-        GenerativeModel,
-        Tool,
-        ToolConfig,
-    )
+    """Vertex AI Gemini path using native Structured Outputs.
 
-    gemini_tool = Tool(function_declarations=[
-        FunctionDeclaration(
-            name=EXTRACTION_TOOL["name"],
-            description=EXTRACTION_TOOL["description"],
-            parameters=_to_gemini_schema(EXTRACTION_TOOL["input_schema"]),
-        )
-    ])
-    tool_config = ToolConfig(
-        function_calling_config=ToolConfig.FunctionCallingConfig(
-            mode=ToolConfig.FunctionCallingConfig.Mode.ANY,
-            allowed_function_names=[EXTRACTION_TOOL["name"]],
-        )
-    )
-    model = GenerativeModel(
-        model_name=model_id,
-        tools=[gemini_tool],
-        tool_config=tool_config,
-    )
+    Uses `response_mime_type="application/json"` + `response_schema=...`
+    instead of FunctionDeclaration tool-calling. The deeply nested
+    EXTRACTION_TOOL schema (paired evidence + value fields, expanded race
+    buckets) tripped the function-calling state-table limit and Vertex
+    returned `400 POST: The specified schema produces a constraint that
+    has too many states for serving`. Structured Outputs constrains
+    decoding by streaming-validating against the JSON schema rather than
+    pre-compiling a DFA, which sidesteps that ceiling while still
+    guaranteeing schema-conformant output. Token usage comes from
+    `usage_metadata`: prompt_token_count → input;
+    candidates_token_count → output."""
+    from vertexai.generative_models import GenerationConfig, GenerativeModel
+
+    response_schema = _to_gemini_schema(EXTRACTION_TOOL["input_schema"])
+
+    model = GenerativeModel(model_name=model_id)
     response = model.generate_content(
         prompt,
-        generation_config={"max_output_tokens": 4000},
+        generation_config=GenerationConfig(
+            max_output_tokens=4000,
+            response_mime_type="application/json",
+            response_schema=response_schema,
+        ),
     )
 
-    data: dict = {"error": "No tool call in response"}
-    for cand in response.candidates:
-        for part in cand.content.parts:
-            fc = getattr(part, "function_call", None)
-            if fc and getattr(fc, "name", "") == EXTRACTION_TOOL["name"]:
-                data = _proto_to_dict(fc.args)
-                break
-        if not isinstance(data, dict) or "error" not in data:
-            break
+    try:
+        data = _proto_to_dict(json.loads(response.text))
+    except (json.JSONDecodeError, AttributeError, ValueError) as e:
+        data = {"error": f"Failed to parse Gemini JSON response: {e}"}
 
     usage = response.usage_metadata
     return data, {
@@ -594,6 +592,16 @@ def main():
                 print(f"    → {label} ({mid})...", end=" ", flush=True)
                 try:
                     data, tokens = extract_with_model(text, mid)
+                    # A model call is only "successful" when the returned
+                    # dict actually carries extracted data — i.e. it does
+                    # NOT contain an `"error"` key. Vertex 400s, Anthropic
+                    # "no tool_use" responses, and JSON-parse failures all
+                    # surface as `{"error": "..."}` while still raising no
+                    # Python exception, so checking for the key is the
+                    # only reliable signal. Token totals still accumulate
+                    # because the API charged us either way; the doc/call
+                    # *count* is what gates the denominator.
+                    call_succeeded = isinstance(data, dict) and "error" not in data
                     # `provider` + `model` are stamped on every per-model
                     # record so back-to-back Anthropic + Vertex runs stay
                     # unambiguously labelled even after results merge.
@@ -605,11 +613,16 @@ def main():
                         "data": data,
                         "input_tokens": tokens["input_tokens"],
                         "output_tokens": tokens["output_tokens"],
+                        "call_succeeded": call_succeeded,
                     }
                     model_totals[mkey]["input"] += tokens["input_tokens"]
                     model_totals[mkey]["output"] += tokens["output_tokens"]
-                    model_totals[mkey]["docs"] += 1
-                    print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+                    if call_succeeded:
+                        model_totals[mkey]["docs"] += 1
+                        print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+                    else:
+                        err = data.get("error", "unknown") if isinstance(data, dict) else "non-dict"
+                        print(f"ERROR (kept tokens): {err}")
                 except Exception as e:
                     print(f"ERROR: {e}")
                     model_results[mkey] = {
@@ -620,6 +633,7 @@ def main():
                         "data": {"error": str(e)},
                         "input_tokens": 0,
                         "output_tokens": 0,
+                        "call_succeeded": False,
                     }
                 time.sleep(1)
 
@@ -630,8 +644,14 @@ def main():
                 "provider": AI_PROVIDER,
                 "models": model_results,
             })
-            successful_docs_count += 1
-            total_pages_processed += page_count
+            # A doc only counts toward the run-wide denominator when at
+            # least one of the per-model calls actually returned valid
+            # data. If every model 400ed / refused / failed parsing, the
+            # doc was *attempted* but not *processed*, and the average-
+            # token math should reflect that.
+            if any(m.get("call_succeeded") for m in model_results.values()):
+                successful_docs_count += 1
+                total_pages_processed += page_count
     except KeyboardInterrupt:
         interrupted_by = "user (Ctrl+C)"
         print(f"\n✗ Pipeline interrupted by {interrupted_by}.", file=sys.stderr)

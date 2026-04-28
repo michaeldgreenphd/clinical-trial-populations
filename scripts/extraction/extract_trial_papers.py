@@ -593,6 +593,16 @@ def main():
                     # Carry the manuscript tier into the per-model payload too so
                     # the dashboard can surface it even from the per-model view.
                     wrapped = {"metadata": metadata, "tier": tier_label, "extracted_data": data}
+                    # A model call is only "successful" when the returned
+                    # extracted_data dict actually carries extracted fields
+                    # — i.e. it does NOT contain an `"error"` key. Vertex
+                    # 400s, Anthropic "no tool_use" responses, and
+                    # JSON-parse failures all surface as
+                    # `{"error": "..."}` while still raising no Python
+                    # exception. Token totals still accumulate (the API
+                    # charged us either way); the doc/call count is what
+                    # gates the denominator.
+                    call_succeeded = isinstance(data, dict) and "error" not in data
                     # `provider` + `model` are stamped on every per-model
                     # record so back-to-back Anthropic + Vertex runs stay
                     # unambiguously labelled even after results merge.
@@ -604,11 +614,16 @@ def main():
                         "data": wrapped,
                         "input_tokens": tokens["input_tokens"],
                         "output_tokens": tokens["output_tokens"],
+                        "call_succeeded": call_succeeded,
                     }
                     model_totals[mkey]["input"] += tokens["input_tokens"]
                     model_totals[mkey]["output"] += tokens["output_tokens"]
-                    model_totals[mkey]["docs"] += 1
-                    print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+                    if call_succeeded:
+                        model_totals[mkey]["docs"] += 1
+                        print(f"{tokens['input_tokens']:,} in / {tokens['output_tokens']:,} out")
+                    else:
+                        err = data.get("error", "unknown") if isinstance(data, dict) else "non-dict"
+                        print(f"ERROR (kept tokens): {err}")
                 except Exception as e:
                     print(f"ERROR: {e}")
                     model_results[mkey] = {
@@ -619,6 +634,7 @@ def main():
                         "data": {"metadata": metadata, "tier": tier_label, "extracted_data": {"error": str(e)}},
                         "input_tokens": 0,
                         "output_tokens": 0,
+                        "call_succeeded": False,
                     }
                 time.sleep(1)
 
@@ -633,6 +649,12 @@ def main():
                 "provider": AI_PROVIDER,
                 "models": model_results,
             })
+            # A doc only counts toward the run-wide denominator when at
+            # least one of the per-model calls actually returned valid
+            # data. If every model 400ed / refused / failed parsing, the
+            # doc was *attempted* but not *processed*.
+            if not any(m.get("call_succeeded") for m in model_results.values()):
+                continue
             successful_docs_count += 1
             total_pages_processed += page_count
     except KeyboardInterrupt:
