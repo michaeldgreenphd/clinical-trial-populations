@@ -41,6 +41,7 @@ import pdfplumber
 # repo root (the extraction scripts are launched via `python scripts/...`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
+from utils.json_repair import clean_and_parse_json
 
 PILOT_LIMIT = 8
 PILOT_SIZE = 12
@@ -345,11 +346,25 @@ def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
         tool_choice={"type": "tool", "name": "record_extracted_data"},
         messages=[{"role": "user", "content": prompt}],
     )
+    # Walk the response once: prefer a `tool_use` block (the happy path
+    # under our forced tool_choice), but also collect any free-form text
+    # so we can fall back to JSON-parsing it via clean_and_parse_json if
+    # the tool was skipped (rare, but surfaces clean errors instead of
+    # the generic "No tool call in response" placeholder).
     data: dict = {"error": "No tool call in response"}
+    text_fallback = []
     for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and block.name == "record_extracted_data":
-            data = block.input
+        block_type = getattr(block, "type", None)
+        if block_type == "tool_use" and block.name == "record_extracted_data":
+            # `tool_use.input` is already a dict; clean_and_parse_json
+            # is a pass-through for dicts so applying it uniformly keeps
+            # the call sites identical across Anthropic / Vertex.
+            data = clean_and_parse_json(block.input)
             break
+        if block_type == "text":
+            text_fallback.append(getattr(block, "text", "") or "")
+    if isinstance(data, dict) and "error" in data and text_fallback:
+        data = clean_and_parse_json("".join(text_fallback))
     return data, {
         "input_tokens": response.usage.input_tokens,
         "output_tokens": response.usage.output_tokens,
@@ -384,10 +399,19 @@ def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
         ),
     )
 
-    try:
-        data = _proto_to_dict(json.loads(response.text))
-    except (json.JSONDecodeError, AttributeError, ValueError) as e:
-        data = {"error": f"Failed to parse Gemini JSON response: {e}"}
+    # Hand the raw text to clean_and_parse_json, which walks several
+    # progressively more-forgiving repair stages (markdown fences,
+    # trailing commas, control chars, ast fallback, internal-quote
+    # escape) before giving up. The happy path is still strict
+    # `json.loads`, so well-formed responses pay no penalty.
+    raw = getattr(response, "text", None)
+    parsed = clean_and_parse_json(raw)
+    if isinstance(parsed, dict) and "error" not in parsed:
+        # Run the proto/dict normaliser on the parsed payload so the
+        # integer-string coercion (e.g. "-1" -> -1) still applies.
+        data = _proto_to_dict(parsed)
+    else:
+        data = parsed
 
     usage = response.usage_metadata
     return data, {
