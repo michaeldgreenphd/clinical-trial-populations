@@ -98,17 +98,21 @@ jobs:
           pip install requests
           python scripts/gdrive_upload.py
 
-      # FDA artifacts come in two flavours that we both want in Drive:
+      # FDA artifacts come in three flavours that we want in Drive:
       #   * dynamic timestamped names from extraction_pipeline/* —
       #     `data/fda_extracted_*.csv`, `data/fda_metrics_*.json`
       #   * static names from scripts/extraction/extract_fda_demographics.py —
       #     `data/fda_demographics_extracted.json`,
       #     `data/fda_token_metrics.json`
+      #   * the broad `data/*.json` and `data/*.csv` catch-alls so any
+      #     new payload the scripts start writing flows through without
+      #     a workflow edit.
       # Earlier runs only matched the timestamped patterns and logged
       # "Uploaded 0 artifact(s)" because the actual CI script writes to
-      # the static names. The broader globs below capture both. The
-      # `for_basename` set / `nullglob` / `[ -f ]` triple keeps the loop
-      # safely idempotent when a stream produced no files at all.
+      # the static names. The `seen` set / `nullglob` / `[ -f ]` triple
+      # keeps the loop safely idempotent when a stream produced no
+      # files at all and de-dups when the broader and narrower patterns
+      # match the same file.
       - name: Upload FDA Extraction Data to Google Drive via OAuth
         if: always()
         env:
@@ -126,7 +130,9 @@ jobs:
               data/fda_extracted_*.csv \
               data/fda_metrics_*.json \
               data/fda_demographics_extracted*.json \
-              data/fda_token_metrics*.json; do
+              data/fda_token_metrics*.json \
+              data/*.json \
+              data/*.csv; do
             [ -f "$f" ] || continue
             [ -n "${seen[$f]:-}" ] && continue
             seen[$f]=1
@@ -209,7 +215,9 @@ jobs:
               data/lit_ses_extracted*.json \
               data/lit_token_metrics*.json \
               data/trials_lit_extracted*.json \
-              data/trials_lit_token_metrics*.json; do
+              data/trials_lit_token_metrics*.json \
+              data/*.json \
+              data/*.csv; do
             [ -f "$f" ] || continue
             [ -n "${seen[$f]:-}" ] && continue
             seen[$f]=1
