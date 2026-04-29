@@ -2955,15 +2955,29 @@ footer p {
 /* Horizontal-scroll container for wide extraction tables. The wrapper
    makes the table scrollable when its columns overflow the viewport;
    th/td keep nowrap so columns stay readable. */
-.table-scroll {
+.table-scroll,
+.table-responsive {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     width: 100%;
+    max-width: 100%;
 }
 
 .table-scroll .studies-table th,
-.table-scroll .studies-table td {
+.table-scroll .studies-table td,
+.table-responsive .studies-table th,
+.table-responsive .studies-table td {
     white-space: nowrap;
+}
+
+/* `.chart-container` clips its overflow to keep its rounded corners
+   tidy. That clipping was preventing the inner table-scroll wrapper's
+   horizontal scrollbar from being visible on the FDA + Lit extraction
+   tabs. Allowing horizontal overflow on a `.table-responsive` child
+   surfaces the scrollbar without changing how the rest of the
+   chart-container's content is clipped. */
+.chart-container .table-responsive {
+    overflow-x: auto;
 }
 
 /* Explicit Unknown badge — the researchers stated "Unknown" with a count.
