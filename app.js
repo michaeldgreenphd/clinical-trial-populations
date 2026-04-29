@@ -6141,7 +6141,23 @@ let _fdaExtractedData = [];
 let _fdaLitData = [];           // AI/ML manuscript extractions (for side-by-side join)
 let _fdaLitIndex = {};          // submission_number -> manuscript record
 let _fdaDecisionDateIndex = {}; // submission_number -> Date of Final Decision (from enriched CSV)
-let _fdaSelectedModel = 'sonnet_4_6'; // default view
+let _fdaSelectedModel = 'sonnet_4_6'; // default view (overridden per-load when this key is absent)
+
+
+// Pick the model key the dashboard should default to for a given run.
+// `sonnet_4_6` is the historical Anthropic default; for a Gemini-only
+// run that key won't exist in the metrics payload and the selector
+// would render empty — falling back to the first available key keeps
+// the dashboard rendering *something* without crashing. Accepts an
+// already-extracted models map (e.g. `metrics.per_model` or a doc's
+// `models` dict).
+function pickDefaultModelKey(modelsMap, preferred) {
+    preferred = preferred || 'sonnet_4_6';
+    if (!modelsMap || typeof modelsMap !== 'object') return preferred;
+    if (modelsMap[preferred]) return preferred;
+    const keys = Object.keys(modelsMap);
+    return keys.length ? keys[0] : preferred;
+}
 
 // Model display order and labels. `id` is the JSON key emitted by the
 // extraction scripts (opus_4_7 / sonnet_4_6 / haiku_4_5); `modelId` is the
@@ -6323,6 +6339,13 @@ async function loadFDAExtractionTab() {
             fdaSummary.textContent = `Processed ${successfulDocs.toLocaleString()} documents totaling ${totalPages.toLocaleString()} pages.${crashNote}`;
         }
 
+        // Re-pick the default selected model based on what the run
+        // actually produced. A Gemini-only run won't have `sonnet_4_6`
+        // in metrics.per_model; falling back to the first available
+        // key (e.g. `gemini_25_pro`) keeps the selector + table from
+        // rendering empty.
+        _fdaSelectedModel = pickDefaultModelKey(metrics.per_model, _fdaSelectedModel);
+
         renderModelComparisonCards('fda-model-cards', metrics.per_model, totalDocs, successfulDocs);
         renderFDAReportingFreq(_fdaExtractedData);
         renderModelSelector('fda-model-selector', _fdaSelectedModel, (modelId) => {
@@ -6434,8 +6457,14 @@ function renderFDAReportingFreq(data) {
     const container = document.getElementById('fda-reporting-freq');
     if (!container) return;
 
-    // Sonnet is the reference model for the reporting-frequency strip.
-    const refModel = 'sonnet_4_6';
+    // Sonnet is the historical reference model for the reporting-
+    // frequency strip; for a Gemini-only run that key won't exist on
+    // any doc's models map, so fall back to whichever model key the
+    // run actually populated. We probe the first doc that has a
+    // non-empty models dict (skipping pdf_failed rows where models is
+    // {}) so the helper sees the real per-row schema.
+    const sampleModels = data.find(d => d.models && Object.keys(d.models).length)?.models;
+    const refModel = pickDefaultModelKey(sampleModels, 'sonnet_4_6');
     const successDocs = data.filter(d => d.extraction_status === 'success' && d.models && d.models[refModel]);
     const total = successDocs.length;
     if (total === 0) {
@@ -7001,6 +7030,12 @@ async function loadLitExtractionTab() {
                 : '';
             litSummary.textContent = `Processed ${successfulDocs.toLocaleString()} documents totaling ${totalPages.toLocaleString()} pages.${crashNote}`;
         }
+
+        // Re-pick the default selected model based on what the run
+        // actually produced — same Gemini-only safety net as the FDA
+        // tab; without this, a Gemini run renders an empty selector +
+        // table because the historical `sonnet_4_6` key isn't there.
+        _litSelectedModel = pickDefaultModelKey(metrics.per_model, _litSelectedModel);
 
         renderModelComparisonCards('lit-model-cards', metrics.per_model, totalDocs, successfulDocs);
         renderModelSelector('lit-model-selector', _litSelectedModel, (modelId) => {
