@@ -3,6 +3,7 @@ import json
 import os
 import re
 import sys
+import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -28,6 +29,14 @@ from utils.cost_tracker import EASTERN_TZ, cost_for  # noqa: E402
 # America/New_York. Generated once per batch so every artifact from one run
 # (CSV + metrics JSON) shares the exact same suffix.
 RUN_TIMESTAMP_FMT = "%Y-%m-%d_%H%M_%Z"
+
+# Hardcoded pre-call governor in seconds. Both providers throttle hard
+# under bursty load — Vertex starts emitting 429 ResourceExhausted on the
+# project-wide quota; Anthropic gets 429 / 529 once we exceed the
+# per-minute tokens-in budget. Sleeping 2s before every API call keeps
+# the per-doc loop comfortably below either ceiling without slowing the
+# overall run by more than ~2s × N docs.
+PRE_CALL_DELAY_SEC = 2
 
 
 def run_timestamp():
@@ -68,10 +77,13 @@ def _is_retriable(exc):
     return False
 
 
-# Up to 3 attempts with exponential backoff (2s, 4s, 8s — capped at 30s).
-# `reraise=True` so the final failure surfaces the original exception.
+# Up to 5 attempts with exponential backoff (2s, 4s, 8s, 16s — capped at
+# 30s). `reraise=True` so the final failure surfaces the original
+# exception, which lets the per-doc try/except mark the call as failed
+# and move on instead of stalling the run when Vertex hard-throttles
+# the project.
 retry_api_call = retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=2, max=30),
     retry=retry_if_exception(_is_retriable),
     reraise=True,
@@ -263,7 +275,7 @@ def _extract_demographics_anthropic(text):
     exception bubbles up to the batch-loop's try/finally."""
     response = client.messages.create(
         model=ANTHROPIC_MODEL,
-        max_tokens=4096,
+        max_tokens=8192,
         temperature=0,
         system=FDA_SYSTEM_PROMPT,
         tools=[FDA_DEMOGRAPHICS_TOOL],
@@ -314,7 +326,7 @@ def _extract_demographics_vertex(text):
     response = model.generate_content(
         text[:100000],
         generation_config={
-            "max_output_tokens": 4096,
+            "max_output_tokens": 8192,
             "temperature": 0,
             "response_mime_type": "application/json",
             "response_schema": response_schema,
@@ -345,6 +357,11 @@ def extract_demographics_with_claude(text):
     """Provider-agnostic facade. Routes to Anthropic or Vertex Gemini based
     on the AI_PROVIDER env var. Both branches return identical dict shapes
     so downstream `process_fda_batch` doesn't need to branch."""
+    # Pre-call governor: sleep before every API call (both providers) so
+    # bursty per-doc loops don't instantly trip Vertex / Anthropic quotas.
+    # The retry decorator already handles transient 429s, but spreading
+    # calls out here avoids hitting the retry path in the first place.
+    time.sleep(PRE_CALL_DELAY_SEC)
     try:
         if AI_PROVIDER == "vertex_gemini":
             data, tokens = _extract_demographics_vertex(text)

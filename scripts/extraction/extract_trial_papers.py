@@ -48,12 +48,60 @@ import time
 
 import anthropic
 import pdfplumber
+from tenacity import (
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 # Make scripts/utils/cost_tracker.py importable when this file runs from the
 # repo root (the extraction scripts are launched via `python scripts/...`).
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from utils.cost_tracker import log_api_cost
 from utils.json_repair import clean_and_parse_json
+
+
+# Hardcoded pre-call governor in seconds. Both providers throttle hard
+# under bursty load — Vertex starts emitting 429 ResourceExhausted on the
+# project-wide quota; Anthropic gets 429 / 529 once we exceed the
+# per-minute tokens-in budget. Sleeping 2s before every API call keeps
+# the 3-way comparison loop comfortably below either ceiling.
+PRE_CALL_DELAY_SEC = 2
+
+
+def _is_retriable(exc):
+    """True if `exc` is a transient API failure worth retrying.
+
+    Covers Anthropic (RateLimitError 429, OverloadedError 529, network /
+    timeout errors) and Vertex AI / Gemini (ResourceExhausted,
+    ServiceUnavailable, DeadlineExceeded). Matched by class name to
+    avoid hard-importing google.api_core in the Anthropic-only path.
+    """
+    name = type(exc).__name__
+    if name in {
+        "RateLimitError", "OverloadedError",
+        "APIConnectionError", "APITimeoutError",
+        "ResourceExhausted", "ServiceUnavailable", "DeadlineExceeded",
+    }:
+        return True
+    status_code = getattr(exc, "status_code", None)
+    if status_code in (429, 529):
+        return True
+    return False
+
+
+# Up to 5 attempts with exponential backoff (2s, 4s, 8s, 16s — capped at
+# 30s). `reraise=True` so the final failure surfaces the original
+# exception, which lets the per-doc try/except mark the call as failed
+# and move on instead of stalling the run when Vertex hard-throttles
+# the project.
+retry_api_call = retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=2, min=2, max=30),
+    retry=retry_if_exception(_is_retriable),
+    reraise=True,
+)
 
 PILOT_LIMIT = 20
 # PDF_DIR is resolved at runtime based on RUN_MODE — pilot-test reads from a
@@ -88,15 +136,19 @@ _ANTHROPIC_MODELS = [
 # `gemini-3-flash-preview` (no `.1`) — the Flash-Lite and Pro tiers keep the
 # `3.1` branding. Standard-tier prices per Vertex AI pricing page
 # (https://cloud.google.com/vertex-ai/generative-ai/pricing).
+# Gemini keys are model-accurate (`gemini_3_flash_lite` rather than the
+# `haiku_4_5` slot-name we use for the Anthropic tier) so a Gemini run's
+# JSON output is unambiguously labelled and can sit next to an Anthropic
+# run's output without being misread as Claude data.
 _GEMINI_3_PREVIEW_MODELS = [
-    {"key": "haiku_4_5",  "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
-    {"key": "sonnet_4_6", "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
-    {"key": "opus_4_7",   "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
+    {"key": "gemini_3_flash_lite", "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
+    {"key": "gemini_3_flash",      "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
+    {"key": "gemini_3_pro",        "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
 ]
 _GEMINI_2_5_STABLE_MODELS = [
-    {"key": "haiku_4_5",  "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash-Lite", "input_cost_per_m": 0.10, "output_cost_per_m": 0.40},
-    {"key": "sonnet_4_6", "id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "input_cost_per_m": 0.30, "output_cost_per_m": 2.50},
-    {"key": "opus_4_7",   "id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "input_cost_per_m": 1.25, "output_cost_per_m": 10.00},
+    {"key": "gemini_25_flash_lite", "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash-Lite", "input_cost_per_m": 0.10, "output_cost_per_m": 0.40},
+    {"key": "gemini_25_flash",      "id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "input_cost_per_m": 0.30, "output_cost_per_m": 2.50},
+    {"key": "gemini_25_pro",        "id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "input_cost_per_m": 1.25, "output_cost_per_m": 10.00},
 ]
 _GEMINI_MODELS = (
     _GEMINI_2_5_STABLE_MODELS if GEMINI_VERSION == "gemini-2.5-stable"
@@ -455,10 +507,14 @@ def extract_with_model(text: str, model_id: str) -> tuple[dict, dict]:
     return data, token_usage
 
 
+@retry_api_call
 def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
+    """Anthropic path. Wrapped in `retry_api_call` so 429 / 529 / network
+    blips are retried up to 5 times with exponential backoff before the
+    exception bubbles up to the per-doc try/except."""
     response = client.messages.create(
         model=model_id,
-        max_tokens=4000,
+        max_tokens=8192,
         tools=[EXTRACTION_TOOL],
         tool_choice={"type": "tool", "name": "record_extracted_data"},
         messages=[{"role": "user", "content": prompt}],
@@ -487,6 +543,7 @@ def _extract_anthropic(prompt: str, model_id: str) -> tuple[dict, dict]:
     }
 
 
+@retry_api_call
 def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
     """Vertex AI Gemini path using native Structured Outputs.
 
@@ -509,7 +566,7 @@ def _extract_gemini(prompt: str, model_id: str) -> tuple[dict, dict]:
     response = model.generate_content(
         prompt,
         generation_config=GenerationConfig(
-            max_output_tokens=4000,
+            max_output_tokens=8192,
             response_mime_type="application/json",
             response_schema=response_schema,
         ),
@@ -610,6 +667,12 @@ def main():
                 mkey = model["key"]
                 mid = model["id"]
                 label = model["label"]
+                # Pre-call governor: sleep before every API call (both
+                # providers) so the bursty per-doc × per-model loop
+                # doesn't instantly trip Vertex / Anthropic quotas. The
+                # retry decorator already handles transient 429s, but
+                # spreading calls out here avoids hitting that path.
+                time.sleep(PRE_CALL_DELAY_SEC)
                 print(f"    → {label} ({mid})...", end=" ", flush=True)
                 try:
                     data, tokens = extract_with_model(text, mid)
@@ -659,7 +722,6 @@ def main():
                         "output_tokens": 0,
                         "call_succeeded": False,
                     }
-                time.sleep(1)
 
             results.append({
                 "identifier": ident,
