@@ -750,7 +750,7 @@
                 </div>
                 <p class="note">Each demographic cell is split <strong>FDA Summary</strong> (top) vs. <strong>Matched Manuscript</strong> (bottom). Manuscripts are linked by FDA Submission #.</p>
                 <div class="ai-devices-table-wrapper">
-                    <div class="table-scroll">
+                    <div class="table-scroll table-responsive">
                         <table class="studies-table" id="fda-extraction-table">
                             <thead>
                                 <tr>
@@ -823,7 +823,7 @@
                     <!-- Populated by JS -->
                 </div>
                 <div class="ai-devices-table-wrapper">
-                    <div class="table-scroll">
+                    <div class="table-scroll table-responsive">
                         <table class="studies-table" id="lit-extraction-table">
                             <thead>
                                 <tr>
@@ -878,77 +878,6 @@
                     </div>
                 </details>
 
-                <h3 style="margin-top: 2rem;">Beta Data Extraction &amp; Curation</h3>
-
-                <details class="faq-section">
-                    <summary><h4>How does the pipeline select which manuscript to download?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">For every trial, the pipeline queries manuscript APIs (EuropePMC, Unpaywall) using the NCT ID and receives a list of candidate papers. Rather than taking the first hit, each candidate is passed through an adjusted scoring function:</p>
-                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                            <li><strong>Title-Based Penalty:</strong> Candidates whose titles contain tokens like <em>protocol</em>, <em>secondary analysis</em>, <em>retrospective</em>, <em>observational</em>, <em>survey</em>, <em>post-hoc</em>, <em>design</em>, or <em>rationale</em> receive a heavy score deduction &mdash; these are almost never the primary-results paper we want.</li>
-                            <li><strong>Temporal Bonus:</strong> Candidates published 0&ndash;24 months after the trial's <code>primary_completion_date</code> (or <code>completion_date</code> as a fallback) receive a score boost, since primary-results manuscripts typically appear within that window.</li>
-                            <li><strong>Selection:</strong> All candidates are sorted by adjusted score (ties broken by newer publication date) and the highest-scoring paper is chosen as the PDF to download and extract.</li>
-                        </ul>
-                        <p class="note" style="margin-top: 0.5rem;">This replaces the naive "first result wins" heuristic and materially reduces the number of design/protocol papers that leak into the extraction set.</p>
-                    </div>
-                </details>
-
-                <details class="faq-section">
-                    <summary><h4>What are the Manuscript Match Tiers?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">Because ClinicalTrials.gov does not always explicitly link to published results, our pipeline uses a 3-tier system to find manuscripts:</p>
-                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                            <li><strong>Tier 1 (Explicit Match):</strong> The manuscript explicitly contains the NCT ID. However, this still requires curation! Researchers often link secondary analyses, protocols, or observational spin-offs to their primary NCT ID. While the link is explicit, the paper might not contain the primary trial demographics.</li>
-                            <li><strong>Tier 2 (High-Confidence Fuzzy Match):</strong> The pipeline found a paper where the authors, publication year, and keywords strongly align with the trial's metadata.</li>
-                            <li><strong>Tier 3 (Low-Confidence Fuzzy Match):</strong> A broad keyword search match. These require strict manual curation, as the search may pull in loosely related papers.</li>
-                        </ul>
-                    </div>
-                </details>
-
-                <details class="faq-section">
-                    <summary><h4>How does the Discrepancy Engine work?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">AI models can hallucinate or extract data from improperly matched papers (e.g., a Tier 1 protocol paper instead of the results paper). To ensure data integrity, our engine compares every LLM-extracted demographic value against the original ClinicalTrials.gov API baseline. It flags fields as a <strong>Match</strong>, an <strong>Addition</strong> (finding data the registry missed), or a <strong>Conflict</strong> (contradicting the registry). Curators must manually verify Additions and Conflicts.</p>
-                    </div>
-                </details>
-
-                <details class="faq-section">
-                    <summary><h4>What is the difference between "Not Reported" and "Explicit Unknown"?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">In clinical trial demographics, missing data and "unknown" classifications are fundamentally different categories. <strong>"Not Reported"</strong> means the trial investigators completely failed to mention the demographic variable. <strong>"Explicit Unknown"</strong> means the researchers actively collected the data, but the specific demographic identity of certain participants could not be determined or was declined by the participant. Our dashboard explicitly visually separates these two states.</p>
-                    </div>
-                </details>
-
-                <details class="faq-section">
-                    <summary><h4>What AI Models are being compared in the Beta?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">We are running a 3-way model comparison to evaluate cost, speed, and extraction quality using Anthropic's Claude family:</p>
-                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                            <li><strong>Haiku 4.5:</strong> The fastest and most cost-effective model.</li>
-                            <li><strong>Sonnet 4.6:</strong> The balanced baseline for speed and intelligence.</li>
-                            <li><strong>Opus 4.7:</strong> The highest quality model for complex reasoning and navigating dense clinical methodologies.</li>
-                        </ul>
-                    </div>
-                </details>
-
-                <details class="faq-section">
-                    <summary><h4>How are AI studies identified?</h4></summary>
-                    <div class="faq-answer">
-                        <p class="note">A study is flagged as AI-related if any of its text fields contain one or more keywords associated with artificial intelligence or machine learning. The fields searched are: <strong>brief title</strong>, <strong>primary endpoint</strong>, <strong>conditions</strong>, <strong>primary condition category</strong>, and <strong>secondary condition category</strong>.</p>
-                        <p class="note" style="margin-top: 0.75rem;">The keyword list includes:</p>
-                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
-                            <li>artificial intelligence, machine learning, deep learning</li>
-                            <li>neural network, large language model, LLM</li>
-                            <li>natural language processing, computer vision</li>
-                            <li>reinforcement learning, generative AI, chatbot</li>
-                            <li>predictive algorithm, clinical decision support algorithm</li>
-                            <li>algorithm-based, algorithm-driven, AI-based, AI-driven, AI-powered, ML-based, ML-driven</li>
-                        </ul>
-                        <p class="note" style="margin-top: 0.75rem;">Matching is <strong>case-insensitive</strong> and uses <strong>whole-word boundary</strong> matching to avoid false positives (e.g., "algorithm-based" is matched, but "algorithm" appearing inside "logarithm" is not). This approach is intentionally broad to capture the evolving vocabulary around AI in clinical research, while still being precise enough to avoid spurious matches.</p>
-                    </div>
-                </details>
-
-                <!-- Remaining questions -->
                 <details class="faq-section">
                     <summary><h4>How is Funding Source derived?</h4></summary>
                     <div class="faq-answer">
@@ -961,6 +890,7 @@
                         </ul>
                     </div>
                 </details>
+
                 <details class="faq-section">
                     <summary><h4>How are conditions categorized?</h4></summary>
                     <div class="faq-answer">
@@ -1112,6 +1042,77 @@
                         <p class="note"><strong>Note:</strong> These fields indicate regulatory jurisdiction over the trial itself. They do not mean the FDA has ultimately approved the drug or device for public market availability.</p>
                     </div>
                 </details>
+
+                <h3 style="margin-top: 2rem;">Beta Data Extraction &amp; Curation</h3>
+
+                <details class="faq-section">
+                    <summary><h4>How does the pipeline select which manuscript to download?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">For every trial, the pipeline queries manuscript APIs (EuropePMC, Unpaywall) using the NCT ID and receives a list of candidate papers. Rather than taking the first hit, each candidate is passed through an adjusted scoring function:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Title-Based Penalty:</strong> Candidates whose titles contain tokens like <em>protocol</em>, <em>secondary analysis</em>, <em>retrospective</em>, <em>observational</em>, <em>survey</em>, <em>post-hoc</em>, <em>design</em>, or <em>rationale</em> receive a heavy score deduction &mdash; these are almost never the primary-results paper we want.</li>
+                            <li><strong>Temporal Bonus:</strong> Candidates published 0&ndash;24 months after the trial's <code>primary_completion_date</code> (or <code>completion_date</code> as a fallback) receive a score boost, since primary-results manuscripts typically appear within that window.</li>
+                            <li><strong>Selection:</strong> All candidates are sorted by adjusted score (ties broken by newer publication date) and the highest-scoring paper is chosen as the PDF to download and extract.</li>
+                        </ul>
+                        <p class="note" style="margin-top: 0.5rem;">This replaces the naive "first result wins" heuristic and materially reduces the number of design/protocol papers that leak into the extraction set.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What are the Manuscript Match Tiers?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Because ClinicalTrials.gov does not always explicitly link to published results, our pipeline uses a 3-tier system to find manuscripts:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Tier 1 (Explicit Match):</strong> The manuscript explicitly contains the NCT ID. However, this still requires curation! Researchers often link secondary analyses, protocols, or observational spin-offs to their primary NCT ID. While the link is explicit, the paper might not contain the primary trial demographics.</li>
+                            <li><strong>Tier 2 (High-Confidence Fuzzy Match):</strong> The pipeline found a paper where the authors, publication year, and keywords strongly align with the trial's metadata.</li>
+                            <li><strong>Tier 3 (Low-Confidence Fuzzy Match):</strong> A broad keyword search match. These require strict manual curation, as the search may pull in loosely related papers.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How does the Discrepancy Engine work?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">AI models can hallucinate or extract data from improperly matched papers (e.g., a Tier 1 protocol paper instead of the results paper). To ensure data integrity, our engine compares every LLM-extracted demographic value against the original ClinicalTrials.gov API baseline. It flags fields as a <strong>Match</strong>, an <strong>Addition</strong> (finding data the registry missed), or a <strong>Conflict</strong> (contradicting the registry). Curators must manually verify Additions and Conflicts.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What is the difference between "Not Reported" and "Explicit Unknown"?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">In clinical trial demographics, missing data and "unknown" classifications are fundamentally different categories. <strong>"Not Reported"</strong> means the trial investigators completely failed to mention the demographic variable. <strong>"Explicit Unknown"</strong> means the researchers actively collected the data, but the specific demographic identity of certain participants could not be determined or was declined by the participant. Our dashboard explicitly visually separates these two states.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What AI Models are being compared in the Beta?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">We are running a 3-way model comparison to evaluate cost, speed, and extraction quality using Anthropic's Claude family:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>Haiku 4.5:</strong> The fastest and most cost-effective model.</li>
+                            <li><strong>Sonnet 4.6:</strong> The balanced baseline for speed and intelligence.</li>
+                            <li><strong>Opus 4.7:</strong> The highest quality model for complex reasoning and navigating dense clinical methodologies.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How are AI studies identified?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">A study is flagged as AI-related if any of its text fields contain one or more keywords associated with artificial intelligence or machine learning. The fields searched are: <strong>brief title</strong>, <strong>primary endpoint</strong>, <strong>conditions</strong>, <strong>primary condition category</strong>, and <strong>secondary condition category</strong>.</p>
+                        <p class="note" style="margin-top: 0.75rem;">The keyword list includes:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li>artificial intelligence, machine learning, deep learning</li>
+                            <li>neural network, large language model, LLM</li>
+                            <li>natural language processing, computer vision</li>
+                            <li>reinforcement learning, generative AI, chatbot</li>
+                            <li>predictive algorithm, clinical decision support algorithm</li>
+                            <li>algorithm-based, algorithm-driven, AI-based, AI-driven, AI-powered, ML-based, ML-driven</li>
+                        </ul>
+                        <p class="note" style="margin-top: 0.75rem;">Matching is <strong>case-insensitive</strong> and uses <strong>whole-word boundary</strong> matching to avoid false positives (e.g., "algorithm-based" is matched, but "algorithm" appearing inside "logarithm" is not). This approach is intentionally broad to capture the evolving vocabulary around AI in clinical research, while still being precise enough to avoid spurious matches.</p>
+                    </div>
+                </details>
+
             </div>
         </section>
 
