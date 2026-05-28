@@ -743,7 +743,7 @@ async function initHistorySelector() {
 }
 
 function initTabs() {
-    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction']);
+    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue']);
 
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', async () => {
@@ -763,7 +763,7 @@ function initTabs() {
 
             // Hide filters on FAQ, About, and AI Devices tabs
             const filtersSection = document.getElementById('filters');
-            const noFilterTabs = ['faq', 'about', 'ai-devices', 'fda-extraction', 'lit-extraction'];
+            const noFilterTabs = ['faq', 'about', 'ai-devices', 'fda-extraction', 'lit-extraction', 'approval-queue'];
             if (noFilterTabs.includes(tab.dataset.tab)) {
                 filtersSection.style.display = 'none';
             } else {
@@ -827,6 +827,9 @@ function initTabs() {
             }
             if (tab.dataset.tab === 'lit-extraction') {
                 loadLitExtractionTab();
+            }
+            if (tab.dataset.tab === 'approval-queue') {
+                loadApprovalQueueTab();
             }
         });
     });
@@ -5920,6 +5923,84 @@ function closeExtractionDetails() {
     if (overlay) { overlay.style.display = 'none'; overlay.innerHTML = ''; }
 }
 window.closeExtractionDetails = closeExtractionDetails;
+
+// ---------------------------------------------------------------------------
+// (Beta) Approval Queue — React + Tailwind triage island (lazy-loaded)
+// ---------------------------------------------------------------------------
+// The triage inbox lives in beta/approval-queue.jsx as a self-contained React
+// app. This host page is a no-build static site, so we follow the existing
+// lazy-load pattern (cf. D3 for Geography) and only pull React + Babel +
+// Tailwind from the CDN the first time the tab is opened. Tailwind's preflight
+// reset is disabled *before* its first build and its utilities are scoped to
+// #approval-queue-root via `important`, so the Play CDN can never bleed into or
+// clobber the surrounding vanilla-CSS dashboard.
+let approvalQueueLoaded = false;
+let approvalQueueRoot = null;
+
+function _loadScriptOnce(src, key) {
+    return new Promise((resolve, reject) => {
+        if (document.querySelector(`script[data-aq="${key}"]`)) { resolve(); return; }
+        const s = document.createElement('script');
+        s.src = src;
+        s.async = false; // preserve execution order across chained loads
+        s.dataset.aq = key;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('Failed to load ' + src));
+        document.head.appendChild(s);
+    });
+}
+
+async function loadApprovalQueueTab() {
+    const root = document.getElementById('approval-queue-root');
+    if (!root || approvalQueueLoaded) return;
+    approvalQueueLoaded = true;
+    root.innerHTML = '<p class="note" style="padding:1.5rem;">Loading triage workspace…</p>';
+    try {
+        // 1) Tailwind Play CDN first; disable preflight + scope utilities to the
+        //    island in the onload microtask, which runs before the CDN's first
+        //    (rAF-scheduled) build — so no global CSS reset is ever emitted.
+        if (!window.tailwind) {
+            await _loadScriptOnce('https://cdn.tailwindcss.com', 'tw');
+        }
+        if (window.tailwind) {
+            window.tailwind.config = {
+                important: '#approval-queue-root',
+                corePlugins: { preflight: false },
+            };
+        }
+        // 2) React + ReactDOM (UMD) then Babel-standalone, all from jsDelivr to
+        //    match the dashboard's existing CDN.
+        await _loadScriptOnce('https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js', 'react');
+        await _loadScriptOnce('https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js', 'react-dom');
+        await _loadScriptOnce('https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js', 'babel');
+
+        // 3) Fetch, compile (JSX -> JS), and execute the component module.
+        const src = await fetch('beta/approval-queue.jsx?v=20260528').then(r => {
+            if (!r.ok) throw new Error('approval-queue.jsx → HTTP ' + r.status);
+            return r.text();
+        });
+        const compiled = window.Babel.transform(src, {
+            presets: ['react'],
+            filename: 'approval-queue.jsx',
+        }).code;
+        (0, eval)(compiled); // indirect eval → global scope; defines window.CivicApprovalQueue
+
+        // 4) Mount the React root into the tab container.
+        root.innerHTML = '';
+        approvalQueueRoot = window.CivicApprovalQueue.mount(root, {
+            fdaUrl: 'data/fda_extracted_latest.csv',
+            litUrl: 'data/lit_extracted_latest.csv',
+            reviewers: ['Michael', 'Maryam', 'Agent_v1'],
+        });
+    } catch (err) {
+        console.error('[ApprovalQueue] load failed', err);
+        approvalQueueLoaded = false; // allow a retry on next tab open
+        root.innerHTML = '<div class="note" style="padding:1.5rem;color:#b91c1c;">'
+            + 'Could not load the Approval Queue workspace (' + escapeHtml(err && err.message ? err.message : 'unknown error') + '). '
+            + 'Check your connection and reopen the tab to retry.</div>';
+    }
+}
+window.loadApprovalQueueTab = loadApprovalQueueTab;
 
 // ---------------------------------------------------------------------------
 // Beta extraction — value formatting helpers (shared by FDA + Literature)
