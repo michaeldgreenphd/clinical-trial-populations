@@ -33,10 +33,11 @@ on:
         description: 'Which Gemini model family to use (only applies when ai_provider=vertex_gemini)'
         required: true
         type: choice
-        default: gemini-3-preview
+        default: gemini-3.5
         options:
-          - gemini-2.5-stable
-          - gemini-3-preview
+          - gemini-2.5
+          - gemini-3.0
+          - gemini-3.5
           - N/A - using Claude
 
 jobs:
@@ -50,7 +51,7 @@ jobs:
         run: |
           if [ "${{ inputs.ai_provider }}" = "vertex_gemini" ] && [ "${{ inputs.gemini_version }}" = "N/A - using Claude" ]; then
             echo "::error::Input mismatch: ai_provider='vertex_gemini' requires a real Gemini model family, but gemini_version is set to 'N/A - using Claude'."
-            echo "::error::Pick gemini-2.5-stable or gemini-3-preview for Vertex runs, or switch ai_provider to 'anthropic'."
+            echo "::error::Pick gemini-2.5, gemini-3.0, or gemini-3.5 for Vertex runs, or switch ai_provider to 'anthropic'."
             exit 1
           fi
 

@@ -10,9 +10,9 @@ through three LLMs (small / medium / large tier) to compare extraction
 quality and cost.
 
 Provider routing (selected via AI_PROVIDER env var):
-  - `anthropic`      → Claude Haiku 4.5 / Sonnet 4.6 / Opus 4.7 (default)
-  - `vertex_gemini`  → Gemini 3.1 Flash-Lite / Flash / Pro preview (native
-                       Vertex AI via google-cloud-aiplatform)
+  - `anthropic`      → Claude Haiku 4.5 / Sonnet 4.6 / Opus 4.8 (default)
+  - `vertex_gemini`  → Gemini 2.5 / 3.0 / 3.5 family — Flash-Lite / Flash / Pro
+                       (native Vertex AI via google-cloud-aiplatform)
 
 Filenames are expected to start with the NCT identifier, e.g.
 `NCT06199934.pdf` or `NCT06199934_primary_results.pdf`. Anything that isn't
@@ -119,7 +119,7 @@ TOTAL_STUDIES = 77347
 # Pipeline identifier recorded against every row in data/token_costs.csv.
 PIPELINE_NAME = "trials-lit"
 AI_PROVIDER = os.environ.get("AI_PROVIDER", "anthropic")
-GEMINI_VERSION = os.environ.get("GEMINI_VERSION", "gemini-3-preview")
+GEMINI_VERSION = os.environ.get("GEMINI_VERSION", "gemini-3.5")
 GEMINI_LOCATION = "global"
 
 # Keep per-provider model lists side by side so the active one can be chosen
@@ -128,31 +128,49 @@ GEMINI_LOCATION = "global"
 _ANTHROPIC_MODELS = [
     {"key": "haiku_4_5",  "id": "claude-haiku-4-5-20251001", "label": "Haiku 4.5",  "input_cost_per_m": 1.00,  "output_cost_per_m": 5.00},
     {"key": "sonnet_4_6", "id": "claude-sonnet-4-6",         "label": "Sonnet 4.6", "input_cost_per_m": 3.00,  "output_cost_per_m": 15.00},
-    {"key": "opus_4_7",   "id": "claude-opus-4-7",           "label": "Opus 4.7",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
+    {"key": "opus_4_8",   "id": "claude-opus-4-8",           "label": "Opus 4.8",   "input_cost_per_m": 15.00, "output_cost_per_m": 75.00},
 ]
-# Gemini model families. `gemini-3-preview` uses the 3.x preview models on the
-# global endpoint; `gemini-2.5-stable` falls back to the GA 2.5 family when
-# Preview capacity is exhausted. Note the middle tier ID is strictly
-# `gemini-3-flash-preview` (no `.1`) — the Flash-Lite and Pro tiers keep the
-# `3.1` branding. Standard-tier prices per Vertex AI pricing page
-# (https://cloud.google.com/vertex-ai/generative-ai/pricing).
-# Gemini keys are model-accurate (`gemini_3_flash_lite` rather than the
-# `haiku_4_5` slot-name we use for the Anthropic tier) so a Gemini run's
-# JSON output is unambiguously labelled and can sit next to an Anthropic
-# run's output without being misread as Claude data.
-_GEMINI_3_PREVIEW_MODELS = [
-    {"key": "gemini_3_flash_lite", "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
-    {"key": "gemini_3_flash",      "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
-    {"key": "gemini_3_pro",        "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
-]
-_GEMINI_2_5_STABLE_MODELS = [
+# Gemini model families, selected at import time via the GEMINI_VERSION env
+# var (gemini-2.5 / gemini-3.0 / gemini-3.5; the legacy values
+# gemini-2.5-stable and gemini-3-preview still resolve via
+# _GEMINI_FAMILY_ALIASES). Each family lists Flash-Lite / Flash / Pro tiers.
+# The 3.0 middle tier ID is strictly `gemini-3-flash-preview` (no `.1`) while
+# Flash-Lite and Pro keep the `3.1` branding; 3.5 Flash is GA and 3.5 Pro is
+# preview-only as of May 2026. Standard-tier prices per the Vertex AI pricing
+# page (https://cloud.google.com/vertex-ai/generative-ai/pricing). Gemini keys
+# are model-accurate (`gemini_3_flash_lite` not the `haiku_4_5` slot-name used
+# for the Anthropic tier) so a Gemini run's JSON is never misread as Claude.
+_GEMINI_2_5_MODELS = [
     {"key": "gemini_25_flash_lite", "id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash-Lite", "input_cost_per_m": 0.10, "output_cost_per_m": 0.40},
     {"key": "gemini_25_flash",      "id": "gemini-2.5-flash",      "label": "Gemini 2.5 Flash",      "input_cost_per_m": 0.30, "output_cost_per_m": 2.50},
     {"key": "gemini_25_pro",        "id": "gemini-2.5-pro",        "label": "Gemini 2.5 Pro",        "input_cost_per_m": 1.25, "output_cost_per_m": 10.00},
 ]
-_GEMINI_MODELS = (
-    _GEMINI_2_5_STABLE_MODELS if GEMINI_VERSION == "gemini-2.5-stable"
-    else _GEMINI_3_PREVIEW_MODELS
+# Gemini 3.x line: 3 Flash is preview-only (`gemini-3-flash-preview`, no `.1`);
+# Flash-Lite and Pro carry the 3.1 branding. Prices per the Vertex AI pricing page.
+_GEMINI_3_0_MODELS = [
+    {"key": "gemini_3_flash_lite", "id": "gemini-3.1-flash-lite-preview", "label": "Gemini 3.1 Flash-Lite", "input_cost_per_m": 0.25, "output_cost_per_m": 1.50},
+    {"key": "gemini_3_flash",      "id": "gemini-3-flash-preview",        "label": "Gemini 3 Flash",        "input_cost_per_m": 0.50, "output_cost_per_m": 3.00},
+    {"key": "gemini_3_pro",        "id": "gemini-3.1-pro-preview",        "label": "Gemini 3.1 Pro",        "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
+]
+# Gemini 3.5 line: 3.5 Flash is GA (`gemini-3.5-flash`, announced at Google I/O
+# May 2026; $1.50 in / $9 out). 3.5 Pro is in limited preview as of May 2026 —
+# the `-preview` id should graduate to `gemini-3.5-pro` at GA, and its pricing is
+# unannounced (provisionally mirrors the 3.1 Pro tier).
+_GEMINI_3_5_MODELS = [
+    {"key": "gemini_35_flash", "id": "gemini-3.5-flash",       "label": "Gemini 3.5 Flash", "input_cost_per_m": 1.50, "output_cost_per_m": 9.00},
+    {"key": "gemini_35_pro",   "id": "gemini-3.5-pro-preview", "label": "Gemini 3.5 Pro",   "input_cost_per_m": 2.00, "output_cost_per_m": 12.00},
+]
+# Selectable Gemini families, chosen via the workflow's `gemini_version` input:
+#   gemini-2.5 | gemini-3.0 | gemini-3.5   (default: latest GA family)
+_GEMINI_FAMILIES = {
+    "gemini-2.5": _GEMINI_2_5_MODELS,
+    "gemini-3.0": _GEMINI_3_0_MODELS,
+    "gemini-3.5": _GEMINI_3_5_MODELS,
+}
+# Back-compat: map the previous selector values onto the new family keys.
+_GEMINI_FAMILY_ALIASES = {"gemini-2.5-stable": "gemini-2.5", "gemini-3-preview": "gemini-3.0"}
+_GEMINI_MODELS = _GEMINI_FAMILIES.get(
+    _GEMINI_FAMILY_ALIASES.get(GEMINI_VERSION, GEMINI_VERSION), _GEMINI_3_5_MODELS
 )
 MODELS = _GEMINI_MODELS if AI_PROVIDER == "vertex_gemini" else _ANTHROPIC_MODELS
 

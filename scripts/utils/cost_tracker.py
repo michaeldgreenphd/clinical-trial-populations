@@ -42,6 +42,10 @@ HEADERS = [
 # Gemini 3.1 Preview pricing sourced from the Vertex AI pricing page
 # (https://cloud.google.com/vertex-ai/generative-ai/pricing, Standard tier).
 _PRICING = {
+    # Gemini 3.5: Flash is GA ($1.50 in / $9 out, Google I/O May 2026); 3.5 Pro
+    # pricing is unannounced as of May 2026 and provisionally mirrors 3.1 Pro.
+    "gemini-3.5-flash":      (1.50,  9.00),
+    "gemini-3.5-pro":        (2.00, 12.00),
     "gemini-3.1-flash-lite": (0.25,  1.50),
     "gemini-3.1-flash":      (0.50,  3.00),
     "gemini-3-flash":        (0.50,  3.00),
@@ -51,7 +55,7 @@ _PRICING = {
     "gemini-2.5-pro":        (1.25, 10.00),
     "claude-haiku-4-5":      (1.00,  5.00),
     "claude-sonnet-4-6":     (3.00, 15.00),
-    "claude-opus-4-7":       (5.00, 25.00),
+    "claude-opus-4-8":       (5.00, 25.00),
     "haiku":                 (1.00,  5.00),
     "sonnet":                (3.00, 15.00),
     "opus":                  (5.00, 25.00),

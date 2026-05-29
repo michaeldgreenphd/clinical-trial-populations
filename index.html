@@ -61,6 +61,7 @@
         <button class="tab" data-tab="ai-devices">AI Devices</button>
         <button class="tab" data-tab="fda-extraction">(Beta) AI Demographic Extraction</button>
         <button class="tab" data-tab="lit-extraction">(Beta) Paper Data Extraction</button>
+        <button class="tab" data-tab="approval-queue">(Beta) Approval Queue</button>
     </nav>
 
     <main>
@@ -848,6 +849,15 @@
                         </table>
                     </div>
                 </div>
+            </div>
+        </section>
+
+        <!-- (Beta) Approval Queue Tab — unified triage inbox (React + Tailwind island, lazy-mounted by app.js) -->
+        <section id="approval-queue" class="tab-content">
+            <div class="chart-container">
+                <h2>(Beta) Approval Queue</h2>
+                <p class="note">Unified triage inbox for reviewing AI-extracted FDA demographic and literature/SES records before they reach the public dashboard. Decisions are recorded in a local, in-session ledger — the source extraction files are never modified.</p>
+                <div id="approval-queue-root"></div>
             </div>
         </section>
 
