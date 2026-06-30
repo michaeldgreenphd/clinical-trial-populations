@@ -225,6 +225,12 @@ def extract_gender_data(study: dict) -> Dict:
             "other": 0,
             "unknown": 0,
         },
+        # unknown_explicit / unknown_inferred disaggregate totals["unknown"]
+        # into its two sources (see the denominator-balancing comment below).
+        # totals["unknown"] always equals their sum — current dashboard
+        # display is unaffected; this is purely additive.
+        "unknown_explicit": 0,
+        "unknown_inferred": 0,
         "raw_categories": [],
         "quarantined_labels": [],
         "flags": [],
@@ -294,12 +300,19 @@ def extract_gender_data(study: dict) -> Dict:
 
     # Denominator balancing
     if result["reported"]:
+        # Snapshot the "unknown" total accumulated purely from table rows
+        # (explicit "Unknown" rows, sex_qualified_identity_label routing,
+        # etc.) BEFORE any algorithmic denominator-gap remainder is folded
+        # in. This is the row-sum-only figure a raw extraction (no
+        # denominator inference) would have produced.
+        result["unknown_explicit"] = result["totals"]["unknown"]
         total_participants = get_total_baseline_participants(study, overall_group_id)
         if total_participants is not None and total_participants > 0:
             reported_sum = sum(result["totals"].values())
             remainder = total_participants - reported_sum
             if remainder > 0:
                 result["totals"]["unknown"] += remainder
+                result["unknown_inferred"] = remainder
                 result["flags"].append("denominator_balanced")
 
     result["flags"] = list(set(result["flags"]))

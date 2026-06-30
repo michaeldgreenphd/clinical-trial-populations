@@ -480,6 +480,13 @@ def extract_race_data(study: dict) -> Dict:
             "unknown_not_reported": 0,
             "other": 0
         },
+        # unknown_explicit / unknown_inferred disaggregate
+        # omb_totals["unknown_not_reported"] into its two sources (see the
+        # denominator-balancing comment below). unknown_not_reported always
+        # equals their sum — current dashboard display is unaffected; this
+        # is purely additive.
+        "unknown_explicit": 0,
+        "unknown_inferred": 0,
         "subcategory_totals": {},
         "raw_categories": [],
         "quarantined_labels": [],
@@ -555,9 +562,16 @@ def extract_race_data(study: dict) -> Dict:
     if result["reported"] and total_participants is not None:
         extracted_sum = sum(result["omb_totals"].values())
         if extracted_sum > 0:
+            # Snapshot the "unknown_not_reported" total accumulated purely
+            # from table rows (explicit Unknown rows, ethnicity-only-routed
+            # remainder, etc.) BEFORE the denominator-gap remainder below is
+            # folded in — the row-sum-only figure a raw extraction (no
+            # denominator inference) would have produced.
+            result["unknown_explicit"] = result["omb_totals"]["unknown_not_reported"]
             remainder = total_participants - extracted_sum
             if remainder > 0:
                 result["omb_totals"]["unknown_not_reported"] += remainder
+                result["unknown_inferred"] = remainder
                 result["flags"].append("denominator_balanced")
 
     # All-zero rejection: if every mapped category has 0 participants,
