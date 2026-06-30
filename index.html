@@ -479,6 +479,16 @@
 
         <!-- Geography Tab -->
         <section id="geography" class="tab-content">
+            <!-- Mobile builds load only the lightweight aggregate summary, which
+                 intentionally omits the heavy per-site geography data the map
+                 needs. Shown by renderGeographyDashboard() on mobile instead of
+                 an all-zero dashboard. -->
+            <div id="geo-mobile-notice" style="display:none; text-align:center; padding:2.5rem 1.5rem; max-width:560px; margin:1.5rem auto; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
+                <div style="font-size:2.5rem; line-height:1;">🗺️</div>
+                <h3 style="margin:0.75rem 0 0.5rem;">Geography view is desktop-only</h3>
+                <p class="note" style="margin:0 0 0.5rem;">The interactive map breaks trials down by US state, city, and country using detailed per-site location data that's too large to load on mobile. Civic Sample serves a lightweight aggregate dashboard on phones instead.</p>
+                <p class="note" style="margin:0;">Open this dashboard on a desktop browser to explore the Geography tab.</p>
+            </div>
             <div class="geography-controls">
                 <div class="geography-filter-row">
                     <div class="geography-view-toggle">

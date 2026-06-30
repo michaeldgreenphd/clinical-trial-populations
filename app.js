@@ -5341,6 +5341,24 @@ function renderFdaOversight(filtered) {
  * Main render function for Geography dashboard
  */
 function renderGeographyDashboard() {
+    // Mobile builds load only the pre-aggregated summary, which intentionally
+    // omits the heavy per-site geography payload (study_sites / countries — see
+    // scripts/generate_mobile_data.py). Without it, the site-count cards and the
+    // choropleth would render misleading all-zero values, so surface a clear
+    // desktop-only notice and skip the dashboard render instead.
+    const geoNotice = document.getElementById('geo-mobile-notice');
+    const geoSection = document.getElementById('geography');
+    if (dashboardSummary) {
+        if (geoNotice) geoNotice.style.display = '';
+        if (geoSection) {
+            Array.from(geoSection.children).forEach(child => {
+                if (child !== geoNotice) child.style.display = 'none';
+            });
+        }
+        return;
+    }
+    if (geoNotice) geoNotice.style.display = 'none';
+
     if (!data) return;
 
     // Get filtered data (respects global filters)
