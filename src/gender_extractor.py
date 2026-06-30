@@ -6,7 +6,7 @@ Strictly decoupled from biological sex: Female/Male are NEVER mapped to
 Woman/Man.  Only tables explicitly labeled as "gender" are parsed here.
 """
 from typing import Dict, List, Optional
-from src.utils import clean_demographic_label
+from src.utils import clean_demographic_label, is_sex_qualified_identity_label
 
 # ── Strict standardized target array for gender identity ──
 GENDER_CATEGORIES = ["Woman", "Man", "Non-binary", "Transgender", "Other", "Unknown or Not Reported"]
@@ -37,6 +37,22 @@ _GENDER_LABEL_MAP = {
     "unknown":                  "unknown",
     "not reported":             "unknown",
     "prefer not to say":        "unknown",
+    # Explicit synonyms reconciled against the manuscript's .known_buckets
+    # table (real labels observed in production data) — promoted from the
+    # generic low-confidence catch-all to high-confidence, auditable entries.
+    "not available":            "unknown",
+    "not collected":            "unknown",
+    "not disclosed":            "unknown",
+    "not specified":            "unknown",
+    "unspecified":              "unknown",
+    "de-identified":            "unknown",
+    "missing":                  "unknown",
+    "missing data":             "unknown",
+    "prefer not to answer":     "unknown",
+    "prefer not to disclose":   "unknown",
+    "decline to answer":        "unknown",
+    "declined":                 "unknown",
+    "unknown or not reported":  "unknown",
 }
 
 # Labels that are strictly biological sex — must NEVER be mapped to gender
@@ -45,6 +61,39 @@ _SEX_ONLY_LABELS = {"female", "f", "females", "male", "m", "males", "intersex"}
 GENDER_TABLE_KEYWORDS = ["gender", "gender identity"]
 
 _MEASUREMENT_LABELS = {"count", "number", "n", "total", "value", "mean", "median"}
+
+# Keywords that mark an unmapped label as still-plausibly gender-related
+# (mirrors _PLAUSIBLE_RACE_KEYWORDS in race_extractor.py / _PLAUSIBLE_SEX_KEYWORDS
+# in sex_extractor.py). An unmapped label containing none of these is likely
+# noise rather than genuine gender-reporting data.
+_PLAUSIBLE_GENDER_KEYWORDS = {
+    "gender", "identity", "woman", "women", "man", "men", "boy", "girl",
+    "female", "male", "non-binary", "nonbinary", "non binary", "binary",
+    "transgender", "trans", "cisgender", "cis", "queer", "fluid", "agender",
+    "two-spirit", "two spirit", "unknown", "unreport", "ambig",
+    "prefer not", "declin", "self-describ", "self describ", "self-identif", "self identif",
+    "not report", "not specif", "not disclos", "not avail", "not collect",
+    "not provided", "not sure", "no data", "no response", "did not",
+    "chose not", "no selected", "refus",
+    "undisclosed", "unavailable", "missing", "unspecified", "de-identif",
+    "withheld", "other", "diverse",
+    # Culturally-specific gender-identity terms observed in real survey data —
+    # legitimate reported categories, never noise.
+    "muxe", "mahu", "travesti",
+}
+
+
+def _should_quarantine_gender_label(mapping: Dict) -> bool:
+    """True for an unmapped label with no plausible gender-related keyword.
+
+    Only fires for the generic low-confidence catch-all ("unmapped" flag on
+    an "unknown" category) — the deliberate sex_qualified_identity_label
+    routing decision above is never quarantined.
+    """
+    if mapping.get("category") != "unknown" or "unmapped" not in mapping.get("flags", []):
+        return False
+    label_lower = clean_demographic_label(mapping["original"]).lower()
+    return not any(kw in label_lower for kw in _PLAUSIBLE_GENDER_KEYWORDS)
 
 
 def is_gender_table(title: str) -> bool:
@@ -68,6 +117,14 @@ def map_gender_label(label: str) -> Optional[Dict]:
     # Reject sex-only labels outright
     if label_lower in _SEX_ONLY_LABELS:
         return None
+
+    # Cis/trans + sex-word labels ("Transgender Female", "Cisgender Male")
+    # are ambiguous — route to gender "unknown" rather than guessing they
+    # mean the same thing as "Transgender Woman"/"Cisgender Man" (which stay
+    # on their normal, intentional buckets via _GENDER_LABEL_MAP above).
+    if is_sex_qualified_identity_label(label_lower):
+        return {"category": "unknown", "confidence": "low", "original": label_clean,
+                "flags": ["sex_qualified_identity_label"]}
 
     # Direct mapping
     if label_lower in _GENDER_LABEL_MAP:
@@ -168,7 +225,14 @@ def extract_gender_data(study: dict) -> Dict:
             "other": 0,
             "unknown": 0,
         },
+        # unknown_explicit / unknown_inferred disaggregate totals["unknown"]
+        # into its two sources (see the denominator-balancing comment below).
+        # totals["unknown"] always equals their sum — current dashboard
+        # display is unaffected; this is purely additive.
+        "unknown_explicit": 0,
+        "unknown_inferred": 0,
         "raw_categories": [],
+        "quarantined_labels": [],
         "flags": [],
     }
 
@@ -185,8 +249,16 @@ def extract_gender_data(study: dict) -> Dict:
             )
             if gender_rows:
                 result["reported"] = True
-                result["raw_categories"].extend(gender_rows)
                 for cat in gender_rows:
+                    if _should_quarantine_gender_label(cat):
+                        result["quarantined_labels"].append({
+                            "original": cat["original"],
+                            "count": cat["count"],
+                            "reason": "unmapped_non_gender_label",
+                        })
+                        result["flags"].append("quarantined_label")
+                        continue
+                    result["raw_categories"].append(cat)
                     result["totals"][cat["category"]] += cat["count"]
                     result["flags"].extend(cat["flags"])
                 result["flags"].append("from_combined_table")
@@ -199,8 +271,18 @@ def extract_gender_data(study: dict) -> Dict:
         result["reported"] = True
         categories = extract_gender_from_measure(measure, overall_group_id,
                                                  fallback_denom=total_participants)
-        result["raw_categories"].extend(categories)
         for cat in categories:
+            # Quarantine irrelevant unmapped labels that leaked in via a
+            # gender-titled table (e.g. survey noise unrelated to gender).
+            if _should_quarantine_gender_label(cat):
+                result["quarantined_labels"].append({
+                    "original": cat["original"],
+                    "count": cat["count"],
+                    "reason": "unmapped_non_gender_label",
+                })
+                result["flags"].append("quarantined_label")
+                continue
+            result["raw_categories"].append(cat)
             result["totals"][cat["category"]] += cat["count"]
             result["flags"].extend(cat["flags"])
 
@@ -218,12 +300,19 @@ def extract_gender_data(study: dict) -> Dict:
 
     # Denominator balancing
     if result["reported"]:
+        # Snapshot the "unknown" total accumulated purely from table rows
+        # (explicit "Unknown" rows, sex_qualified_identity_label routing,
+        # etc.) BEFORE any algorithmic denominator-gap remainder is folded
+        # in. This is the row-sum-only figure a raw extraction (no
+        # denominator inference) would have produced.
+        result["unknown_explicit"] = result["totals"]["unknown"]
         total_participants = get_total_baseline_participants(study, overall_group_id)
         if total_participants is not None and total_participants > 0:
             reported_sum = sum(result["totals"].values())
             remainder = total_participants - reported_sum
             if remainder > 0:
                 result["totals"]["unknown"] += remainder
+                result["unknown_inferred"] = remainder
                 result["flags"].append("denominator_balanced")
 
     result["flags"] = list(set(result["flags"]))

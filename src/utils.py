@@ -49,6 +49,39 @@ _PAREN_WRAPPER_RE = re.compile(
 )
 
 
+# Detects labels that pair a cis/trans gender-identity qualifier with a
+# biological-sex word (e.g. "Transgender Female", "Cisgender Male", "Trans
+# Male", "Cis-Female"). These rows are genuine reported data, but they are
+# ambiguous: a "Sex" table row can't tell us whether "Transgender Female"
+# means natal/current biological sex or self-identified gender, and the
+# reverse is true in a "Gender" table. Ported from the bucket-mapping regex
+# in the manuscript's sex/gender parser (canon_bucket()'s ambiguous-bucket
+# rule), which holds these out pending an unresolved mapping decision.
+# Deliberately narrower than the manuscript regex: only the unambiguous
+# biological-sex words "male"/"female" trigger the match — "Transgender
+# Woman"/"Cisgender Man" are NOT flagged, since "woman"/"man" only ever
+# denote gender and those are already well-established, intentional gender
+# identity categories (see GENDER_LABEL_MAP in gender_extractor.py).
+_SEX_QUALIFIED_IDENTITY_RE = re.compile(
+    r"(cis|trans)(?:-|\s)?(?:gender)?.*\b(male|female)\b"
+    r"|\b(male|female)\b.*(cis|trans)(?:-|\s)?(?:gender)?",
+    re.IGNORECASE,
+)
+
+
+def is_sex_qualified_identity_label(label: str) -> bool:
+    """True if `label` pairs a cis/trans identity qualifier with a sex word.
+
+    Both the sex and gender extractors route a match to their own "unknown"
+    bucket rather than guessing which taxonomy it belongs to. The original
+    label is always preserved verbatim in raw_categories, so reviewers can
+    still audit and manually re-route it if needed.
+    """
+    if not label:
+        return False
+    return bool(_SEX_QUALIFIED_IDENTITY_RE.search(label))
+
+
 def clean_demographic_label(label: str) -> str:
     """Strip measurement suffixes and wrapper text from demographic labels.
 
