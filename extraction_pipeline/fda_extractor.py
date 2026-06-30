@@ -164,6 +164,12 @@ Your job for every field on the `record_fda_demographics` tool is a two-step cha
 Race counts must be reported as integers using these mutually exclusive buckets that mirror the Civic Trial dashboard:
   white, black, asian, hispanic, native_american, other, unknown.
 
+Sex counts (male, female, unknown) must reflect biological sex only. If a
+cohort breakdown row pairs a gender-identity qualifier with a sex word (e.g.
+"Transgender Female", "Cisgender Male"), it is ambiguous — do NOT add it to
+male or female. Record its count under "unknown" instead, and quote the
+exact row text in `sex_evidence` so a reviewer can see why it landed there.
+
 If an integer is not reported in the text, set it to -1 (do NOT guess).
 If a string is not reported in the text, set it to "Not Reported".
 Do not skip the evidence fields — they are required for downstream auditing.
@@ -207,11 +213,26 @@ FDA_DEMOGRAPHICS_TOOL = {
             },
             "sex": {
                 "type": "object",
+                "description": (
+                    "Biological sex counts only. Rows that pair a gender-"
+                    "identity qualifier with a sex word (e.g. 'Transgender "
+                    "Female', 'Cisgender Male') are ambiguous — count them "
+                    "under 'unknown', not male/female."
+                ),
                 "properties": {
                     "male": {"type": "integer", "description": "Male count, or -1 if not reported."},
                     "female": {"type": "integer", "description": "Female count, or -1 if not reported."},
+                    "unknown": {
+                        "type": "integer",
+                        "description": (
+                            "Count explicitly reported as unknown/not stated, plus any "
+                            "gender-identity-qualified rows (e.g. 'Transgender Female') "
+                            "that can't be cleanly counted as male or female. "
+                            "-1 if not reported."
+                        ),
+                    },
                 },
-                "required": ["male", "female"],
+                "required": ["male", "female", "unknown"],
             },
             "race_evidence": {
                 "type": "string",
