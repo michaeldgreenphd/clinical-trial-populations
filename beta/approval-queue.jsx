@@ -488,7 +488,7 @@
   function TriageCard({ record, onApprove, onReject, canDecide }) {
     const tm = TIER_META[record.tier] || TIER_META[3];
     return (
-      <div className={"overflow-hidden rounded-lg border border-slate-200 border-l-4 bg-white shadow-sm transition hover:shadow-md " + tm.bar}>
+      <div className={"overflow-hidden rounded-lg border border-slate-200 border-l-4 bg-white transition " + tm.bar}>
         <CardHeader record={record} />
         <div className="divide-y divide-slate-100">
           {record.metrics.map((m, i) => <MetricRow key={i} metric={m} />)}
@@ -517,7 +517,7 @@
     const approved = entry.decision_status === "approved";
     const when = new Date(entry.timestamp);
     return (
-      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm">
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           <span className={"flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-bold " + (approved ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700")}>{approved ? "✓" : "✕"}</span>
           <div className="min-w-0">
@@ -543,7 +543,7 @@
     return (
       <label className="flex items-center gap-2 text-sm">
         <span className="font-medium text-slate-600">Reviewer</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-800 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500">
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm font-semibold text-slate-800 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500">
           {reviewers.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
       </label>
@@ -554,7 +554,7 @@
     return (
       <label className="flex items-center gap-1.5 text-xs">
         <span className="font-medium uppercase tracking-wide text-slate-400">{label}</span>
-        <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500">
+        <select value={value} onChange={(e) => onChange(e.target.value)} className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-700 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500">
           {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </label>

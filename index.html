@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="styles.css?v=20260401">
     <!-- Non-render-blocking font loading -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Lora:wght@400;500;600;700&display=swap"></noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap"></noscript>
     <!-- Chart.js loaded defer: non-render-blocking, executes in order before DOMContentLoaded -->
     <script defer src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
@@ -68,7 +68,7 @@
         <section id="filters">
             <!-- Primary filters — always visible -->
             <div class="filter-row">
-                <div class="filter-group">
+                <div class="filter-group filter-group--range">
                     <label for="year-range">Year Range <span class="filter-hint">(Results Posted Date)</span></label>
                     <div class="dual-range-container">
                         <div class="dual-range-track">
@@ -894,7 +894,7 @@
                 <details class="faq-section">
                     <summary><h4>Is this work currently funded?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">No, but we are open to conversations about supporting this work. Shoot us an email <a href="mailto:info@civicsample.com">info@civicsample.com</a></p>
+                        <p class="note">We received an API credit grant through Anthropic PBC in May 2026. So far the elements of this initiative that the API credits will enhance have not been implemented, but we expect to begin to roll them out in late July 2026. We are open to conversations about supporting this work in other ways alongside suggestions you have for our approach. Shoot us an email <a href="mailto:info@civicsample.com">info@civicsample.com</a></p>
                     </div>
                 </details>
 
@@ -1172,7 +1172,7 @@
 
     <footer>
         <p>Data source: <a href="https://clinicaltrials.gov">ClinicalTrials.gov</a></p>
-        <p>Methodology based on: <a href="https://www.medrxiv.org/content/10.1101/2025.07.21.25331865v1" target="_blank">Aziz et al. Racial and Ethnic Diversity in Clinical Studies, 2009-2024.</a></p>
+        <p>Methodology based on: <a href="https://bmjopenquality.bmj.com/content/15/2/e003801" target="_blank">Aziz et al. Racial and ethnic diversity in clinical studies reported to ClinicalTrials.gov, 2009–2024.</a></p>
     </footer>
 
     <!-- Modal Overlay for Demographic Breakdown -->
