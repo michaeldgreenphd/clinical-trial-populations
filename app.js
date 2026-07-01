@@ -5993,7 +5993,7 @@ async function loadApprovalQueueTab() {
         await _loadScriptOnce('https://cdn.jsdelivr.net/npm/@babel/standalone/babel.min.js', 'babel');
 
         // 3) Fetch, compile (JSX -> JS), and execute the component module.
-        const src = await fetch('beta/approval-queue.jsx?v=20260528').then(r => {
+        const src = await fetch('beta/approval-queue.jsx?v=20260701').then(r => {
             if (!r.ok) throw new Error('approval-queue.jsx → HTTP ' + r.status);
             return r.text();
         });

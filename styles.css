@@ -19,7 +19,7 @@
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, #f8faf9 0%, #e8f0ec 100%);
+    background: var(--background);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -257,6 +257,11 @@ header .last-updated {
     background: var(--background);
 }
 
+.tab:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
 .tab.active {
     background: var(--primary-color);
     color: white;
@@ -425,7 +430,7 @@ main {
     position: absolute;
     top: -30px;
     transform: translateX(-50%);
-    background: #1f2937;
+    background: var(--primary-dark);
     color: #fff;
     font-size: 0.7rem;
     font-weight: 600;
@@ -445,7 +450,7 @@ main {
     transform: translateX(-50%);
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 4px solid #1f2937;
+    border-top: 4px solid var(--primary-dark);
 }
 
 .filter-search {
@@ -1101,7 +1106,7 @@ footer p {
     height: 32px;
     min-width: 32px;
     min-height: 32px;
-    background: linear-gradient(135deg, var(--accent-color) 0%, var(--primary-light) 100%);
+    background: var(--accent-color);
     color: white;
     border: 1.5px solid rgba(27, 67, 50, 0.25);
     border-radius: 8px;
@@ -1126,7 +1131,7 @@ footer p {
 
 .demo-badge:hover {
     transform: translateY(-1px);
-    background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-color) 100%);
+    background: var(--primary-light);
     border-color: rgba(82, 183, 136, 0.5);
 }
 
@@ -1234,7 +1239,7 @@ footer p {
     left: 0;
     bottom: 0;
     height: 3px;
-    background: linear-gradient(90deg, var(--primary-color), #3b82f6);
+    background: var(--accent-color);
     width: calc(var(--percent) * 1%);
     border-radius: 2px;
 }
@@ -1278,7 +1283,7 @@ footer p {
 }
 
 .modal-close-btn:hover {
-    background: #1d4ed8;
+    background: var(--primary-light);
 }
 
 .modal-close-btn:active {
@@ -1318,7 +1323,7 @@ footer p {
 }
 
 .study-details-modal .modal-header {
-    background: linear-gradient(135deg, var(--primary-color), #3b82f6);
+    background: var(--primary-color);
     color: white;
     padding: 1.5rem 2rem;
     border-radius: 8px 8px 0 0;
@@ -1454,7 +1459,7 @@ footer p {
 }
 
 .details-btn:hover {
-    background: #1d4ed8;
+    background: var(--primary-light);
     transform: scale(1.1);
 }
 
@@ -2656,7 +2661,7 @@ footer p {
    Extraction Pipeline Tabs (Beta)
 --------------------------------------------------------------------------- */
 .extraction-cost-banner {
-    background: linear-gradient(135deg, #f0f4f4, #e8eded);
+    background: #f0f4f4;
     border: 1px solid var(--border-color);
     border-left: 4px solid var(--primary-color);
     border-radius: 8px;
@@ -3262,7 +3267,7 @@ footer p {
 }
 
 .password-gate-modal .modal-header {
-    background: linear-gradient(135deg, #1b4332, #2d6a4f);
+    background: var(--primary-color);
     color: white;
     padding: 1.1rem 1.5rem;
     font-weight: 600;
