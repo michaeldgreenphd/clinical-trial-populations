@@ -69,7 +69,7 @@
 }
 
 .loading-text {
-    font-family: 'Lora', Georgia, serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--primary-color);
@@ -164,15 +164,15 @@
 }
 
 body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     background: var(--background);
     color: var(--text-primary);
     line-height: 1.6;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'Lora', Georgia, serif;
-    font-weight: 600;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-weight: 700;
 }
 
 header {
@@ -228,8 +228,12 @@ header .last-updated {
 
 .tabs {
     display: flex;
-    justify-content: center;
+    /* flex-start (not center) so wrapped rows stay left-aligned under the
+       row above instead of each floating independently centered, which
+       looked detached whenever the tabs overflow onto multiple lines. */
+    justify-content: flex-start;
     gap: 0.5rem;
+    row-gap: 0.5rem;
     padding: 1rem;
     background: var(--card-background);
     border-bottom: 1px solid var(--border-color);
@@ -241,7 +245,7 @@ header .last-updated {
     border: none;
     background: transparent;
     cursor: pointer;
-    font-family: 'Lora', Georgia, serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-size: 0.95rem;
     font-weight: 500;
     color: var(--text-secondary);
@@ -268,9 +272,9 @@ main {
 #filters {
     padding: 1rem;
     background: var(--card-background);
+    border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     margin-bottom: 2rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .filter-row {
@@ -289,6 +293,15 @@ main {
     align-items: center;
     gap: 0.5rem;
     position: relative;
+}
+
+/* The year-range slider needs its floating tooltip to have reserved space
+   above the track, which only works cleanly if the label sits on its own
+   line above the control rather than fighting the row's center alignment. */
+.filter-group--range {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
 }
 
 .filter-group label {
@@ -339,7 +352,10 @@ main {
 .dual-range-container {
     display: flex;
     align-items: center;
-    padding-top: 32px;
+    /* Top padding reserves room for the floating tooltip above the track;
+       left/right padding keeps the tooltips (which straddle the 0%/100%
+       edges of the track) from overlapping neighboring content. */
+    padding: 32px 22px 0;
 }
 
 .dual-range-track {
@@ -382,12 +398,11 @@ main {
     border-radius: 50%;
     cursor: pointer;
     pointer-events: all;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
-    transition: box-shadow 0.15s ease, transform 0.15s ease;
+    transition: transform 0.15s ease, border-color 0.15s ease;
 }
 
 .dual-range-input::-webkit-slider-thumb:hover {
-    box-shadow: 0 0 0 5px rgba(82, 183, 136, 0.2);
+    border-color: var(--primary-color);
     transform: scale(1.1);
 }
 
@@ -399,11 +414,10 @@ main {
     border-radius: 50%;
     cursor: pointer;
     pointer-events: all;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
 .dual-range-input::-moz-range-thumb:hover {
-    box-shadow: 0 0 0 5px rgba(82, 183, 136, 0.2);
+    border-color: var(--primary-color);
 }
 
 /* Floating tooltip bubble above each thumb */
@@ -547,9 +561,9 @@ main {
 .stat-card {
     background: var(--card-background);
     padding: 1.75rem 2rem;
+    border: 1px solid var(--border-color);
     border-radius: 0.5rem;
     text-align: center;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
 .stat-card h3 {
@@ -574,8 +588,8 @@ main {
 .chart-container {
     background: var(--card-background);
     padding: 1.75rem 2rem;
+    border: 1px solid var(--border-color);
     border-radius: 0.5rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
     min-width: 0;
     overflow: hidden;
 }
@@ -701,8 +715,7 @@ main {
     color: #fff;
     font-size: 0.85rem;
     cursor: pointer;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    transition: background 0.15s, box-shadow 0.15s, opacity 0.2s;
+    transition: background 0.15s, opacity 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -712,7 +725,6 @@ main {
 .table-scroll-btn:hover {
     background: #245a42;
     opacity: 1;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
 .table-scroll-btn:active {
@@ -811,7 +823,7 @@ main {
     position: sticky;
     top: 0;
     z-index: 10;
-    box-shadow: 0 1px 0 0 rgba(0, 0, 0, 0.05); /* Subtle shadow instead of heavy border */
+    border-bottom: 1px solid var(--border-color);
 }
 
 .studies-table th {
@@ -916,7 +928,6 @@ main {
     color: var(--accent-color);
     font-size: 1.25rem;
     font-weight: 600;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 /* Methodology disclaimer banner */
@@ -1046,7 +1057,6 @@ footer p {
 
     .table-scroll-btn {
         opacity: 0.85;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     }
 
     /* Drag bar is mouse-only; swap its label for a swipe hint on mobile. */
@@ -1098,7 +1108,6 @@ footer p {
     padding: 0;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(27, 67, 50, 0.12);
 }
 
 .demo-badge-check {
@@ -1117,14 +1126,12 @@ footer p {
 
 .demo-badge:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(82, 183, 136, 0.35);
     background: linear-gradient(135deg, var(--accent-light) 0%, var(--accent-color) 100%);
     border-color: rgba(82, 183, 136, 0.5);
 }
 
 .demo-badge:active {
     transform: translateY(0);
-    box-shadow: 0 1px 4px rgba(27, 67, 50, 0.2);
 }
 
 /* Modal overlay */
@@ -1154,12 +1161,12 @@ footer p {
 .breakdown-modal {
     background: white;
     padding: 2rem;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     max-width: 600px;
     width: 90%;
     max-height: 80vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: slideUp 0.3s ease-out;
 }
 
@@ -1301,12 +1308,12 @@ footer p {
 .study-details-modal {
     background: white;
     padding: 0;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     max-width: 900px;
     width: 90%;
     max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
     animation: slideUp 0.3s ease-out;
 }
 
@@ -1449,7 +1456,6 @@ footer p {
 .details-btn:hover {
     background: #1d4ed8;
     transform: scale(1.1);
-    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
 
 .details-btn svg {
@@ -1894,6 +1900,7 @@ footer p {
     width: 150px;
     height: 150px;
     background-color: #d1d5db;
+    border: 1px solid var(--border-color);
     border-radius: 50%;
     margin: 0 auto 1.5rem auto;
 }
@@ -1942,6 +1949,7 @@ footer p {
 .team-photo {
     width: 150px;
     height: 150px;
+    border: 1px solid var(--border-color);
     border-radius: 50%;
     object-fit: cover;
     margin: 0 auto 1.5rem auto;
@@ -1952,9 +1960,9 @@ footer p {
 .geography-controls {
     background: var(--card-background);
     padding: 1.5rem;
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     margin-bottom: 1.5rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .geography-filter-row {
@@ -2004,7 +2012,6 @@ footer p {
     padding: 1.25rem;
     border-radius: 8px;
     text-align: center;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .geography-stats .stat-value {
@@ -2255,13 +2262,11 @@ footer p {
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .reset-zoom-btn:hover {
     background: var(--primary-dark);
     transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .reset-zoom-btn .reset-icon {
@@ -2303,13 +2308,13 @@ footer p {
     background: rgba(0, 0, 0, 0.85);
     color: white;
     padding: 0.6rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
     font-size: 0.85rem;
     pointer-events: none;
     z-index: 1000;
     display: none;
     max-width: 250px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .map-tooltip.visible {
@@ -2743,7 +2748,7 @@ footer p {
 }
 
 .model-card-label {
-    font-family: 'Lora', Georgia, serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     font-weight: 600;
     font-size: 1rem;
 }
@@ -2841,7 +2846,6 @@ footer p {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .model-toggle-btn:focus-visible {
@@ -3180,7 +3184,6 @@ footer p {
     border-radius: 0.5rem;
     font-size: 0.875rem;
     line-height: 1.4;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     animation: toast-in 0.3s ease-out;
     display: flex;
     align-items: flex-start;
@@ -3251,9 +3254,9 @@ footer p {
 
 .password-gate-modal {
     background: white;
+    border: 1px solid var(--border-color);
     border-radius: 10px;
     width: min(420px, 92vw);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
     overflow: hidden;
     animation: slideUp 0.25s ease-out;
 }
@@ -3302,9 +3305,9 @@ footer p {
 }
 
 .password-gate-modal input[type="password"]:focus {
-    outline: none;
     border-color: #2d6a4f;
-    box-shadow: 0 0 0 3px rgba(45, 106, 79, 0.15);
+    outline: 2px solid #2d6a4f;
+    outline-offset: 1px;
 }
 
 .password-gate-error {
