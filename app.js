@@ -22,6 +22,19 @@ const isMobileDevice = (() => {
 // Pre-computed dashboard summary for mobile (set after loading)
 let dashboardSummary = null;
 
+// Chart legends sit to the right of the plot on desktop. On narrow phone
+// screens that side column doesn't fit and Chart.js clips the labels at the
+// canvas edge instead of wrapping them, so legends go below the chart there —
+// bottom legends flow items into as many rows as needed. The long
+// "% of Total Enrollment" axis title has the same problem (taller than the
+// mobile plot area), so it gets a compact variant.
+const CHART_LEGEND_POSITION = isMobileDevice ? 'bottom' : 'right';
+const ENROLLMENT_AXIS_TITLE = isMobileDevice ? '% Enrollment' : '% of Total Enrollment';
+// Square charts on mobile: the default 2:1 canvas leaves too little plot
+// height once a bottom legend and rotated year labels take their share.
+// undefined on desktop = Chart.js keeps its per-type default.
+const CHART_ASPECT_RATIO = isMobileDevice ? 1 : undefined;
+
 // ── Snapshot cache: avoids re-downloading previously loaded snapshots ──
 const snapshotCache = new Map(); // key: date string ('latest' | 'YYYY-MM-DD'), value: { data, dateLabel }
 
@@ -2686,6 +2699,7 @@ function renderReportingTrends(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -2748,8 +2762,9 @@ function renderRaceDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             plugins: {
-                legend: { position: 'right' },
+                legend: { position: CHART_LEGEND_POSITION },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -2826,6 +2841,7 @@ function renderRaceTrends(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -2895,6 +2911,7 @@ function renderRaceSubcategories(category) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true
@@ -2940,8 +2957,9 @@ function renderEthnicityDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             plugins: {
-                legend: { position: 'right' },
+                legend: { position: CHART_LEGEND_POSITION },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -2997,6 +3015,7 @@ function renderEthnicityTrends(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3059,6 +3078,7 @@ function renderEthnicitySubcategories(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true
@@ -3119,6 +3139,7 @@ function renderRaceReportedParticipants(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3284,12 +3305,13 @@ function renderRaceFullDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Total Enrollment' }
+                    title: { display: true, text: ENROLLMENT_AXIS_TITLE }
                 },
                 x: {
                     stacked: true,
@@ -3298,7 +3320,7 @@ function renderRaceFullDistribution(filtered) {
             },
             plugins: {
                 legend: {
-                    position: 'right',
+                    position: CHART_LEGEND_POSITION,
                     labels: {
                         usePointStyle: true,
                         padding: 12
@@ -3367,6 +3389,7 @@ function renderEthnicityReportedParticipants(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3503,12 +3526,13 @@ function renderEthnicityFullDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     stacked: true,
                     min: 0,
                     max: 100,
-                    title: { display: true, text: '% of Total Enrollment' }
+                    title: { display: true, text: ENROLLMENT_AXIS_TITLE }
                 },
                 x: {
                     stacked: true,
@@ -3517,7 +3541,7 @@ function renderEthnicityFullDistribution(filtered) {
             },
             plugins: {
                 legend: {
-                    position: 'right',
+                    position: CHART_LEGEND_POSITION,
                     labels: {
                         usePointStyle: true,
                         padding: 12
@@ -3572,8 +3596,9 @@ function renderSexDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             plugins: {
-                legend: { position: 'right' },
+                legend: { position: CHART_LEGEND_POSITION },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -3629,6 +3654,7 @@ function renderSexTrends(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3681,8 +3707,9 @@ function renderGenderDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             plugins: {
-                legend: { position: 'right' },
+                legend: { position: CHART_LEGEND_POSITION },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -3739,6 +3766,7 @@ function renderSexReportedParticipants(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3823,12 +3851,13 @@ function renderSexFullDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of Total Enrollment' } },
+                y: { stacked: true, min: 0, max: 100, title: { display: true, text: ENROLLMENT_AXIS_TITLE } },
                 x: { stacked: true, title: { display: true, text: 'Year' } }
             },
             plugins: {
-                legend: { position: 'right', labels: { usePointStyle: true, padding: 12 } },
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, padding: 12 } },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -3885,6 +3914,7 @@ function renderGenderReportedParticipants(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3976,12 +4006,13 @@ function renderGenderFullDistribution(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, min: 0, max: 100, title: { display: true, text: '% of Total Enrollment' } },
+                y: { stacked: true, min: 0, max: 100, title: { display: true, text: ENROLLMENT_AXIS_TITLE } },
                 x: { stacked: true, title: { display: true, text: 'Year' } }
             },
             plugins: {
-                legend: { position: 'right', labels: { usePointStyle: true, padding: 12 } },
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, padding: 12 } },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -4068,6 +4099,7 @@ function renderGenderTrends(filtered) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     beginAtZero: true,
@@ -5153,8 +5185,9 @@ function renderSiteDistributionChart(classification) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             plugins: {
-                legend: { position: 'right' },
+                legend: { position: CHART_LEGEND_POSITION },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -5218,6 +5251,7 @@ function renderGeoReportingTrendChart(studies) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: {
                     min: 0,
@@ -5323,6 +5357,7 @@ function renderFdaOversight(filtered) {
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
+                aspectRatio: CHART_ASPECT_RATIO,
                 scales: {
                     y: {
                         beginAtZero: true,
@@ -5790,6 +5825,7 @@ function renderAIPanelChart(panelCounts) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             indexAxis: 'y',
             scales: {
                 x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
@@ -5822,6 +5858,7 @@ function renderAITimelineChart(yearCounts) {
         options: {
             responsive: true,
             maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: { beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
                 x: { title: { display: true, text: 'Year' } }
