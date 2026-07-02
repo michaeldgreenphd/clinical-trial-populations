@@ -880,14 +880,30 @@
                 <details class="faq-section">
                     <summary><h4>What led you to do this?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">Many people claim that trials are not diverse. There are also many on-going initiatives to increase diversity in clinical trials. There are not many publicly available tools to assess the progress of those initiatives, or get a holistic view of trial diversity. We thought this would be a great start.</p>
+                        <p class="note">Many people claim that trials are not diverse. There are also many ongoing initiatives to increase diversity in clinical trials. There are not many publicly available tools to assess the progress of those initiatives, or get a holistic view of trial diversity. We thought this would be a great start.</p>
                     </div>
                 </details>
 
                 <details class="faq-section">
                     <summary><h4>Where do you get this data from?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">We used the clinicaltrials.gov API, it is a great resource and should be more widely used. Programs like the Aggregate Analysis of ClinicalTrials.gov (AACT) Database from the clinical trials transformation initiative. The demographic variables we display here are more difficult to parse compared to some of the more standardized variables (e.g. trial phase, total participants, etc.). We designed this dashboard based on our experience parsing some of these sociodemographic characteristics (namely race and ethnicity (published <a href="https://bmjopenquality.bmj.com/content/15/2/e003801">here</a>), and on-going projects examining sex, gender, and geography.</p>
+                        <p class="note">We use the ClinicalTrials.gov API &mdash; it is a great resource and should be more widely used, as should programs like the Aggregate Analysis of ClinicalTrials.gov (AACT) database from the Clinical Trials Transformation Initiative. The demographic variables we display here are more difficult to parse than the more standardized variables (e.g., trial phase, total participants). We designed this dashboard based on our experience parsing these sociodemographic characteristics &mdash; namely race and ethnicity (published <a href="https://bmjopenquality.bmj.com/content/15/2/e003801">here</a>) &mdash; and ongoing projects examining sex, gender, and geography.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>Which studies are included in the dashboard?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">The dashboard covers studies registered on ClinicalTrials.gov that have <strong>posted results</strong>, from the first results postings in 2009 through the present. The Year Range filter is based on the date results were <em>first posted</em>, not on when the study was conducted. By default the dashboard shows interventional studies; the Study Type filter can switch to observational studies or all studies.</p>
+                        <p class="note" style="margin-top: 0.5rem;">The four summary cards on the Overview tab describe the set of studies matching your current filters: the total number of studies, and the share that explicitly reported race data, ethnicity data, or both.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How often is the data updated, and what are snapshots?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">An automated pipeline re-extracts the full dataset from the ClinicalTrials.gov API <strong>weekly</strong> (Sundays at 6&nbsp;AM UTC). The "Last updated" date in the header reflects the most recent extraction.</p>
+                        <p class="note" style="margin-top: 0.5rem;">Each extraction is also archived as a dated <strong>snapshot</strong>. The "View snapshot" selector in the header loads the dashboard exactly as it stood on a past extraction date, which is useful for tracking how reporting evolves over time.</p>
                     </div>
                 </details>
 
@@ -1018,34 +1034,63 @@
                 </details>
 
                 <details class="faq-section">
-                    <summary><h4>How is the "Unknown/Not Reported" category calculated?</h4></summary>
+                    <summary><h4>How is the "Not Reported (Missing)" category calculated?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">In the "Distribution Including Unknowns" charts, the Unknown category is calculated as:</p>
-                        <p><code>Unknown = Total Enrollment - Sum(All Known Categories)</code></p>
-                        <p class="note">This ensures the chart always sums to exactly 100% of total enrollment, providing a complete picture of data completeness.</p>
+                        <p class="note">In the "Full Distribution with Data Quality" charts, the light "Not Reported (Missing)" layer is calculated as:</p>
+                        <p><code>Not Reported = Total Enrollment - Sum(All Reported Categories)</code></p>
+                        <p class="note">"Explicitly Unknown" is different: it is a category sponsors actively reported (see "What is the difference between 'Not Reported' and 'Explicit Unknown'?" below). Together the layers sum to 100% of enrollment, providing a complete picture of data completeness. In rare years where reported counts exceed registered enrollment &mdash; a registry data-quality quirk &mdash; the larger of the two is used as the denominator so percentages never exceed 100%.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How is Geography determined?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Geography comes from each trial's registered <strong>study sites</strong> (the facility city, state, and country listed on ClinicalTrials.gov). Trials are classified as <strong>single-site</strong> or <strong>multi-site</strong>, and as "Location Not Reported" when no sites are listed. The U.S. view aggregates sites by state and by U.S. Census region.</p>
+                        <p class="note" style="margin-top: 0.5rem;">Note that a multi-site trial is counted in <em>every</em> state or country where it has a site, so map and regional totals can exceed the total number of trials.</p>
                     </div>
                 </details>
 
                 <details class="faq-section">
                     <summary><h4>What about searching for specific trials and summarizing the information in other ways?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from clinicaltrials.gov. There is a great connector for ClaudeCode built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
+                        <p class="note">This project is currently focused on demographics surrounding clinical trials. There are other tools that do a great job at searching unstructured data from ClinicalTrials.gov. There is a great connector for Claude Code built by the company deepsense.ai. More information on that connector is <a href="https://claude.com/solutions/healthcare">here</a>.</p>
                     </div>
                 </details>
 
                 <details class="faq-section">
                     <summary><h4>How do you count trial sponsors?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">We take a broad approach to capturing trial involvement. In our "Sponsor" filter, we count an organization if they are listed as either the <strong>Lead Sponsor</strong> or a <strong>Collaborator</strong> in the trial record. This allows us to capture the full ecosystem of organizations supporting a trial, rather than just the primary administrative entity.</p>
+                        <p class="note">Sponsor information appears in three places on the dashboard, and each works slightly differently:</p>
+                        <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                            <li><strong>The Sponsor filter</strong> (filter bar) matches the <strong>lead sponsor's class</strong> as registered on ClinicalTrials.gov: NIH, Industry, Federal (non-NIH), Other, or Network.</li>
+                            <li><strong>Funding Source</strong> (study detail view) is derived from the lead sponsor <em>and</em> collaborators together &mdash; see "How is Funding Source derived?" above.</li>
+                            <li><strong>The sponsor dropdown on the Geography tab</strong> takes a broad approach: an organization is counted if it is listed as either the <strong>Lead Sponsor</strong> or a <strong>Collaborator</strong>, to capture the full ecosystem of organizations supporting a trial rather than just the primary administrative entity.</li>
+                        </ul>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>What race and ethnicity categories are used?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">We standardize to the NIH/OMB reporting categories that sponsors use when posting results to ClinicalTrials.gov. <strong>Race:</strong> American Indian/Alaska Native, Asian, Black/African American, Native Hawaiian/Pacific Islander, White, More than one race, Other, and Unknown/Not Reported. <strong>Ethnicity:</strong> Hispanic/Latino, Not Hispanic/Latino, and Unknown/Not Reported.</p>
+                        <p class="note" style="margin-top: 0.5rem;">Sponsors often report more granular labels (e.g., specific Asian subgroups); where available these are preserved and shown in the subcategory charts on the Race and Ethnicity tabs. All values reflect what sponsors reported to the registry &mdash; we do not infer or impute demographic categories.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>How are Sex and Gender defined on this dashboard?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">They are extracted separately and never cross-mapped. <strong>Sex</strong> refers to biological sex as reported in a trial's baseline characteristics, standardized to Female, Male, and Unknown or Not Reported. <strong>Gender</strong> refers to gender identity, standardized to Woman, Man, Non-binary, Transgender, Other, and Unknown or Not Reported &mdash; and is only parsed from baseline tables explicitly labeled as gender.</p>
+                        <p class="note" style="margin-top: 0.5rem;">Because the pipeline keeps these strictly decoupled (a "Female" label is never counted as "Woman", and vice versa), the Gender tab reflects only trials that genuinely collected gender identity &mdash; which remains rare in the registry.</p>
                     </div>
                 </details>
 
                 <details class="faq-section">
                     <summary><h4>How is time to report calculated?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">Time to report is calculated as the difference in days between when the study results were posted and when the study officially ended.</p>
-                        <p><code>Time to Report = Results Reported Date - Study End Date</code></p>
-                        <p class="note">A positive number (red/orange bar) indicates the results were reported after the study ended. A negative number (blue bar) indicates a positive scenario where results were reported early, before the official study end date.</p>
+                        <p class="note">Time to report is calculated as the difference in days between when the study results were first posted and the study's <strong>primary completion date</strong> (the date the final participant was examined for the primary outcome). If a primary completion date is not available, the overall study completion date is used instead.</p>
+                        <p><code>Time to Report = Results First Posted Date - Primary Completion Date</code></p>
+                        <p class="note">A positive number (red/orange bar) indicates the results were posted after the study's primary completion. A negative number (blue bar) indicates results were posted early, before the primary completion date.</p>
                     </div>
                 </details>
 
@@ -1060,6 +1105,20 @@
                             <li><strong>Non-Regulated / Unflagged:</strong> The trial does not have these specific FDA flags set to true. This bucket contains the majority of studies, including behavioral interventions, surgical technique comparisons, international trials without a U.S. IND, and older legacy trials conducted before these fields were mandated.</li>
                         </ul>
                         <p class="note"><strong>Note:</strong> These fields indicate regulatory jurisdiction over the trial itself. They do not mean the FDA has ultimately approved the drug or device for public market availability.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>Does the dashboard contain any individual participant data?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">No. Everything shown here is built from <strong>aggregate counts</strong> that sponsors post publicly to ClinicalTrials.gov &mdash; for example, the number of participants in each race, ethnicity, sex, or gender category from a trial's baseline characteristics table. The dashboard contains no individual-level or identifiable participant data, and we collect none ourselves.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
+                    <summary><h4>Why does the mobile version show fewer features?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">The full per-study dataset is roughly 136&nbsp;MB compressed &mdash; too heavy for phones. Mobile browsers instead load a small pre-computed summary: the charts show aggregates over the whole dataset (the filters don't apply), the Studies table is limited to the 500 most recently posted studies, and the filter bar and Geography tab (which need the full per-study data) are desktop-only.</p>
                     </div>
                 </details>
 
@@ -1111,7 +1170,7 @@
                         <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
                             <li><strong>Haiku 4.5:</strong> The fastest and most cost-effective model.</li>
                             <li><strong>Sonnet 4.6:</strong> The balanced baseline for speed and intelligence.</li>
-                            <li><strong>Opus 4.7:</strong> The highest quality model for complex reasoning and navigating dense clinical methodologies.</li>
+                            <li><strong>Opus 4.8:</strong> The highest quality model for complex reasoning and navigating dense clinical methodologies.</li>
                         </ul>
                     </div>
                 </details>
