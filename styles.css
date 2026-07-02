@@ -10,6 +10,16 @@
     --text-primary: #212529;
     --text-secondary: #6c757d;
     --border-color: #d8e6e0;
+    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+}
+
+::selection {
+    background: var(--accent-light);
+    color: var(--primary-dark);
 }
 
 /* ===== Loading Overlay ===== */
@@ -69,7 +79,7 @@
 }
 
 .loading-text {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: var(--font-sans);
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--primary-color);
@@ -164,15 +174,18 @@
 }
 
 body {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: var(--font-sans);
     background: var(--background);
     color: var(--text-primary);
     line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
 }
 
 h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: var(--font-sans);
     font-weight: 700;
+    letter-spacing: -0.015em;
 }
 
 header {
@@ -184,17 +197,22 @@ header {
 
 header h1 {
     font-size: 2rem;
+    letter-spacing: -0.02em;
     margin-bottom: 0.5rem;
 }
 
 header .subtitle {
-    opacity: 0.9;
+    opacity: 0.85;
+    font-size: 0.95rem;
 }
 
 header .last-updated {
-    font-size: 0.875rem;
-    opacity: 0.8;
-    margin-top: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+    margin-top: 0.75rem;
 }
 
 .history-selector {
@@ -241,15 +259,15 @@ header .last-updated {
 }
 
 .tab {
-    padding: 0.75rem 1.5rem;
+    padding: 0.65rem 1.25rem;
     border: none;
     background: transparent;
     cursor: pointer;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    font-size: 0.95rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
     font-weight: 500;
     color: var(--text-secondary);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     transition: all 0.2s;
 }
 
@@ -310,6 +328,7 @@ main {
 }
 
 .filter-group label {
+    font-size: 0.875rem;
     font-weight: 500;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -318,10 +337,19 @@ main {
 .filter-group select,
 .filter-group input[type="text"],
 .filter-group input[type="number"] {
-    padding: 0.5rem;
+    padding: 0.5rem 0.625rem;
     border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
-    font-size: 1rem;
+    border-radius: var(--radius-md);
+    background: var(--card-background);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+}
+
+.filter-group select:focus-visible,
+.filter-group input:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
 }
 
 .filter-group input[type="number"] {
@@ -432,8 +460,9 @@ main {
     transform: translateX(-50%);
     background: var(--primary-dark);
     color: #fff;
+    font-family: var(--font-mono);
     font-size: 0.7rem;
-    font-weight: 600;
+    font-weight: 500;
     padding: 3px 7px;
     border-radius: 4px;
     white-space: nowrap;
@@ -477,11 +506,13 @@ main {
 
 .reset-btn {
     padding: 0.5rem 1rem;
-    background: var(--background);
+    background: var(--card-background);
     border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
+    border-radius: var(--radius-md);
     cursor: pointer;
-    font-size: 0.875rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 500;
     color: var(--text-primary);
     transition: all 0.2s;
 }
@@ -494,11 +525,13 @@ main {
 
 .toggle-filters-btn {
     padding: 0.5rem 1rem;
-    background: var(--background);
+    background: var(--card-background);
     border: 1px solid var(--border-color);
-    border-radius: 0.25rem;
+    border-radius: var(--radius-md);
     cursor: pointer;
+    font-family: var(--font-sans);
     font-size: 0.85rem;
+    font-weight: 500;
     color: var(--text-secondary);
     transition: background 0.2s, color 0.2s;
 }
@@ -572,14 +605,20 @@ main {
 }
 
 .stat-card h3 {
-    font-size: 0.875rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
     color: var(--text-secondary);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.625rem;
 }
 
 .stat-value {
-    font-size: 2rem;
+    font-size: 2.25rem;
     font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
     color: var(--primary-color);
 }
 
@@ -605,8 +644,11 @@ main {
 }
 
 .chart-container h3 {
-    margin-bottom: 1rem;
-    font-size: 1.125rem;
+    font-size: 1.0625rem;
+    letter-spacing: -0.01em;
+    padding-bottom: 0.875rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 1.25rem;
 }
 
 .chart-container.full-width {
@@ -642,6 +684,9 @@ main {
 .note {
     color: var(--text-secondary);
     font-style: italic;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-width: 65ch;
     margin-bottom: 1rem;
 }
 
@@ -834,8 +879,11 @@ main {
 .studies-table th {
     padding: 0.75rem 1rem 0.75rem 0.5rem;
     text-align: left;
+    font-size: 0.75rem;
     font-weight: 600;
-    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
     border: none;
     border-bottom: 1px solid #E5E7EB;
     background: white;
@@ -866,6 +914,7 @@ main {
     border: none;
     border-bottom: 1px solid #E5E7EB;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 /* Title column: wrap long study titles */
@@ -920,6 +969,8 @@ main {
 }
 
 .studies-table .nct-link {
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
     color: var(--primary-color);
     text-decoration: none;
     font-weight: 500;
@@ -990,10 +1041,11 @@ main {
 
 footer {
     text-align: center;
-    padding: 2rem;
+    padding: 2.5rem 2rem;
     background: var(--card-background);
     border-top: 1px solid var(--border-color);
     color: var(--text-secondary);
+    font-size: 0.875rem;
 }
 
 footer a {
@@ -2026,9 +2078,13 @@ footer p {
 }
 
 .geography-stats .stat-label {
-    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
     color: var(--text-secondary);
-    margin-top: 0.25rem;
+    margin-top: 0.375rem;
 }
 
 .geography-chart-wide {
@@ -2753,7 +2809,7 @@ footer p {
 }
 
 .model-card-label {
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    font-family: var(--font-sans);
     font-weight: 600;
     font-size: 1rem;
 }
