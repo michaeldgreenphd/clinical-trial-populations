@@ -1273,6 +1273,14 @@ function initTable() {
 function getFilteredData() {
     if (!data) return [];
 
+    // Mobile summary mode: `data` is the pre-trimmed recent-studies list and
+    // the filter controls are disabled. The compact records omit fields the
+    // filters test (e.g. study_type), so running the filter chain below would
+    // wrongly reject every row (the default Study Type of INTERVENTIONAL
+    // matches nothing when study_type is undefined). Return the list as-is;
+    // the table's own search box is applied separately in renderStudiesTable.
+    if (dashboardSummary) return [...data];
+
     const yearStart = parseInt(document.getElementById('year-start')?.value || 2009);
     const yearEnd = parseInt(document.getElementById('year-end')?.value || 2026);
     const studyType = document.getElementById('study-type')?.value || 'all';
