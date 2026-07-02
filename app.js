@@ -400,6 +400,12 @@ function getStudyPediatricStatus(study) {
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
+        // Match chart typography to the page. Chart.js otherwise renders
+        // legends, ticks, and axis titles in its own default font stack.
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            Chart.defaults.color = '#6c757d';
+        }
         updateLoadingProgress(5, 'Preparing dashboard...');
         // Condition ontology is only needed by the desktop filter dropdown.
         // Mobile doesn't render filters, so skip the fetch to save bandwidth.
