@@ -7547,17 +7547,38 @@ function industryFilteredRows() {
     });
 }
 
-function industryTop10() { return industryData.companies.slice(0, industryData.companies.length - 1); }
+// The named-sponsor set the adjusted models use: the top volume-ranked
+// companies. company_n marks the current full-list JSON format; the older
+// cached format carried exactly top-10 + "Other Industry", where slice(0, 10)
+// still lands on the same named set.
+function industryTop10() {
+    const d = industryData;
+    return d.companies.slice(0, d.top_n || 10);
+}
+
+// The sponsor list the dropdown offers under the current Scope: the named
+// top-10, or every industry sponsor in volume order.
+function industryMenuCompanies() {
+    const d = industryData;
+    if (industryScope === 'all' && Array.isArray(d.company_n)) return d.companies;
+    return industryTop10();
+}
 
 function renderIndustrySponsorMenu() {
     const box = document.getElementById('industry-sponsor-options');
     const summary = document.getElementById('industry-sponsor-summary');
     if (!box) return;
-    box.innerHTML = industryTop10().map(sp => `
+    const d = industryData;
+    const listed = industryMenuCompanies();
+    const nFor = i => (Array.isArray(d.company_n) && d.company_n[i] != null)
+        ? `<span class="industry-sponsor-n">n=${d.company_n[i].toLocaleString()}</span>` : '';
+    // The companies list is already volume-ranked descending, so index order
+    // is display order.
+    box.innerHTML = `<div class="industry-sponsor-list">` + listed.map((sp, i) => `
         <label class="industry-sponsor-option">
             <input type="checkbox" value="${escapeHtml(sp)}" ${industrySelected.has(sp) ? 'checked' : ''}>
-            <span>${escapeHtml(sp)}</span>
-        </label>`).join('') + `
+            <span class="industry-sponsor-name">${escapeHtml(sp)}</span>${nFor(i)}
+        </label>`).join('') + `</div>
         <div class="industry-sponsor-menu-actions">
             <button type="button" id="industry-sp-all">All</button>
             <button type="button" id="industry-sp-none">None</button>
@@ -7570,7 +7591,7 @@ function renderIndustrySponsorMenu() {
         });
     });
     box.querySelector('#industry-sp-all').addEventListener('click', () => {
-        industrySelected = new Set(industryTop10()); renderIndustrySponsorMenu(); renderIndustry();
+        industrySelected = new Set(industryMenuCompanies()); renderIndustrySponsorMenu(); renderIndustry();
     });
     box.querySelector('#industry-sp-none').addEventListener('click', () => {
         industrySelected = new Set(); renderIndustrySponsorMenu(); renderIndustry();
@@ -7580,22 +7601,34 @@ function renderIndustrySponsorMenu() {
 
 function updateIndustrySummaryLabel(summary) {
     if (!summary) summary = document.getElementById('industry-sponsor-summary');
-    const n = industrySelected.size, total = industryTop10().length;
-    summary.textContent = n === total ? 'Sponsors: All top 10'
+    const n = industrySelected.size, total = industryMenuCompanies().length;
+    summary.textContent = (industryScope !== 'all' && n === total) ? 'Sponsors: All top 10'
         : n === 0 ? 'Sponsors: none selected'
         : n === 1 ? 'Sponsor: ' + [...industrySelected][0]
-        : `Sponsors: ${n} of ${total}`;
+        : `Sponsors: ${n.toLocaleString()} of ${total.toLocaleString()}`;
+}
+
+// Selected sponsors in volume order, capped so a bulk "All" over thousands of
+// sponsors cannot render an unbounded number of heatmap rows / trend lines.
+const INDUSTRY_RENDER_CAP = 30;
+function industrySelectedOrdered() {
+    const all = industryMenuCompanies().filter(sp => industrySelected.has(sp));
+    return { list: all.slice(0, INDUSTRY_RENDER_CAP), truncated: all.length > INDUSTRY_RENDER_CAP };
 }
 
 function renderIndustryHeatmap(rows) {
     const d = industryData;
     const host = document.getElementById('industry-view-heatmap');
     const conditions = d.heatmap_conditions;
-    const sponsors = industryTop10().filter(sp => industrySelected.has(sp));
+    const topN = d.top_n || 10;
+    const sponsors = industrySelectedOrdered().list;
     if (industryScope === 'all') sponsors.push('Other Industry');
 
     // Pooled per-condition baselines over ALL industry rows in the filter,
     // then sponsor-by-condition medians. Deviations in percentage points.
+    // "Other Industry" stays defined as every trial outside the named top
+    // sponsors (company index >= topN), matching the adjusted models'
+    // reference bucket regardless of the dropdown selection.
     const byCond = {};
     conditions.forEach(c => { byCond[c] = { all: [], bySponsor: {} }; });
     const secName = i => d.secondaries[i];
@@ -7605,6 +7638,9 @@ function renderIndustryHeatmap(rows) {
         byCond[c].all.push(t[1]);
         const sp = d.companies[t[0]];
         (byCond[c].bySponsor[sp] = byCond[c].bySponsor[sp] || []).push(t[1]);
+        if (t[0] >= topN && sp !== 'Other Industry') {
+            (byCond[c].bySponsor['Other Industry'] = byCond[c].bySponsor['Other Industry'] || []).push(t[1]);
+        }
     });
 
     let html = '<div class="industry-heatmap-wrap"><table class="industry-heatmap"><thead><tr><th></th>';
@@ -7639,7 +7675,8 @@ function renderIndustryTrend(rows) {
     const d = industryData;
     const canvas = document.getElementById('industry-trend-canvas');
     if (!canvas || typeof Chart === 'undefined') return;
-    const sponsors = industryTop10().filter(sp => industrySelected.has(sp));
+    const topN = d.top_n || 10;
+    const sponsors = industrySelectedOrdered().list;
     if (industryScope === 'all') sponsors.push('Other Industry');
 
     const years = [...new Set(rows.map(t => t[3]))].sort();
@@ -7650,6 +7687,9 @@ function renderIndustryTrend(rows) {
         (pooled[t[3]] = pooled[t[3]] || []).push(t[1]);
         const sp = d.companies[t[0]];
         if (sp in perSponsor) (perSponsor[sp][t[3]] = perSponsor[sp][t[3]] || []).push(t[1]);
+        if (t[0] >= topN && sp !== 'Other Industry' && ('Other Industry' in perSponsor)) {
+            (perSponsor['Other Industry'][t[3]] = perSponsor['Other Industry'][t[3]] || []).push(t[1]);
+        }
     });
 
     const datasets = sponsors.map((sp, i) => {
@@ -7744,7 +7784,9 @@ function renderIndustry() {
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
     if (meta) {
-        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
+        const trunc = industrySelectedOrdered().truncated
+            ? ` · showing the ${INDUSTRY_RENDER_CAP} highest-volume selected sponsors` : '';
+        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
     }
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
@@ -7815,6 +7857,11 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#industry-scope-toggle .view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             industryScope = btn.dataset.iscope;
+            if (industryScope !== 'all') {
+                const top = new Set(industryTop10());
+                industrySelected = new Set([...industrySelected].filter(sp => top.has(sp)));
+            }
+            renderIndustrySponsorMenu();
             renderIndustry();
         });
     });

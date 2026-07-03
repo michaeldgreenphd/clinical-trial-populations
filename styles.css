@@ -3949,3 +3949,34 @@ footer p {
 .industry-faq .faq-section summary h4 {
     font-size: 0.95rem;
 }
+
+/* — Industry sponsor dropdown: full-list mode — */
+.industry-sponsor-list {
+    max-height: 320px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.industry-sponsor-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.industry-sponsor-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.industry-sponsor-n {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+}
+
+.industry-sponsor-options { min-width: 300px; max-width: 360px; }
