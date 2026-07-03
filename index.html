@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260704">
+    <link rel="stylesheet" href="styles.css?v=20260705">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -871,6 +871,36 @@
             </div>
         </section>
 
+        <!-- (Gated) Industry Sponsor Representation — hidden route: /#industry.
+             Not in the nav; initializes only when the URL hash matches and the
+             session has passed the shared Beta password gate. -->
+        <section id="industry" class="tab-content">
+            <div class="chart-container">
+                <h3>Industry Sponsor Representation</h3>
+                <p class="note">Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated). Percent female is within-trial female / (female + male); explicitly reported "Unknown" counts stay out of the denominator and are never treated as missing. Sponsor assignment follows the AACT lead-sponsor-first contract with industry collaborators as fallback; companies are grouped with the analysis pipeline's canonical map. Gated beta &mdash; descriptive views respond to the global Year Range and Condition filters above; the adjusted differences are model estimates on the full cohort.</p>
+
+                <div class="industry-controls">
+                    <details class="industry-sponsor-menu" id="industry-sponsor-menu">
+                        <summary id="industry-sponsor-summary">Sponsors: All top 10</summary>
+                        <div class="industry-sponsor-options" id="industry-sponsor-options"></div>
+                    </details>
+                    <div class="geography-view-toggle industry-view-toggle" id="industry-view-toggle">
+                        <button type="button" class="view-btn active" data-iview="heatmap">Condition Baseline</button>
+                        <button type="button" class="view-btn" data-iview="trend">Share Over Time</button>
+                        <button type="button" class="view-btn" data-iview="forest">Adjusted Differences</button>
+                    </div>
+                </div>
+                <div id="industry-meta" class="industry-meta"></div>
+
+                <div id="industry-view-heatmap" class="industry-view"></div>
+                <div id="industry-view-trend" class="industry-view" style="display:none">
+                    <div class="industry-canvas-wrap"><canvas id="industry-trend-canvas"></canvas></div>
+                    <p class="industry-footnote">Annual median within-trial percent female by primary completion year, per selected sponsor. Years with fewer than 5 trials for a sponsor are left blank; the dashed grey line is the pooled industry median and the dotted line marks 50% parity. Respects the global Year Range (results posted) and Condition filters.</p>
+                </div>
+                <div id="industry-view-forest" class="industry-view" style="display:none"></div>
+            </div>
+        </section>
+
         <!-- FAQ Tab -->
         <section id="faq" class="tab-content">
             <div class="chart-container">
@@ -1249,6 +1279,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260704"></script>
+    <script defer src="app.js?v=20260705"></script>
 </body>
 </html>
