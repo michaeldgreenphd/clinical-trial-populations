@@ -686,7 +686,6 @@ main {
     font-style: italic;
     font-size: 0.9rem;
     line-height: 1.6;
-    max-width: 65ch;
     margin-bottom: 1rem;
 }
 
@@ -3773,12 +3772,11 @@ footer p {
 .industry-cell-empty { background: var(--card-background); }
 
 /* — Trend — */
-.industry-canvas-wrap { max-width: 980px; margin: 0 auto; }
+.industry-canvas-wrap { width: 100%; }
 
 /* — Forest plot — */
 .industry-forest {
-    max-width: 860px;
-    margin: 0.5rem auto 0;
+    margin-top: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem;
@@ -3851,14 +3849,103 @@ footer p {
 .industry-forest-stats strong { color: var(--text-primary); font-weight: 500; }
 
 .industry-footnote {
-    max-width: 72ch;
     font-size: 0.8rem;
     line-height: 1.55;
     color: var(--text-secondary);
-    margin: 1rem auto 0;
+    margin: 1rem 0 0;
 }
 
 @media (max-width: 700px) {
     .industry-forest-head, .industry-forest-row { grid-template-columns: 110px 1fr; }
     .industry-forest-stats, .industry-forest-head span:last-child { grid-column: 2; text-align: left; }
+}
+
+/* — Industry: demographic tier, role/scope toggles, footnote, FAQ — */
+.industry-demo-nav {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0 0 1rem;
+}
+
+.industry-demo-tab {
+    padding: 0.55rem 1.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+
+.industry-demo-tab.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    font-weight: 600;
+}
+
+.industry-demo-tab:disabled {
+    color: #b3bdb8;
+    border-color: #e8efeb;
+    background: transparent;
+    cursor: not-allowed;
+}
+
+.industry-demo-tab:disabled::after {
+    content: ' soon';
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    vertical-align: 0.12em;
+    margin-left: 0.3rem;
+}
+
+.industry-subtitle { max-width: none; }
+
+.industry-controls-left {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.industry-mini-toggle .view-btn {
+    padding: 0.42rem 0.8rem;
+    font-size: 0.78rem;
+}
+
+.industry-methods-footnote {
+    margin-top: 1.75rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.industry-methods-footnote p {
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+.industry-faq {
+    margin-top: 2rem;
+    padding-top: 0.25rem;
+}
+
+.industry-faq-title {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.industry-faq .faq-section summary h4 {
+    font-size: 0.95rem;
 }

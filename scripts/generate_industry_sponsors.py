@@ -173,13 +173,20 @@ def parse_iso_date(s):
 
 
 def assign_industry_company(rec):
+    """Returns (company, via_lead) or (None, None).
+
+    AACT sponsorCollaboratorsModule contract: the lead sponsor's company when
+    the lead is INDUSTRY (via_lead True), else the alphabetically-first
+    INDUSTRY collaborator (via_lead False - the frontend's "Lead Sponsor
+    Only" role toggle drops these trials).
+    """
     if (rec.get("sponsor_class") or "").upper() == "INDUSTRY" and rec.get("lead_sponsor_name"):
-        return canon_sponsor(rec["lead_sponsor_name"])
+        return canon_sponsor(rec["lead_sponsor_name"]), True
     collabs = [c.get("name") for c in (rec.get("collaborators") or [])
                if (c.get("class") or "").upper() == "INDUSTRY" and c.get("name")]
     if collabs:
-        return min(canon_sponsor(n) for n in collabs)
-    return None
+        return min(canon_sponsor(n) for n in collabs), False
+    return None, None
 
 
 def load_parts(data_dir):
@@ -214,13 +221,14 @@ def build_cohort(records):
         # Mixed-sex proxy: both counts positive (see module docstring).
         if f <= 0 or m <= 0:
             continue
-        company = assign_industry_company(r)
+        company, via_lead = assign_industry_company(r)
         if not company:
             continue
         results = parse_iso_date(r.get("results_date"))
         enrollment = r.get("enrollment")
         rows.append({
             "company": company,
+            "via_lead": bool(via_lead),
             "pf": 100.0 * f / (f + m),
             "results_year": results.year if results else None,
             "pcd_year": pcd.year,
@@ -232,6 +240,12 @@ def build_cohort(records):
             "has_unknown": 1 if (totals.get("unknown") or 0) > 0 else 0,
         })
     return rows
+
+
+def fit_contrast_set(rows, top10):
+    """Per-sponsor adjusted contrasts + the pooled reference fit for a row set."""
+    contrasts = [c for c in (ols_contrast(rows, sp) for sp in top10) if c]
+    return contrasts, pooled_fit(rows, top10)
 
 
 def ols_contrast(rows, sponsor):
@@ -331,9 +345,13 @@ def main():
             sec_counts[r["secondary"]] += 1
     heatmap_conditions = [c for c, _ in sorted(sec_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:12]]
 
-    contrasts = [c for c in (ols_contrast(rows, sp) for sp in top10) if c]
-    pooled = pooled_fit(rows, top10)
+    # Two role modes for the frontend's Role toggle: the full lead-or-
+    # collaborator assignment (default), and the lead-sponsor-only subset.
+    contrasts, pooled = fit_contrast_set(rows, top10)
+    lead_rows = [r for r in rows if r["via_lead"]]
+    contrasts_lead, pooled_lead = fit_contrast_set(lead_rows, top10)
     print(f"Adjusted contrasts fit for {len(contrasts)} sponsors; pooled n={pooled['n']:,}, R2={pooled['r2']}")
+    print(f"Lead-only mode: {len(lead_rows):,} trials; pooled n={pooled_lead['n']:,}, R2={pooled_lead['r2']}")
 
     companies = top10 + ["Other Industry"]
     company_idx = {c: i for i, c in enumerate(companies)}
@@ -343,9 +361,10 @@ def main():
     s_idx = {s: i for i, s in enumerate(secondaries)}
 
     # Compact per-trial rows: [bucket_idx, pf(1dp), results_year, pcd_year,
-    # primary_idx, secondary_idx, has_explicit_unknown]
+    # primary_idx, secondary_idx, has_explicit_unknown, via_lead]
     trials = [[company_idx[r["bucket"]], round(r["pf"], 1), r["results_year"] or 0,
-               r["pcd_year"], p_idx[r["primary"]], s_idx[r["secondary"]], r["has_unknown"]]
+               r["pcd_year"], p_idx[r["primary"]], s_idx[r["secondary"]], r["has_unknown"],
+               1 if r["via_lead"] else 0]
               for r in rows]
 
     out = {
@@ -359,7 +378,9 @@ def main():
         "heatmap_conditions": heatmap_conditions,
         "contrasts": contrasts,
         "pooled": pooled,
-        "trial_fields": ["bucket", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown"],
+        "contrasts_lead": contrasts_lead,
+        "pooled_lead": pooled_lead,
+        "trial_fields": ["bucket", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead"],
         "trials": trials,
     }
     out_path = os.path.join(data_dir, "industry_sponsors.json")
