@@ -686,7 +686,6 @@ main {
     font-style: italic;
     font-size: 0.9rem;
     line-height: 1.6;
-    max-width: 65ch;
     margin-bottom: 1rem;
 }
 
@@ -3773,12 +3772,11 @@ footer p {
 .industry-cell-empty { background: var(--card-background); }
 
 /* — Trend — */
-.industry-canvas-wrap { max-width: 980px; margin: 0 auto; }
+.industry-canvas-wrap { width: 100%; }
 
 /* — Forest plot — */
 .industry-forest {
-    max-width: 860px;
-    margin: 0.5rem auto 0;
+    margin-top: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     padding: 1.25rem 1.5rem;
@@ -3851,11 +3849,10 @@ footer p {
 .industry-forest-stats strong { color: var(--text-primary); font-weight: 500; }
 
 .industry-footnote {
-    max-width: 72ch;
     font-size: 0.8rem;
     line-height: 1.55;
     color: var(--text-secondary);
-    margin: 1rem auto 0;
+    margin: 1rem 0 0;
 }
 
 @media (max-width: 700px) {
@@ -3908,7 +3905,7 @@ footer p {
     margin-left: 0.3rem;
 }
 
-.industry-subtitle { max-width: 78ch; }
+.industry-subtitle { max-width: none; }
 
 .industry-controls-left {
     display: flex;
@@ -3929,7 +3926,6 @@ footer p {
 }
 
 .industry-methods-footnote p {
-    max-width: 82ch;
     font-size: 0.8rem;
     line-height: 1.6;
     color: var(--text-secondary);
