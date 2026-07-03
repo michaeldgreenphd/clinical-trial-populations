@@ -12,10 +12,18 @@ Retention policy:
     apart, walking back from the newest (the newest is always kept).
   - Monthly tier: for months older than the bi-weekly window that are not
     already represented by a kept snapshot, keep that month's latest
-    snapshot.
+    snapshot as an AGGREGATE archive - dashboard-summary.json (and
+    industry_sponsors.json when present) only, with the heavy
+    demographics part files stripped. The dashboard renders these dates
+    from the summary (all charts; filters and the full study table need
+    a full snapshot). Published GitHub Pages sites are capped at ~1 GB,
+    which full monthly archives would exceed within months.
   - Everything else is deleted, and history.json is rewritten to exactly
     the kept dates so the dashboard's "View snapshot" selector never
     offers a date whose files are gone.
+  - Safety: a monthly-tier snapshot is only stripped to summary form if
+    its dashboard-summary.json exists; otherwise its parts are kept and
+    a warning is printed.
 
 Run from the repository root (the weekly extract workflow runs it after
 archiving the new snapshot):  python3 scripts/prune_snapshots.py [--dry-run]
@@ -61,7 +69,7 @@ def compute_keep(dates):
         # latest snapshot of each not-yet-represented month
         if d[:7] not in monthly or parse(d) > parse(monthly[d[:7]]):
             monthly[d[:7]] = d
-    return set(keep) | set(monthly.values())
+    return set(keep), set(monthly.values())
 
 
 def main():
@@ -76,14 +84,29 @@ def main():
             history = json.load(f).get("dates", [])
 
     all_dates = sorted(set(on_disk) | {d for d in history if DATE_RE.match(d)}, key=parse)
-    keep = compute_keep(all_dates)
+    biweekly, monthly = compute_keep(all_dates)
+    keep = biweekly | monthly
 
-    removed = []
+    removed, slimmed = [], []
     for d in on_disk:
         if d not in keep:
             removed.append(d)
             if not dry:
                 shutil.rmtree(os.path.join(SNAPSHOT_DIR, d))
+    for d in sorted(monthly, key=parse):
+        sdir = os.path.join(SNAPSHOT_DIR, d)
+        if not os.path.isdir(sdir):
+            continue
+        parts = [f for f in os.listdir(sdir) if f.startswith("demographics.part")]
+        if not parts:
+            continue  # already summary-only
+        if not os.path.exists(os.path.join(sdir, "dashboard-summary.json")):
+            print(f"  WARNING: {d} has no dashboard-summary.json; keeping its part files")
+            continue
+        slimmed.append(d)
+        if not dry:
+            for f in parts:
+                os.remove(os.path.join(sdir, f))
 
     kept_dates = sorted(d for d in all_dates if d in keep)
     if not dry:
@@ -92,8 +115,10 @@ def main():
             f.write("\n")
 
     print(f"Snapshot retention ({'dry run' if dry else 'applied'}):")
-    print(f"  kept    ({len(kept_dates)}): {', '.join(kept_dates)}")
-    print(f"  removed ({len(removed)}): {', '.join(removed) if removed else '-'}")
+    print(f"  bi-weekly (full)      ({len(biweekly)}): {', '.join(sorted(biweekly, key=parse))}")
+    print(f"  monthly (aggregate)   ({len(monthly)}): {', '.join(sorted(monthly, key=parse)) if monthly else '-'}")
+    print(f"  stripped to aggregate ({len(slimmed)}): {', '.join(slimmed) if slimmed else '-'}")
+    print(f"  removed               ({len(removed)}): {', '.join(removed) if removed else '-'}")
 
 
 if __name__ == "__main__":

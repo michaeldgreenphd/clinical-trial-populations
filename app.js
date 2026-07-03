@@ -585,6 +585,9 @@ async function loadData(date) {
         const cached = snapshotCache.get(cacheKey);
         console.log(`⚡ Snapshot "${cacheKey}" loaded from cache (${cached.data.length} studies)`);
         data = cached.data;
+        // Aggregate-archive snapshots restore their summary; full snapshots
+        // clear any summary left by a previously viewed aggregate archive.
+        if (!isMobileDevice) dashboardSummary = cached.summary || null;
         detailCache = {};
         detailsLoaded = false;
         studiesTabReady = false;
@@ -648,8 +651,11 @@ async function loadData(date) {
             const fullDateLabel = new Date(parts[0].extracted_at).toLocaleDateString() + dateLabel;
             document.getElementById('last-updated').textContent = fullDateLabel;
 
+            // Leaving a previously viewed aggregate archive: back to full mode.
+            if (!isMobileDevice) dashboardSummary = null;
+
             // ── Cache this snapshot for instant re-access ──
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel });
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
@@ -657,6 +663,31 @@ async function loadData(date) {
         } catch (error) {
             console.warn(`✗ ${strategy.name} failed:`, error.message);
             lastError = error;
+        }
+    }
+
+    // ── Aggregate-archive fallback ──
+    // Monthly-tier snapshots are retained as dashboard-summary.json only
+    // (the heavy part files are stripped to keep the published site under
+    // GitHub Pages' size cap). Render them the way mobile renders the live
+    // data: every chart from the pre-computed aggregates, with the recent-
+    // studies list in the table.
+    if (date && date !== 'latest') {
+        try {
+            const resp = await fetch(`snapshots/${date}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
+            if (resp.ok) {
+                const summary = await resp.json();
+                dashboardSummary = summary;
+                data = summary.recentStudies || [];
+                const dateLabel = `${new Date(summary.extracted_at).toLocaleDateString()} (${date} archive · aggregate view)`;
+                document.getElementById('last-updated').textContent = dateLabel;
+                snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary });
+                console.log(`✓ Loaded ${date} as aggregate archive (summary-only snapshot)`);
+                showToast(`${date} is an archived monthly snapshot: charts show its full-dataset aggregates. Filters and the full study table are available on bi-weekly and latest data.`, 'info', 9000);
+                return;
+            }
+        } catch (e) {
+            console.warn('Aggregate archive fallback failed:', e.message);
         }
     }
 

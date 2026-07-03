@@ -1002,7 +1002,7 @@
                 <details class="faq-section">
                     <summary><h4>How far back does the historical snapshot log go?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">Snapshots follow a tiered retention schedule: the <strong>four most recent snapshots at roughly bi-weekly spacing</strong> (covering about the last two months), and beyond that <strong>one snapshot per calendar month</strong>. Every retained snapshot is the complete dataset exactly as extracted on that date &mdash; nothing inside a snapshot is trimmed &mdash; and the live dashboard always reflects the newest weekly extraction regardless of retention.</p>
+                        <p class="note">Snapshots follow a tiered retention schedule: the <strong>four most recent snapshots at roughly bi-weekly spacing</strong> (covering about the last two months) are kept as complete datasets, and beyond that <strong>one snapshot per calendar month</strong> is kept as an aggregate archive &mdash; every chart renders exactly as extracted on that date, while the interactive filters and the full study-level table require a complete (bi-weekly or latest) dataset. The live dashboard always reflects the newest weekly extraction regardless of retention.</p>
                         <p class="note" style="margin-top: 0.5rem;">The pruning runs automatically alongside the weekly extraction, and the "View snapshot" selector lists exactly the retained dates. We keep the log tiered rather than unlimited because each snapshot is roughly 140&nbsp;MB and the dashboard is served as a static site: an unbounded archive makes deployments slow and unreliable long before it adds analytical value. If you need a specific historical extraction that has aged out of the log, <a href="mailto:info@civicsample.com">email us</a> &mdash; full weekly extractions are archived off-site.</p>
                     </div>
                 </details>
@@ -1349,6 +1349,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260708"></script>
+    <script defer src="app.js?v=20260709"></script>
 </body>
 </html>
