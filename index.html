@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260705">
+    <link rel="stylesheet" href="styles.css?v=20260706">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -875,15 +875,34 @@
              Not in the nav; initializes only when the URL hash matches and the
              session has passed the shared Beta password gate. -->
         <section id="industry" class="tab-content">
+            <!-- Demographic tier: which characteristic the sponsor panel reports
+                 on. Sex is live; the rest are placeholders for future data. -->
+            <nav class="industry-demo-nav" aria-label="Demographic characteristic">
+                <button type="button" class="industry-demo-tab active">Sex</button>
+                <button type="button" class="industry-demo-tab" disabled title="Coming soon">Race</button>
+                <button type="button" class="industry-demo-tab" disabled title="Coming soon">Ethnicity</button>
+                <button type="button" class="industry-demo-tab" disabled title="Coming soon">Gender</button>
+            </nav>
+
             <div class="chart-container">
                 <h3>Industry Sponsor Representation</h3>
-                <p class="note">Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated). Percent female is within-trial female / (female + male); explicitly reported "Unknown" counts stay out of the denominator and are never treated as missing. Sponsor assignment follows the AACT lead-sponsor-first contract with industry collaborators as fallback; companies are grouped with the analysis pipeline's canonical map. Gated beta &mdash; descriptive views respond to the global Year Range and Condition filters above; the adjusted differences are model estimates on the full cohort.</p>
+                <p class="note industry-subtitle">Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).</p>
 
                 <div class="industry-controls">
-                    <details class="industry-sponsor-menu" id="industry-sponsor-menu">
-                        <summary id="industry-sponsor-summary">Sponsors: All top 10</summary>
-                        <div class="industry-sponsor-options" id="industry-sponsor-options"></div>
-                    </details>
+                    <div class="industry-controls-left">
+                        <details class="industry-sponsor-menu" id="industry-sponsor-menu">
+                            <summary id="industry-sponsor-summary">Sponsors: All top 10</summary>
+                            <div class="industry-sponsor-options" id="industry-sponsor-options"></div>
+                        </details>
+                        <div class="geography-view-toggle industry-mini-toggle" id="industry-role-toggle" title="Which sponsor role assigns a trial to a company">
+                            <button type="button" class="view-btn active" data-irole="any">Lead &amp; Collaborator</button>
+                            <button type="button" class="view-btn" data-irole="lead">Lead Sponsor Only</button>
+                        </div>
+                        <div class="geography-view-toggle industry-mini-toggle" id="industry-scope-toggle" title="Which sponsor set the views display">
+                            <button type="button" class="view-btn active" data-iscope="top10">Top 10 Sponsors</button>
+                            <button type="button" class="view-btn" data-iscope="all">All Industry Sponsors</button>
+                        </div>
+                    </div>
                     <div class="geography-view-toggle industry-view-toggle" id="industry-view-toggle">
                         <button type="button" class="view-btn active" data-iview="heatmap">Condition Baseline</button>
                         <button type="button" class="view-btn" data-iview="trend">Share Over Time</button>
@@ -898,6 +917,49 @@
                     <p class="industry-footnote">Annual median within-trial percent female by primary completion year, per selected sponsor. Years with fewer than 5 trials for a sponsor are left blank; the dashed grey line is the pooled industry median and the dotted line marks 50% parity. Respects the global Year Range (results posted) and Condition filters.</p>
                 </div>
                 <div id="industry-view-forest" class="industry-view" style="display:none"></div>
+
+                <div class="industry-methods-footnote">
+                    <p>Percent female is within-trial female / (female + male); explicitly reported "Unknown" counts stay out of the denominator and are never treated as missing. Sponsor assignment follows the AACT lead-sponsor-first contract with industry collaborators as fallback (the Role toggle restricts to lead-sponsored trials); companies are grouped with the analysis pipeline's canonical map. Gated beta &mdash; descriptive views respond to the global Year Range and Condition filters above and to the Role and Scope toggles; the adjusted differences are model estimates on the full cohort for the selected Role.</p>
+                </div>
+
+                <div class="industry-faq">
+                    <h4 class="industry-faq-title">Methodology FAQ</h4>
+
+                    <details class="faq-section">
+                        <summary><h4>How are industry sponsors parsed from the registry?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note">Sponsor fields follow the AACT database's extraction contract for ClinicalTrials.gov's <code>sponsorCollaboratorsModule</code>: the lead sponsor maps to role "lead" and each collaborator to role "collaborator", each carrying an agency class (Industry, NIH, Federal, Other, Network) and an organization name. A trial enters this view when its lead sponsor is Industry &mdash; or, failing that, when at least one collaborator is Industry, in which case the alphabetically first industry collaborator is assigned. The "Lead Sponsor Only" toggle drops the collaborator-fallback trials entirely.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>How are subsidiaries mapped to parent companies?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note">Raw sponsor names are grouped with the analysis pipeline's canonical company map: an ordered list of patterns where the first match wins (for example, Wyeth, Hospira, and Seagen fold into Pfizer; Celgene into Bristol-Myers Squibb; Genzyme into Sanofi; Janssen into Johnson &amp; Johnson &mdash; while Genentech, Abbott, and Organon are deliberately kept separate from their affiliates). Names matching no pattern keep their own identity after legal suffixes (Inc, Ltd, GmbH, Pharmaceuticals, and similar) are stripped, so "Acme Pharmaceuticals, Inc." and "Acme Pharma Ltd" count as one sponsor.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>How are non-participant counts (COUNT_OF_UNITS) handled?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note">Some baseline tables count units other than people &mdash; tests, eyes, lesions &mdash; tagged <code>COUNT_OF_UNITS</code> in the registry, and their totals can legitimately exceed enrollment. The percent-female analysis is restricted to participant counts: this dashboard's extractor only converts percentage measures using participant-unit denominators and rejects cluster denominators such as clinics or sites, the same guard the source analysis applies by excluding <code>COUNT_OF_UNITS</code> measures from percent female.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>What do the Role and Scope toggles change?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note"><strong>Role</strong> controls how a trial is attributed to a company: "Lead &amp; Collaborator" (default) uses the lead-first-with-collaborator-fallback assignment above, while "Lead Sponsor Only" keeps only trials whose lead sponsor is the industry company. <strong>Scope</strong> controls which sponsor set the views display: the top-10 named sponsors, or all industry &mdash; which adds the pooled "Other Industry" bucket (every industry trial outside the top 10) as its own row and trend line. The Adjusted Differences view always contrasts each named sponsor against Other Industry, re-fit for the selected Role.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>Why can't the heatmap and trend show every filter combination?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note">Cell and yearly medians are only displayed when enough trials remain: heatmap cells need at least 10 trials (below that the cell shows its n uncolored) and trend points need at least 5 per sponsor-year. Medians on fewer trials are noisier than the differences being read, so small cells are shown as thin data rather than colored as signal.</p>
+                        </div>
+                    </details>
+                </div>
             </div>
         </section>
 
@@ -1279,6 +1341,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260705"></script>
+    <script defer src="app.js?v=20260706"></script>
 </body>
 </html>

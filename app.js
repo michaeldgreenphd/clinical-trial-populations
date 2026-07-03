@@ -7488,6 +7488,8 @@ const INDUSTRY_TREND_MIN_N = 5;    // suppress sponsor-year medians under this n
 let industryData = null;           // parsed industry_sponsors.json
 let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
+let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
+let industryScope = 'top10';   // 'top10' | 'all' = adds the pooled Other Industry layer
 let industryChart = null;
 
 function industryActive() {
@@ -7536,6 +7538,9 @@ function industryFilteredRows() {
     return d.trials.filter(t => {
         const ry = t[2];
         if (ry && (ry < yearStart || ry > yearEnd)) return false;
+        // Role toggle: keep only lead-sponsored trials (t[7] via_lead; the
+        // explicit-0 check tolerates a cached pre-toggle dataset).
+        if (industryRole === 'lead' && t[7] === 0) return false;
         if (priSel !== 'all' && d.primaries[t[4]] !== priSel) return false;
         if (secSel !== 'all' && d.secondaries[t[5]] !== secSel) return false;
         return true;
@@ -7587,6 +7592,7 @@ function renderIndustryHeatmap(rows) {
     const host = document.getElementById('industry-view-heatmap');
     const conditions = d.heatmap_conditions;
     const sponsors = industryTop10().filter(sp => industrySelected.has(sp));
+    if (industryScope === 'all') sponsors.push('Other Industry');
 
     // Pooled per-condition baselines over ALL industry rows in the filter,
     // then sponsor-by-condition medians. Deviations in percentage points.
@@ -7634,6 +7640,7 @@ function renderIndustryTrend(rows) {
     const canvas = document.getElementById('industry-trend-canvas');
     if (!canvas || typeof Chart === 'undefined') return;
     const sponsors = industryTop10().filter(sp => industrySelected.has(sp));
+    if (industryScope === 'all') sponsors.push('Other Industry');
 
     const years = [...new Set(rows.map(t => t[3]))].sort();
     const perSponsor = {};
@@ -7645,16 +7652,19 @@ function renderIndustryTrend(rows) {
         if (sp in perSponsor) (perSponsor[sp][t[3]] = perSponsor[sp][t[3]] || []).push(t[1]);
     });
 
-    const datasets = sponsors.map((sp, i) => ({
-        label: sp,
-        data: years.map(y => {
-            const v = perSponsor[sp][y] || [];
-            return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
-        }),
-        borderColor: INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length],
-        backgroundColor: INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length],
-        spanGaps: false, tension: 0.25, pointRadius: 2, borderWidth: 2
-    }));
+    const datasets = sponsors.map((sp, i) => {
+        const color = sp === 'Other Industry' ? '#8d99ae'
+            : INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length];
+        return {
+            label: sp,
+            data: years.map(y => {
+                const v = perSponsor[sp][y] || [];
+                return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
+            }),
+            borderColor: color, backgroundColor: color,
+            spanGaps: false, tension: 0.25, pointRadius: 2, borderWidth: 2
+        };
+    });
     datasets.push({
         label: 'All industry (pooled)',
         data: years.map(y => {
@@ -7694,7 +7704,12 @@ function renderIndustryTrend(rows) {
 function renderIndustryForest() {
     const d = industryData;
     const host = document.getElementById('industry-view-forest');
-    const contrasts = [...d.contrasts]
+    // Role-matched model set (falls back to the default set on a cached
+    // pre-toggle dataset without the lead-only fits).
+    const leadMode = industryRole === 'lead' && Array.isArray(d.contrasts_lead);
+    const contrastSet = leadMode ? d.contrasts_lead : d.contrasts;
+    const pooled = leadMode ? d.pooled_lead : d.pooled;
+    const contrasts = [...contrastSet]
         .filter(c => industrySelected.has(c.sponsor))
         .sort((a, b) => b.beta - a.beta);
     if (!contrasts.length) { host.innerHTML = '<p class="note">No sponsors selected.</p>'; return; }
@@ -7720,7 +7735,7 @@ function renderIndustryForest() {
         </div>`;
     });
     html += '</div>';
-    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in within-trial percent female vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). <span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more women than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer. Model estimates are computed on the full cohort (n=${d.pooled.n.toLocaleString()}; pooled R&sup2;=${d.pooled.r2}) and do not respond to the filters above.</p>`;
+    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in within-trial percent female vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). <span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more women than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer. Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'} (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2}) and respond to the Role toggle but not to the year/condition filters.</p>`;
     host.innerHTML = html;
 }
 
@@ -7729,7 +7744,7 @@ function renderIndustry() {
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
     if (meta) {
-        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
+        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
     }
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
@@ -7782,6 +7797,24 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#industry-view-toggle .view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             industryView = btn.dataset.iview;
+            renderIndustry();
+        });
+    });
+    // Role toggle: lead & collaborator vs lead sponsor only.
+    document.querySelectorAll('#industry-role-toggle .view-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#industry-role-toggle .view-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            industryRole = btn.dataset.irole;
+            renderIndustry();
+        });
+    });
+    // Scope toggle: top-10 named sponsors vs all industry (adds Other Industry).
+    document.querySelectorAll('#industry-scope-toggle .view-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('#industry-scope-toggle .view-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            industryScope = btn.dataset.iscope;
             renderIndustry();
         });
     });
