@@ -75,13 +75,20 @@ jobs:
           jq --arg d "$DATE" '.dates += [$d] | .dates |= unique' history.json > history.json.tmp
           mv history.json.tmp history.json
 
+          # Prune snapshots to the retention policy (4 bi-weekly, then one
+          # per month) so the published Pages site stays well under the
+          # size range where deploy syncs start timing out. Rewrites
+          # history.json to exactly the retained dates.
+          python3 scripts/prune_snapshots.py
+
           # Clean up source JSON
           rm -f data/demographics.json
           git rm --ignore-unmatch data/demographics.json
 
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/demographics.part*.json.gz data/dashboard-summary.json data/industry_sponsors.json "snapshots/$DATE/" history.json
+          git add data/demographics.part*.json.gz data/dashboard-summary.json data/industry_sponsors.json
+          git add -A snapshots/ history.json
           git commit -m "Update demographics data $DATE" || exit 0
           git push
         env:

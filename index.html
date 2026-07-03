@@ -1000,6 +1000,14 @@
                 </details>
 
                 <details class="faq-section">
+                    <summary><h4>How far back does the historical snapshot log go?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">Snapshots follow a tiered retention schedule: the <strong>four most recent snapshots at roughly bi-weekly spacing</strong> (covering about the last two months), and beyond that <strong>one snapshot per calendar month</strong>. Every retained snapshot is the complete dataset exactly as extracted on that date &mdash; nothing inside a snapshot is trimmed &mdash; and the live dashboard always reflects the newest weekly extraction regardless of retention.</p>
+                        <p class="note" style="margin-top: 0.5rem;">The pruning runs automatically alongside the weekly extraction, and the "View snapshot" selector lists exactly the retained dates. We keep the log tiered rather than unlimited because each snapshot is roughly 140&nbsp;MB and the dashboard is served as a static site: an unbounded archive makes deployments slow and unreliable long before it adds analytical value. If you need a specific historical extraction that has aged out of the log, <a href="mailto:info@civicsample.com">email us</a> &mdash; full weekly extractions are archived off-site.</p>
+                    </div>
+                </details>
+
+                <details class="faq-section">
                     <summary><h4>Is this work currently funded?</h4></summary>
                     <div class="faq-answer">
                         <p class="note">We received an API credit grant through Anthropic PBC in May 2026. So far the elements of this initiative that the API credits will enhance have not been implemented, but we expect to begin to roll them out in late July 2026. We are open to conversations about supporting this work in other ways alongside suggestions you have for our approach. Shoot us an email <a href="mailto:info@civicsample.com">info@civicsample.com</a></p>
