@@ -329,12 +329,20 @@ def main():
     rows = build_cohort(records)
     print(f"Industry mixed-sex, sex-reporting cohort: {len(rows):,} trials")
 
+    # ALL industry sponsors, sorted by eligible-cohort trial volume (ties
+    # alphabetical). The first TOP_N_SPONSORS entries are the named-sponsor
+    # set the adjusted models use; everything below them pools into the
+    # frontend's derived "Other Industry" bucket (company index >= 10).
     counts = defaultdict(int)
     for r in rows:
         counts[r["company"]] += 1
-    top10 = [c for c, _ in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_N_SPONSORS]]
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    companies = [c for c, _ in ranked]
+    company_n = [n for _, n in ranked]
+    top10 = companies[:TOP_N_SPONSORS]
     for r in rows:
         r["bucket"] = r["company"] if r["company"] in top10 else "Other Industry"
+    print(f"Industry sponsors after canonical grouping: {len(companies):,}")
     print("Top 10 industry sponsors:", top10)
 
     # Heatmap condition axis: top secondary categories by cohort volume,
@@ -353,16 +361,17 @@ def main():
     print(f"Adjusted contrasts fit for {len(contrasts)} sponsors; pooled n={pooled['n']:,}, R2={pooled['r2']}")
     print(f"Lead-only mode: {len(lead_rows):,} trials; pooled n={pooled_lead['n']:,}, R2={pooled_lead['r2']}")
 
-    companies = top10 + ["Other Industry"]
     company_idx = {c: i for i, c in enumerate(companies)}
     primaries = sorted({r["primary"] for r in rows})
     secondaries = sorted({r["secondary"] for r in rows})
     p_idx = {p: i for i, p in enumerate(primaries)}
     s_idx = {s: i for i, s in enumerate(secondaries)}
 
-    # Compact per-trial rows: [bucket_idx, pf(1dp), results_year, pcd_year,
-    # primary_idx, secondary_idx, has_explicit_unknown, via_lead]
-    trials = [[company_idx[r["bucket"]], round(r["pf"], 1), r["results_year"] or 0,
+    # Compact per-trial rows: [company_idx, pf(1dp), results_year, pcd_year,
+    # primary_idx, secondary_idx, has_explicit_unknown, via_lead]. company_idx
+    # points at the REAL company in the volume-ranked companies list; indices
+    # >= TOP_N_SPONSORS pool into "Other Industry" on the frontend.
+    trials = [[company_idx[r["company"]], round(r["pf"], 1), r["results_year"] or 0,
                r["pcd_year"], p_idx[r["primary"]], s_idx[r["secondary"]], r["has_unknown"],
                1 if r["via_lead"] else 0]
               for r in rows]
@@ -373,6 +382,8 @@ def main():
         "cohort_n": len(rows),
         "min_cell": MIN_CELL,
         "companies": companies,
+        "company_n": company_n,
+        "top_n": TOP_N_SPONSORS,
         "primaries": primaries,
         "secondaries": secondaries,
         "heatmap_conditions": heatmap_conditions,
@@ -380,7 +391,7 @@ def main():
         "pooled": pooled,
         "contrasts_lead": contrasts_lead,
         "pooled_lead": pooled_lead,
-        "trial_fields": ["bucket", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead"],
+        "trial_fields": ["company", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead"],
         "trials": trials,
     }
     out_path = os.path.join(data_dir, "industry_sponsors.json")
