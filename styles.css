@@ -3606,3 +3606,259 @@ footer p {
     margin-right: 3px;
 }
 
+
+/* ===== (Gated) Industry Sponsor Representation — /#industry ===== */
+/* Flat technical-editorial: hierarchy from spacing and hairlines only. */
+
+.industry-controls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+}
+
+.industry-sponsor-menu {
+    position: relative;
+}
+
+.industry-sponsor-menu summary {
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    padding: 0.5rem 0.875rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    background: var(--card-background);
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.industry-sponsor-menu summary::-webkit-details-marker { display: none; }
+
+.industry-sponsor-menu summary::after {
+    content: ' \25BE';
+    color: var(--text-secondary);
+}
+
+.industry-sponsor-menu[open] summary {
+    border-color: var(--primary-color);
+}
+
+.industry-sponsor-options {
+    position: absolute;
+    z-index: 30;
+    top: calc(100% + 4px);
+    left: 0;
+    min-width: 240px;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.5rem;
+}
+
+.industry-sponsor-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.4rem;
+    font-size: 0.875rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.industry-sponsor-option:hover { background: var(--background); }
+
+.industry-sponsor-option input { accent-color: var(--primary-color); }
+
+.industry-sponsor-menu-actions {
+    display: flex;
+    gap: 0.5rem;
+    border-top: 1px solid var(--border-color);
+    margin-top: 0.4rem;
+    padding-top: 0.5rem;
+}
+
+.industry-sponsor-menu-actions button {
+    flex: 1;
+    padding: 0.3rem 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-background);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    cursor: pointer;
+    color: var(--text-secondary);
+}
+
+.industry-sponsor-menu-actions button:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.industry-meta {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-secondary);
+    margin-bottom: 1.25rem;
+}
+
+/* — Condition-baseline heatmap — */
+.industry-heatmap-wrap {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.industry-heatmap {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 940px;
+    font-size: 0.85rem;
+}
+
+.industry-heatmap th {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    padding: 0.6rem 0.5rem;
+    text-align: center;
+    vertical-align: bottom;
+    background: var(--card-background);
+    border-bottom: 1px solid var(--border-color);
+    line-height: 1.35;
+}
+
+.industry-heatmap tbody th {
+    text-align: left;
+    text-transform: none;
+    letter-spacing: 0;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+    border-bottom: none;
+    padding: 0 0.75rem;
+}
+
+.industry-heatmap-base {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    margin-top: 0.2rem;
+}
+
+.industry-heatmap td {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    padding: 0.85rem 0.4rem;
+    border: 2px solid var(--card-background);
+    color: #2a2a2a;
+    min-width: 62px;
+}
+
+.industry-cell-dark, .industry-heatmap td .industry-cell-dark { color: #fff; }
+
+.industry-cell-thin { color: var(--text-secondary); background: #fafafa; }
+
+.industry-cell-empty { background: var(--card-background); }
+
+/* — Trend — */
+.industry-canvas-wrap { max-width: 980px; margin: 0 auto; }
+
+/* — Forest plot — */
+.industry-forest {
+    max-width: 860px;
+    margin: 0.5rem auto 0;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.5rem;
+}
+
+.industry-forest-head,
+.industry-forest-row {
+    display: grid;
+    grid-template-columns: 190px 1fr 190px;
+    align-items: center;
+    gap: 1rem;
+}
+
+.industry-forest-head {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-secondary);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 0.5rem;
+}
+
+.industry-forest-axis { position: relative; height: 1em; }
+
+.industry-forest-zerolabel { position: absolute; transform: translateX(-50%); }
+
+.industry-forest-row { padding: 0.55rem 0; }
+
+.industry-forest-row + .industry-forest-row { border-top: 1px solid #f0f4f2; }
+
+.industry-forest-name { font-size: 0.9rem; font-weight: 500; }
+
+.industry-forest-plot { position: relative; height: 18px; }
+
+.industry-forest-zero {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    width: 0;
+    border-left: 1px dashed #b9c4be;
+}
+
+.industry-forest-ci {
+    position: absolute;
+    top: 8px;
+    height: 2px;
+    border-radius: 1px;
+}
+
+.industry-forest-dot {
+    position: absolute;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    border: 1.5px solid var(--card-background);
+}
+
+.industry-forest-stats {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.industry-forest-stats strong { color: var(--text-primary); font-weight: 500; }
+
+.industry-footnote {
+    max-width: 72ch;
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--text-secondary);
+    margin: 1rem auto 0;
+}
+
+@media (max-width: 700px) {
+    .industry-forest-head, .industry-forest-row { grid-template-columns: 110px 1fr; }
+    .industry-forest-stats, .industry-forest-head span:last-child { grid-column: 2; text-align: left; }
+}
