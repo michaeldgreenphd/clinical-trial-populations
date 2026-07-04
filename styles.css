@@ -4071,3 +4071,14 @@ footer p {
     color: #fff;
     font-weight: 600;
 }
+
+/* Category swatch inside race/ethnicity chips — same color the main Race
+   and Ethnicity tab charts use for the category. */
+.industry-cat-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.45rem;
+    vertical-align: 0.05em;
+}
