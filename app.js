@@ -7511,9 +7511,10 @@ window.showLitExtractionDetails = showLitExtractionDetails;
 // only initializes behind the shared Beta password gate.
 // ═══════════════════════════════════════════════════════════════════════════
 
-const INDUSTRY_PINK = '#C26C8E';   // above baseline / more women
-const INDUSTRY_BLUE = '#4A7BA6';   // below baseline / fewer women
+const INDUSTRY_PINK = '#C26C8E';   // above baseline / more women (sex tier)
+const INDUSTRY_BLUE = '#4A7BA6';   // below baseline / fewer women (sex tier)
 const INDUSTRY_MID  = '#EBEBEB';   // zero deviation
+const INDUSTRY_GREY = '#6b7280';   // underrepresentation on race/ethnicity tiers
 const INDUSTRY_TREND_MIN_N = 5;    // suppress sponsor-year medians under this n
 
 let industryData = null;           // parsed industry_sponsors.json
@@ -7636,12 +7637,33 @@ function industryHexLerp(a, b, t) {
         .toString(16).padStart(2, '0')).join('');
 }
 
+// The selected category's color from the site-wide palette (COLORS.race /
+// COLORS.ethnicity), so the industry tiers stay in step with the main Race
+// and Ethnicity tabs. null on the Sex tier (pink/blue stays its encoding).
+function industryCatColor() {
+    if (industryDemo === 'sex') return null;
+    return (COLORS[industryDemo] || {})[industryCat[industryDemo]] || null;
+}
+
 // Diverging fill for a deviation in percentage points, clamped to ±15pp
-// (the analysis figure's scale limits).
+// (the analysis figure's scale limits). Sex: pink above / blue below. Race
+// and Ethnicity: the category's palette color grows richer the further the
+// sponsor sits above the benchmark and fades to grey below it.
 function industryDevColor(dev) {
     const t = Math.max(-1, Math.min(1, dev / 15));
+    const cat = industryCatColor();
+    if (cat) {
+        return t >= 0 ? industryHexLerp(INDUSTRY_MID, cat, t)
+                      : industryHexLerp(INDUSTRY_MID, INDUSTRY_GREY, -t);
+    }
     return t >= 0 ? industryHexLerp(INDUSTRY_MID, INDUSTRY_PINK, t)
                   : industryHexLerp(INDUSTRY_MID, INDUSTRY_BLUE, -t);
+}
+
+// White cell text once the fill is dark enough that black would strain.
+function industryDarkText(hex) {
+    const [r, g, b] = hex.match(/\w\w/g).map(h => parseInt(h, 16));
+    return (0.299 * r + 0.587 * g + 0.114 * b) < 150;
 }
 
 function industryMedian(values) {
@@ -7785,8 +7807,8 @@ function renderIndustryHeatmap(rows) {
             const bench = industryBenchmarkFor(base);
             if (vals.length >= d.min_cell && bench !== null) {
                 const dev = industryMedian(vals) - bench;
-                const dark = Math.abs(dev) > 9;
-                html += `<td style="background:${industryDevColor(dev)}" title="${escapeHtml(sp)} — ${escapeHtml(c)}: median ${industryMedian(vals).toFixed(1)}% vs ${bench.toFixed(1)}% benchmark (n=${vals.length})"><span class="${dark ? 'industry-cell-dark' : ''}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}</span></td>`;
+                const bg = industryDevColor(dev);
+                html += `<td style="background:${bg}" title="${escapeHtml(sp)} — ${escapeHtml(c)}: median ${industryMedian(vals).toFixed(1)}% vs ${bench.toFixed(1)}% benchmark (n=${vals.length})"><span class="${industryDarkText(bg) ? 'industry-cell-dark' : ''}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}</span></td>`;
             } else if (vals.length > 0) {
                 html += `<td class="industry-cell-thin" title="Below the ${d.min_cell}-trial threshold">(${vals.length})</td>`;
             } else {
@@ -7805,7 +7827,11 @@ function renderIndustryHeatmap(rows) {
     const condNote = industryDemo === 'sex' && !industrySexSpecific
         ? "Conditions are the cohort's most common categories, excluding sex-specific ones."
         : "Conditions are the cohort's most common categories, including sex-specific ones.";
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; <span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+    const catColor = industryCatColor();
+    const encNote = catColor
+        ? `cells use the category's color from the site-wide ${industryDemo} palette, <span style="color:${catColor}">richer</span> above the benchmark and fading to <span style="color:${INDUSTRY_GREY}">grey</span> below it`
+        : `<span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below`;
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; ${encNote}, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
     host.innerHTML = html;
 }
 
@@ -7856,10 +7882,11 @@ function renderIndustryTrend(rows) {
     });
     if (industryBenchmark === 'census') {
         const cv = industryBenchmarkFor(null);
+        const censusColor = industryCatColor() || '#b9a56b';
         if (typeof cv === 'number') datasets.push({
             label: `Census share (${cv}%)`,
             data: years.map(() => cv),
-            borderColor: '#b9a56b', backgroundColor: '#b9a56b',
+            borderColor: censusColor, backgroundColor: censusColor,
             borderDash: [2, 4], pointRadius: 0, borderWidth: 1.2, order: 98
         });
     }
@@ -7875,7 +7902,7 @@ function renderIndustryTrend(rows) {
     const trendNote = document.getElementById('industry-trend-footnote');
     if (trendNote) {
         const refBit = industryBenchmark === 'census'
-            ? ` and the dotted gold line marks the category's 2020 Census share (${industryBenchmarkFor(null)}%)`
+            ? ` and the dotted line in the category's palette color marks the category's 2020 Census share (${industryBenchmarkFor(null)}%)`
             : industryDemo === 'sex' ? ' and the dotted line marks 50% parity' : '';
         trendNote.textContent = `Annual median within-trial percent ${industryMetricLabel()} by primary completion year, per selected sponsor. Years with fewer than ${INDUSTRY_TREND_MIN_N} trials for a sponsor are left blank; the dashed grey line is the pooled industry median${refBit}. Respects the global Year Range (results posted) and Condition filters.`;
     }
@@ -7934,8 +7961,11 @@ function renderIndustryForest() {
 
     let html = '<div class="industry-forest">';
     html += `<div class="industry-forest-head"><span></span><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span>pp [95% CI]</span></div>`;
+    const fCatColor = industryCatColor();
+    const fPos = fCatColor || INDUSTRY_PINK;
+    const fNeg = fCatColor ? INDUSTRY_GREY : INDUSTRY_BLUE;
     contrasts.forEach(c => {
-        const color = c.beta >= 0 ? INDUSTRY_PINK : INDUSTRY_BLUE;
+        const color = c.beta >= 0 ? fPos : fNeg;
         html += `
         <div class="industry-forest-row">
             <span class="industry-forest-name">${escapeHtml(c.sponsor)}</span>
@@ -7964,7 +7994,10 @@ function renderIndustryForest() {
         groupNoun = `${lb} participants`;
     }
     const pooledNote = pooled ? ` (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2})` : '';
-    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). <span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer. Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
+    const fEncNote = fCatColor
+        ? `Bars in the <span style="color:${fCatColor}">category's palette color</span> mark sponsors enrolling more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_GREY}">grey</span> bars fewer.`
+        : `<span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer.`;
+    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). ${fEncNote} Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
     host.innerHTML = html;
 }
 
@@ -8009,7 +8042,7 @@ function renderIndustryCatRow() {
     if (!cats.length) { row.style.display = 'none'; return; }
     row.style.display = '';
     row.innerHTML = cats.map(c => `
-        <button type="button" class="industry-cat-chip ${industryCat[industryDemo] === c ? 'active' : ''}" data-icat="${escapeHtml(c)}">${escapeHtml(INDUSTRY_CAT_LABELS[c] || c)}</button>`).join('');
+        <button type="button" class="industry-cat-chip ${industryCat[industryDemo] === c ? 'active' : ''}" data-icat="${escapeHtml(c)}"><span class="industry-cat-dot" style="background:${(COLORS[industryDemo] || {})[c] || '#9ca3af'}"></span>${escapeHtml(INDUSTRY_CAT_LABELS[c] || c)}</button>`).join('');
     row.querySelectorAll('.industry-cat-chip').forEach(chip => {
         chip.addEventListener('click', () => {
             industryCat[industryDemo] = chip.dataset.icat;
