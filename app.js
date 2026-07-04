@@ -6766,10 +6766,10 @@ function renderFDAReportingFreq(data) {
     const sesReported = successDocs.filter(d => anyReported(d.models[refModel]?.data?.socioeconomic_status)).length;
 
     const items = [
-        { label: '% Reporting Race', count: raceReported, color: '#2f4f4f' },
-        { label: '% Reporting Ethnicity', count: ethReported, color: '#3d6a6a' },
-        { label: '% Reporting Sex', count: sexReported, color: '#4a7c7c' },
-        { label: '% Reporting SES', count: sesReported, color: '#6aacac' },
+        { label: '% Reporting Race', count: raceReported, color: '#1b4332' },
+        { label: '% Reporting Ethnicity', count: ethReported, color: '#40694f' },
+        { label: '% Reporting Sex', count: sexReported, color: '#52b788' },
+        { label: '% Reporting SES', count: sesReported, color: '#9dbfae' },
     ];
 
     container.innerHTML = items.map(item => {

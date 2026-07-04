@@ -1317,13 +1317,13 @@ footer p {
 .quarantine-section {
     margin-top: 1.5rem;
     padding: 1rem;
-    background: #fef3c7;
-    border: 1px solid #f59e0b;
-    border-radius: 6px;
+    background: transparent;
+    border: 1px solid #cfc09a;
+    border-radius: var(--radius-md);
 }
 
 .quarantine-header {
-    color: #92400e;
+    color: #8a6d3b;
     margin: 0 0 0.5rem 0;
     font-size: 1rem;
 }
@@ -1625,8 +1625,8 @@ footer p {
 }
 
 .modal-note-custom {
-    border-left-color: #f59e0b;
-    background: #fef9c3;
+    border-left-color: #cfc09a;
+    background: transparent;
 }
 
 .modal-subtitle {
@@ -1688,7 +1688,7 @@ footer p {
 .sparkline-bar {
     display: inline-block;
     height: 16px;
-    background: linear-gradient(90deg, #10b981 0%, #f59e0b 50%, #ef4444 100%);
+    background: #9aa5a0;
     border-radius: 2px;
     min-width: 2px;
     max-width: 100px;
@@ -1696,19 +1696,19 @@ footer p {
 }
 
 .sparkline-bar.early {
-    background: #3b82f6; /* Blue for early reporting (negative days) */
+    background: #4A7BA6; /* Blue for early reporting (negative days) */
 }
 
 .sparkline-bar.fast {
-    background: #10b981; /* Green for fast reporting (< 180 days) */
+    background: #52b788; /* Green for fast reporting (< 180 days) */
 }
 
 .sparkline-bar.medium {
-    background: #f59e0b; /* Orange for medium (180-365 days) */
+    background: #b9a56b; /* Gold for medium (180-365 days) */
 }
 
 .sparkline-bar.slow {
-    background: #ef4444; /* Red for slow (> 365 days) */
+    background: #C26C8E; /* Pink for slow (> 365 days) */
 }
 
 .sparkline-value {
@@ -2496,9 +2496,9 @@ footer p {
 }
 
 .close-detail-btn:hover {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #dc2626;
+    background: #f7edf1;
+    border-color: #d9aebf;
+    color: #a34e70;
 }
 
 #state-detail-container {
@@ -2566,25 +2566,29 @@ footer p {
     padding-top: 0.5rem;
 }
 
-/* Geo identification badges */
+/* Geo identification badges — flat bordered, theme families */
 .badge-green {
-    background: #dcfce7;
-    color: #166534;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
 }
 
 .badge-yellow {
-    background: #fef3c7;
-    color: #92400e;
+    background: transparent;
+    border: 1px solid #cfc09a;
+    color: #8a6d3b;
 }
 
 .badge-orange {
-    background: #ffedd5;
-    color: #9a3412;
+    background: transparent;
+    border: 1px solid #d9aebf;
+    color: #a34e70;
 }
 
 .badge-gray {
-    background: #f3f4f6;
-    color: #6b7280;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
 }
 
 /* ===== Geography Tab Responsive Styles ===== */
@@ -2734,10 +2738,9 @@ footer p {
    Extraction Pipeline Tabs (Beta)
 --------------------------------------------------------------------------- */
 .extraction-cost-banner {
-    background: #f0f4f4;
+    background: transparent;
     border: 1px solid var(--border-color);
-    border-left: 4px solid var(--primary-color);
-    border-radius: 8px;
+    border-radius: var(--radius-lg);
     padding: 1.75rem 2rem;
     margin: 1.5rem 0;
 }
@@ -2817,8 +2820,9 @@ footer p {
 }
 
 .model-card-header {
-    background: var(--primary-color);
-    color: white;
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--primary-color);
     padding: 0.75rem 1rem;
     display: flex;
     justify-content: space-between;
@@ -2905,7 +2909,7 @@ footer p {
     cursor: pointer;
     padding: 0.4rem 0.9rem;
     border: 1px solid var(--border-color);
-    border-radius: 999px;
+    border-radius: var(--radius-md);
     background: white;
     color: var(--text-primary, #1f2937);
     font-size: 0.85rem;
@@ -2951,13 +2955,13 @@ footer p {
 }
 
 .sbs-row.sbs-fda {
-    background: #eff6ff;
-    border-left-color: #2563eb;
+    background: #f3f7fa;
+    border-left-color: #4A7BA6;
 }
 
 .sbs-row.sbs-manuscript {
-    background: #f0fdf4;
-    border-left-color: #16a34a;
+    background: #f1f7f3;
+    border-left-color: #52b788;
 }
 
 .sbs-label {
@@ -2965,14 +2969,15 @@ footer p {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #475569;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
 }
 
-.sbs-row.sbs-fda .sbs-label { color: #1d4ed8; }
-.sbs-row.sbs-manuscript .sbs-label { color: #15803d; }
+.sbs-row.sbs-fda .sbs-label { color: #3f6a91; }
+.sbs-row.sbs-manuscript .sbs-label { color: #1b4332; }
 
 .sbs-nomatch {
-    color: #94a3b8;
+    color: #9aa5a0;
     font-style: italic;
     font-size: 0.78rem;
 }
@@ -2987,19 +2992,22 @@ footer p {
 }
 
 .agreement-yes {
-    background: #d4edda;
-    color: #155724;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
 }
 
 .agreement-no {
-    background: #f8d7da;
-    color: #721c24;
+    background: transparent;
+    border: 1px solid #d9aebf;
+    color: #a34e70;
 }
 
 .not-reported-badge {
     display: inline-block;
-    background: #fff3cd;
-    color: #856404;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -3012,8 +3020,9 @@ footer p {
    (orange) apart from "field never extracted" (yellow). */
 .missing-pdf-badge {
     display: inline-block;
-    background: #ffe4d6;
-    color: #9a3412;
+    background: transparent;
+    border: 1px solid #cfc09a;
+    color: #8a6d3b;
     border: 1px solid #fdba74;
     padding: 2px 8px;
     border-radius: 4px;
@@ -3113,8 +3122,9 @@ footer p {
 
 .reported-badge {
     display: inline-block;
-    background: #d4edda;
-    color: #155724;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
     padding: 2px 8px;
     border-radius: 4px;
     font-size: 0.8rem;
@@ -3132,18 +3142,21 @@ footer p {
 }
 
 .status-badge-extracted {
-    background: #d4edda;
-    color: #155724;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
 }
 
 .status-badge-closed {
-    background: #f8d7da;
-    color: #721c24;
+    background: transparent;
+    border: 1px solid #d9aebf;
+    color: #a34e70;
 }
 
 .status-badge-failed {
-    background: #fff3cd;
-    color: #856404;
+    background: transparent;
+    border: 1px solid #cfc09a;
+    color: #8a6d3b;
 }
 
 .bool-yes {
@@ -3444,22 +3457,26 @@ footer p {
 }
 
 .disc-match {
-    background: #d4edda;
-    color: #155724;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
 }
 
 .disc-addition {
-    background: #d1ecf1;
-    color: #0c5460;
+    background: transparent;
+    border: 1px solid #a9c1d6;
+    color: #3f6a91;
 }
 
 .disc-conflict {
-    background: #f8d7da;
-    color: #721c24;
+    background: transparent;
+    border: 1px solid #d9aebf;
+    color: #a34e70;
 }
 
 .disc-missing-pdf {
-    background: #fff3cd;
+    background: transparent;
+    border: 1px solid #cfc09a;
     color: #856404;
 }
 
@@ -3504,23 +3521,23 @@ footer p {
 }
 
 .disc-actions .btn-confirm {
-    background: #d4edda;
-    color: #155724;
-    border-color: #a9d6b5;
+    background: transparent;
+    color: #1b4332;
+    border-color: #9dbfae;
 }
 
 .disc-actions .btn-confirm:hover {
-    background: #a9d6b5;
+    background: #eef4f0;
 }
 
 .disc-actions .btn-deny {
-    background: #f8d7da;
-    color: #721c24;
-    border-color: #e6a6ad;
+    background: transparent;
+    color: #a34e70;
+    border-color: #d9aebf;
 }
 
 .disc-actions .btn-deny:hover {
-    background: #e6a6ad;
+    background: #f7edf1;
 }
 
 .disc-resolution {
@@ -3533,13 +3550,15 @@ footer p {
 }
 
 .disc-resolution-confirmed {
-    background: #d4edda;
-    color: #155724;
+    background: transparent;
+    border: 1px solid #9dbfae;
+    color: #1b4332;
 }
 
 .disc-resolution-denied {
-    background: #e9ecef;
-    color: #495057;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
 }
 
 /* "View Details" button in extraction table row */
