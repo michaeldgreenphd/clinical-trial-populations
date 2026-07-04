@@ -2692,42 +2692,42 @@ footer p {
     text-decoration: underline;
 }
 
-.fda-no-record {
-    color: var(--text-secondary);
-    font-size: 0.85rem;
-    font-style: italic;
-    white-space: nowrap;
-}
-
-/* Summary Document badges (AI Devices table) */
+/* Summary Document badges (AI Devices table) — flat, bordered, no pills. */
 .pdf-badge {
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    line-height: 1.4;
+    padding: 2px 9px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    line-height: 1.5;
     white-space: nowrap;
     text-decoration: none;
-    border: 1px solid transparent;
+    border: 1px solid var(--border-color);
 }
 
 .pdf-badge-available {
-    background: #d4edda;
-    color: #155724;
-    border-color: #c3e6cb;
+    color: var(--primary-color);
+    border-color: #9dbfae;
 }
 
 .pdf-badge-available:hover {
-    background: #c3e6cb;
+    background: #eef4f0;
     text-decoration: none;
 }
 
 .pdf-badge-unavailable {
-    background: #e9ecef;
-    color: #6c757d;
-    border-color: #dee2e6;
+    color: var(--text-secondary);
     cursor: default;
+}
+
+/* Premarket pathway label in the AI Devices table (colored per pathway). */
+.ai-pathway {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    white-space: nowrap;
 }
 
 /* ---------------------------------------------------------------------------

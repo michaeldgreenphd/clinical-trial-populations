@@ -5697,13 +5697,18 @@ function parseCSV(text) {
 function renderAIDevicesTab() {
     if (!aiDevicesData) return;
 
-    // Stats
+    // Stats: the marketing-authorization pathways are the headline. 510(k)
+    // clearance rides substantial equivalence to a predicate; De Novo and PMA
+    // are where novel evidence gets reviewed — a split that frames how much
+    // clinical scrutiny this young category actually receives.
     const statsEl = document.getElementById('ai-devices-stats');
     const panelCounts = {};
     const yearCounts = {};
+    const pathwayCounts = { '510(k)': 0, 'De Novo': 0, 'PMA': 0, 'Other': 0 };
     aiDevicesData.forEach(d => {
         const panel = d['Panel (Lead)'] || 'Unknown';
         panelCounts[panel] = (panelCounts[panel] || 0) + 1;
+        pathwayCounts[aiPathwayOf(d['Submission Number'])] += 1;
 
         const date = d['Date of Final Decision'];
         if (date) {
@@ -5715,20 +5720,38 @@ function renderAIDevicesTab() {
         }
     });
 
-    const topPanel = Object.entries(panelCounts).sort((a, b) => b[1] - a[1])[0];
+    const total = aiDevicesData.length;
+    const pctOf = n => total ? `${(n / total * 100).toFixed(1)}%` : '—';
     statsEl.innerHTML = `
         <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="stat-card"><h3>Total Devices</h3><p class="stat-number">${aiDevicesData.length}</p></div>
-            <div class="stat-card"><h3>Medical Panels</h3><p class="stat-number">${Object.keys(panelCounts).length}</p></div>
-            <div class="stat-card"><h3>Top Panel</h3><p class="stat-number" style="font-size:1.1rem">${topPanel ? topPanel[0] : 'N/A'}</p></div>
+            <div class="stat-card">
+                <h3>Authorized AI/ML Devices</h3>
+                <p class="stat-value">${total.toLocaleString()}</p>
+                <p class="stat-sub">FDA marketing authorization — products, not trials</p>
+            </div>
+            <div class="stat-card">
+                <h3>510(k) Clearances</h3>
+                <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
+                <p class="stat-sub">${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
+            </div>
+            <div class="stat-card">
+                <h3>De Novo Grants</h3>
+                <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
+                <p class="stat-sub">novel devices with no predicate</p>
+            </div>
+            <div class="stat-card">
+                <h3>PMA Approvals</h3>
+                <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
+                <p class="stat-sub">full premarket approval on clinical evidence</p>
+            </div>
         </div>
     `;
 
     // Panel bar chart
     renderAIPanelChart(panelCounts);
 
-    // Timeline chart
-    renderAITimelineChart(yearCounts);
+    // Timeline chart, stacked by authorization pathway
+    renderAITimelineChart();
 
     // Initialize table with pagination
     aiDevicesFiltered = aiDevicesData;
@@ -5759,6 +5782,18 @@ function renderAIDevicesTab() {
             applyAIDevicesView();
         });
     }
+}
+
+// Premarket pathway from the submission-number prefix: K = 510(k) clearance,
+// DEN = De Novo grant, P = PMA approval.
+const AI_PATHWAY_COLORS = { '510(k)': '#4A7BA6', 'De Novo': '#52b788', 'PMA': '#C26C8E', 'Other': '#9aa5a0' };
+
+function aiPathwayOf(submissionNumber) {
+    const sn = (submissionNumber || '').trim().toUpperCase();
+    if (sn.startsWith('DEN')) return 'De Novo';
+    if (sn.startsWith('P')) return 'PMA';
+    if (sn.startsWith('K')) return '510(k)';
+    return 'Other';
 }
 
 function getFDAUrl(submissionNumber) {
@@ -5814,11 +5849,10 @@ function applyAIDevicesView() {
         const subNum = d['Submission Number'] || '';
         const fdaUrl = getFDAUrl(subNum);
         const subCell = fdaUrl
-            ? `<a href="${fdaUrl}" target="_blank" rel="noopener" class="fda-link">${escapeHtml(subNum)}</a>`
+            ? `<a href="${fdaUrl}" target="_blank" rel="noopener" class="fda-link" title="View the FDA premarket record">${escapeHtml(subNum)}</a>`
             : escapeHtml(subNum);
-        const linkCell = fdaUrl
-            ? `<a href="${fdaUrl}" target="_blank" rel="noopener" class="fda-link">View FDA Application</a>`
-            : `<span class="fda-no-record">No premarket notification found</span>`;
+        const pathway = aiPathwayOf(subNum);
+        const pathwayCell = `<span class="ai-pathway" style="color:${AI_PATHWAY_COLORS[pathway]}">${escapeHtml(pathway)}</span>`;
 
         // Summary Document badge. "PDF Available" requires a cached local copy
         // (local_pdf_path !== "Not Found"); the badge then links out to the
@@ -5838,12 +5872,12 @@ function applyAIDevicesView() {
         return `<tr>
             <td>${escapeHtml(d['Date of Final Decision'] || '')}</td>
             <td>${subCell}</td>
+            <td>${pathwayCell}</td>
             <td>${escapeHtml(d['Device'] || '')}</td>
             <td>${escapeHtml(d['Company'] || '')}</td>
             <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
             <td>${escapeHtml(d['Primary Product Code'] || d['Product Code'] || '')}</td>
             <td>${pdfCell}</td>
-            <td>${linkCell}</td>
         </tr>`;
     }).join('');
 
@@ -5907,9 +5941,7 @@ function renderAIPanelChart(panelCounts) {
             datasets: [{
                 label: 'Devices',
                 data: values,
-                backgroundColor: 'rgba(47, 79, 79, 0.7)',
-                borderColor: 'var(--primary-color)',
-                borderWidth: 1
+                backgroundColor: '#1b4332'
             }]
         },
         options: {
@@ -5920,40 +5952,57 @@ function renderAIPanelChart(panelCounts) {
             scales: {
                 x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
             },
-            plugins: { legend: { display: false } }
+            plugins: { legend: { display: false }, datalabels: { display: false } }
         }
     });
 }
 
-function renderAITimelineChart(yearCounts) {
+function renderAITimelineChart() {
     const ctx = document.getElementById('ai-timeline-chart');
-    if (!ctx) return;
+    if (!ctx || !aiDevicesData) return;
 
-    const years = Object.keys(yearCounts).sort();
-    const values = years.map(y => yearCounts[y]);
+    // Stacked by premarket pathway on a continuous year axis (empty years
+    // render as gaps rather than being skipped, so the pre-2016 quiet and the
+    // recent surge read at true scale).
+    const byYearPathway = {};
+    let minYear = Infinity, maxYear = -Infinity;
+    aiDevicesData.forEach(d => {
+        const t = parseAIDate(d['Date of Final Decision']);
+        if (!t) return;
+        const y = new Date(t).getFullYear();
+        minYear = Math.min(minYear, y); maxYear = Math.max(maxYear, y);
+        const bucket = byYearPathway[y] = byYearPathway[y] || {};
+        const p = aiPathwayOf(d['Submission Number']);
+        bucket[p] = (bucket[p] || 0) + 1;
+    });
+    if (!isFinite(minYear)) return;
+    const years = [];
+    for (let y = minYear; y <= maxYear; y++) years.push(String(y));
+
+    const pathways = ['510(k)', 'De Novo', 'PMA'];
+    const datasets = pathways.map(p => ({
+        label: p,
+        data: years.map(y => (byYearPathway[y] && byYearPathway[y][p]) || 0),
+        backgroundColor: AI_PATHWAY_COLORS[p]
+    }));
 
     if (charts.aiTimeline) charts.aiTimeline.destroy();
     charts.aiTimeline = new Chart(ctx, {
         type: 'bar',
-        data: {
-            labels: years,
-            datasets: [{
-                label: 'Authorizations',
-                data: values,
-                backgroundColor: 'rgba(47, 79, 79, 0.7)',
-                borderColor: 'var(--primary-color)',
-                borderWidth: 1
-            }]
-        },
+        data: { labels: years, datasets },
         options: {
             responsive: true,
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
-                x: { title: { display: true, text: 'Year' } }
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
+                x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
-            plugins: { legend: { display: false } }
+            plugins: {
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                datalabels: { display: false }
+            }
         }
     });
 }
