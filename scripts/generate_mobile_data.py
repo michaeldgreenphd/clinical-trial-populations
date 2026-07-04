@@ -223,7 +223,29 @@ def main():
     unapproved = [s for s in all_studies if _is_unapproved(s)]
     nonreg = [s for s in all_studies if _is_nonreg(s)]
 
+    # Mutually exclusive regulatory classes for the redesigned FDA tab.
+    # "unreported" only becomes non-empty once the extraction preserves the
+    # oversight module's missing values as null (see src/utils.py).
+    def _fda_class(s):
+        dr, dv = s.get("is_fda_regulated_drug"), s.get("is_fda_regulated_device")
+        if dr is True and dv is True:
+            return "both"
+        if dr is True:
+            return "drug"
+        if dv is True:
+            return "device"
+        if dr is None and dv is None:
+            return "unreported"
+        return "none"
+
+    by_class = {k: [] for k in ("drug", "device", "both", "none", "unreported")}
+    for s in all_studies:
+        by_class[_fda_class(s)].append(s)
+    class_order = ["drug", "device", "both", "none", "unreported"]
+
     fda = {
+        # Legacy block kept verbatim so archived snapshot summaries and older
+        # cached frontends keep rendering.
         "counts": {
             "drug": len(drug),
             "device": len(device),
@@ -231,7 +253,7 @@ def main():
             "nonRegulated": len(nonreg),
         },
         "reporting": {
-            # Parallel arrays matching renderFdaOversight's category order:
+            # Parallel arrays matching the legacy category order:
             # [Regulated Drug, Regulated Device, Unapproved Device, Non-Regulated]
             "race": [_reporting_pct(drug, "race"), _reporting_pct(device, "race"),
                      _reporting_pct(unapproved, "race"), _reporting_pct(nonreg, "race")],
@@ -239,6 +261,19 @@ def main():
                           _reporting_pct(unapproved, "ethnicity"), _reporting_pct(nonreg, "ethnicity")],
             "sex": [_reporting_pct(drug, "sex"), _reporting_pct(device, "sex"),
                     _reporting_pct(unapproved, "sex"), _reporting_pct(nonreg, "sex")],
+        },
+        # Mutually exclusive classes (drug-only / device-only / both / explicit
+        # no / oversight unreported) plus the unapproved-device layer.
+        "classes": {
+            "order": class_order,
+            "counts": {k: len(by_class[k]) for k in class_order},
+            "unapproved": len(unapproved),
+            "unapproved_in_device": sum(
+                1 for s in unapproved if s.get("is_fda_regulated_device") is True),
+            "reporting": {
+                field: [_reporting_pct(by_class[k], field) for k in class_order]
+                for field in ("sex", "race", "ethnicity")
+            },
         },
     }
 

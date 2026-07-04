@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260715">
+    <link rel="stylesheet" href="styles.css?v=20260716">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -159,6 +159,7 @@
                         <option value="device">FDA Regulated Device</option>
                         <option value="unapproved">Unapproved Device</option>
                         <option value="non-regulated">Non-Regulated</option>
+                        <option value="unreported">Oversight Not Reported</option>
                     </select>
                 </div>
             </div>
@@ -642,39 +643,35 @@
         <section id="fda-oversight" class="tab-content">
             <div class="stats-grid" id="fda-stats-grid">
                 <div class="stat-card">
-                    <h3>FDA Regulated Drug Trials</h3>
+                    <h3>Trials of FDA-Regulated Products</h3>
+                    <p class="stat-value" id="fda-regulated-count">-</p>
+                    <p class="stat-sub" id="fda-regulated-sub"></p>
+                </div>
+                <div class="stat-card">
+                    <h3>FDA-Regulated Drug Trials</h3>
                     <p class="stat-value" id="fda-drug-count">-</p>
+                    <p class="stat-sub" id="fda-drug-sub"></p>
                 </div>
                 <div class="stat-card">
-                    <h3>FDA Regulated Device Trials</h3>
+                    <h3>FDA-Regulated Device Trials</h3>
                     <p class="stat-value" id="fda-device-count">-</p>
+                    <p class="stat-sub" id="fda-device-sub"></p>
                 </div>
                 <div class="stat-card">
-                    <h3>Unapproved Device Trials</h3>
-                    <p class="stat-value" id="fda-unapproved-count">-</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Non-Regulated / Unflagged Trials</h3>
+                    <h3>No FDA-Regulated Product</h3>
                     <p class="stat-value" id="fda-nonregulated-count">-</p>
+                    <p class="stat-sub" id="fda-nonregulated-sub"></p>
                 </div>
+            </div>
+
+            <div class="fda-pathway-note">
+                <p class="note">A trial counts as <strong>FDA-regulated</strong> when its sponsor reports studying a drug or device product subject to U.S. FDA oversight &mdash; the product is on the regulatory pathway, typically under an IND (drugs) or IDE (devices). Trials with <strong>no FDA-regulated product</strong> are registered studies whose intervention sits outside FDA product jurisdiction: behavioral programs, procedures, products not bound for the U.S. market. Within device trials, the <strong>unapproved device</strong> flag marks pre-market evidence generation &mdash; the device has not yet been approved or cleared by the FDA. Comparing demographic reporting across these classes shows where the regulatory pathway is and isn't producing representative evidence.</p>
             </div>
 
             <div class="chart-container">
-                <h3>Race Reporting by FDA Regulatory Status</h3>
-                <p class="note">Percentage of trials that report race data, compared across regulatory categories.</p>
-                <canvas id="fda-race-reporting-chart"></canvas>
-            </div>
-
-            <div class="chart-container" style="margin-top: 1.5rem;">
-                <h3>Ethnicity Reporting by FDA Regulatory Status</h3>
-                <p class="note">Percentage of trials that report ethnicity data, compared across regulatory categories.</p>
-                <canvas id="fda-ethnicity-reporting-chart"></canvas>
-            </div>
-
-            <div class="chart-container" style="margin-top: 1.5rem;">
-                <h3>Sex Reporting by FDA Regulatory Status</h3>
-                <p class="note">Percentage of trials that report sex data, compared across regulatory categories.</p>
-                <canvas id="fda-sex-reporting-chart"></canvas>
+                <h3>Sex, Race &amp; Ethnicity Reporting by Regulatory Status</h3>
+                <p class="note">Share of trials in each regulatory class that report each demographic. Classes are mutually exclusive; group sizes are in the axis labels.</p>
+                <canvas id="fda-reporting-chart"></canvas>
             </div>
         </section>
 
@@ -1386,6 +1383,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260715"></script>
+    <script defer src="app.js?v=20260716"></script>
 </body>
 </html>

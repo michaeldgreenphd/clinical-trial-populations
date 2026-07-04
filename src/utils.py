@@ -567,10 +567,12 @@ def get_study_metadata(study: dict) -> dict:
         # Time metrics
         "completion_to_report_days": completion_to_report,
         "start_to_report_days": start_to_report,
-        # FDA oversight
-        "is_fda_regulated_drug": oversight_mod.get("isFdaRegulatedDrug", False),
-        "is_fda_regulated_device": oversight_mod.get("isFdaRegulatedDevice", False),
-        "is_unapproved_device": oversight_mod.get("isUnapprovedDevice", False),
+        # FDA oversight. None (not reported) is preserved as distinct from an
+        # explicit False so the dashboard can separate "sponsor said No" from
+        # "oversight status never filled in".
+        "is_fda_regulated_drug": oversight_mod.get("isFdaRegulatedDrug"),
+        "is_fda_regulated_device": oversight_mod.get("isFdaRegulatedDevice"),
+        "is_unapproved_device": oversight_mod.get("isUnapprovedDevice"),
         # Publications
         "references": references
     }
