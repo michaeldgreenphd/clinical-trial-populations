@@ -614,6 +614,24 @@ main {
     margin-bottom: 0.625rem;
 }
 
+/* Secondary line under a stat value (overlaps, sub-splits, share of total). */
+.stat-card .stat-sub {
+    margin-top: 0.4rem;
+    font-size: 0.72rem;
+    line-height: 1.4;
+    color: var(--text-secondary);
+}
+
+/* Regulatory-pathway explainer on the FDA Oversight tab. */
+.fda-pathway-note {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: 0.9rem 1.15rem;
+    margin: 0 0 1.5rem;
+}
+
+.fda-pathway-note .note { margin: 0; }
+
 .stat-value {
     font-size: 2.25rem;
     font-weight: 700;

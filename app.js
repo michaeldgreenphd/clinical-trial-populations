@@ -855,7 +855,9 @@ function initTabs() {
                 renderEthnicityFullDistribution(filtered);
             }
 
-            if (tab.dataset.tab === 'fda-oversight' && filtered.length > 0) {
+            // Rendered unconditionally: with a zero-result filter the tab
+            // must show zeros, not the previous filter's stale numbers.
+            if (tab.dataset.tab === 'fda-oversight') {
                 renderFdaOversight(filtered);
             }
 
@@ -1244,7 +1246,7 @@ function updateActiveFilters() {
 
     const fdaStatusVal = document.getElementById('fda-status')?.value;
     if (fdaStatusVal && fdaStatusVal !== 'all') {
-        const fdaLabels = { drug: 'FDA Drug', device: 'FDA Device', unapproved: 'Unapproved Device', 'non-regulated': 'Non-Regulated' };
+        const fdaLabels = { drug: 'FDA Drug', device: 'FDA Device', unapproved: 'Unapproved Device', 'non-regulated': 'Non-Regulated', unreported: 'Oversight Not Reported' };
         filters.push({ label: `FDA: ${fdaLabels[fdaStatusVal] || fdaStatusVal}`, reset: () => {
             document.getElementById('fda-status').value = 'all';
         }});
@@ -1403,12 +1405,18 @@ function getFilteredData() {
             if (maxPart !== '' && enroll > parseInt(maxPart, 10)) return false;
         }
 
-        // FDA regulatory status filter
+        // FDA regulatory status filter. A preserved null means the sponsor
+        // never reported oversight status — distinct from an explicit "No"
+        // (extractions before mid-2026 coerced nulls to false, so the
+        // Unreported option only matches data extracted after that fix).
         if (fdaStatus !== 'all') {
-            if (fdaStatus === 'drug' && study.is_fda_regulated_drug !== true) return false;
-            if (fdaStatus === 'device' && study.is_fda_regulated_device !== true) return false;
+            const dr = study.is_fda_regulated_drug, dv = study.is_fda_regulated_device;
+            if (fdaStatus === 'drug' && dr !== true) return false;
+            if (fdaStatus === 'device' && dv !== true) return false;
             if (fdaStatus === 'unapproved' && study.is_unapproved_device !== true) return false;
-            if (fdaStatus === 'non-regulated' && (study.is_fda_regulated_drug === true || study.is_fda_regulated_device === true || study.is_unapproved_device === true)) return false;
+            if (fdaStatus === 'unreported' && !(dr == null && dv == null)) return false;
+            if (fdaStatus === 'non-regulated' && (dr === true || dv === true ||
+                study.is_unapproved_device === true || (dr == null && dv == null))) return false;
         }
 
         return true;
@@ -2043,7 +2051,10 @@ function renderFdaCell(value, tooltipText) {
     if (value === true) {
         return `<span title="${tooltipText || 'Yes'}"><svg width="16" height="16" viewBox="0 0 16 16" fill="#10b981"><path d="M13.485 3.929a.75.75 0 0 1 .086 1.056l-6 7a.75.75 0 0 1-1.1.043l-3-3a.75.75 0 1 1 1.06-1.06l2.419 2.418 5.48-6.371a.75.75 0 0 1 1.055-.086z"/></svg></span>`;
     }
-    return '<span class="text-muted">\u2014</span>';
+    if (value === false) {
+        return '<span class="text-muted" title="Sponsor reported No">No</span>';
+    }
+    return '<span class="text-muted" title="Oversight status not reported">\u2014</span>';
 }
 
 function renderDemographicCell(study, field) {
@@ -5314,106 +5325,148 @@ function renderGeoReportingTrendChart(studies) {
 }
 
 // ── FDA Oversight Tab ──
+// Regulatory classes are mutually exclusive: a trial studies an FDA-regulated
+// drug, an FDA-regulated device, both, neither (the sponsor's explicit "No"),
+// or never reported its oversight status. The unapproved-device flag is the
+// pre-market layer within that: a device trial whose device has not yet been
+// approved or cleared. Extractions before mid-2026 coerced unreported
+// oversight to "No", so the unreported class fills in with fresh data.
+const FDA_CLASS_ORDER = ['drug', 'device', 'both', 'none', 'unreported'];
+const FDA_CLASS_LABELS = {
+    drug: 'Drug (FDA-regulated)',
+    device: 'Device (FDA-regulated)',
+    both: 'Drug & Device',
+    none: 'No FDA-regulated product',
+    unreported: 'Oversight not reported'
+};
+
+function fdaClassOf(s) {
+    const dr = s.is_fda_regulated_drug, dv = s.is_fda_regulated_device;
+    if (dr === true && dv === true) return 'both';
+    if (dr === true) return 'drug';
+    if (dv === true) return 'device';
+    if (dr == null && dv == null) return 'unreported';
+    return 'none';
+}
 
 function renderFdaOversight(filtered) {
-    // Mobile path: the compact recentStudies list is only ~500 trials, so
-    // computing FDA aggregates from `filtered` would be wildly unrepresentative.
-    // Use the pre-aggregated counts baked into dashboard-summary.json instead.
-    const useSummary = !!(dashboardSummary && dashboardSummary.fda);
+    // Mobile/summary path: the compact recentStudies list is only ~500 trials,
+    // so computing FDA aggregates from `filtered` would be wildly
+    // unrepresentative. Use the pre-aggregated counts in dashboard-summary.json
+    // instead; archived snapshot summaries may predate the class schema and
+    // fall back to the legacy four-category block.
+    const f = dashboardSummary && dashboardSummary.fda;
+    const hasClasses = !!(f && f.classes);
+    const legacy = !!(f && !f.classes);
 
-    const categories = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated'];
-    const barColors = ['#3b82f6', '#10b981', '#f59e0b', '#6b7280'];
-
-    let counts, pctsByField;
-    if (useSummary) {
-        const f = dashboardSummary.fda;
-        counts = [f.counts.drug, f.counts.device, f.counts.unapproved, f.counts.nonRegulated];
-        pctsByField = {
-            race: f.reporting.race,
-            ethnicity: f.reporting.ethnicity,
-            sex: f.reporting.sex,
-        };
+    let counts = null, reporting = null, orderRef = FDA_CLASS_ORDER, unapproved = 0, total = 0, both = 0;
+    if (hasClasses) {
+        counts = f.classes.counts;
+        reporting = f.classes.reporting;
+        orderRef = f.classes.order || FDA_CLASS_ORDER;
+        unapproved = f.classes.unapproved || 0;
+        both = counts.both || 0;
+        total = dashboardSummary.totalStudies || 0;
+    } else if (!legacy) {
+        const byClass = { drug: [], device: [], both: [], none: [], unreported: [] };
+        filtered.forEach(s => byClass[fdaClassOf(s)].push(s));
+        counts = {};
+        FDA_CLASS_ORDER.forEach(k => { counts[k] = byClass[k].length; });
+        both = counts.both;
+        unapproved = filtered.filter(s => s.is_unapproved_device === true).length;
+        total = filtered.length;
+        const pct = (subset, field) => subset.length
+            ? parseFloat(((subset.filter(s => s[field]?.reported).length / subset.length) * 100).toFixed(1))
+            : 0;
+        reporting = {};
+        ['sex', 'race', 'ethnicity'].forEach(field => {
+            reporting[field] = FDA_CLASS_ORDER.map(k => pct(byClass[k], field));
+        });
     } else {
-        const drugTrials = filtered.filter(s => s.is_fda_regulated_drug === true);
-        const deviceTrials = filtered.filter(s => s.is_fda_regulated_device === true);
-        const unapprovedTrials = filtered.filter(s => s.is_unapproved_device === true);
-        const nonRegulatedTrials = filtered.filter(s =>
-            s.is_fda_regulated_drug !== true &&
-            s.is_fda_regulated_device !== true &&
-            s.is_unapproved_device !== true
-        );
-        counts = [drugTrials.length, deviceTrials.length, unapprovedTrials.length, nonRegulatedTrials.length];
-
-        function reportingPct(subset, field) {
-            if (subset.length === 0) return 0;
-            const reported = subset.filter(s => s[field]?.reported).length;
-            return parseFloat(((reported / subset.length) * 100).toFixed(1));
-        }
-        const subsets = [drugTrials, deviceTrials, unapprovedTrials, nonRegulatedTrials];
-        pctsByField = {
-            race: subsets.map(s => reportingPct(s, 'race')),
-            ethnicity: subsets.map(s => reportingPct(s, 'ethnicity')),
-            sex: subsets.map(s => reportingPct(s, 'sex')),
-        };
+        unapproved = f.counts.unapproved;
+        total = dashboardSummary.totalStudies || 0;
     }
 
-    // Update stat cards
-    const drugEl = document.getElementById('fda-drug-count');
-    const deviceEl = document.getElementById('fda-device-count');
-    const unapprovedEl = document.getElementById('fda-unapproved-count');
-    const nonRegEl = document.getElementById('fda-nonregulated-count');
-    if (drugEl) drugEl.textContent = counts[0].toLocaleString();
-    if (deviceEl) deviceEl.textContent = counts[1].toLocaleString();
-    if (unapprovedEl) unapprovedEl.textContent = counts[2].toLocaleString();
-    if (nonRegEl) nonRegEl.textContent = counts[3].toLocaleString();
+    // Stat cards. Drug/device cards include the both-flagged trials (with the
+    // overlap called out); the headline card is deduplicated.
+    const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    if (legacy) {
+        const regulated = Math.max(0, total - f.counts.nonRegulated);
+        setTxt('fda-regulated-count', regulated.toLocaleString());
+        setTxt('fda-drug-count', f.counts.drug.toLocaleString());
+        setTxt('fda-device-count', f.counts.device.toLocaleString());
+        setTxt('fda-nonregulated-count', f.counts.nonRegulated.toLocaleString());
+        setTxt('fda-regulated-sub', total ? `${(regulated / total * 100).toFixed(1)}% of ${total.toLocaleString()} trials` : '');
+        setTxt('fda-drug-sub', 'archived snapshot — overlap detail unavailable');
+        setTxt('fda-device-sub', `${unapproved.toLocaleString()} study a device not yet approved or cleared`);
+        setTxt('fda-nonregulated-sub', 'no FDA-regulated drug or device flag');
+    } else {
+        const regulated = counts.drug + counts.device + counts.both;
+        setTxt('fda-regulated-count', regulated.toLocaleString());
+        setTxt('fda-drug-count', (counts.drug + counts.both).toLocaleString());
+        setTxt('fda-device-count', (counts.device + counts.both).toLocaleString());
+        setTxt('fda-nonregulated-count', (counts.none + counts.unreported).toLocaleString());
+        setTxt('fda-regulated-sub', total ? `${(regulated / total * 100).toFixed(1)}% of ${total.toLocaleString()} trials` : '');
+        setTxt('fda-drug-sub', both > 0
+            ? `${both.toLocaleString()} of these also study a regulated device`
+            : 'product on the FDA drug pathway (IND)');
+        setTxt('fda-device-sub', `${unapproved.toLocaleString()} study a device not yet approved or cleared`);
+        setTxt('fda-nonregulated-sub', counts.unreported > 0
+            ? `${counts.none.toLocaleString()} explicit “No” · ${counts.unreported.toLocaleString()} never reported oversight status`
+            : 'sponsor answered “No”, or oversight was left unreported in older extractions');
+    }
 
-    // Render grouped bar charts for each demographic
-    const demoFields = [
-        { field: 'race', chartId: 'fda-race-reporting-chart', chartKey: 'fdaRace' },
-        { field: 'ethnicity', chartId: 'fda-ethnicity-reporting-chart', chartKey: 'fdaEthnicity' },
-        { field: 'sex', chartId: 'fda-sex-reporting-chart', chartKey: 'fdaSex' }
-    ];
+    // One grouped chart: % of trials reporting each demographic, per class.
+    const ctx = document.getElementById('fda-reporting-chart');
+    if (!ctx) return;
+    if (charts.fdaReporting) charts.fdaReporting.destroy();
 
-    demoFields.forEach(({ field, chartId, chartKey }) => {
-        const ctx = document.getElementById(chartId);
-        if (!ctx) return;
-        if (charts[chartKey]) charts[chartKey].destroy();
+    const demoColors = { sex: '#4A7BA6', race: '#52b788', ethnicity: '#C26C8E' };
+    let labels, keyCounts, datasets;
+    if (legacy) {
+        keyCounts = [f.counts.drug, f.counts.device, f.counts.unapproved, f.counts.nonRegulated];
+        labels = ['Regulated Drug', 'Regulated Device', 'Unapproved Device', 'Non-Regulated']
+            .map((l, i) => `${l} (n=${keyCounts[i].toLocaleString()})`);
+        datasets = ['sex', 'race', 'ethnicity'].map(field => ({
+            label: field.charAt(0).toUpperCase() + field.slice(1),
+            data: f.reporting[field],
+            backgroundColor: demoColors[field]
+        }));
+    } else {
+        const keys = FDA_CLASS_ORDER.filter(k => counts[k] > 0);
+        keyCounts = keys.map(k => counts[k]);
+        labels = keys.map(k => `${FDA_CLASS_LABELS[k]} (n=${counts[k].toLocaleString()})`);
+        datasets = ['sex', 'race', 'ethnicity'].map(field => ({
+            label: field.charAt(0).toUpperCase() + field.slice(1),
+            data: keys.map(k => reporting[field][orderRef.indexOf(k)]),
+            backgroundColor: demoColors[field]
+        }));
+    }
 
-        const pcts = pctsByField[field];
-
-        charts[chartKey] = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: categories,
-                datasets: [{
-                    label: `% Reporting ${field.charAt(0).toUpperCase() + field.slice(1)}`,
-                    data: pcts,
-                    backgroundColor: barColors
-                }]
+    charts.fdaReporting = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: { display: true, text: '% of Trials Reporting' }
+                }
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: true,
-                aspectRatio: CHART_ASPECT_RATIO,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        title: { display: true, text: '% of Trials' }
+            plugins: {
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
+                tooltip: {
+                    callbacks: {
+                        label: c => ` ${c.dataset.label}: ${c.parsed.y}% of ${keyCounts[c.dataIndex].toLocaleString()} trials`
                     }
                 },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return ` ${context.parsed.y}% of trials`;
-                            }
-                        }
-                    }
-                }
+                datalabels: { display: false }
             }
-        });
+        }
     });
 }
 
@@ -7542,13 +7595,25 @@ let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino'
 let industryBenchmark = 'cohort';      // 'cohort' | 'parity' (sex) | 'census' (race/eth)
 let industrySexSpecific = false;       // Sex tier: include sex-specific condition categories
 
-// Condition axis for the current tier: Race/Ethnicity always include the
-// sex-specific categories; the Sex tier excludes them unless toggled on.
-function industryConditions() {
+// Condition axis for the current tier: every named category with at least
+// one metric-reporting trial in the current filter, ordered by descending
+// trial count (the same convention as the sponsor list). Race/Ethnicity
+// always include the sex-specific categories; the Sex tier excludes them
+// unless toggled on. Uninformative buckets stay off the axis.
+function industryConditions(rows) {
     const d = industryData;
-    const all = d.heatmap_conditions_all || d.heatmap_conditions;
-    if (industryDemo !== 'sex') return all;
-    return industrySexSpecific ? all : d.heatmap_conditions;
+    const skip = new Set(['Uncategorized', 'Other', '']);
+    const sexSpecific = new Set(d.sex_specific_conditions ||
+        ['Breast Cancer', 'Prostate Cancer', 'Infertility', 'Pregnancy Complications', 'Menopause and Hormonal']);
+    const counts = new Map();
+    rows.forEach(t => {
+        if (industryTrialValue(t) === null) return;
+        const c = d.secondaries[t[5]];
+        if (!c || skip.has(c)) return;
+        if (industryDemo === 'sex' && !industrySexSpecific && sexSpecific.has(c)) return;
+        counts.set(c, (counts.get(c) || 0) + 1);
+    });
+    return [...counts.keys()].sort((a, b) => counts.get(b) - counts.get(a) || a.localeCompare(b));
 }
 
 // The deviation benchmark for a condition: the cohort's own pooled median,
@@ -7781,7 +7846,7 @@ function industrySelectedOrdered() {
 function renderIndustryHeatmap(rows) {
     const d = industryData;
     const host = document.getElementById('industry-view-heatmap');
-    const conditions = industryConditions();
+    const conditions = industryConditions(rows);
     const topN = d.top_n || 10;
     const sponsors = industrySelectedOrdered().list;
     if (industryScope === 'all') sponsors.push('Other Industry');
@@ -7810,7 +7875,7 @@ function renderIndustryHeatmap(rows) {
     let html = '<div class="industry-heatmap-wrap"><table class="industry-heatmap"><thead><tr><th></th>';
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
-        html += `<th>${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
+        html += `<th title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
     const { min: cellMin, max: cellMax } = industryCellRange();
@@ -7840,8 +7905,8 @@ function renderIndustryHeatmap(rows) {
     const prevNote = industryDemo === 'sex' ? ''
         : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration.`;
     const condNote = industryDemo === 'sex' && !industrySexSpecific
-        ? "Conditions are the cohort's most common categories, excluding sex-specific ones."
-        : "Conditions are the cohort's most common categories, including sex-specific ones.";
+        ? "Columns are every named condition category with reporting trials in the current filter, ordered by trial count (sex-specific categories excluded; toggle above to include them)."
+        : "Columns are every named condition category with reporting trials in the current filter, ordered by trial count, including sex-specific ones.";
     const catColor = industryCatColor();
     const encNote = catColor
         ? `cells use the category's color from the site-wide ${industryDemo} palette, <span style="color:${catColor}">richer</span> above the benchmark and fading to <span style="color:${INDUSTRY_GREY}">grey</span> below it`
