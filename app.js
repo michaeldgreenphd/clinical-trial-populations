@@ -7760,13 +7760,13 @@ function renderIndustryTrend(rows) {
             responsive: true, maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO || 2,
             plugins: {
-                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, padding: 12, filter: it => it.text !== '50% parity' } },
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
                 datalabels: { display: false }
             },
             scales: {
-                y: { min: 20, max: 80, title: { display: true, text: 'Median % female per trial' } },
-                x: { title: { display: true, text: 'Primary completion year' } }
+                y: { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial' } },
+                x: { title: { display: true, text: isMobileDevice ? 'Completion year' : 'Primary completion year' } }
             }
         }
     });

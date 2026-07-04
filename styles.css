@@ -3980,3 +3980,67 @@ footer p {
 }
 
 .industry-sponsor-options { min-width: 300px; max-width: 360px; }
+
+/* — Industry view: mobile legibility — */
+
+/* Sticky sponsor column: row labels stay pinned while the condition
+   columns scroll horizontally (all screen sizes). */
+.industry-heatmap thead tr th:first-child,
+.industry-heatmap tbody th {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    background: var(--card-background);
+    border-right: 1px solid var(--border-color);
+}
+
+@media (max-width: 768px) {
+    /* Segmented controls: stacked, full-width segments instead of pills
+       wrapping mid-container. */
+    .industry-controls,
+    .industry-controls-left {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+    }
+
+    .industry-mini-toggle,
+    .industry-view-toggle {
+        display: flex;
+        width: 100%;
+    }
+
+    .industry-mini-toggle .view-btn,
+    .industry-view-toggle .view-btn {
+        flex: 1 1 0;
+        text-align: center;
+        padding: 0.6rem 0.25rem;
+        font-size: 0.8rem;
+        white-space: normal;
+        line-height: 1.25;
+    }
+
+    .industry-sponsor-menu summary { width: 100%; text-align: left; }
+    .industry-sponsor-options { left: 0; right: 0; max-width: none; }
+
+    .industry-meta {
+        font-size: 0.62rem;
+        letter-spacing: 0.04em;
+        line-height: 1.6;
+    }
+
+    /* Heatmap: tighter cells, smaller labels, narrower pinned column. */
+    .industry-heatmap { min-width: 760px; font-size: 0.78rem; }
+    .industry-heatmap th { font-size: 0.62rem; padding: 0.45rem 0.3rem; }
+    .industry-heatmap tbody th {
+        font-size: 0.72rem;
+        padding: 0 0.5rem;
+        max-width: 118px;
+        white-space: normal;
+        line-height: 1.2;
+    }
+    .industry-heatmap td { padding: 0.55rem 0.25rem; min-width: 46px; font-size: 0.75rem; }
+    .industry-heatmap-base { font-size: 0.58rem; }
+
+    .industry-forest { padding: 1rem 0.75rem; }
+}
