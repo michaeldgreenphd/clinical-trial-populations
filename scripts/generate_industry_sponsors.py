@@ -236,22 +236,26 @@ def build_cohort(records):
         if pcd is None or pcd < PCD_CUTOFF:
             continue
         sex = r.get("sex") or {}
-        if not sex.get("reported"):
-            continue
         totals = sex.get("totals") or {}
         f, m = totals.get("female") or 0, totals.get("male") or 0
-        # Mixed-sex proxy: both counts positive (see module docstring).
-        if f <= 0 or m <= 0:
-            continue
+        # Mixed-sex proxy for the Sex tier: both counts positive. Trials
+        # without usable sex data stay in the cohort for the Race/Ethnicity
+        # tiers (pf = None), so those tiers are no longer scaffolded on the
+        # sex-reporting requirement (single-sex trials included).
+        pf = 100.0 * f / (f + m) if (sex.get("reported") and f > 0 and m > 0) else None
         company, via_lead = assign_industry_company(r)
         if not company:
             continue
         results = parse_iso_date(r.get("results_date"))
         enrollment = r.get("enrollment")
+        race_shares = demo_shares(r.get("race"), RACE_CATS)
+        eth_shares = demo_shares(r.get("ethnicity"), ETH_CATS)
+        if pf is None and race_shares is None and eth_shares is None:
+            continue
         rows.append({
             "company": company,
             "via_lead": bool(via_lead),
-            "pf": 100.0 * f / (f + m),
+            "pf": pf,
             "results_year": results.year if results else None,
             "pcd_year": pcd.year,
             "primary": r.get("primary_condition") or "",
@@ -260,8 +264,8 @@ def build_cohort(records):
             "log_enroll": math.log(enrollment) if isinstance(enrollment, (int, float)) and enrollment and enrollment > 0 else None,
             "n_countries": len({c.get("country") for c in (r.get("countries") or []) if c.get("country")}),
             "has_unknown": 1 if (totals.get("unknown") or 0) > 0 else 0,
-            "race_shares": demo_shares(r.get("race"), RACE_CATS),
-            "eth_shares": demo_shares(r.get("ethnicity"), ETH_CATS),
+            "race_shares": race_shares,
+            "eth_shares": eth_shares,
         })
     return rows
 
@@ -376,12 +380,19 @@ def main():
         if r["secondary"] not in EXCLUDED_SECONDARIES:
             sec_counts[r["secondary"]] += 1
     heatmap_conditions = [c for c, _ in sorted(sec_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:12]]
+    sec_counts_all = defaultdict(int)
+    for r in rows:
+        if r["secondary"] not in {"Uncategorized", "Other", ""}:
+            sec_counts_all[r["secondary"]] += 1
+    heatmap_conditions_all = [c for c, _ in sorted(sec_counts_all.items(), key=lambda kv: (-kv[1], kv[0]))[:12]]
 
     # Two role modes for the frontend's Role toggle: the full lead-or-
     # collaborator assignment (default), and the lead-sponsor-only subset.
-    contrasts, pooled = fit_contrast_set(rows, top10)
+    sex_rows = [r for r in rows if r["pf"] is not None]
+    contrasts, pooled = fit_contrast_set(sex_rows, top10)
     lead_rows = [r for r in rows if r["via_lead"]]
-    contrasts_lead, pooled_lead = fit_contrast_set(lead_rows, top10)
+    contrasts_lead, pooled_lead = fit_contrast_set([r for r in lead_rows if r["pf"] is not None], top10)
+    print(f"Sex-reporting (mixed-sex) trials: {len(sex_rows):,} of {len(rows):,} cohort")
 
     # Race/ethnicity "balance" contrasts: the selected category's share of
     # (category + White) - the analogue of female/(female+male) - modeled the
@@ -434,7 +445,7 @@ def main():
     # primary_idx, secondary_idx, has_explicit_unknown, via_lead]. company_idx
     # points at the REAL company in the volume-ranked companies list; indices
     # >= TOP_N_SPONSORS pool into "Other Industry" on the frontend.
-    trials = [[company_idx[r["company"]], round(r["pf"], 1), r["results_year"] or 0,
+    trials = [[company_idx[r["company"]], (round(r["pf"], 1) if r["pf"] is not None else None), r["results_year"] or 0,
                r["pcd_year"], p_idx[r["primary"]], s_idx[r["secondary"]], r["has_unknown"],
                1 if r["via_lead"] else 0, r["race_shares"], r["eth_shares"]]
               for r in rows]
@@ -460,7 +471,21 @@ def main():
         # Disease-prevalence benchmarks by race/ethnicity are not yet
         # integrated; the heatmap stays on the cohort's own condition
         # baselines until these are populated (e.g. from PCORI prevalences).
-        "prevalence_benchmarks": {"status": "pending", "by_race": None, "by_ethnicity": None},
+        "prevalence_benchmarks": {"status": "pending", "by_sex": None, "by_race": None, "by_ethnicity": None},
+        # Population-share benchmarks (2020 U.S. Census: race alone; Hispanic
+        # origin) for the "Census share" benchmark option. These answer "does
+        # enrollment mirror the population?" - the pending disease-prevalence
+        # benchmarks will answer "does it mirror the patients?".
+        "census": {
+            "source": "2020 U.S. Census (race alone; Hispanic origin)",
+            "race": {"white": 61.6, "black_african_american": 12.4, "asian": 6.0,
+                      "american_indian_alaska_native": 1.1,
+                      "native_hawaiian_pacific_islander": 0.2,
+                      "more_than_one_race": 10.2, "other": 8.4},
+            "ethnicity": {"hispanic_latino": 18.7, "not_hispanic_latino": 81.3},
+        },
+        "sex_specific_conditions": sorted(SEX_SPECIFIC_SECONDARIES),
+        "heatmap_conditions_all": heatmap_conditions_all,
         "trial_fields": ["company", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead", "race_shares", "eth_shares"],
         "trials": trials,
     }

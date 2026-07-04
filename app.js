@@ -7536,6 +7536,57 @@ const INDUSTRY_CAT_LABELS = {
     hispanic_latino: 'Hispanic or Latino', not_hispanic_latino: 'Not Hispanic or Latino'
 };
 let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
+let industryBenchmark = 'cohort';      // 'cohort' | 'parity' (sex) | 'census' (race/eth)
+let industrySexSpecific = false;       // Sex tier: include sex-specific condition categories
+
+// Condition axis for the current tier: Race/Ethnicity always include the
+// sex-specific categories; the Sex tier excludes them unless toggled on.
+function industryConditions() {
+    const d = industryData;
+    const all = d.heatmap_conditions_all || d.heatmap_conditions;
+    if (industryDemo !== 'sex') return all;
+    return industrySexSpecific ? all : d.heatmap_conditions;
+}
+
+// The deviation benchmark for a condition: the cohort's own pooled median,
+// 50% parity (sex), or the category's 2020 Census population share.
+// Disease-prevalence benchmarks are pending (prevalence_benchmarks in the
+// dataset) and stay disabled in the toggle until populated.
+function industryBenchmarkFor(cohortBase) {
+    if (industryBenchmark === 'parity') return 50;
+    if (industryBenchmark === 'census') {
+        const c = industryData.census;
+        const v = c && c[industryDemo] ? c[industryDemo][industryCat[industryDemo]] : null;
+        return typeof v === 'number' ? v : cohortBase;
+    }
+    return cohortBase;
+}
+
+function industryBenchmarkLabel(cohortBase) {
+    if (industryBenchmark === 'parity') return 'parity 50%';
+    if (industryBenchmark === 'census') return 'census ' + industryBenchmarkFor(null) + '%';
+    return cohortBase === null ? 'no trials' : 'base ' + cohortBase.toFixed(0) + '%';
+}
+
+function renderIndustryBenchmarkToggle() {
+    const box = document.getElementById('industry-benchmark-toggle');
+    if (!box) return;
+    const alt = industryDemo === 'sex'
+        ? { key: 'parity', label: '50% Parity' }
+        : { key: 'census', label: 'Census Share' };
+    if (industryBenchmark !== 'cohort' && industryBenchmark !== alt.key) industryBenchmark = 'cohort';
+    box.innerHTML = `
+        <button type="button" class="view-btn ${industryBenchmark === 'cohort' ? 'active' : ''}" data-ibench="cohort">Cohort Baseline</button>
+        <button type="button" class="view-btn ${industryBenchmark === alt.key ? 'active' : ''}" data-ibench="${alt.key}">${alt.label}</button>
+        <button type="button" class="view-btn" disabled title="Disease-prevalence benchmarks are pending integration">Disease Prevalence</button>`;
+    box.querySelectorAll('.view-btn[data-ibench]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            industryBenchmark = btn.dataset.ibench;
+            renderIndustryBenchmarkToggle();
+            renderIndustry();
+        });
+    });
+}
 const INDUSTRY_SUBTITLES = {
     sex: 'Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).',
     race: 'Racial composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the race-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).',
@@ -7694,7 +7745,7 @@ function industrySelectedOrdered() {
 function renderIndustryHeatmap(rows) {
     const d = industryData;
     const host = document.getElementById('industry-view-heatmap');
-    const conditions = d.heatmap_conditions;
+    const conditions = industryConditions();
     const topN = d.top_n || 10;
     const sponsors = industrySelectedOrdered().list;
     if (industryScope === 'all') sponsors.push('Other Industry');
@@ -7723,7 +7774,7 @@ function renderIndustryHeatmap(rows) {
     let html = '<div class="industry-heatmap-wrap"><table class="industry-heatmap"><thead><tr><th></th>';
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
-        html += `<th>${escapeHtml(c)}<span class="industry-heatmap-base">${base === null ? 'no trials' : 'base ' + base.toFixed(0) + '%'}</span></th>`;
+        html += `<th>${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
     sponsors.forEach(sp => {
@@ -7731,10 +7782,11 @@ function renderIndustryHeatmap(rows) {
         conditions.forEach(c => {
             const vals = byCond[c].bySponsor[sp] || [];
             const base = industryMedian(byCond[c].all);
-            if (vals.length >= d.min_cell && base !== null) {
-                const dev = industryMedian(vals) - base;
+            const bench = industryBenchmarkFor(base);
+            if (vals.length >= d.min_cell && bench !== null) {
+                const dev = industryMedian(vals) - bench;
                 const dark = Math.abs(dev) > 9;
-                html += `<td style="background:${industryDevColor(dev)}" title="${escapeHtml(sp)} — ${escapeHtml(c)}: median ${industryMedian(vals).toFixed(1)}% vs base ${base.toFixed(1)}% (n=${vals.length})"><span class="${dark ? 'industry-cell-dark' : ''}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}</span></td>`;
+                html += `<td style="background:${industryDevColor(dev)}" title="${escapeHtml(sp)} — ${escapeHtml(c)}: median ${industryMedian(vals).toFixed(1)}% vs ${bench.toFixed(1)}% benchmark (n=${vals.length})"><span class="${dark ? 'industry-cell-dark' : ''}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}</span></td>`;
             } else if (vals.length > 0) {
                 html += `<td class="industry-cell-thin" title="Below the ${d.min_cell}-trial threshold">(${vals.length})</td>`;
             } else {
@@ -7745,9 +7797,15 @@ function renderIndustryHeatmap(rows) {
     });
     html += '</tbody></table></div>';
     const metric = industryMetricLabel();
+    const benchDesc = industryBenchmark === 'parity' ? 'a 50% parity benchmark'
+        : industryBenchmark === 'census' ? `the category's 2020 U.S. Census population share (${industryBenchmarkFor(null)}%)`
+        : "the condition's pooled median across all industry trials in the current filter";
     const prevNote = industryDemo === 'sex' ? ''
-        : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration; until then, deviations are measured against the industry cohort's own condition baselines.`;
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus the condition's pooled median across all industry trials in the current filter, in percentage points &mdash; <span style="color:${INDUSTRY_PINK}">pink</span> above the condition baseline, <span style="color:${INDUSTRY_BLUE}">blue</span> below, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. Conditions are the cohort's most common categories, excluding sex-specific ones.${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+        : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration.`;
+    const condNote = industryDemo === 'sex' && !industrySexSpecific
+        ? "Conditions are the cohort's most common categories, excluding sex-specific ones."
+        : "Conditions are the cohort's most common categories, including sex-specific ones.";
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; <span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
     host.innerHTML = html;
 }
 
@@ -7796,6 +7854,15 @@ function renderIndustryTrend(rows) {
         borderColor: '#9aa5a0', backgroundColor: '#9aa5a0',
         borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, tension: 0.25, spanGaps: false
     });
+    if (industryBenchmark === 'census') {
+        const cv = industryBenchmarkFor(null);
+        if (typeof cv === 'number') datasets.push({
+            label: `Census share (${cv}%)`,
+            data: years.map(() => cv),
+            borderColor: '#b9a56b', backgroundColor: '#b9a56b',
+            borderDash: [2, 4], pointRadius: 0, borderWidth: 1.2, order: 98
+        });
+    }
     if (industryDemo === 'sex') {
         datasets.push({
             label: '50% parity',
@@ -7803,6 +7870,14 @@ function renderIndustryTrend(rows) {
             borderColor: '#c9c9c9', backgroundColor: '#c9c9c9',
             borderDash: [2, 4], pointRadius: 0, borderWidth: 1, order: 99
         });
+    }
+
+    const trendNote = document.getElementById('industry-trend-footnote');
+    if (trendNote) {
+        const refBit = industryBenchmark === 'census'
+            ? ` and the dotted gold line marks the category's 2020 Census share (${industryBenchmarkFor(null)}%)`
+            : industryDemo === 'sex' ? ' and the dotted line marks 50% parity' : '';
+        trendNote.textContent = `Annual median within-trial percent ${industryMetricLabel()} by primary completion year, per selected sponsor. Years with fewer than ${INDUSTRY_TREND_MIN_N} trials for a sponsor are left blank; the dashed grey line is the pooled industry median${refBit}. Respects the global Year Range (results posted) and Condition filters.`;
     }
 
     if (industryChart) industryChart.destroy();
@@ -7916,7 +7991,18 @@ function renderIndustry() {
 function renderIndustryCatRow() {
     const row = document.getElementById('industry-cat-row');
     if (!row) return;
-    if (industryDemo === 'sex' || !industryData) { row.style.display = 'none'; return; }
+    renderIndustryBenchmarkToggle();
+    if (!industryData) { row.style.display = 'none'; return; }
+    if (industryDemo === 'sex') {
+        row.style.display = '';
+        row.innerHTML = `<button type="button" class="industry-cat-chip ${industrySexSpecific ? 'active' : ''}" id="industry-sexspec-chip" title="Breast Cancer, Prostate Cancer, Infertility, Pregnancy Complications, Menopause and Hormonal">${industrySexSpecific ? 'Sex-specific conditions: shown' : 'Sex-specific conditions: hidden'}</button>`;
+        row.querySelector('#industry-sexspec-chip').addEventListener('click', () => {
+            industrySexSpecific = !industrySexSpecific;
+            renderIndustryCatRow();
+            renderIndustry();
+        });
+        return;
+    }
     const cats = industryDemo === 'race'
         ? (industryData.race_categories || [])
         : (industryData.eth_categories || []);

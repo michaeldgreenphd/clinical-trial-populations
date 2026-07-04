@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260711">
+    <link rel="stylesheet" href="styles.css?v=20260712">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -914,6 +914,7 @@
                             <button type="button" class="view-btn active" data-irole="any">Lead &amp; Collaborator</button>
                             <button type="button" class="view-btn" data-irole="lead">Lead Sponsor Only</button>
                         </div>
+                        <div class="geography-view-toggle industry-mini-toggle" id="industry-benchmark-toggle" title="What deviations are measured against"></div>
                         <div class="geography-view-toggle industry-mini-toggle" id="industry-scope-toggle" title="Which sponsor set the views display">
                             <button type="button" class="view-btn active" data-iscope="top10">Top 10 Sponsors</button>
                             <button type="button" class="view-btn" data-iscope="all">All Industry Sponsors</button>
@@ -930,7 +931,7 @@
                 <div id="industry-view-heatmap" class="industry-view"></div>
                 <div id="industry-view-trend" class="industry-view" style="display:none">
                     <div class="industry-canvas-wrap"><canvas id="industry-trend-canvas"></canvas></div>
-                    <p class="industry-footnote">Annual median within-trial percent female by primary completion year, per selected sponsor. Years with fewer than 5 trials for a sponsor are left blank; the dashed grey line is the pooled industry median and the dotted line marks 50% parity. Respects the global Year Range (results posted) and Condition filters.</p>
+                    <p class="industry-footnote" id="industry-trend-footnote">Annual median within-trial percent female by primary completion year, per selected sponsor. Years with fewer than 5 trials for a sponsor are left blank; the dashed grey line is the pooled industry median and the dotted line marks 50% parity. Respects the global Year Range (results posted) and Condition filters.</p>
                 </div>
                 <div id="industry-view-forest" class="industry-view" style="display:none"></div>
 
@@ -966,6 +967,20 @@
                         <summary><h4>What do the Role and Scope toggles change?</h4></summary>
                         <div class="faq-answer">
                             <p class="note"><strong>Role</strong> controls how a trial is attributed to a company: "Lead &amp; Collaborator" (default) uses the lead-first-with-collaborator-fallback assignment above, while "Lead Sponsor Only" keeps only trials whose lead sponsor is the industry company. <strong>Scope</strong> controls which sponsor set the views display: the top-10 named sponsors, or all industry &mdash; which adds the pooled "Other Industry" bucket (every industry trial outside the top 10) as its own row and trend line. The Adjusted Differences view always contrasts each named sponsor against Other Industry, re-fit for the selected Role.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>Which condition categories are treated as sex-specific?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note">Five secondary condition categories are classed as sex-specific: <strong>Breast Cancer, Prostate Cancer, Infertility, Pregnancy Complications, and Menopause and Hormonal</strong>. On the Sex tier they are excluded from the condition axis by default &mdash; their heavily single-sex case mix would otherwise masquerade as sponsor enrollment behavior &mdash; and a toggle above the views adds them back. The Race and Ethnicity tiers always include them, since racial and ethnic representation is measured within those diseases the same as any other.</p>
+                        </div>
+                    </details>
+
+                    <details class="faq-section">
+                        <summary><h4>What do the benchmark options compare against?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note"><strong>Cohort Baseline</strong> (default) measures each sponsor against the condition's pooled median across all industry trials in the current filter &mdash; "does this sponsor differ from industry practice?". <strong>50% Parity</strong> (Sex) and <strong>Census Share</strong> (Race/Ethnicity, 2020 U.S. Census population shares) measure against the general population &mdash; "does enrollment mirror the population?". <strong>Disease Prevalence</strong> &mdash; "does enrollment mirror the patients?" &mdash; is held as a placeholder until per-condition prevalence breakdowns by sex, race, and ethnicity are integrated; population benchmarks can mislead where disease burden is skewed, which is exactly what the prevalence benchmark will correct.</p>
                         </div>
                     </details>
 
@@ -1365,6 +1380,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260711"></script>
+    <script defer src="app.js?v=20260712"></script>
 </body>
 </html>
