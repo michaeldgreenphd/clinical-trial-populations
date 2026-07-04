@@ -7521,6 +7521,49 @@ let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
 let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
 let industryScope = 'top10';   // 'top10' | 'all' = adds the pooled Other Industry layer
+
+// Demographic tier: which characteristic the panel reports on, plus the
+// category layer inside the Race and Ethnicity tiers. Heatmap and trend show
+// the category's plain share of reported participants; the Adjusted
+// Differences view models the category's balance vs White (Hispanic vs Not
+// Hispanic for ethnicity), the analogue of female vs male.
+let industryDemo = 'sex';
+const INDUSTRY_CAT_LABELS = {
+    white: 'White', black_african_american: 'Black/African American', asian: 'Asian',
+    american_indian_alaska_native: 'American Indian/Alaska Native',
+    native_hawaiian_pacific_islander: 'Native Hawaiian/Pacific Islander',
+    more_than_one_race: 'More than one race', other: 'Other',
+    hispanic_latino: 'Hispanic or Latino', not_hispanic_latino: 'Not Hispanic or Latino'
+};
+let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
+const INDUSTRY_SUBTITLES = {
+    sex: 'Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).',
+    race: 'Racial composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the race-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).',
+    ethnicity: 'Ethnic composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the ethnicity-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).'
+};
+
+function industryCatIndex() {
+    const d = industryData;
+    if (industryDemo === 'race') return (d.race_categories || []).indexOf(industryCat.race);
+    if (industryDemo === 'ethnicity') return (d.eth_categories || []).indexOf(industryCat.ethnicity);
+    return -1;
+}
+
+// Metric label for the current tier ("female", "Black/African American", ...).
+function industryMetricLabel() {
+    if (industryDemo === 'sex') return 'female';
+    return INDUSTRY_CAT_LABELS[industryCat[industryDemo]] || '';
+}
+
+// The per-trial metric: % female, or the selected category's share of the
+// trial's explicitly reported race/ethnicity categories. null = trial does
+// not report this demographic (row drops out of the views).
+function industryTrialValue(t) {
+    if (industryDemo === 'sex') return t[1];
+    const i = industryCatIndex();
+    const arr = industryDemo === 'race' ? t[8] : t[9];
+    return (arr && i >= 0 && typeof arr[i] === 'number') ? arr[i] : null;
+}
 let industryChart = null;
 
 function industryActive() {
@@ -7574,6 +7617,7 @@ function industryFilteredRows() {
         if (industryRole === 'lead' && t[7] === 0) return false;
         if (priSel !== 'all' && d.primaries[t[4]] !== priSel) return false;
         if (secSel !== 'all' && d.secondaries[t[5]] !== secSel) return false;
+        if (industryDemo !== 'sex' && industryTrialValue(t) === null) return false;
         return true;
     });
 }
@@ -7664,13 +7708,15 @@ function renderIndustryHeatmap(rows) {
     conditions.forEach(c => { byCond[c] = { all: [], bySponsor: {} }; });
     const secName = i => d.secondaries[i];
     rows.forEach(t => {
+        const v = industryTrialValue(t);
+        if (v === null) return;
         const c = secName(t[5]);
         if (!(c in byCond)) return;
-        byCond[c].all.push(t[1]);
+        byCond[c].all.push(v);
         const sp = d.companies[t[0]];
-        (byCond[c].bySponsor[sp] = byCond[c].bySponsor[sp] || []).push(t[1]);
+        (byCond[c].bySponsor[sp] = byCond[c].bySponsor[sp] || []).push(v);
         if (t[0] >= topN && sp !== 'Other Industry') {
-            (byCond[c].bySponsor['Other Industry'] = byCond[c].bySponsor['Other Industry'] || []).push(t[1]);
+            (byCond[c].bySponsor['Other Industry'] = byCond[c].bySponsor['Other Industry'] || []).push(v);
         }
     });
 
@@ -7698,7 +7744,10 @@ function renderIndustryHeatmap(rows) {
         html += '</tr>';
     });
     html += '</tbody></table></div>';
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent female minus the condition's pooled median across all industry trials in the current filter, in percentage points &mdash; <span style="color:${INDUSTRY_PINK}">pink</span> above the condition baseline, <span style="color:${INDUSTRY_BLUE}">blue</span> below, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. Conditions are the cohort's most common categories, excluding sex-specific ones. Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+    const metric = industryMetricLabel();
+    const prevNote = industryDemo === 'sex' ? ''
+        : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration; until then, deviations are measured against the industry cohort's own condition baselines.`;
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus the condition's pooled median across all industry trials in the current filter, in percentage points &mdash; <span style="color:${INDUSTRY_PINK}">pink</span> above the condition baseline, <span style="color:${INDUSTRY_BLUE}">blue</span> below, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. Conditions are the cohort's most common categories, excluding sex-specific ones.${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
     host.innerHTML = html;
 }
 
@@ -7715,11 +7764,13 @@ function renderIndustryTrend(rows) {
     sponsors.forEach(sp => { perSponsor[sp] = {}; });
     const pooled = {};
     rows.forEach(t => {
-        (pooled[t[3]] = pooled[t[3]] || []).push(t[1]);
+        const v = industryTrialValue(t);
+        if (v === null) return;
+        (pooled[t[3]] = pooled[t[3]] || []).push(v);
         const sp = d.companies[t[0]];
-        if (sp in perSponsor) (perSponsor[sp][t[3]] = perSponsor[sp][t[3]] || []).push(t[1]);
+        if (sp in perSponsor) (perSponsor[sp][t[3]] = perSponsor[sp][t[3]] || []).push(v);
         if (t[0] >= topN && sp !== 'Other Industry' && ('Other Industry' in perSponsor)) {
-            (perSponsor['Other Industry'][t[3]] = perSponsor['Other Industry'][t[3]] || []).push(t[1]);
+            (perSponsor['Other Industry'][t[3]] = perSponsor['Other Industry'][t[3]] || []).push(v);
         }
     });
 
@@ -7745,12 +7796,14 @@ function renderIndustryTrend(rows) {
         borderColor: '#9aa5a0', backgroundColor: '#9aa5a0',
         borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, tension: 0.25, spanGaps: false
     });
-    datasets.push({
-        label: '50% parity',
-        data: years.map(() => 50),
-        borderColor: '#c9c9c9', backgroundColor: '#c9c9c9',
-        borderDash: [2, 4], pointRadius: 0, borderWidth: 1, order: 99
-    });
+    if (industryDemo === 'sex') {
+        datasets.push({
+            label: '50% parity',
+            data: years.map(() => 50),
+            borderColor: '#c9c9c9', backgroundColor: '#c9c9c9',
+            borderDash: [2, 4], pointRadius: 0, borderWidth: 1, order: 99
+        });
+    }
 
     if (industryChart) industryChart.destroy();
     industryChart = new Chart(canvas, {
@@ -7765,7 +7818,9 @@ function renderIndustryTrend(rows) {
                 datalabels: { display: false }
             },
             scales: {
-                y: { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial' } },
+                y: industryDemo === 'sex'
+                    ? { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial' } }
+                    : { min: 0, title: { display: true, text: (isMobileDevice ? '% ' : 'Median % ') + industryMetricLabel() + (isMobileDevice ? '' : ' per trial') } },
                 x: { title: { display: true, text: isMobileDevice ? 'Completion year' : 'Primary completion year' } }
             }
         }
@@ -7778,8 +7833,20 @@ function renderIndustryForest() {
     // Role-matched model set (falls back to the default set on a cached
     // pre-toggle dataset without the lead-only fits).
     const leadMode = industryRole === 'lead' && Array.isArray(d.contrasts_lead);
-    const contrastSet = leadMode ? d.contrasts_lead : d.contrasts;
-    const pooled = leadMode ? d.pooled_lead : d.pooled;
+    let contrastSet, pooled = null;
+    if (industryDemo === 'sex') {
+        contrastSet = leadMode ? d.contrasts_lead : d.contrasts;
+        pooled = leadMode ? d.pooled_lead : d.pooled;
+    } else {
+        const cat = industryCat[industryDemo];
+        contrastSet = (d.contrasts_demo && d.contrasts_demo[industryDemo] &&
+                       d.contrasts_demo[industryDemo][cat] &&
+                       d.contrasts_demo[industryDemo][cat][leadMode ? 'lead' : 'any']) || [];
+        if (!contrastSet.length) {
+            host.innerHTML = '<p class="note">Adjusted models are not available for this category (insufficient reporting trials, or the dataset predates this tier).</p>';
+            return;
+        }
+    }
     const contrasts = [...contrastSet]
         .filter(c => industrySelected.has(c.sponsor))
         .sort((a, b) => b.beta - a.beta);
@@ -7806,7 +7873,23 @@ function renderIndustryForest() {
         </div>`;
     });
     html += '</div>';
-    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in within-trial percent female vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). <span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more women than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer. Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'} (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2}) and respond to the Role toggle but not to the year/condition filters.</p>`;
+    let outcomeDesc, groupNoun;
+    if (industryDemo === 'sex') {
+        outcomeDesc = 'within-trial percent female'; groupNoun = 'women';
+    } else if (industryDemo === 'ethnicity') {
+        const lb = industryMetricLabel();
+        outcomeDesc = `the within-trial share of ${lb} participants among Hispanic + Not Hispanic participants`;
+        groupNoun = `${lb} participants`;
+    } else if (industryCat.race === 'white') {
+        outcomeDesc = 'the within-trial share of White participants among all explicitly reported participants';
+        groupNoun = 'White participants';
+    } else {
+        const lb = industryMetricLabel();
+        outcomeDesc = `the within-trial share of ${lb} participants among ${lb} + White participants (the balance vs White)`;
+        groupNoun = `${lb} participants`;
+    }
+    const pooledNote = pooled ? ` (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2})` : '';
+    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). <span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer. Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
     host.innerHTML = html;
 }
 
@@ -7817,7 +7900,8 @@ function renderIndustry() {
     if (meta) {
         const trunc = industrySelectedOrdered().truncated
             ? ` · showing the ${INDUSTRY_RENDER_CAP} highest-volume selected sponsors` : '';
-        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
+        const demoBit = industryDemo === 'sex' ? 'sex' : `${industryDemo}: ${industryMetricLabel()}`;
+        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${demoBit} · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
     }
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
@@ -7826,6 +7910,27 @@ function renderIndustry() {
     if (industryView === 'heatmap') renderIndustryHeatmap(rows);
     else if (industryView === 'trend') renderIndustryTrend(rows);
     else renderIndustryForest();
+}
+
+// Category layer inside the Race / Ethnicity tiers.
+function renderIndustryCatRow() {
+    const row = document.getElementById('industry-cat-row');
+    if (!row) return;
+    if (industryDemo === 'sex' || !industryData) { row.style.display = 'none'; return; }
+    const cats = industryDemo === 'race'
+        ? (industryData.race_categories || [])
+        : (industryData.eth_categories || []);
+    if (!cats.length) { row.style.display = 'none'; return; }
+    row.style.display = '';
+    row.innerHTML = cats.map(c => `
+        <button type="button" class="industry-cat-chip ${industryCat[industryDemo] === c ? 'active' : ''}" data-icat="${escapeHtml(c)}">${escapeHtml(INDUSTRY_CAT_LABELS[c] || c)}</button>`).join('');
+    row.querySelectorAll('.industry-cat-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            industryCat[industryDemo] = chip.dataset.icat;
+            renderIndustryCatRow();
+            renderIndustry();
+        });
+    });
 }
 
 async function openIndustryView() {
@@ -7850,6 +7955,7 @@ async function openIndustryView() {
             industryData = await resp.json();
             industrySelected = new Set(industryTop10());
             renderIndustrySponsorMenu();
+            renderIndustryCatRow();
         } catch (e) {
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by scripts/generate_industry_sponsors.py during the weekly extraction.</p>`;
@@ -7870,6 +7976,18 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#industry-view-toggle .view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             industryView = btn.dataset.iview;
+            renderIndustry();
+        });
+    });
+    // Demographic tier tabs (Sex / Race / Ethnicity).
+    document.querySelectorAll('.industry-demo-tab[data-idemo]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.industry-demo-tab').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            industryDemo = btn.dataset.idemo;
+            const sub = document.getElementById('industry-subtitle');
+            if (sub) sub.textContent = INDUSTRY_SUBTITLES[industryDemo];
+            renderIndustryCatRow();
             renderIndustry();
         });
     });

@@ -160,6 +160,28 @@ SEX_SPECIFIC_SECONDARIES = {
 EXCLUDED_SECONDARIES = SEX_SPECIFIC_SECONDARIES | {"Uncategorized", "Other", ""}
 
 
+# Race/ethnicity category order shared with the frontend (indices into the
+# per-trial share arrays). Shares are % of the trial's explicitly reported
+# categories; "unknown_not_reported" stays out of every denominator per the
+# parsers.R contract.
+RACE_CATS = ["white", "black_african_american", "asian",
+             "american_indian_alaska_native", "native_hawaiian_pacific_islander",
+             "more_than_one_race", "other"]
+ETH_CATS = ["hispanic_latino", "not_hispanic_latino"]
+
+
+def demo_shares(obj, cats):
+    """[share%...] of reported categories for one trial, or None."""
+    if not obj or not obj.get("reported"):
+        return None
+    totals = obj.get("omb_totals") or {}
+    vals = [max(0, totals.get(c) or 0) for c in cats]
+    known = sum(vals)
+    if known <= 0:
+        return None
+    return [round(100.0 * v / known, 1) for v in vals]
+
+
 def parse_iso_date(s):
     if not s:
         return None
@@ -238,6 +260,8 @@ def build_cohort(records):
             "log_enroll": math.log(enrollment) if isinstance(enrollment, (int, float)) and enrollment and enrollment > 0 else None,
             "n_countries": len({c.get("country") for c in (r.get("countries") or []) if c.get("country")}),
             "has_unknown": 1 if (totals.get("unknown") or 0) > 0 else 0,
+            "race_shares": demo_shares(r.get("race"), RACE_CATS),
+            "eth_shares": demo_shares(r.get("ethnicity"), ETH_CATS),
         })
     return rows
 
@@ -358,6 +382,45 @@ def main():
     contrasts, pooled = fit_contrast_set(rows, top10)
     lead_rows = [r for r in rows if r["via_lead"]]
     contrasts_lead, pooled_lead = fit_contrast_set(lead_rows, top10)
+
+    # Race/ethnicity "balance" contrasts: the selected category's share of
+    # (category + White) - the analogue of female/(female+male) - modeled the
+    # same way (two-group OLS vs Other Industry, same covariates), for both
+    # role modes. White itself uses its plain share of reported participants.
+    def fit_balance(value_fn):
+        out = {}
+        for mode, base in (("any", rows), ("lead", lead_rows)):
+            rx = [dict(r, pf=v) for r in base if (v := value_fn(r)) is not None]
+            out[mode] = fit_contrast_set(rx, top10)[0] if len(rx) >= 200 else []
+        return out
+
+    def race_balance(i):
+        def fn(r):
+            s = r["race_shares"]
+            if s is None:
+                return None
+            if i == 0:
+                return s[0]                     # White: plain share of reported
+            denom = s[i] + s[0]
+            return 100.0 * s[i] / denom if denom > 0 else None
+        return fn
+
+    def eth_balance(i):
+        def fn(r):
+            s = r["eth_shares"]
+            if s is None:
+                return None
+            denom = s[0] + s[1]
+            return 100.0 * s[i] / denom if denom > 0 else None
+        return fn
+
+    contrasts_demo = {
+        "race": {c: fit_balance(race_balance(i)) for i, c in enumerate(RACE_CATS)},
+        "ethnicity": {c: fit_balance(eth_balance(i)) for i, c in enumerate(ETH_CATS)},
+    }
+    n_race = sum(1 for r in rows if r["race_shares"] is not None)
+    n_eth = sum(1 for r in rows if r["eth_shares"] is not None)
+    print(f"Race reported in {n_race:,} cohort trials; ethnicity in {n_eth:,}")
     print(f"Adjusted contrasts fit for {len(contrasts)} sponsors; pooled n={pooled['n']:,}, R2={pooled['r2']}")
     print(f"Lead-only mode: {len(lead_rows):,} trials; pooled n={pooled_lead['n']:,}, R2={pooled_lead['r2']}")
 
@@ -373,7 +436,7 @@ def main():
     # >= TOP_N_SPONSORS pool into "Other Industry" on the frontend.
     trials = [[company_idx[r["company"]], round(r["pf"], 1), r["results_year"] or 0,
                r["pcd_year"], p_idx[r["primary"]], s_idx[r["secondary"]], r["has_unknown"],
-               1 if r["via_lead"] else 0]
+               1 if r["via_lead"] else 0, r["race_shares"], r["eth_shares"]]
               for r in rows]
 
     out = {
@@ -391,7 +454,14 @@ def main():
         "pooled": pooled,
         "contrasts_lead": contrasts_lead,
         "pooled_lead": pooled_lead,
-        "trial_fields": ["company", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead"],
+        "contrasts_demo": contrasts_demo,
+        "race_categories": RACE_CATS,
+        "eth_categories": ETH_CATS,
+        # Disease-prevalence benchmarks by race/ethnicity are not yet
+        # integrated; the heatmap stays on the cohort's own condition
+        # baselines until these are populated (e.g. from PCORI prevalences).
+        "prevalence_benchmarks": {"status": "pending", "by_race": None, "by_ethnicity": None},
+        "trial_fields": ["company", "pf", "results_year", "pcd_year", "primary", "secondary", "has_explicit_unknown", "via_lead", "race_shares", "eth_shares"],
         "trials": trials,
     }
     out_path = os.path.join(data_dir, "industry_sponsors.json")

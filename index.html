@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260710">
+    <link rel="stylesheet" href="styles.css?v=20260711">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -893,15 +893,16 @@
             <!-- Demographic tier: which characteristic the sponsor panel reports
                  on. Sex is live; the rest are placeholders for future data. -->
             <nav class="industry-demo-nav" aria-label="Demographic characteristic">
-                <button type="button" class="industry-demo-tab active">Sex</button>
-                <button type="button" class="industry-demo-tab" disabled title="Coming soon">Race</button>
-                <button type="button" class="industry-demo-tab" disabled title="Coming soon">Ethnicity</button>
+                <button type="button" class="industry-demo-tab active" data-idemo="sex">Sex</button>
+                <button type="button" class="industry-demo-tab" data-idemo="race">Race</button>
+                <button type="button" class="industry-demo-tab" data-idemo="ethnicity">Ethnicity</button>
                 <button type="button" class="industry-demo-tab" disabled title="Coming soon">Gender</button>
             </nav>
 
             <div class="chart-container">
                 <h3>Industry Sponsor Representation</h3>
-                <p class="note industry-subtitle">Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).</p>
+                <p class="note industry-subtitle" id="industry-subtitle">Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).</p>
+                <div class="industry-cat-row" id="industry-cat-row" style="display:none"></div>
 
                 <div class="industry-controls">
                     <div class="industry-controls-left">
@@ -934,7 +935,7 @@
                 <div id="industry-view-forest" class="industry-view" style="display:none"></div>
 
                 <div class="industry-methods-footnote">
-                    <p>Percent female is within-trial female / (female + male); explicitly reported "Unknown" counts stay out of the denominator and are never treated as missing. Sponsor assignment follows the AACT lead-sponsor-first contract with industry collaborators as fallback (the Role toggle restricts to lead-sponsored trials); companies are grouped with the analysis pipeline's canonical map. Gated beta &mdash; descriptive views respond to the global Year Range and Condition filters above and to the Role and Scope toggles; the adjusted differences are model estimates on the full cohort for the selected Role.</p>
+                    <p>Percent female is within-trial female / (female + male); explicitly reported "Unknown" counts stay out of the denominator and are never treated as missing. Sponsor assignment follows the AACT lead-sponsor-first contract with industry collaborators as fallback (the Role toggle restricts to lead-sponsored trials); companies are grouped with the analysis pipeline's canonical map. On the Race and Ethnicity tiers, a category's share is computed over the trial's explicitly reported categories on the same principle, and the Adjusted Differences view models the selected category's balance vs White (Hispanic vs Not Hispanic for ethnicity). Gated beta &mdash; descriptive views respond to the global Year Range and Condition filters above and to the Role and Scope toggles; the adjusted differences are model estimates on the full cohort for the selected Role.</p>
                 </div>
 
                 <div class="industry-faq">
@@ -1364,6 +1365,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260710"></script>
+    <script defer src="app.js?v=20260711"></script>
 </body>
 </html>
