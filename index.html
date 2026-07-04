@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260717">
+    <link rel="stylesheet" href="styles.css?v=20260718">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -499,7 +499,7 @@
                  intentionally omits the heavy per-site geography data the map
                  needs. Shown by renderGeographyDashboard() on mobile instead of
                  an all-zero dashboard. -->
-            <div id="geo-mobile-notice" style="display:none; text-align:center; padding:2.5rem 1.5rem; max-width:560px; margin:1.5rem auto; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px;">
+            <div id="geo-mobile-notice" style="display:none; text-align:center; padding:2.5rem 1.5rem; max-width:560px; margin:1.5rem auto; background:transparent; border:1px solid var(--border-color); border-radius:8px;">
                 <div style="font-size:2.5rem; line-height:1;">🗺️</div>
                 <h3 style="margin:0.75rem 0 0.5rem;">Geography view is desktop-only</h3>
                 <p class="note" style="margin:0 0 0.5rem;">The interactive map breaks trials down by US state, city, and country using detailed per-site location data that's too large to load on mobile. Civic Sample serves a lightweight aggregate dashboard on phones instead.</p>
@@ -733,10 +733,14 @@
         <section id="fda-extraction" class="tab-content">
             <div class="chart-container">
                 <h2>(Beta) AI Demographic Extraction</h2>
-                <p class="note">Uses Claude to extract demographic data from FDA 510(k)/De Novo/PMA summary PDFs. This pipeline identifies how often race, sex, and age are reported in AI/ML device clinical validations.</p>
+                <p class="note">Who was in the validation studies behind the products on the <strong>AI Devices</strong> tab? The FDA does not publish that systematically &mdash; so this pipeline has Claude read each device's public 510(k)/De Novo/PMA summary PDF and extract the demographics of its clinical validation, surfacing information about these authorized devices that is not available anywhere else on the dashboard. Where a matched manuscript exists, its numbers are shown alongside the FDA summary's for the same device.</p>
+
+                <div class="fda-pathway-note">
+                    <p class="note">Every document is run through <strong>three Claude models independently</strong> &mdash; agreement between them is a first signal of extraction reliability, and the pilot comparison below tracks what a full-scale run would cost. Columns for socioeconomic status, disability, and household measures are already reserved in the schema; the extraction prompts for those fields are being finalized and will populate in a future update. Everything on this tab is raw model output shown before curator review &mdash; confirmed values graduate through the Approval Queue.</p>
+                </div>
 
                 <div class="extraction-cost-banner" id="fda-cost-banner">
-                    <h3>3-Way Model Comparison — Token Usage &amp; Scaling Projection</h3>
+                    <h3>Pilot Run &mdash; Three Models Compared</h3>
                     <p class="note" style="margin-bottom: 1rem;">Each document is processed through all three models. Compare cost, speed, and extraction quality side by side.</p>
                     <div class="model-comparison-grid" id="fda-model-cards">
                         <!-- Populated by JS: one card per model -->
@@ -805,10 +809,14 @@
         <section id="lit-extraction" class="tab-content">
             <div class="chart-container">
                 <h2>(Beta) Paper Data Extraction</h2>
-                <p class="note">Uses Claude to extract socioeconomic status (SES) indicators and detailed race breakdowns from open-access clinical trial manuscripts via Unpaywall.</p>
+                <p class="note">Published manuscripts often report more demographic detail than sponsors enter into the registry. This pipeline links each open-access trial publication (via Unpaywall) to its ClinicalTrials.gov record by <strong>NCT ID</strong>, has Claude extract the paper's demographic tables, and compares the two sources field by field &mdash; <strong>confirming</strong> what the registry already says, <strong>adding</strong> what the paper reports but the registry lacks, or <strong>flagging conflicts</strong> where they disagree.</p>
+
+                <div class="fda-pathway-note">
+                    <p class="note">Every manuscript is run through <strong>three Claude models independently</strong> &mdash; agreement between them is a first signal of extraction reliability, and the pilot comparison below tracks what a full-scale run would cost. Columns for socioeconomic status, disability, and household measures are already reserved in the schema; the extraction prompts for those fields are being finalized and will populate in a future update. Everything on this tab is raw model output shown before curator review &mdash; confirmed additions and resolved conflicts graduate through the Approval Queue.</p>
+                </div>
 
                 <div class="extraction-cost-banner" id="lit-cost-banner">
-                    <h3>3-Way Model Comparison — Token Usage &amp; Scaling Projection</h3>
+                    <h3>Pilot Run &mdash; Three Models Compared</h3>
                     <p class="note" style="margin-bottom: 1rem;">Each manuscript is processed through all three models. Compare cost, speed, and extraction quality side by side.</p>
                     <div class="model-comparison-grid" id="lit-model-cards">
                         <!-- Populated by JS: one card per model -->
@@ -877,7 +885,7 @@
         <section id="approval-queue" class="tab-content">
             <div class="chart-container">
                 <h2>(Beta) Approval Queue</h2>
-                <p class="note">Unified triage inbox for reviewing AI-extracted FDA demographic and literature/SES records before they reach the public dashboard. Decisions are recorded in a local, in-session ledger — the source extraction files are never modified.</p>
+                <p class="note">The last gate before AI-extracted values reach the public dashboard. Records produced by the two extraction pipelines &mdash; FDA summary-PDF demographics and manuscript comparisons &mdash; land here for a curator to approve or reject one by one; nothing extracted by a model is published without a human decision. Decisions are recorded in a local, in-session ledger &mdash; the source extraction files are never modified.</p>
                 <div id="approval-queue-root"></div>
             </div>
         </section>
@@ -1382,6 +1390,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260717"></script>
+    <script defer src="app.js?v=20260718"></script>
 </body>
 </html>
