@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260716">
+    <link rel="stylesheet" href="styles.css?v=20260717">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -677,18 +677,17 @@
 
         <!-- AI Devices Tab -->
         <section id="ai-devices" class="tab-content">
-            <div class="ai-devices-disclaimer" style="background: #fef9c3; border: 1px solid #facc15; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; color: #854d0e; font-size: 0.9rem;">
-                <strong>Note:</strong> This tab tracks specific AI-enabled devices. Demographic data extraction for these devices is currently pending and will be populated in a future update.
-            </div>
             <div class="chart-container">
                 <div class="ai-devices-header">
                     <h3>FDA-Authorized AI/ML-Enabled Medical Devices</h3>
-                    <p class="note">Data source: <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-enabled-medical-devices" target="_blank">FDA Artificial Intelligence-Enabled Medical Devices</a></p>
-                    <p class="note"><strong>Last Updated:</strong> March 5, 2026</p>
-                    <p class="note">This list identifies AI/ML-enabled medical devices authorized for marketing in the United States. Demographic data for the testing of these devices is not reported systematically by the FDA. In the tab "(Beta) AI Demographic Extraction" we plan on extracting any provided demographic data from FDA 510(k)/De Novo/PMA summary pdf documents.</p>
+                    <p class="note">Data source: <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-enabled-medical-devices" target="_blank">FDA Artificial Intelligence-Enabled Medical Devices</a> &middot; Last updated March 5, 2026</p>
                 </div>
 
                 <div class="ai-devices-stats" id="ai-devices-stats"></div>
+
+                <div class="fda-pathway-note">
+                    <p class="note">Everything on this page holds <strong>FDA marketing authorization</strong> &mdash; these are products that completed a premarket pathway, not registered trials. Devices arrive by three routes: <strong>510(k) clearance</strong> (substantial equivalence to an already-marketed predicate device), <strong>De Novo</strong> (novel devices of low-to-moderate risk without a predicate), and <strong>PMA</strong> (full premarket approval on clinical evidence, the most stringent review). AI/ML is a young regulatory category &mdash; authorizations climbed from a handful per year before 2017 to hundreds per year now, and the overwhelming majority arrive through the 510(k) predicate route rather than PMA-level clinical review. The FDA does not systematically publish demographic data for these devices' validation studies; the (Beta) AI Demographic Extraction tab mines the public 510(k)/De Novo/PMA summary PDFs for what was reported, and demographic results for these devices will populate here in a future update.</p>
+                </div>
 
                 <div class="ai-devices-charts">
                     <div class="chart-row">
@@ -697,7 +696,7 @@
                             <canvas id="ai-panel-chart"></canvas>
                         </div>
                         <div class="chart-container">
-                            <h3>Authorizations Over Time</h3>
+                            <h3>Marketing Authorizations per Year, by Pathway</h3>
                             <canvas id="ai-timeline-chart"></canvas>
                         </div>
                     </div>
@@ -714,12 +713,12 @@
                                 <tr>
                                     <th class="sortable" data-sort="date" id="ai-date-header" style="cursor:pointer">Date of Final Decision <span class="sort-arrow"></span></th>
                                     <th>Submission #</th>
+                                    <th>Pathway</th>
                                     <th>Device</th>
                                     <th>Company</th>
                                     <th>Panel</th>
                                     <th>Product Code</th>
                                     <th>Summary Document</th>
-                                    <th>Application</th>
                                 </tr>
                             </thead>
                             <tbody id="ai-devices-tbody"></tbody>
@@ -1383,6 +1382,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260716"></script>
+    <script defer src="app.js?v=20260717"></script>
 </body>
 </html>
