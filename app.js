@@ -7522,6 +7522,8 @@ let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
 let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
 let industryScope = 'top10';   // 'top10' | 'all' = adds the pooled Other Industry layer
+let industryCellMin = null;    // heatmap trials-per-cell floor override (null = dataset default)
+let industryCellMax = null;    // heatmap trials-per-cell cap (null = no cap)
 
 // Demographic tier: which characteristic the panel reports on, plus the
 // category layer inside the Race and Ethnicity tiers. Heatmap and trend show
@@ -7658,6 +7660,18 @@ function industryDevColor(dev) {
     }
     return t >= 0 ? industryHexLerp(INDUSTRY_MID, INDUSTRY_PINK, t)
                   : industryHexLerp(INDUSTRY_MID, INDUSTRY_BLUE, -t);
+}
+
+// Effective trials-per-cell window for the heatmap: only cells whose trial
+// count falls inside it get a computed, colored deviation — the rest show
+// their n in grey. The floor defaults to the dataset's min_cell but both
+// bounds are user-adjustable, so small-trial cells can be examined on demand.
+function industryCellRange() {
+    const floor = industryCellMin !== null ? industryCellMin
+        : ((industryData && industryData.min_cell) || 10);
+    const min = Math.max(1, floor);
+    const max = industryCellMax !== null ? Math.max(industryCellMax, min) : Infinity;
+    return { min, max };
 }
 
 // White cell text once the fill is dark enough that black would strain.
@@ -7799,18 +7813,19 @@ function renderIndustryHeatmap(rows) {
         html += `<th>${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
+    const { min: cellMin, max: cellMax } = industryCellRange();
     sponsors.forEach(sp => {
         html += `<tr><th>${escapeHtml(sp)}</th>`;
         conditions.forEach(c => {
             const vals = byCond[c].bySponsor[sp] || [];
             const base = industryMedian(byCond[c].all);
             const bench = industryBenchmarkFor(base);
-            if (vals.length >= d.min_cell && bench !== null) {
+            if (vals.length >= cellMin && vals.length <= cellMax && bench !== null) {
                 const dev = industryMedian(vals) - bench;
                 const bg = industryDevColor(dev);
                 html += `<td style="background:${bg}" title="${escapeHtml(sp)} — ${escapeHtml(c)}: median ${industryMedian(vals).toFixed(1)}% vs ${bench.toFixed(1)}% benchmark (n=${vals.length})"><span class="${industryDarkText(bg) ? 'industry-cell-dark' : ''}">${dev >= 0 ? '+' : ''}${dev.toFixed(0)}</span></td>`;
             } else if (vals.length > 0) {
-                html += `<td class="industry-cell-thin" title="Below the ${d.min_cell}-trial threshold">(${vals.length})</td>`;
+                html += `<td class="industry-cell-thin" title="${vals.length < cellMin ? 'Below' : 'Above'} the trials-per-cell window (n=${vals.length})">(${vals.length})</td>`;
             } else {
                 html += '<td class="industry-cell-empty"></td>';
             }
@@ -7831,7 +7846,12 @@ function renderIndustryHeatmap(rows) {
     const encNote = catColor
         ? `cells use the category's color from the site-wide ${industryDemo} palette, <span style="color:${catColor}">richer</span> above the benchmark and fading to <span style="color:${INDUSTRY_GREY}">grey</span> below it`
         : `<span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below`;
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; ${encNote}, clamped at &plusmn;15. Cells under ${d.min_cell} trials show their n uncolored. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+    const rangeDesc = cellMax === Infinity
+        ? `fewer than ${cellMin} trials`
+        : `a trial count outside ${cellMin}&ndash;${cellMax}`;
+    const smallNote = cellMin < (d.min_cell || 10)
+        ? ` (medians over so few trials are volatile &mdash; the default floor is ${d.min_cell})` : '';
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; ${encNote}, clamped at &plusmn;15. Cells with ${rangeDesc} show their n in grey${smallNote}. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
     host.innerHTML = html;
 }
 
@@ -8015,6 +8035,9 @@ function renderIndustry() {
         const el = document.getElementById('industry-view-' + v);
         if (el) el.style.display = v === industryView ? '' : 'none';
     });
+    // The trials-per-cell window only shapes the heatmap.
+    const cellRangeBox = document.getElementById('industry-cellrange');
+    if (cellRangeBox) cellRangeBox.style.display = industryView === 'heatmap' ? '' : 'none';
     if (industryView === 'heatmap') renderIndustryHeatmap(rows);
     else if (industryView === 'trend') renderIndustryTrend(rows);
     else renderIndustryForest();
@@ -8075,6 +8098,8 @@ async function openIndustryView() {
             industrySelected = new Set(industryTop10());
             renderIndustrySponsorMenu();
             renderIndustryCatRow();
+            const cellMinInput = document.getElementById('industry-cellmin');
+            if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
         } catch (e) {
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by scripts/generate_industry_sponsors.py during the weekly extraction.</p>`;
@@ -8131,6 +8156,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             renderIndustrySponsorMenu();
             renderIndustry();
+        });
+    });
+    // Trials-per-cell window: which heatmap cells get a computed deviation.
+    // Clearing the floor restores the dataset default; clearing the cap
+    // removes it (the placeholder reads as "no cap").
+    [['industry-cellmin', v => { industryCellMin = v; }],
+     ['industry-cellmax', v => { industryCellMax = v; }]].forEach(([id, set]) => {
+        document.getElementById(id)?.addEventListener('change', e => {
+            const v = parseInt(e.target.value, 10);
+            const valid = Number.isFinite(v) && v >= 1;
+            set(valid ? v : null);
+            if (!valid) e.target.value = id === 'industry-cellmin'
+                ? ((industryData && industryData.min_cell) || 10) : '';
+            if (industryActive()) renderIndustry();
         });
     });
     // Re-render under the global filters this view honors.
