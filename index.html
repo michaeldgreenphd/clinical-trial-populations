@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260721">
+    <link rel="stylesheet" href="styles.css?v=20260722">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -309,6 +309,7 @@
             <div class="chart-container">
                 <h3>Reporting Trends Over Time</h3>
                 <canvas id="reporting-trends-chart"></canvas>
+                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
             </div>
         </section>
 
@@ -335,6 +336,7 @@
                     <h3>Race Over Time</h3>
                     <p class="note">Proportion among studies that reported race (excludes missing and unknown).</p>
                     <canvas id="race-trends-chart"></canvas>
+                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
             </div>
         </section>
@@ -363,6 +365,7 @@
                     <h3>Ethnicity Over Time</h3>
                     <p class="note">Proportion among studies that reported ethnicity (excludes missing and unknown).</p>
                     <canvas id="ethnicity-trends-chart"></canvas>
+                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
             </div>
         </section>
@@ -393,6 +396,7 @@
                     <h3>Sex Ratio Over Time</h3>
                     <p class="note">Proportion among studies that reported sex (excludes missing and unknown).</p>
                     <canvas id="sex-trends-chart"></canvas>
+                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
             </div>
         </section>
@@ -424,6 +428,7 @@
                     <h3>Gender Over Time</h3>
                     <p class="note">Proportion of reported gender identities across years (excludes missing and unknown).</p>
                     <canvas id="gender-trends-chart"></canvas>
+                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
             </div>
         </section>
@@ -699,6 +704,7 @@
                         <div class="chart-container">
                             <h3>Marketing Authorizations per Year, by Pathway</h3>
                             <canvas id="ai-timeline-chart"></canvas>
+                            <p class="chart-footnote">Markers: FDA’s 2017 Digital Health Innovation Action Plan and the 2019 proposed regulatory framework for AI/ML-based software as a medical device (SaMD).</p>
                         </div>
                     </div>
                     <div class="chart-row">
@@ -706,6 +712,7 @@
                             <h3>De Novo &amp; PMA Authorizations per Year</h3>
                             <p class="note">The non-510(k) slice at its own scale &mdash; next to the 510(k) volume above, these pathways read as invisible slivers. This is the small set of AI/ML devices whose authorization carried novel-device (De Novo) or full clinical (PMA) review.</p>
                             <canvas id="ai-nonk-chart"></canvas>
+                            <p class="chart-footnote">Markers: FDA’s 2017 Digital Health Innovation Action Plan and the 2019 proposed regulatory framework for AI/ML-based software as a medical device (SaMD).</p>
                         </div>
                     </div>
                 </div>
@@ -1357,6 +1364,15 @@
                     </div>
                 </details>
 
+                <details class="faq-section">
+                    <summary><h4>What is FDAAA, and what changed in 2017?</h4></summary>
+                    <div class="faq-answer">
+                        <p class="note">The <a href="https://www.fda.gov/regulatory-information/selected-amendments-fdc-act/food-and-drug-administration-amendments-act-fdaaa-2007" target="_blank" rel="noopener">Food and Drug Administration Amendments Act of 2007 (FDAAA)</a> is the law behind most of the data on this dashboard. Its Section 801 created the legal requirement that "applicable clinical trials" of drugs, biologics, and devices be registered on ClinicalTrials.gov and — for the first time — that sponsors submit <strong>basic results</strong>, including participant demographics, generally within 12 months of the trial's primary completion date.</p>
+                        <p class="note" style="margin-top: 0.75rem;">For its first decade the statute left key terms ambiguous and results reporting lagged. The <a href="https://www.federalregister.gov/documents/2016/09/21/2016-22129/clinical-trials-registration-and-results-information-submission" target="_blank" rel="noopener">Final Rule (42 CFR Part 11)</a>, published September 2016 and <strong>effective January 18, 2017</strong>, resolved that: it spelled out exactly which trials are covered (including trials of unapproved products), what must be submitted (baseline demographics such as age, sex, and — when collected — race and ethnicity; outcomes; adverse events), the deadlines, and the penalties for non-compliance (civil monetary fines and, for federally funded trials, grant suspension). A companion NIH policy applied the same expectations to all NIH-funded trials on the same date. ClinicalTrials.gov maintains a summary at <a href="https://clinicaltrials.gov/policy/fdaaa-801-final-rule" target="_blank" rel="noopener">FDAAA 801 and the Final Rule</a>.</p>
+                        <p class="note" style="margin-top: 0.75rem;">This is why several time-series charts on this dashboard carry a dashed marker at 2017: reporting behavior before and after that line reflects two different enforcement regimes, and comparisons that span it should keep the rule change in mind.</p>
+                    </div>
+                </details>
+
             </div>
         </section>
 
@@ -1414,6 +1430,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260721"></script>
+    <script defer src="app.js?v=20260722"></script>
 </body>
 </html>
