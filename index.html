@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260718">
+    <link rel="stylesheet" href="styles.css?v=20260719">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -447,6 +447,7 @@
 
                 <div class="table-controls">
                     <input type="text" id="study-table-search" placeholder="Search studies by title, ID, or condition..." />
+                    <div class="rows-per-page" id="studies-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
                     <span id="study-count" class="study-count"></span>
                 </div>
 
@@ -705,6 +706,7 @@
                 <div class="ai-devices-table-wrapper">
                     <div class="table-controls">
                         <input type="text" id="ai-device-search" class="table-search" placeholder="Search devices, companies, panels...">
+                        <div class="rows-per-page" id="ai-devices-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
                         <span id="ai-device-count" class="study-count"></span>
                     </div>
                     <div class="table-scroll">
@@ -775,6 +777,9 @@
                     <!-- Populated by JS -->
                 </div>
                 <p class="note">Each demographic cell is split <strong>FDA Summary</strong> (top) vs. <strong>Matched Manuscript</strong> (bottom). Manuscripts are linked by FDA Submission #.</p>
+                <div class="table-controls">
+                    <div class="rows-per-page" id="fda-ext-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
+                </div>
                 <div class="ai-devices-table-wrapper">
                     <div class="table-scroll table-responsive">
                         <table class="studies-table" id="fda-extraction-table">
@@ -801,6 +806,7 @@
                             <tbody id="fda-extraction-tbody"></tbody>
                         </table>
                     </div>
+                    <div id="fda-ext-pagination" class="pagination-controls"></div>
                 </div>
             </div>
         </section>
@@ -852,6 +858,9 @@
                     <label>View model:</label>
                     <!-- Populated by JS -->
                 </div>
+                <div class="table-controls">
+                    <div class="rows-per-page" id="lit-ext-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
+                </div>
                 <div class="ai-devices-table-wrapper">
                     <div class="table-scroll table-responsive">
                         <table class="studies-table" id="lit-extraction-table">
@@ -877,6 +886,7 @@
                             <tbody id="lit-extraction-tbody"></tbody>
                         </table>
                     </div>
+                    <div id="lit-ext-pagination" class="pagination-controls"></div>
                 </div>
             </div>
         </section>
@@ -937,6 +947,7 @@
                     </div>
                 </div>
                 <div id="industry-meta" class="industry-meta"></div>
+                <div class="industry-pager" id="industry-pager"></div>
 
                 <div id="industry-view-heatmap" class="industry-view"></div>
                 <div id="industry-view-trend" class="industry-view" style="display:none">
@@ -1390,6 +1401,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260718"></script>
+    <script defer src="app.js?v=20260719"></script>
 </body>
 </html>

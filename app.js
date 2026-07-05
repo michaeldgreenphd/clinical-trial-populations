@@ -6,7 +6,7 @@ let detailsLoaded = false;  // Whether detail files have been fetched
 let charts = {};
 let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
-const PAGE_SIZE = 100;
+let studiesPageSize = 15;   // rows per page (15 default, selectable 25/50)
 
 // ── Mobile / low-memory detection ──
 // Mobile browsers struggle with the full 136 MB dataset (780 MB uncompressed).
@@ -426,6 +426,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             // Mobile summary mode: disable filters, show "desktop only" on heavy tabs
             disableFiltersForMobile();
         }
+        // Rows-per-page applies in both desktop and mobile summary modes
+        // (initTable is desktop-only; wireRowsControl guards double-wiring).
+        wireRowsControl('studies-rows', n => {
+            studiesPageSize = n;
+            currentPage = 0;
+            renderStudiesTable();
+        });
         initSubcategoryButtons();
         updateLoadingProgress(90, 'Rendering charts...');
         renderDashboard();
@@ -1296,6 +1303,31 @@ function initSubcategoryButtons() {
     });
 }
 
+// Shared rows-per-page control (15 default / 25 / 50) for the list tables —
+// the familiar list-app pattern: a short first page, expandable before paging.
+function wireRowsControl(id, onChange) {
+    const box = document.getElementById(id);
+    if (!box || box.dataset.wired) return;
+    box.dataset.wired = '1';
+    box.querySelectorAll('.rows-btn').forEach(btn => btn.addEventListener('click', () => {
+        box.querySelectorAll('.rows-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        onChange(parseInt(btn.dataset.rows, 10));
+    }));
+}
+
+// Prev / range / Next pager for tables that page via a global go-function.
+function renderSimplePager(containerId, total, page, pageSize, goFnName) {
+    const el = document.getElementById(containerId);
+    if (!el) return;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    if (totalPages <= 1) { el.innerHTML = ''; return; }
+    el.innerHTML = `
+        <button class="page-btn" ${page === 0 ? 'disabled' : ''} onclick="${goFnName}(${page - 1})">&#8592; Prev</button>
+        <span class="pager-range">${(page * pageSize + 1).toLocaleString()}&ndash;${Math.min((page + 1) * pageSize, total).toLocaleString()} of ${total.toLocaleString()}</span>
+        <button class="page-btn" ${page >= totalPages - 1 ? 'disabled' : ''} onclick="${goFnName}(${page + 1})">Next &#8594;</button>`;
+}
+
 function initTable() {
     // Table search
     const tableSearch = document.getElementById('study-table-search');
@@ -1305,6 +1337,12 @@ function initTable() {
             renderStudiesTable();
         });
     }
+
+    wireRowsControl('studies-rows', n => {
+        studiesPageSize = n;
+        currentPage = 0;
+        renderStudiesTable();
+    });
 
     // Sortable headers
     document.querySelectorAll('.studies-table th.sortable').forEach(th => {
@@ -1814,10 +1852,10 @@ function renderStudiesTable() {
 
     // Paginate
     const totalCount = filtered.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalCount / studiesPageSize));
     currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
-    const pageStart = currentPage * PAGE_SIZE;
-    const pageData = filtered.slice(pageStart, pageStart + PAGE_SIZE);
+    const pageStart = currentPage * studiesPageSize;
+    const pageData = filtered.slice(pageStart, pageStart + studiesPageSize);
 
     // Render rows for current page only
     tbody.innerHTML = pageData.map(study => {
@@ -1879,7 +1917,7 @@ function renderStudiesTable() {
         if (totalCount === 0) {
             countSpan.textContent = 'No studies found';
         } else {
-            const end = Math.min(pageStart + PAGE_SIZE, totalCount);
+            const end = Math.min(pageStart + studiesPageSize, totalCount);
             countSpan.textContent = `Showing ${(pageStart + 1).toLocaleString()}\u2013${end.toLocaleString()} of ${totalCount.toLocaleString()} studies`;
         }
     }
@@ -1994,7 +2032,7 @@ function renderPagination(total) {
     const container = document.getElementById('pagination');
     if (!container) return;
 
-    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(total / studiesPageSize));
     if (totalPages <= 1) {
         container.innerHTML = '';
         return;
@@ -5771,6 +5809,12 @@ function renderAIDevicesTab() {
         });
     }
 
+    wireRowsControl('ai-devices-rows', n => {
+        aiDevicesPageSize = n;
+        aiDevicesPage = 0;
+        applyAIDevicesView();
+    });
+
     // Date sort toggle
     const dateHeader = document.getElementById('ai-date-header');
     if (dateHeader) {
@@ -5816,7 +5860,7 @@ function getFDAUrl(submissionNumber) {
 let aiDevicesFiltered = [];
 let aiDevicesPage = 0;
 let aiDevicesSortDir = null; // null, 'asc', 'desc'
-const AI_DEVICES_PAGE_SIZE = 50;
+let aiDevicesPageSize = 15;  // rows per page (15 default, selectable 25/50)
 
 function applyAIDevicesView() {
     const tbody = document.getElementById('ai-devices-tbody');
@@ -5836,13 +5880,13 @@ function applyAIDevicesView() {
     }
 
     const totalCount = viewData.length;
-    const totalPages = Math.max(1, Math.ceil(totalCount / AI_DEVICES_PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(totalCount / aiDevicesPageSize));
     aiDevicesPage = Math.max(0, Math.min(aiDevicesPage, totalPages - 1));
-    const start = aiDevicesPage * AI_DEVICES_PAGE_SIZE;
-    const pageData = viewData.slice(start, start + AI_DEVICES_PAGE_SIZE);
+    const start = aiDevicesPage * aiDevicesPageSize;
+    const pageData = viewData.slice(start, start + aiDevicesPageSize);
 
     if (countSpan) {
-        countSpan.textContent = `Showing ${start + 1}–${Math.min(start + AI_DEVICES_PAGE_SIZE, totalCount)} of ${totalCount}`;
+        countSpan.textContent = `Showing ${start + 1}–${Math.min(start + aiDevicesPageSize, totalCount)} of ${totalCount}`;
     }
 
     tbody.innerHTML = pageData.map(d => {
@@ -6426,6 +6470,14 @@ let _fdaLitIndex = {};          // submission_number -> manuscript record
 let _fdaDecisionDateIndex = {}; // submission_number -> Date of Final Decision (from enriched CSV)
 let _fdaSelectedModel = 'sonnet_4_6'; // default view (overridden per-load when this key is absent)
 
+// Extraction-table pagination (15 default / 25 / 50 rows per page).
+let fdaExtPage = 0, fdaExtPageSize = 15;
+let litExtPage = 0, litExtPageSize = 15;
+function fdaExtGoPage(p) { fdaExtPage = p; renderFDAExtractionTable(_fdaExtractedData, _fdaSelectedModel); }
+function litExtGoPage(p) { litExtPage = p; renderLitExtractionTable(_litExtractedData, _litSelectedModel); }
+window.fdaExtGoPage = fdaExtGoPage;
+window.litExtGoPage = litExtGoPage;
+
 
 // Pick the model key the dashboard should default to for a given run.
 // `sonnet_4_6` is the historical Anthropic default; for a Gemini-only
@@ -6812,7 +6864,19 @@ function renderFDAExtractionTable(data, modelId) {
         </div>`;
     };
 
-    tbody.innerHTML = data.map((doc, idx) => {
+    // Paginate (15/25/50 per page); idx stays the index into the full array
+    // because the detail modals reference documents by it.
+    fdaExtPage = Math.max(0, Math.min(fdaExtPage, Math.ceil(data.length / fdaExtPageSize) - 1));
+    const fdaExtStart = fdaExtPage * fdaExtPageSize;
+    renderSimplePager('fda-ext-pagination', data.length, fdaExtPage, fdaExtPageSize, 'fdaExtGoPage');
+    wireRowsControl('fda-ext-rows', n => {
+        fdaExtPageSize = n;
+        fdaExtPage = 0;
+        renderFDAExtractionTable(_fdaExtractedData, _fdaSelectedModel);
+    });
+
+    tbody.innerHTML = data.slice(fdaExtStart, fdaExtStart + fdaExtPageSize).map((doc, _pi) => {
+        const idx = fdaExtStart + _pi;
         // `subKey` is the normalised FDA identifier (date prefix + .pdf
         // stripped) — used for both display and index lookups against the
         // enriched-devices CSV and the AI/ML manuscript index.
@@ -7347,7 +7411,19 @@ function renderLitExtractionTable(extractedList, modelId) {
         return;
     }
 
-    tbody.innerHTML = extractedList.map((doc, idx) => {
+    // Paginate (15/25/50 per page); idx stays the index into the full list —
+    // curation state and detail modals reference records by it.
+    litExtPage = Math.max(0, Math.min(litExtPage, Math.ceil(extractedList.length / litExtPageSize) - 1));
+    const litExtStart = litExtPage * litExtPageSize;
+    renderSimplePager('lit-ext-pagination', extractedList.length, litExtPage, litExtPageSize, 'litExtGoPage');
+    wireRowsControl('lit-ext-rows', n => {
+        litExtPageSize = n;
+        litExtPage = 0;
+        renderLitExtractionTable(_litExtractedData, _litSelectedModel);
+    });
+
+    tbody.innerHTML = extractedList.slice(litExtStart, litExtStart + litExtPageSize).map((doc, _pi) => {
+        const idx = litExtStart + _pi;
         const wrapped = doc.models?.[modelId]?.data || {};
         const extracted = wrapped.extracted_data || {};
         const meta = doc.metadata || wrapped.metadata || {};
@@ -7884,12 +7960,50 @@ function updateIndustrySummaryLabel(summary) {
         : `Sponsors: ${n.toLocaleString()} of ${total.toLocaleString()}`;
 }
 
-// Selected sponsors in volume order, capped so a bulk "All" over thousands of
-// sponsors cannot render an unbounded number of heatmap rows / trend lines.
-const INDUSTRY_RENDER_CAP = 30;
+// Selected sponsors in volume order, paginated: the heatmap and trend show
+// one page of sponsors at a time (15 default, up to 50 per page) so a bulk
+// "All" over hundreds of sponsors stays readable and browsable.
+let industryRowsPerPage = 15;
+let industrySponsorPage = 0;
 function industrySelectedOrdered() {
     const all = industryMenuCompanies().filter(sp => industrySelected.has(sp));
-    return { list: all.slice(0, INDUSTRY_RENDER_CAP), truncated: all.length > INDUSTRY_RENDER_CAP };
+    const per = industryRowsPerPage;
+    const totalPages = Math.max(1, Math.ceil(all.length / per));
+    industrySponsorPage = Math.max(0, Math.min(industrySponsorPage, totalPages - 1));
+    const start = industrySponsorPage * per;
+    return { list: all.slice(start, start + per), total: all.length, start, page: industrySponsorPage, totalPages };
+}
+
+// Sponsors-per-page selector + Prev/Next pager under the meta line. Hidden
+// while everything already fits on one 15-row page, and on the forest view
+// (adjusted models only exist for the named top sponsors).
+function renderIndustryPager() {
+    const box = document.getElementById('industry-pager');
+    if (!box) return;
+    const ord = industrySelectedOrdered();
+    if (industryView === 'forest' || ord.total <= 15) { box.innerHTML = ''; return; }
+    let html = `<div class="rows-per-page"><span class="rows-label">Sponsors / page</span>`;
+    [15, 25, 50].forEach(n => {
+        html += `<button type="button" class="rows-btn ${industryRowsPerPage === n ? 'active' : ''}" data-rows="${n}">${n}</button>`;
+    });
+    html += '</div>';
+    if (ord.totalPages > 1) {
+        html += `<div class="pagination-controls industry-pager-nav">
+            <button class="page-btn" ${ord.page === 0 ? 'disabled' : ''} data-ipage="${ord.page - 1}">&#8592; Prev</button>
+            <span class="pager-range">${ord.start + 1}&ndash;${ord.start + ord.list.length} of ${ord.total.toLocaleString()}</span>
+            <button class="page-btn" ${ord.page >= ord.totalPages - 1 ? 'disabled' : ''} data-ipage="${ord.page + 1}">Next &#8594;</button>
+        </div>`;
+    }
+    box.innerHTML = html;
+    box.querySelectorAll('.rows-btn').forEach(btn => btn.addEventListener('click', () => {
+        industryRowsPerPage = parseInt(btn.dataset.rows, 10);
+        industrySponsorPage = 0;
+        renderIndustry();
+    }));
+    box.querySelectorAll('.page-btn[data-ipage]').forEach(btn => btn.addEventListener('click', () => {
+        industrySponsorPage = parseInt(btn.dataset.ipage, 10);
+        renderIndustry();
+    }));
 }
 
 function renderIndustryHeatmap(rows) {
@@ -8140,11 +8254,13 @@ function renderIndustry() {
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
     if (meta) {
-        const trunc = industrySelectedOrdered().truncated
-            ? ` · showing the ${INDUSTRY_RENDER_CAP} highest-volume selected sponsors` : '';
+        const ord = industrySelectedOrdered();
+        const trunc = ord.total > ord.list.length
+            ? ` · sponsors ${ord.start + 1}–${ord.start + ord.list.length} of ${ord.total.toLocaleString()} (by volume)` : '';
         const demoBit = industryDemo === 'sex' ? 'sex' : `${industryDemo}: ${industryMetricLabel()}`;
         meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${demoBit} · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
     }
+    renderIndustryPager();
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
         if (el) el.style.display = v === industryView ? '' : 'none';
