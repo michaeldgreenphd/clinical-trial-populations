@@ -767,6 +767,30 @@ main {
    the beta queue reads in DM Sans like everything else. */
 #approval-queue-root { font-family: var(--font-sans); }
 
+/* Muted inline values ("No", em dashes) — previously referenced by markup
+   but never defined, so they rendered at full contrast. */
+.text-muted { color: #adb5bd; }
+
+/* Type-to-filter box at the top of the industry sponsor menu. */
+.industry-sponsor-search {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: 0.8rem;
+    color: var(--text-primary);
+}
+
+.industry-sponsor-search:focus {
+    outline: none;
+    border-color: var(--primary-color);
+}
+
 /* Sponsors-per-page pager on the industry view. */
 .industry-pager {
     display: flex;
@@ -1962,6 +1986,16 @@ footer p {
     border-collapse: collapse;
     margin-top: 1rem;
     font-size: 0.9rem;
+}
+
+/* Phone widths: the mapping table is wider than the viewport — scroll it
+   inside its own box instead of stretching the page. */
+@media (max-width: 640px) {
+    .faq-mapping-table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
 }
 
 .faq-mapping-table th,

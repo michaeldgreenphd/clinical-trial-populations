@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260719">
+    <link rel="stylesheet" href="styles.css?v=20260720">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -701,10 +701,23 @@
                             <canvas id="ai-timeline-chart"></canvas>
                         </div>
                     </div>
+                    <div class="chart-row">
+                        <div class="chart-container">
+                            <h3>De Novo &amp; PMA Authorizations per Year</h3>
+                            <p class="note">The non-510(k) slice at its own scale &mdash; next to the 510(k) volume above, these pathways read as invisible slivers. This is the small set of AI/ML devices whose authorization carried novel-device (De Novo) or full clinical (PMA) review.</p>
+                            <canvas id="ai-nonk-chart"></canvas>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="ai-devices-table-wrapper">
                     <div class="table-controls">
+                        <div class="geography-view-toggle industry-mini-toggle" id="ai-pathway-filter" title="Filter the table by premarket pathway">
+                            <button type="button" class="view-btn active" data-pathway="all">All Pathways</button>
+                            <button type="button" class="view-btn" data-pathway="510(k)">510(k)</button>
+                            <button type="button" class="view-btn" data-pathway="De Novo">De Novo</button>
+                            <button type="button" class="view-btn" data-pathway="PMA">PMA</button>
+                        </div>
                         <input type="text" id="ai-device-search" class="table-search" placeholder="Search devices, companies, panels...">
                         <div class="rows-per-page" id="ai-devices-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
                         <span id="ai-device-count" class="study-count"></span>
@@ -1401,6 +1414,6 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
-    <script defer src="app.js?v=20260719"></script>
+    <script defer src="app.js?v=20260720"></script>
 </body>
 </html>
