@@ -5999,6 +5999,25 @@ function renderAIDevicesTab() {
         applyAIDevicesView();
     });
 
+    // Delegated more/less toggle for truncated device names (rows re-render
+    // on every page/filter change, so the listener lives on the tbody).
+    const devTbody = document.getElementById('ai-devices-tbody');
+    if (devTbody && !devTbody.dataset.moreWired) {
+        devTbody.dataset.moreWired = '1';
+        devTbody.addEventListener('click', e => {
+            const btn = e.target.closest('.device-more');
+            if (!btn) return;
+            const cell = btn.closest('td');
+            const shortEl = cell.querySelector('.device-short');
+            const fullEl = cell.querySelector('.device-full');
+            const expanded = fullEl.style.display !== 'none';
+            fullEl.style.display = expanded ? 'none' : '';
+            shortEl.style.display = expanded ? '' : 'none';
+            btn.textContent = expanded ? 'more' : 'less';
+            btn.setAttribute('aria-expanded', String(!expanded));
+        });
+    }
+
     // Date sort toggle
     const dateHeader = document.getElementById('ai-date-header');
     if (dateHeader) {
@@ -6010,6 +6029,18 @@ function renderAIDevicesTab() {
             applyAIDevicesView();
         });
     }
+}
+
+// Long marketed-device names (some list every model variant) collapse to
+// their first words with a more/less toggle so the column stays narrow.
+function deviceNameCell(name) {
+    const words = name.split(/\s+/);
+    if (words.length <= 6 && name.length <= 60) return escapeHtml(name);
+    let short = words.slice(0, 6).join(' ');
+    if (short.length > 60) short = short.slice(0, 57).replace(/\s+\S*$/, '');
+    return `<span class="device-short">${escapeHtml(short)}&hellip;</span>`
+        + `<span class="device-full" style="display:none">${escapeHtml(name)}</span> `
+        + `<button type="button" class="device-more" aria-expanded="false">more</button>`;
 }
 
 // Premarket pathway from the submission-number prefix: K = 510(k) clearance,
@@ -6113,7 +6144,7 @@ function applyAIDevicesView() {
             <td>${escapeHtml(d['Date of Final Decision'] || '')}</td>
             <td>${subCell}</td>
             <td>${pathwayCell}</td>
-            <td>${escapeHtml(d['Device'] || '')}</td>
+            <td class="device-cell">${deviceNameCell(d['Device'] || '')}</td>
             <td>${escapeHtml(d['Company'] || '')}</td>
             <td>${escapeHtml(d['Panel (Lead)'] || '')}</td>
             <td>${escapeHtml(d['Primary Product Code'] || d['Product Code'] || '')}</td>

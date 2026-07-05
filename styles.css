@@ -771,6 +771,35 @@ main {
    but never defined, so they rendered at full contrast. */
 .text-muted { color: #adb5bd; }
 
+/* Small print directly under a chart (annotation legends, rule context). */
+.chart-footnote {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+/* Truncated device names in the AI Devices table. The table's default
+   nowrap cells would push the more/less toggle past the cell edge, so this
+   column wraps normally within its cap. */
+.studies-table td.device-cell {
+    max-width: 360px;
+    white-space: normal;
+    overflow-wrap: break-word;
+}
+
+.device-more {
+    border: none;
+    background: none;
+    padding: 0;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--primary-color);
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 /* Footer provenance: when the data was last pulled from the registry. */
 .footer-extracted {
     font-family: var(--font-mono);
@@ -3169,6 +3198,16 @@ footer p {
 .table-responsive .studies-table th,
 .table-responsive .studies-table td {
     white-space: nowrap;
+}
+
+/* The truncated device-name column wraps within its cap regardless of the
+   scroll wrappers' nowrap default (keeps the more/less toggle inside the
+   cell instead of overflowing into the neighbor). */
+.table-scroll .studies-table td.device-cell,
+.table-responsive .studies-table td.device-cell {
+    white-space: normal;
+    overflow-wrap: break-word;
+    min-width: 220px;
 }
 
 /* `.chart-container` clips its overflow to keep its rounded corners
