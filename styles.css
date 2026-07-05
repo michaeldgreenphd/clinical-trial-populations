@@ -714,6 +714,75 @@ main {
     align-items: center;
     margin-bottom: 1rem;
     gap: 1rem;
+    flex-wrap: wrap;
+}
+
+/* Rows-per-page selector shared by the list tables: a short 15-row first
+   page, expandable to 25/50 before Prev/Next paging kicks in. */
+.rows-per-page {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.rows-per-page .rows-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    padding: 0 0.6rem;
+    white-space: nowrap;
+}
+
+.rows-per-page .rows-btn {
+    border: none;
+    border-left: 1px solid var(--border-color);
+    background: transparent;
+    padding: 0.35rem 0.7rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.rows-per-page .rows-btn.active {
+    background: var(--primary-color);
+    color: #fff;
+}
+
+.pager-range {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
+    padding: 0 0.4rem;
+    white-space: nowrap;
+}
+
+/* The React/Tailwind approval-queue island inherits the site typeface so
+   the beta queue reads in DM Sans like everything else. */
+#approval-queue-root { font-family: var(--font-sans); }
+
+/* Sponsors-per-page pager on the industry view. */
+.industry-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin: 0 0 0.9rem;
+}
+
+.industry-pager:empty { margin: 0; }
+
+.industry-pager-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
 }
 
 .table-controls input[type="text"] {
