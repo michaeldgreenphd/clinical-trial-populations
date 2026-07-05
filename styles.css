@@ -771,6 +771,13 @@ main {
    but never defined, so they rendered at full contrast. */
 .text-muted { color: #adb5bd; }
 
+/* Footer provenance: when the data was last pulled from the registry. */
+.footer-extracted {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
 /* Type-to-filter box at the top of the industry sponsor menu. */
 .industry-sponsor-search {
     display: block;
