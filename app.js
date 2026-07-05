@@ -5788,25 +5788,30 @@ function renderAIDevicesTab() {
     // Panel bar chart
     renderAIPanelChart(panelCounts);
 
-    // Timeline chart, stacked by authorization pathway
+    // Timeline chart, stacked by authorization pathway, plus the De Novo/PMA
+    // detail chart (invisible slivers at the main chart's 510(k) scale).
     renderAITimelineChart();
+    renderAINonKChart();
 
     // Initialize table with pagination
     aiDevicesFiltered = aiDevicesData;
     aiDevicesPage = 0;
     applyAIDevicesView();
 
-    // Search
+    // Search + pathway filter compose; both funnel through one recompute.
     const searchEl = document.getElementById('ai-device-search');
     if (searchEl) {
-        searchEl.addEventListener('input', () => {
-            const q = searchEl.value.toLowerCase();
-            aiDevicesFiltered = q
-                ? aiDevicesData.filter(d => Object.values(d).some(v => v.toLowerCase().includes(q)))
-                : aiDevicesData;
-            aiDevicesPage = 0;
-            applyAIDevicesView();
-        });
+        searchEl.addEventListener('input', applyAIDevicesFilters);
+    }
+    const pathwayBox = document.getElementById('ai-pathway-filter');
+    if (pathwayBox && !pathwayBox.dataset.wired) {
+        pathwayBox.dataset.wired = '1';
+        pathwayBox.querySelectorAll('.view-btn').forEach(btn => btn.addEventListener('click', () => {
+            pathwayBox.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            aiDevicesPathway = btn.dataset.pathway;
+            applyAIDevicesFilters();
+        }));
     }
 
     wireRowsControl('ai-devices-rows', n => {
@@ -5860,6 +5865,18 @@ function getFDAUrl(submissionNumber) {
 let aiDevicesFiltered = [];
 let aiDevicesPage = 0;
 let aiDevicesSortDir = null; // null, 'asc', 'desc'
+let aiDevicesPathway = 'all'; // 'all' | '510(k)' | 'De Novo' | 'PMA'
+
+// Recompute the table's working set from the search box + pathway filter.
+function applyAIDevicesFilters() {
+    if (!aiDevicesData) return;
+    const q = (document.getElementById('ai-device-search')?.value || '').toLowerCase();
+    aiDevicesFiltered = aiDevicesData.filter(d =>
+        (aiDevicesPathway === 'all' || aiPathwayOf(d['Submission Number']) === aiDevicesPathway) &&
+        (!q || Object.values(d).some(v => v.toLowerCase().includes(q))));
+    aiDevicesPage = 0;
+    applyAIDevicesView();
+}
 let aiDevicesPageSize = 15;  // rows per page (15 default, selectable 25/50)
 
 function applyAIDevicesView() {
@@ -6040,6 +6057,56 @@ function renderAITimelineChart() {
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
                 y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
+                x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
+            },
+            plugins: {
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                datalabels: { display: false }
+            }
+        }
+    });
+}
+
+// The De Novo + PMA detail: at the main timeline's 510(k) scale these two
+// pathways are invisible slivers, so they get their own chart at their own
+// scale — the slice that carried novel-device or full clinical review.
+function renderAINonKChart() {
+    const ctx = document.getElementById('ai-nonk-chart');
+    if (!ctx || !aiDevicesData) return;
+
+    const byYear = {};
+    let minYear = Infinity, maxYear = -Infinity;
+    aiDevicesData.forEach(d => {
+        const p = aiPathwayOf(d['Submission Number']);
+        if (p !== 'De Novo' && p !== 'PMA') return;
+        const t = parseAIDate(d['Date of Final Decision']);
+        if (!t) return;
+        const y = new Date(t).getFullYear();
+        minYear = Math.min(minYear, y); maxYear = Math.max(maxYear, y);
+        const bucket = byYear[y] = byYear[y] || {};
+        bucket[p] = (bucket[p] || 0) + 1;
+    });
+    if (!isFinite(minYear)) return;
+    const years = [];
+    for (let y = minYear; y <= maxYear; y++) years.push(String(y));
+
+    const datasets = ['De Novo', 'PMA'].map(p => ({
+        label: p,
+        data: years.map(y => (byYear[y] && byYear[y][p]) || 0),
+        backgroundColor: AI_PATHWAY_COLORS[p]
+    }));
+
+    if (charts.aiNonK) charts.aiNonK.destroy();
+    charts.aiNonK = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: years, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
+            scales: {
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of Authorizations' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
@@ -7925,8 +7992,10 @@ function renderIndustrySponsorMenu() {
     const nFor = i => (Array.isArray(d.company_n) && d.company_n[i] != null)
         ? `<span class="industry-sponsor-n">n=${d.company_n[i].toLocaleString()}</span>` : '';
     // The companies list is already volume-ranked descending, so index order
-    // is display order.
-    box.innerHTML = `<div class="industry-sponsor-list">` + listed.map((sp, i) => `
+    // is display order. The type-to-filter box matters on the All scope,
+    // where the list runs to thousands of sponsors.
+    box.innerHTML = `<input type="text" class="industry-sponsor-search" id="industry-sponsor-search" placeholder="Filter sponsors…" autocomplete="off">
+        <div class="industry-sponsor-list">` + listed.map((sp, i) => `
         <label class="industry-sponsor-option">
             <input type="checkbox" value="${escapeHtml(sp)}" ${industrySelected.has(sp) ? 'checked' : ''}>
             <span class="industry-sponsor-name">${escapeHtml(sp)}</span>${nFor(i)}
@@ -7935,6 +8004,12 @@ function renderIndustrySponsorMenu() {
             <button type="button" id="industry-sp-all">All</button>
             <button type="button" id="industry-sp-none">None</button>
         </div>`;
+    box.querySelector('#industry-sponsor-search').addEventListener('input', e => {
+        const q = e.target.value.toLowerCase();
+        box.querySelectorAll('.industry-sponsor-option').forEach(row => {
+            row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
     box.querySelectorAll('input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
             if (cb.checked) industrySelected.add(cb.value); else industrySelected.delete(cb.value);
