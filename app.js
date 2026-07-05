@@ -1074,18 +1074,26 @@ function initTabs() {
 }
 
 function disableFiltersForMobile() {
-    // Disable all filter controls since mobile uses pre-aggregated data
-    const filterSection = document.getElementById('filter-section') || document.querySelector('.filter-section');
+    // Mobile renders pre-computed aggregates, so the filters cannot apply.
+    // Disable every control, dim the panel, park the year slider at its
+    // full static range (its tooltip chips are positioned by the desktop
+    // init that never runs here — unpositioned they pile up half-off-screen
+    // at the track's left edge), and say so plainly.
+    const filterSection = document.getElementById('filters');
     if (filterSection) {
+        filterSection.classList.add('filters-disabled');
         filterSection.querySelectorAll('select, input, button').forEach(el => {
             el.disabled = true;
             el.title = 'Filters available on desktop only';
         });
-        // Add a small note
+        document.querySelectorAll('.range-tooltip').forEach(t => { t.style.display = 'none'; });
+        const fill = document.getElementById('year-range-fill');
+        if (fill) { fill.style.left = '0%'; fill.style.right = '0%'; fill.style.width = '100%'; }
+        const hint = filterSection.querySelector('.filter-hint');
+        if (hint) hint.textContent = '(2009–2026 · full range shown)';
         const note = document.createElement('p');
         note.className = 'mobile-note';
-        note.style.cssText = 'font-size:0.8rem;color:#6b7280;text-align:center;margin:0.5rem 0;';
-        note.textContent = 'Filters and study-level data available on desktop. Showing aggregate dashboard.';
+        note.textContent = 'Filters are a desktop feature — this phone view shows pre-computed aggregates of the full dataset.';
         filterSection.prepend(note);
     }
 

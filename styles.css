@@ -771,6 +771,23 @@ main {
    but never defined, so they rendered at full contrast. */
 .text-muted { color: #adb5bd; }
 
+/* Mobile: the filter panel is display-only (aggregates cannot be filtered),
+   so the whole panel reads as inert and says why. */
+.filters-disabled .filter-row {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.mobile-note {
+    margin: 0 0 0.9rem;
+    padding: 0.6rem 0.9rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
 /* Small print directly under a chart (annotation legends, rule context). */
 .chart-footnote {
     margin-top: 0.5rem;
