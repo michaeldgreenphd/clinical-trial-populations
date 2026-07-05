@@ -466,9 +466,22 @@ const civicEventLinesPlugin = {
             ctx.font = "9px 'DM Mono', ui-monospace, monospace";
             ctx.fillStyle = '#6b7280';
             const y = chartArea.top + 9 + i * 11;
-            const fitsRight = px + 6 + ctx.measureText(ev.label).width < chartArea.right;
+            const fitsRight = px + 16 + ctx.measureText(ev.label).width < chartArea.right;
+            const dir = fitsRight ? 1 : -1;
+            // Leader arrow from the label to its line — with several
+            // staggered labels the pointer says which line is which.
+            ctx.strokeStyle = '#6b7280';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px + dir * 13, y - 3);
+            ctx.lineTo(px + dir * 2, y - 3);
+            ctx.moveTo(px + dir * 2, y - 3);
+            ctx.lineTo(px + dir * 6, y - 6);
+            ctx.moveTo(px + dir * 2, y - 3);
+            ctx.lineTo(px + dir * 6, y);
+            ctx.stroke();
             ctx.textAlign = fitsRight ? 'left' : 'right';
-            ctx.fillText(ev.label, px + (fitsRight ? 5 : -5), y);
+            ctx.fillText(ev.label, px + dir * 16, y);
             ctx.restore();
         });
     }
