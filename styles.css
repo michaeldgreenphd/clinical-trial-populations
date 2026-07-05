@@ -173,6 +173,20 @@
     padding: 0;
 }
 
+html {
+    /* iOS Safari inflates text inside wide scrollable containers (tables,
+       heatmaps) unless told not to — the cause of wildly mixed font sizes
+       on phones. Lock rendering to the authored scale. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
+/* Emphasis matches the heading weight (600) instead of the browser's
+   heavier 700 default, so bolds read consistently site-wide. */
+strong, b {
+    font-weight: 600;
+}
+
 body {
     font-family: var(--font-sans);
     background: var(--background);
@@ -811,10 +825,13 @@ main {
     padding: 0;
     font-family: var(--font-mono);
     font-size: 0.72rem;
+    font-weight: 600;
     color: var(--primary-color);
     cursor: pointer;
-    text-decoration: underline;
-    text-underline-offset: 2px;
+}
+
+.device-more:hover {
+    color: var(--primary-light, #2d6a4f);
 }
 
 /* Footer provenance: when the data was last pulled from the registry. */
@@ -1936,7 +1953,6 @@ footer p {
 
 .pub-list-more:hover {
     color: var(--primary-color);
-    text-decoration: underline;
 }
 
 /* Pagination */
