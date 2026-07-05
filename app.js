@@ -397,6 +397,83 @@ function getStudyPediatricStatus(study) {
     return 'Not Specified';
 }
 
+// ── Chart plugins: provenance watermark + event annotations ────────────────
+// Watermark: every canvas carries "civicsample.com · data YYYY-MM-DD" in a
+// reserved strip under the plot, so screenshots keep their provenance.
+const civicWatermarkPlugin = {
+    id: 'civicWatermark',
+    // Bottom padding for the strip is reserved globally via
+    // Chart.defaults.layout.padding at bootstrap — per-chart option
+    // mutation here would tangle Chart.js's proxy-backed config.
+    afterDraw(chart) {
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.font = "9px 'DM Mono', ui-monospace, monospace";
+        ctx.fillStyle = 'rgba(108, 117, 125, 0.55)';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText('civicsample.com' + (window.__dataExtractedAt ? ' · data ' + window.__dataExtractedAt : ''),
+            chart.width - 6, chart.height - 3);
+        ctx.restore();
+    }
+};
+
+// Event annotations: a dashed vertical marker with a mono caption, drawn
+// behind the data. Charts opt in via options.plugins.eventLines or by
+// canvas id below — regulatory context rendered as data, not prose.
+const CHART_EVENT_LINES = {
+    'reporting-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'race-trends-chart':      [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'ethnicity-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'sex-trends-chart':       [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'gender-trends-chart':    [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'ai-timeline-chart': [
+        { x: '2017', label: 'Digital Health Action Plan' },
+        { x: '2019', label: 'AI/ML SaMD framework' }
+    ],
+    'ai-nonk-chart': [
+        { x: '2017', label: 'Digital Health Action Plan' },
+        { x: '2019', label: 'AI/ML SaMD framework' }
+    ]
+};
+
+const civicEventLinesPlugin = {
+    id: 'eventLines',
+    beforeDatasetsDraw(chart) {
+        // Chart.js materializes an empty options node for every registered
+        // plugin id, so only an actual array counts as a per-chart override.
+        const optEv = chart.options.plugins && chart.options.plugins.eventLines;
+        const events = (Array.isArray(optEv) && optEv.length ? optEv
+            : CHART_EVENT_LINES[chart.canvas && chart.canvas.id]) || [];
+        if (!events.length) return;
+        const { ctx, chartArea, scales } = chart;
+        const xs = scales.x;
+        if (!xs || !chartArea) return;
+        events.forEach((ev, i) => {
+            const idx = chart.data.labels.findIndex(l => String(l) === String(ev.x));
+            if (idx < 0) return;
+            const px = xs.getPixelForValue(idx);
+            if (px < chartArea.left || px > chartArea.right) return;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(107, 114, 128, 0.5)';
+            ctx.setLineDash([3, 3]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, chartArea.top);
+            ctx.lineTo(px, chartArea.bottom);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.font = "9px 'DM Mono', ui-monospace, monospace";
+            ctx.fillStyle = '#6b7280';
+            const y = chartArea.top + 9 + i * 11;
+            const fitsRight = px + 6 + ctx.measureText(ev.label).width < chartArea.right;
+            ctx.textAlign = fitsRight ? 'left' : 'right';
+            ctx.fillText(ev.label, px + (fitsRight ? 5 : -5), y);
+            ctx.restore();
+        });
+    }
+};
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -405,6 +482,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (typeof Chart !== 'undefined') {
             Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
             Chart.defaults.color = '#6c757d';
+            // Tufte pass: category axes drop their gridlines entirely, value
+            // axes fade to a whisper, and axis border boxes disappear.
+            // (Direct property writes only — Chart.defaults are proxy-backed
+            // and cloning them with Object.assign creates cyclic options.)
+            Chart.defaults.scale.grid.color = 'rgba(27, 67, 50, 0.07)';
+            Chart.defaults.layout.padding = { top: 0, right: 0, bottom: 12, left: 0 };
+            if (Chart.defaults.scale.border) Chart.defaults.scale.border.display = false;
+            const catDefaults = Chart.defaults.scales && Chart.defaults.scales.category;
+            if (catDefaults) {
+                if (catDefaults.grid) catDefaults.grid.display = false;
+                else catDefaults.grid = { display: false };
+            }
+            Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
         }
         updateLoadingProgress(5, 'Preparing dashboard...');
         // Condition ontology is only needed by the desktop filter dropdown.
@@ -437,6 +527,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoadingProgress(90, 'Rendering charts...');
         renderDashboard();
         updateLoadingProgress(100, 'Done');
+
+        // Deep links: restore the tab (and desktop filter state) from the
+        // hash once the first render is up, then start writing share URLs.
+        shareUrlReady = true;
+        applyRouteFromHash();
+        labelChartsForA11y();
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
@@ -578,6 +674,7 @@ async function loadData(date) {
                     ? new Date(dashboardSummary.extracted_at).toLocaleDateString()
                     : '';
                 document.getElementById('last-updated').textContent = dateLabel;
+                setDataPulledDate(dashboardSummary.extracted_at);
                 console.log(`✓ Mobile summary loaded: ${dashboardSummary.totalStudies} studies pre-aggregated (${data.length} recent shown in table)`);
                 return;
             }
@@ -599,6 +696,7 @@ async function loadData(date) {
         detailsLoaded = false;
         studiesTabReady = false;
         document.getElementById('last-updated').textContent = cached.dateLabel;
+        if (cached.extractedAt) setDataPulledDate(cached.extractedAt);
         return;
     }
 
@@ -657,12 +755,13 @@ async function loadData(date) {
             }
             const fullDateLabel = new Date(parts[0].extracted_at).toLocaleDateString() + dateLabel;
             document.getElementById('last-updated').textContent = fullDateLabel;
+            setDataPulledDate(parts[0].extracted_at);
 
             // Leaving a previously viewed aggregate archive: back to full mode.
             if (!isMobileDevice) dashboardSummary = null;
 
             // ── Cache this snapshot for instant re-access ──
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null });
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
@@ -688,7 +787,8 @@ async function loadData(date) {
                 data = summary.recentStudies || [];
                 const dateLabel = `${new Date(summary.extracted_at).toLocaleDateString()} (${date} archive · aggregate view)`;
                 document.getElementById('last-updated').textContent = dateLabel;
-                snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary });
+                setDataPulledDate(summary.extracted_at);
+                snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary, extractedAt: window.__dataExtractedAt });
                 console.log(`✓ Loaded ${date} as aggregate archive (summary-only snapshot)`);
                 showToast(`${date} is an archived monthly snapshot: charts show its full-dataset aggregates. Filters and the full study table are available on bi-weekly and latest data.`, 'info', 9000);
                 return;
@@ -799,6 +899,82 @@ async function initHistorySelector() {
     });
 }
 
+// Provenance: the extraction date feeds the chart watermark and the footer.
+function setDataPulledDate(iso) {
+    if (!iso) return;
+    window.__dataExtractedAt = String(iso).slice(0, 10);
+    const el = document.getElementById('footer-extracted');
+    if (el) el.textContent = ' · Data last pulled ' + window.__dataExtractedAt;
+}
+
+// Every chart canvas advertises its container's title and note as its text
+// alternative — the chart's abstract for screen readers and failed loads.
+function labelChartsForA11y() {
+    document.querySelectorAll('canvas').forEach(c => {
+        const box = c.closest('.chart-container');
+        const h = box && box.querySelector('h3, h2');
+        if (!h) return;
+        const note = box.querySelector('.note');
+        c.setAttribute('role', 'img');
+        c.setAttribute('aria-label', h.textContent.trim() + (note ? '. ' + note.textContent.trim() : ''));
+    });
+}
+
+// ── Shareable URLs ──────────────────────────────────────────────────────
+// Every tab writes /#<tab> (path-style /<tab>/ redirect stubs exist for
+// each), and the desktop filters serialize into query-style params after
+// the tab, so a pasted link reproduces the exact view. The industry view
+// manages its own #industry?… state in renderIndustry().
+let shareUrlReady = false;
+const SHARE_FILTERS = [
+    ['year-start', 'ys'], ['year-end', 'ye'], ['study-type', 'st'],
+    ['sponsor-class', 'sp'], ['primary-purpose', 'pu'],
+    ['condition-primary', 'pri'], ['condition-secondary', 'sec'],
+    ['fda-status', 'fda']
+];
+
+function shareFilterDefault(el) {
+    if (el.type === 'range') return el.id === 'year-start' ? el.min : el.max;
+    const first = el.querySelector('option');
+    return first ? first.value : '';
+}
+
+function updateShareUrl() {
+    if (!shareUrlReady) return;
+    const active = document.querySelector('.tab.active');
+    const tabId = active ? active.dataset.tab : 'overview';
+    if (!tabId || tabId === 'industry') return;
+    const p = new URLSearchParams();
+    SHARE_FILTERS.forEach(([id, key]) => {
+        const el = document.getElementById(id);
+        if (el && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
+    });
+    const q = p.toString();
+    history.replaceState(null, '', '#' + tabId + (q ? '?' + q : ''));
+}
+
+function applyShareParams(query) {
+    const p = new URLSearchParams(query);
+    SHARE_FILTERS.forEach(([id, key]) => {
+        if (!p.has(key)) return;
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = p.get(key);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+
+function applyRouteFromHash() {
+    const raw = location.hash.replace(/^#/, '');
+    if (!raw || raw === 'industry' || raw.indexOf('industry?') === 0) return; // industryRoute owns it
+    const parts = raw.split('?');
+    const tabId = parts[0], query = parts[1];
+    if (query && !isMobileDevice && !dashboardSummary) applyShareParams(query);
+    const btn = tabId && document.querySelector('.tab[data-tab="' + CSS.escape(tabId) + '"]');
+    if (btn && !btn.classList.contains('active')) btn.click();
+}
+
 function initTabs() {
     const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue']);
 
@@ -890,6 +1066,9 @@ function initTabs() {
             if (tab.dataset.tab === 'approval-queue') {
                 loadApprovalQueueTab();
             }
+
+            updateShareUrl();
+            labelChartsForA11y();
         });
     });
 }
@@ -8336,6 +8515,7 @@ function renderIndustry() {
         meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${demoBit} · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
     }
     renderIndustryPager();
+    updateIndustryShareUrl();
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
         if (el) el.style.display = v === industryView ? '' : 'none';
@@ -8346,6 +8526,51 @@ function renderIndustry() {
     if (industryView === 'heatmap') renderIndustryHeatmap(rows);
     else if (industryView === 'trend') renderIndustryTrend(rows);
     else renderIndustryForest();
+}
+
+// Serialize the industry view's state into #industry?… so the exact tier,
+// benchmark, role, scope, and view are shareable. Only non-defaults appear.
+function updateIndustryShareUrl() {
+    if (!industryActive()) return;
+    const p = new URLSearchParams();
+    if (industryDemo !== 'sex') { p.set('demo', industryDemo); p.set('cat', industryCat[industryDemo]); }
+    if (industryBenchmark !== 'cohort') p.set('bench', industryBenchmark);
+    if (industryRole !== 'any') p.set('role', industryRole);
+    if (industryScope !== 'top10') p.set('scope', industryScope);
+    if (industryView !== 'heatmap') p.set('view', industryView);
+    if (industrySexSpecific) p.set('ss', '1');
+    const q = p.toString();
+    history.replaceState(null, '', '#industry' + (q ? '?' + q : ''));
+}
+
+// Restore a shared #industry?… state once, before the first render.
+let industryRouteApplied = false;
+function applyIndustryShareParams() {
+    if (industryRouteApplied) return;
+    industryRouteApplied = true;
+    const m = location.hash.match(/^#industry\?(.+)$/);
+    if (!m) return;
+    const p = new URLSearchParams(m[1]);
+    const demo = p.get('demo');
+    if (demo === 'race' || demo === 'ethnicity') {
+        industryDemo = demo;
+        const cat = p.get('cat');
+        if (cat && INDUSTRY_CAT_LABELS[cat]) industryCat[demo] = cat;
+    }
+    if (['parity', 'census'].indexOf(p.get('bench')) >= 0) industryBenchmark = p.get('bench');
+    if (p.get('role') === 'lead') industryRole = 'lead';
+    if (p.get('scope') === 'all') industryScope = 'all';
+    if (['trend', 'forest'].indexOf(p.get('view')) >= 0) industryView = p.get('view');
+    industrySexSpecific = p.get('ss') === '1';
+    const setActive = (sel, attr, val) => document.querySelectorAll(sel).forEach(b =>
+        b.classList.toggle('active', b.dataset[attr] === val));
+    setActive('.industry-demo-tab[data-idemo]', 'idemo', industryDemo);
+    setActive('#industry-role-toggle .view-btn', 'irole', industryRole);
+    setActive('#industry-scope-toggle .view-btn', 'iscope', industryScope);
+    setActive('#industry-view-toggle .view-btn', 'iview', industryView);
+    const sub = document.getElementById('industry-subtitle');
+    if (sub && INDUSTRY_SUBTITLES[industryDemo]) sub.textContent = INDUSTRY_SUBTITLES[industryDemo];
+    renderIndustryCatRow();
 }
 
 // Category layer inside the Race / Ethnicity tiers.
@@ -8405,6 +8630,7 @@ async function openIndustryView() {
             renderIndustryCatRow();
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
+            applyIndustryShareParams();
         } catch (e) {
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by scripts/generate_industry_sponsors.py during the weekly extraction.</p>`;
@@ -8415,7 +8641,7 @@ async function openIndustryView() {
 }
 
 function industryRoute() {
-    if (location.hash === '#industry') openIndustryView();
+    if (location.hash === '#industry' || location.hash.indexOf('#industry?') === 0) openIndustryView();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
