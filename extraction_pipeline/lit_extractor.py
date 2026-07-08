@@ -149,7 +149,7 @@ def _proto_to_dict(val):
             except ValueError:
                 pass
     return val
-UNPAYWALL_EMAIL = "michaeldgreen0520@gmail.com"
+UNPAYWALL_EMAIL = "info@civicsample.com"
 EUROPEPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
 
 # Titles containing these tokens describe something other than the primary
