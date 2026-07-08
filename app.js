@@ -6357,7 +6357,7 @@ function renderAINonKChart() {
 // in progress without exposing unverified numbers to the public dashboard.
 // Curator actions (Confirm / Deny on discrepancy rows) use a separate list
 // of per-curator passwords so the eventual audit trail records who did what.
-const BETA_PASSWORD = 'claude4science';
+const BETA_PASSWORD = '@Builderg8';
 const CURATOR_PASSWORDS = ['maryam', 'michael'];
 const BETA_UNLOCKED_KEY = 'betaExtractionUnlocked';
 const LIT_CURATION_STATE_KEY = 'litCurationState';

@@ -162,20 +162,21 @@ The interactive dashboard is hosted on GitHub Pages and includes:
 
 ## Beta & Curation Access
 
-This repository is private and the dashboard exposes two Beta tabs that display
-raw LLM extractions awaiting review. Access to those tabs and to the curator
-actions on the manuscript discrepancy report is password-gated. Because the
-repository is private, the passwords live in source.
+The dashboard exposes two Beta tabs that display raw LLM extractions awaiting
+review. Access to those tabs and to the curator actions on the manuscript
+discrepancy report is password-gated.
 
-| Scope | Password(s) | What it unlocks |
-|-------|-------------|-----------------|
-| **Beta tab access** | `claude4science` | Opens the two Beta tabs — *(Beta) AI Demographic Extraction* and *(Beta) Paper Data Extraction*. Once entered, the tabs stay unlocked for the rest of the browser session (`sessionStorage`). |
-| **Curator actions** | `maryam` *or* `michael` | Required when a curator clicks **Confirm** or **Deny** on an Addition or Conflict row in the manuscript discrepancy engine. The matched lowercase identity is stored alongside the resolution so we have a lightweight audit trail for the pilot. |
+| Scope | What it unlocks |
+|-------|-----------------|
+| **Beta tab access** | Opens the two Beta tabs — *(Beta) AI Demographic Extraction* and *(Beta) Paper Data Extraction*. Once entered, the tabs stay unlocked for the rest of the browser session (`sessionStorage`). |
+| **Curator actions** | Required when a curator clicks **Confirm** or **Deny** on an Addition or Conflict row in the manuscript discrepancy engine. The matched lowercase identity is stored alongside the resolution so we have a lightweight audit trail for the pilot. |
 
 These gates are deliberately lightweight — they're a speed bump that keeps
 unreviewed numbers from being shared casually, not a real authentication
-system. Treat the passwords as shared secrets: rotate them if the repository
-is ever made public, and don't paste them into issues or public PRs.
+system. The password values are not documented here; reviewers receive them
+directly from the maintainers. Note that because this is a static site, the
+gate is client-side only — do not treat it as real access control, and don't
+paste the values into issues or public PRs.
 
 ### Where the passwords live in code
 
