@@ -294,7 +294,7 @@ def build_slide2(slide):
 
     textbox(slide, 5.80, ry + 0.10, 3.85, 0.30, [
         ("Cost per 1,000 documents at current list rates. ", {}),
-        ("Amortised over the 20 fields the schema returns, that is $0.0012 per field "
+        ("Amortized over the 20 fields the schema returns, that is $0.0012 per field "
          "on Haiku and $0.0071 on Opus.", {"bold": True, "color": INK}),
     ], size=6.5, color=MUTED, line_spacing=0.98)
 
@@ -305,34 +305,45 @@ def build_slide2(slide):
          "Add the human-hours baseline you want to compare against.", {}),
     ])
 
-    # ---- Band 2: the questions --------------------------------------------- #
+    # ---- Band 2: what we need a read on, and what this offers back ---------- #
     hairline(slide, 0.35, 3.60, 9.30)
-    textbox(slide, 0.35, 3.68, 6.0, 0.26, "Where feedback would help most",
+    textbox(slide, 0.35, 3.68, 7.5, 0.26,
+            "What we’d want your read on — and where this could be useful to you",
             size=11, color=INK)
 
+    # Three questions we cannot settle from the data alone, then the offer.
     asks = [
-        ("All three models, or one?",
-         "Agreement across Haiku, Sonnet and Opus is our reliability signal, but it "
-         "makes every concept 3× more expensive to extract. Would one model plus an "
-         "adversarial verification pass buy more confidence per dollar?"),
-        ("Prompt caching may not reach us.",
-         "Our reusable prefix — system prompt plus tool schema — is only ~1,400 "
-         "tokens. That clears Sonnet 4.6’s 1,024-token minimum but falls under Opus "
-         "4.7 (2,048) and Haiku 4.5 (4,096)."),
-        ("Batch API on offline runs.",
-         "Nothing here is latency-sensitive — GitHub Actions runs the pipeline "
-         "nightly. That reads like half the per-concept cost, for free."),
-        ("Haiku leaked markup into 4 values.",
-         "Sonnet and Opus: zero. We are targeting >95% precision and recall — is the "
-         "paired evidence/value schema too deep for Haiku, or is this a prompt fix?"),
+        ("CLINICAL", TERRA, "Representative against what?",
+         "We can report that a validation cohort was 84% White. We cannot say whether "
+         "that is a problem. The benchmark could be the census, the condition’s own "
+         "epidemiology, or the deploying hospital’s patient panel — and they disagree. "
+         "Without an agreed denominator the dashboard describes composition but cannot "
+         "flag risk."),
+        ("CLINICAL", TERRA, "Which social factors change a deployment decision?",
+         "The schema reserves fields for income, education, insurance and neighborhood, "
+         "but each one costs tokens and curator review. Which of these would actually "
+         "change whether a health system deploys a tool, and which are good to know but "
+         "not decision-relevant?"),
+        ("TECHNICAL", TERRA, "Silence vs. a missed read.",
+         "Our headline finding is what is never reported, so a false “not reported” is "
+         "the failure that matters most. Quoting evidence before committing a value "
+         "makes a positive claim auditable, but a silent document and a skipped page "
+         "look identical in the output. How would you prompt or verify to separate them?"),
+        ("FOR ANTHROPIC", GREEN, "Where this could be useful to you.",
+         "This becomes a public, evidence-linked record of who was in the validation "
+         "cohort behind every FDA-authorized AI/ML device, each value traceable to its "
+         "source page. That is the question health systems raise in procurement and the "
+         "gap in what 510(k) summaries disclose today. Useful in your healthcare and "
+         "policy conversations — and if so, in what cut?"),
     ]
     qw, qgap = 2.20, (9.30 - 4 * 2.20) / 3
-    for i, (q, sub) in enumerate(asks, 1):
+    for i, (tag, tag_col, q, sub) in enumerate(asks, 1):
         qx = 0.35 + (i - 1) * (qw + qgap)
-        textbox(slide, qx, 4.00, 0.16, 0.13, str(i), size=7.5, bold=True, color=TERRA)
-        textbox(slide, qx + 0.16, 4.00, qw - 0.16, 0.17, q, size=7.5, bold=True,
+        textbox(slide, qx, 3.96, qw, 0.12, tag, size=6, bold=True, color=tag_col)
+        textbox(slide, qx, 4.09, 0.16, 0.13, str(i), size=7.5, bold=True, color=tag_col)
+        textbox(slide, qx + 0.16, 4.09, qw - 0.16, 0.26, q, size=7.5, bold=True,
                 color=INK, line_spacing=0.95)
-        textbox(slide, qx + 0.16, 4.20, qw - 0.16, 0.85, sub, size=6.5, color=MUTED,
+        textbox(slide, qx + 0.16, 4.38, qw - 0.16, 0.80, sub, size=6.4, color=MUTED,
                 line_spacing=0.98)
 
     textbox(slide, 0.35, 5.26, 9.30, 0.22,
