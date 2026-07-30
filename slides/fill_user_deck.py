@@ -306,47 +306,49 @@ def build_slide2(slide):
     ])
 
     # ---- Band 2: what we need a read on, and what this offers back ---------- #
-    hairline(slide, 0.35, 3.60, 9.30)
-    textbox(slide, 0.35, 3.68, 7.5, 0.26,
+    hairline(slide, 0.35, 3.56, 9.30)
+    textbox(slide, 0.35, 3.62, 7.5, 0.26,
             "What we’d want your read on — and where this could be useful to you",
             size=11, color=INK)
 
     # Three questions we cannot settle from the data alone, then the offer.
+    # Each carries the question, the detail, and the stake — what turns on the answer.
     asks = [
         ("CLINICAL", TERRA, "Representative against what?",
          "We can report that a validation cohort was 84% White. We cannot say whether "
-         "that is a problem. The benchmark could be the census, the condition’s own "
-         "epidemiology, or the deploying hospital’s patient panel — and they disagree. "
-         "Without an agreed denominator the dashboard describes composition but cannot "
-         "flag risk."),
+         "that is a problem. The census, the condition’s own epidemiology and the "
+         "deploying hospital’s panel all give different answers.",
+         "Until this is settled we can publish composition, but not a judgment about it."),
         ("CLINICAL", TERRA, "Which social factors change a deployment decision?",
          "The schema reserves fields for income, education, insurance and neighborhood, "
-         "but each one costs tokens and curator review. Which of these would actually "
-         "change whether a health system deploys a tool, and which are good to know but "
-         "not decision-relevant?"),
+         "but each one costs tokens and curator review to keep.",
+         "Your answer decides what the rest of the schema budget buys."),
         ("TECHNICAL", TERRA, "Silence vs. a missed read.",
-         "Our headline finding is what is never reported, so a false “not reported” is "
-         "the failure that matters most. Quoting evidence before committing a value "
-         "makes a positive claim auditable, but a silent document and a skipped page "
-         "look identical in the output. How would you prompt or verify to separate them?"),
+         "Quoting evidence before committing a value makes a positive claim auditable. "
+         "But a document that is genuinely silent and a page the model skipped look "
+         "identical in the output. How would you prompt or verify to tell them apart?",
+         "Get this wrong and the central claim — that demographics are missing — is "
+         "unsafe to make."),
         ("FOR ANTHROPIC", GREEN, "Where this could be useful to you.",
-         "This becomes a public, evidence-linked record of who was in the validation "
-         "cohort behind every FDA-authorized AI/ML device, each value traceable to its "
-         "source page. That is the question health systems raise in procurement and the "
-         "gap in what 510(k) summaries disclose today. Useful in your healthcare and "
-         "policy conversations — and if so, in what cut?"),
+         "A public, evidence-linked record of who was in the validation cohort behind "
+         "every FDA-authorized AI/ML device, each value traceable to its source page — "
+         "the question health systems raise in procurement, on the gap 510(k) summaries "
+         "leave open.",
+         "Tells us which cut to build first, and who to build it with."),
     ]
     qw, qgap = 2.20, (9.30 - 4 * 2.20) / 3
-    for i, (tag, tag_col, q, sub) in enumerate(asks, 1):
+    for i, (tag, tag_col, q, sub, stake) in enumerate(asks, 1):
         qx = 0.35 + (i - 1) * (qw + qgap)
-        textbox(slide, qx, 3.96, qw, 0.12, tag, size=6, bold=True, color=tag_col)
-        textbox(slide, qx, 4.09, 0.16, 0.13, str(i), size=7.5, bold=True, color=tag_col)
-        textbox(slide, qx + 0.16, 4.09, qw - 0.16, 0.26, q, size=7.5, bold=True,
+        textbox(slide, qx, 3.88, qw, 0.12, tag, size=6, bold=True, color=tag_col)
+        textbox(slide, qx, 4.00, 0.16, 0.13, str(i), size=7.5, bold=True, color=tag_col)
+        textbox(slide, qx + 0.16, 4.00, qw - 0.16, 0.26, q, size=7.5, bold=True,
                 color=INK, line_spacing=0.95)
-        textbox(slide, qx + 0.16, 4.38, qw - 0.16, 0.80, sub, size=6.4, color=MUTED,
+        textbox(slide, qx + 0.16, 4.28, qw - 0.16, 0.62, sub, size=6.4, color=MUTED,
                 line_spacing=0.98)
+        textbox(slide, qx + 0.16, 4.94, qw - 0.16, 0.28, stake, size=6.4, color=INK,
+                italic=True, line_spacing=0.98)
 
-    textbox(slide, 0.35, 5.26, 9.30, 0.22,
+    textbox(slide, 0.35, 5.30, 9.30, 0.22,
             "Pilot to date: 36 documents · 373 pages · 2.63M tokens, each document run "
             "through all three models · token counts from data/fda_token_metrics.json "
             "· costs at Anthropic list rates · extraction sample is real Sonnet 4.6 output",
