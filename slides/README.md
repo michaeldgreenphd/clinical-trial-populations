@@ -81,12 +81,34 @@ Four things the capture script handles that a plain screenshot won't:
 - **The viewport is 1680px wide**, because the Geography tab refuses to render
   below desktop width.
 
-The donut captures are then cropped to the ring itself (the on-canvas legend is
-illegible at slide scale). The slide rebuilds the key underneath each ring from
-`data/dashboard-summary.json`, with swatch colours sampled from the captured
-pixels so the key matches the chart. Geography is a green choropleth rather than
-a categorical chart, so its rows carry no swatches — they are US Census regions,
-not map colours.
+### How the doughnuts get their labels
+
+`annotateDonut()` in the capture script destroys each doughnut and rebuilds it
+with `chartjs-plugin-datalabels` attached, so every slice is labelled with its
+category and share in place. Two things force the rebuild rather than a simple
+option tweak:
+
+- The dashboard attaches the plugin **per chart**, not globally, and Chart.js
+  caches the plugin list per instance — enabling it on a live chart does nothing.
+- The capture also switches the dashboard's **Study Type filter to "all"** first.
+  The dashboard defaults to *Interventional*; without this the on-chart
+  percentages describe a 74,617-trial cohort while the slide headline says
+  79,297. With it, they agree.
+
+Slices under **3%** are left unlabelled so the small categories don't collide —
+the slide footnote says so. Two labels are abbreviated to fit the canvas
+(`Black/African American` → `Black/African Am.`, `Not Hispanic/Latino` →
+`Not Hispanic`); widen `options.radius` if you shorten them further.
+
+The captures are then auto-cropped to their content bounds, and their pixel
+dimensions are pasted into the `dims` table in `fill_user_deck.py` as aspect
+ratios. **If you re-capture and the crop sizes change, update those ratios** or
+the images will be stretched.
+
+Geography is a green choropleth rather than a categorical chart, so it carries
+no on-chart labels — its regional split is written into the caption instead, and
+`chart-data.json` records the values the chart actually rendered so the caption
+can be checked against them.
 
 ## Notes on the figures
 

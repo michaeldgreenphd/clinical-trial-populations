@@ -123,62 +123,43 @@ def build_slide1(slide):
             "What we built for clinical trials, 2009–2026", size=11, color=INK)
     hairline(slide, 0.35, 1.32, 9.30)
 
-    # Segment shares from data/dashboard-summary.json (2026-07-26 snapshot).
-    # Swatch colours sampled from the captured rings so the key matches the chart.
-    # Geography is a green choropleth, not a categorical chart, so it gets no
-    # swatches — its rows are US Census regions.
+    # The three doughnuts are captured with their slices labelled in place by
+    # chartjs-plugin-datalabels (see capture_screenshots.js), so no separate key
+    # is needed. Shares are the all-study-types cohort — capture_screenshots.js
+    # switches the dashboard's Study Type filter to "all" before shooting, so the
+    # on-chart percentages match the 79,297-trial headline.
     dims = [
-        {"img": "crop-race.png", "ratio": 682 / 682, "label": "RACE", "star": "",
-         "stat": "57.0%", "of": "of trials report it",
-         "rows": [("White", "54.6%", "8B5CF6"), ("Unknown", "15.0%", "6B7280"),
-                  ("Black/African American", "14.6%", "10B981"), ("Other", "7.7%", "1D1D1D"),
-                  ("Asian", "6.6%", "F59E0B"), ("All remaining categories", "1.4%", None)]},
-        {"img": "crop-ethnicity.png", "ratio": 806 / 806, "label": "ETHNICITY", "star": "",
-         "stat": "39.1%", "of": "of trials report it",
-         "rows": [("Unknown", "52.4%", "6B7280"), ("Not Hispanic/Latino", "37.6%", "3B82F6"),
-                  ("Hispanic/Latino", "10.0%", "F59E0B")]},
-        {"img": "crop-sex.png", "ratio": 916 / 916, "label": "SEX", "star": "*",
-         "stat": "97.3%", "of": "of trials report it",
-         "rows": [("Female", "51.5%", "EC4899"), ("Male", "45.0%", "3B82F6"),
-                  ("Unknown", "3.5%", "6B7280")]},
+        {"img": "crop-race.png", "ratio": 912 / 671, "label": "RACE", "star": "",
+         "stat": "57.0%", "of": "of trials report it"},
+        {"img": "crop-ethnicity.png", "ratio": 911 / 564, "label": "ETHNICITY", "star": "",
+         "stat": "39.1%", "of": "of trials report it"},
+        {"img": "crop-sex.png", "ratio": 755 / 574, "label": "SEX", "star": "*",
+         "stat": "97.3%", "of": "of trials report it"},
         {"img": "crop-geography.png", "ratio": 1850 / 1150, "label": "GEOGRAPHY", "star": "*",
-         "stat": "37.3%", "of": "of sites are in the South",
-         "rows": [("South", "37.3%", None), ("Midwest", "23.6%", None),
-                  ("West", "20.6%", None), ("Northeast", "18.5%", None)]},
+         "stat": "37.3%", "of": "of sites are in the South · Midwest 23.6% · "
+                              "West 20.6% · Northeast 18.5%"},
     ]
 
-    col_w, img_h = 2.20, 1.02
+    col_w, band_h, band_y = 2.20, 1.52, 1.42
     gap = (9.30 - 4 * col_w) / 3
     for i, d in enumerate(dims):
         x = 0.35 + i * (col_w + gap)
-        w = img_h * d["ratio"]
+        w, h = band_h * d["ratio"], band_h
+        if w > col_w:                       # wide capture — size by column instead
+            w, h = col_w, col_w / d["ratio"]
         slide.shapes.add_picture(str(IMG / d["img"]),
-                                 Inches(x + (col_w - w) / 2), Inches(1.42),
-                                 width=Inches(w), height=Inches(img_h))
+                                 Inches(x + (col_w - w) / 2),
+                                 Inches(band_y + (band_h - h) / 2),
+                                 width=Inches(w), height=Inches(h))
 
-        textbox(slide, x, 2.52, col_w, 0.14, [
+        textbox(slide, x, 3.02, col_w, 0.14, [
             (d["label"], {}),
             (d["star"], {"color": TERRA}),
         ], size=7, color=MUTED, bold=True)
-        textbox(slide, x, 2.66, col_w, 0.16, [
+        textbox(slide, x, 3.16, col_w, 0.40, [
             (d["stat"], {"size": 9.5, "bold": True, "color": GREEN}),
             ("  " + d["of"], {"size": 6.5, "color": MUTED}),
-        ])
-
-        y = 2.88
-        for name, pct, swatch in d["rows"]:
-            if swatch:
-                chip = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, Inches(x),
-                                              Inches(y + 0.022), Pt(4.2), Pt(4.2))
-                chip.fill.solid()
-                chip.fill.fore_color.rgb = RGBColor.from_string(swatch)
-                chip.line.fill.background()
-                chip.shadow.inherit = False
-            textbox(slide, x + (0.10 if swatch else 0), y, col_w - 0.55, 0.13,
-                    name, size=6.3, color=INK)
-            textbox(slide, x + col_w - 0.48, y, 0.48, 0.13, pct, size=6.3,
-                    color=INK, bold=True, align=PP_ALIGN.RIGHT)
-            y += 0.117
+        ], line_spacing=0.95)
 
     # ---- Band B: the pivot to medical AI ----------------------------------- #
     hairline(slide, 0.35, 3.60, 9.30)
@@ -207,8 +188,8 @@ def build_slide1(slide):
          "protocol manuscripts covering their extraction are in preparation.", {}),
     ], size=6.8, color=MUTED)
     textbox(slide, 0.35, 5.28, 9.30, 0.22,
-            "Dashboard: civicsample.com · trial figures from data/dashboard-summary.json "
-            "(2026-07-26 snapshot, all study types) · geography shares are US Census regions "
+            "Dashboard: civicsample.com, all study types (79,297 trials) · slices under 3% "
+            "are left unlabelled · geography shares are US Census regions "
             "· device figures from the FDA AI/ML-Enabled Device List",
             size=6.8, color=MUTED)
 
