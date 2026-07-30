@@ -329,12 +329,13 @@ def build_slide2(slide):
          "identical in the output. How would you prompt or verify to tell them apart?",
          "Get this wrong and the central claim — that demographics are missing — is "
          "unsafe to make."),
-        ("FOR ANTHROPIC", GREEN, "Where this could be useful to you.",
-         "A public, evidence-linked record of who was in the validation cohort behind "
-         "every FDA-authorized AI/ML device, each value traceable to its source page — "
-         "the question health systems raise in procurement, on the gap 510(k) summaries "
-         "leave open.",
-         "Tells us which cut to build first, and who to build it with."),
+        ("FOR ANTHROPIC", GREEN, "What this could give your team.",
+         "Health systems ask whether a tool was validated on patients like theirs. The "
+         "public record cannot answer that today. We are building the answer for all "
+         "1,451 authorized devices — independent of the vendor, each value traceable to "
+         "its source page.",
+         "If that is evidence your patient-safety or policy conversations need, tell us "
+         "and we will shape the first release around it."),
     ]
     qw, qgap = 2.20, (9.30 - 4 * 2.20) / 3
     for i, (tag, tag_col, q, sub, stake) in enumerate(asks, 1):
