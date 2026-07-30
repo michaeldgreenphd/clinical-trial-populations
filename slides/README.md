@@ -6,10 +6,25 @@
 Healthcare deck with its two placeholder slides filled in:
 
 1. **Conclusions from Civic Sample Project so Far** — the four demographic
-   dimensions from the dashboard (race, ethnicity, sex, geography), then the
-   pivot to FDA-authorized medical AI.
-2. **What we did with tokens, and where feedback would be most useful** — pilot
-   spend against the $38,133 award, and four questions for the Anthropic team.
+   dimensions from the dashboard (race, ethnicity, sex, geography), each with its
+   segment shares, then the pivot to FDA-authorized medical AI.
+2. **What we did with tokens, and where feedback would be most useful** — the
+   extraction end to end, what a concept costs to pull out, and four questions
+   for the Anthropic team.
+
+### Placeholders to fill before presenting
+
+| Slide | Placeholder | Who |
+|---|---|---|
+| 2 | `1 · THE REVIEW PROMPT` — dashed box | Maryam: paste the review prompt |
+| 2 | Cost table rows 2–4, `[ Maryam — concept group ]` | Maryam: name the concept groups being retained, and their per-1,000-document costs |
+| 2 | `PLACEHOLDER — efficiency` — dashed box | manual-review hours per document vs. pipeline time |
+
+Dashed terracotta borders mark everything still to be supplied. Row 1 of the
+cost table and the `2 · WHAT COMES BACK` sample are real and can stay as-is —
+the sample is genuine Sonnet 4.6 output for DEN140025, which happens to show the
+core finding: the device summary reports an age range but no sex, race or
+ethnicity at all.
 
 Rebuild after editing figures or swapping screenshots:
 
@@ -67,7 +82,11 @@ Four things the capture script handles that a plain screenshot won't:
   below desktop width.
 
 The donut captures are then cropped to the ring itself (the on-canvas legend is
-illegible at slide scale, so the captions carry the labels instead).
+illegible at slide scale). The slide rebuilds the key underneath each ring from
+`data/dashboard-summary.json`, with swatch colours sampled from the captured
+pixels so the key matches the chart. Geography is a green choropleth rather than
+a categorical chart, so its rows carry no swatches — they are US Census regions,
+not map colours.
 
 ## Notes on the figures
 
