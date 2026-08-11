@@ -8,6 +8,7 @@ on:
     paths:
       - "geo/**"
       - "data/geo/**"
+      - "scripts/geo/**"
       - "tests/**"
       - "package.json"
       - ".github/workflows/geo-contract-tests.yml"
@@ -15,6 +16,7 @@ on:
     paths:
       - "geo/**"
       - "data/geo/**"
+      - "scripts/geo/**"
       - "tests/**"
       - "package.json"
       - ".github/workflows/geo-contract-tests.yml"

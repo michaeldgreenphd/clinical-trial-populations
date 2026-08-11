@@ -3,5 +3,5 @@
   "snapshot_date": "2026-06-19",
   "run_dir": "data/geo/geo_rep_2026-06-19_run063",
   "long_table": "geo_representation_long_2026-06-19.csv",
-  "note": "Pinned by hand. Advancing to a new run means editing this file and re-running tests/geo_contract.test.mjs against the new directory first. Nothing reads geo_rep_LATEST.txt at runtime."
+  "note": "Pinned by scripts/geo/advance_run.py. Advancing runs is a deliberate act: run the script, review the expectations diff, update any caveat prose the tests flag, and merge the PR only with geo-contract-tests green. Nothing reads geo_rep_LATEST.txt."
 }
