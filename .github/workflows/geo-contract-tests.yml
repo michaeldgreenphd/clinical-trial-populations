@@ -1,0 +1,31 @@
+name: Geography contract tests
+
+# The ten acceptance tests from the geography handoff (§10) plus port-fidelity
+# checks, run against the pinned run in data/geo/active_run.json. They gate any
+# change to the contract data, the reader port, the render layer, or the pin.
+on:
+  push:
+    paths:
+      - "geo/**"
+      - "data/geo/**"
+      - "tests/**"
+      - "package.json"
+      - ".github/workflows/geo-contract-tests.yml"
+  pull_request:
+    paths:
+      - "geo/**"
+      - "data/geo/**"
+      - "tests/**"
+      - "package.json"
+      - ".github/workflows/geo-contract-tests.yml"
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test

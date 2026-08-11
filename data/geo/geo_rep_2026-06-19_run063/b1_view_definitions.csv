@@ -1,0 +1,5 @@
+view_name,geo_level,estimands,metric,include_gate_failures,include_withheld,rationale
+country_descriptive,country,pw_raw|tw_median,female_share_pct,FALSE,TRUE,"Every gate-passing country. Descriptive estimands need no covariate support, so no geography is withheld and nothing is excluded from the ranking."
+country_adjusted,country,std_gcomp,female_share_pct,FALSE,FALSE,Only countries with an adjusted value. Withheld rows are excluded BY DEFINITION of the view: a panel that plots std_gcomp cannot plot a geography that has none.
+state_descriptive,us_state,pw_raw|tw_median,female_share_pct,FALSE,TRUE,"Every gate-passing US unit, on the same terms as the country descriptive view."
+state_adjusted,us_state,std_gcomp,female_share_pct,FALSE,FALSE,"Only units with an adjusted value, on the same terms as the country adjusted view."

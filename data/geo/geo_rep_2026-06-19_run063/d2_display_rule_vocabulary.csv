@@ -1,0 +1,5 @@
+display_rule,ui_meaning
+show,"render normally, include in any ranking"
+badge_concentration,"render, and show the concentration badge with the driving trial from g1_unit_drivers.csv; still rankable"
+omit_from_ranking,render only when the user asks for this geography by name; never include in a ranking or a top-N list
+withheld,"no value exists for this estimand; render the gate_reason text instead of a number, and do not substitute another estimand"

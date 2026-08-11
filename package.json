@@ -1,0 +1,11 @@
+{
+  "name": "civicsample-geo-contract",
+  "private": true,
+  "description": "Acceptance tests for the geography-tab contract data layer (run pinned in data/geo/active_run.json).",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "d3-dsv": "^3.0.1"
+  }
+}

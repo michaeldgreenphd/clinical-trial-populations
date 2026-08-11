@@ -1,0 +1,7 @@
+{
+  "run_id": "geo_rep_2026-06-19_run063",
+  "snapshot_date": "2026-06-19",
+  "run_dir": "data/geo/geo_rep_2026-06-19_run063",
+  "long_table": "geo_representation_long_2026-06-19.csv",
+  "note": "Pinned by hand. Advancing to a new run means editing this file and re-running tests/geo_contract.test.mjs against the new directory first. Nothing reads geo_rep_LATEST.txt at runtime."
+}

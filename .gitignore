@@ -70,3 +70,6 @@ data/AIML Manuscripts/
 !Data/pilot_AIML_manuscripts/**
 !data/pilot_AIML_manuscripts/
 !data/pilot_AIML_manuscripts/**
+
+# Node (geo contract tests)
+node_modules/

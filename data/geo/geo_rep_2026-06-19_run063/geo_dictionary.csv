@@ -1,0 +1,202 @@
+geo_name,geo_code,geo_level,polygon_key,has_polygon,parent
+Albania,X-ALB,country,Albania,TRUE,
+Algeria,DZA,country,Algeria,TRUE,
+Angola,X-ANG,country,Angola,TRUE,
+Argentina,ARG,country,Argentina,TRUE,
+Armenia,ARM,country,Armenia,TRUE,
+Australia,AUS,country,Australia,TRUE,
+Austria,AUT,country,Austria,TRUE,
+Bahrain,BHR,country,Bahrain,TRUE,
+Bangladesh,BGD,country,Bangladesh,TRUE,
+Belarus,BLR,country,Belarus,TRUE,
+Belgium,BEL,country,Belgium,TRUE,
+Belize,X-BEL,country,Belize,TRUE,
+Bermuda,X-BER,country,Bermuda,TRUE,
+Bolivia,BOL,country,Bolivia,TRUE,
+Bosnia and Herzegovina,X-BOS,country,Bosnia and Herzegovina,TRUE,
+Botswana,BWA,country,Botswana,TRUE,
+Brazil,BRA,country,Brazil,TRUE,
+Brunei,X-BRU,country,Brunei,TRUE,
+Bulgaria,BGR,country,Bulgaria,TRUE,
+Burkina Faso,BFA,country,Burkina Faso,TRUE,
+Cambodia,X-CAM,country,Cambodia,TRUE,
+Cameroon,CMR,country,Cameroon,TRUE,
+Canada,CAN,country,Canada,TRUE,
+Chile,CHL,country,Chile,TRUE,
+China,CHN,country,China,TRUE,
+Colombia,COL,country,Colombia,TRUE,
+Comoros,X-COM,country,Comoros,TRUE,
+Costa Rica,CRI,country,Costa Rica,TRUE,
+Croatia,HRV,country,Croatia,TRUE,
+Cyprus,CYP,country,Cyprus,TRUE,
+Czechia,CZE,country,Czech Republic,TRUE,
+Côte d’Ivoire,X-CTE,country,Côte d’Ivoire,FALSE,
+Democratic Republic of the Congo,COD,country,Democratic Republic of the Congo,TRUE,
+Denmark,DNK,country,Denmark,TRUE,
+Dominican Republic,DOM,country,Dominican Republic,TRUE,
+Ecuador,ECU,country,Ecuador,TRUE,
+Egypt,EGY,country,Egypt,TRUE,
+El Salvador,X-ELS,country,El Salvador,TRUE,
+Estonia,EST,country,Estonia,TRUE,
+Eswatini,X-ESW,country,Eswatini,FALSE,
+Ethiopia,ETH,country,Ethiopia,TRUE,
+Finland,FIN,country,Finland,TRUE,
+France,FRA,country,France,TRUE,
+French Polynesia,X-FRE,country,French Polynesia,TRUE,
+Gabon,X-GAB,country,Gabon,TRUE,
+Georgia,GEO,country,Georgia,TRUE,
+Germany,DEU,country,Germany,TRUE,
+Ghana,GHA,country,Ghana,TRUE,
+Greece,GRC,country,Greece,TRUE,
+Guadeloupe,X-GUA,country,Guadeloupe,TRUE,
+Guatemala,GTM,country,Guatemala,TRUE,
+Guinea,X-GUI,country,Guinea,TRUE,
+Haiti,X-HAI,country,Haiti,TRUE,
+Honduras,X-HON,country,Honduras,TRUE,
+Hong Kong,HKG,country,Hong Kong,FALSE,
+Hungary,HUN,country,Hungary,TRUE,
+Iceland,ISL,country,Iceland,TRUE,
+India,IND,country,India,TRUE,
+Indonesia,IDN,country,Indonesia,TRUE,
+Iran,IRN,country,Iran,TRUE,
+Ireland,IRL,country,Ireland,TRUE,
+Israel,ISR,country,Israel,TRUE,
+Italy,ITA,country,Italy,TRUE,
+Ivory Coast,CIV,country,Ivory Coast,TRUE,
+Jamaica,X-JAM,country,Jamaica,TRUE,
+Japan,JPN,country,Japan,TRUE,
+Jersey,X-JER,country,Jersey,TRUE,
+Jordan,JOR,country,Jordan,TRUE,
+Kazakhstan,KAZ,country,Kazakhstan,TRUE,
+Kenya,KEN,country,Kenya,TRUE,
+Kuwait,KWT,country,Kuwait,TRUE,
+Latvia,LVA,country,Latvia,TRUE,
+Lebanon,LBN,country,Lebanon,TRUE,
+Lesotho,X-LES,country,Lesotho,TRUE,
+Liberia,X-LIB,country,Liberia,TRUE,
+Lithuania,LTU,country,Lithuania,TRUE,
+Luxembourg,LUX,country,Luxembourg,TRUE,
+Madagascar,X-MAD,country,Madagascar,TRUE,
+Malawi,MWI,country,Malawi,TRUE,
+Malaysia,MYS,country,Malaysia,TRUE,
+Mali,MLI,country,Mali,TRUE,
+Malta,MLT,country,Malta,TRUE,
+Martinique,X-MAR,country,Martinique,TRUE,
+Mauritius,X-MAU,country,Mauritius,TRUE,
+Mexico,MEX,country,Mexico,TRUE,
+Moldova,X-MOL,country,Moldova,TRUE,
+Mongolia,X-MON,country,Mongolia,TRUE,
+Morocco,MAR,country,Morocco,TRUE,
+Mozambique,MOZ,country,Mozambique,TRUE,
+Namibia,NAM,country,Namibia,TRUE,
+Nepal,NPL,country,Nepal,TRUE,
+Netherlands,NLD,country,Netherlands,TRUE,
+Netherlands Antilles,X-NET,country,Netherlands Antilles,FALSE,
+New Zealand,NZL,country,New Zealand,TRUE,
+Nicaragua,X-NIC,country,Nicaragua,TRUE,
+Niger,X-NIG,country,Niger,TRUE,
+Nigeria,NGA,country,Nigeria,TRUE,
+North Macedonia,X-NOR,country,North Macedonia,TRUE,
+Norway,NOR,country,Norway,TRUE,
+Oman,OMN,country,Oman,TRUE,
+Pakistan,PAK,country,Pakistan,TRUE,
+Panama,PAN,country,Panama,TRUE,
+Papua New Guinea,X-PAP,country,Papua New Guinea,TRUE,
+Paraguay,PRY,country,Paraguay,TRUE,
+Peru,PER,country,Peru,TRUE,
+Philippines,PHL,country,Philippines,TRUE,
+Poland,POL,country,Poland,TRUE,
+Portugal,PRT,country,Portugal,TRUE,
+Puerto Rico,PRI,country,Puerto Rico,TRUE,
+Qatar,QAT,country,Qatar,TRUE,
+Republic of the Congo,X-REP,country,Republic of the Congo,FALSE,
+Romania,ROU,country,Romania,TRUE,
+Russia,RUS,country,Russia,TRUE,
+Rwanda,RWA,country,Rwanda,TRUE,
+Saudi Arabia,SAU,country,Saudi Arabia,TRUE,
+Senegal,SEN,country,Senegal,TRUE,
+Serbia,SRB,country,Serbia,TRUE,
+Sierra Leone,X-SIE,country,Sierra Leone,TRUE,
+Singapore,SGP,country,Singapore,TRUE,
+Slovakia,SVK,country,Slovakia,TRUE,
+Slovenia,SVN,country,Slovenia,TRUE,
+South Africa,ZAF,country,South Africa,TRUE,
+South Korea,KOR,country,South Korea,TRUE,
+Spain,ESP,country,Spain,TRUE,
+Sri Lanka,LKA,country,Sri Lanka,TRUE,
+Sweden,SWE,country,Sweden,TRUE,
+Switzerland,CHE,country,Switzerland,TRUE,
+Taiwan,TWN,country,Taiwan,TRUE,
+Tanzania,TZA,country,Tanzania,TRUE,
+Thailand,THA,country,Thailand,TRUE,
+Tunisia,TUN,country,Tunisia,TRUE,
+Turkey (T<c3><bc>rkiye),TUR,country,Turkey,TRUE,
+Turkey (Türkiye),X-TUR,country,Turkey (Türkiye),FALSE,
+Uganda,UGA,country,Uganda,TRUE,
+Ukraine,UKR,country,Ukraine,TRUE,
+United Arab Emirates,ARE,country,United Arab Emirates,TRUE,
+United Kingdom,GBR,country,UK,TRUE,
+United States,USA,country,USA,TRUE,
+Uruguay,URY,country,Uruguay,TRUE,
+Uzbekistan,X-UZB,country,Uzbekistan,TRUE,
+Venezuela,VEN,country,Venezuela,TRUE,
+Vietnam,VNM,country,Vietnam,TRUE,
+Zambia,ZMB,country,Zambia,TRUE,
+Zimbabwe,ZWE,country,Zimbabwe,TRUE,
+Alabama,AL,us_state,alabama,TRUE,US
+Alaska,AK,us_state,alaska,FALSE,US
+American Samoa,AS,us_state,american samoa,FALSE,US
+Arizona,AZ,us_state,arizona,TRUE,US
+Arkansas,AR,us_state,arkansas,TRUE,US
+California,CA,us_state,california,TRUE,US
+Colorado,CO,us_state,colorado,TRUE,US
+Connecticut,CT,us_state,connecticut,TRUE,US
+Delaware,DE,us_state,delaware,TRUE,US
+District of Columbia,DC,us_state,district of columbia,TRUE,US
+Florida,FL,us_state,florida,TRUE,US
+Georgia,GA,us_state,georgia,TRUE,US
+Guam,GU,us_state,guam,FALSE,US
+Hawaii,HI,us_state,hawaii,FALSE,US
+Idaho,ID,us_state,idaho,TRUE,US
+Illinois,IL,us_state,illinois,TRUE,US
+Indiana,IN,us_state,indiana,TRUE,US
+Iowa,IA,us_state,iowa,TRUE,US
+Kansas,KS,us_state,kansas,TRUE,US
+Kentucky,KY,us_state,kentucky,TRUE,US
+Louisiana,LA,us_state,louisiana,TRUE,US
+Maine,ME,us_state,maine,TRUE,US
+Maryland,MD,us_state,maryland,TRUE,US
+Massachusetts,MA,us_state,massachusetts,TRUE,US
+Michigan,MI,us_state,michigan,TRUE,US
+Minnesota,MN,us_state,minnesota,TRUE,US
+Mississippi,MS,us_state,mississippi,TRUE,US
+Missouri,MO,us_state,missouri,TRUE,US
+Montana,MT,us_state,montana,TRUE,US
+Nebraska,NE,us_state,nebraska,TRUE,US
+Nevada,NV,us_state,nevada,TRUE,US
+New Hampshire,NH,us_state,new hampshire,TRUE,US
+New Jersey,NJ,us_state,new jersey,TRUE,US
+New Mexico,NM,us_state,new mexico,TRUE,US
+New York,NY,us_state,new york,TRUE,US
+North Carolina,NC,us_state,north carolina,TRUE,US
+North Dakota,ND,us_state,north dakota,TRUE,US
+Northern Mariana Islands,MP,us_state,northern mariana islands,FALSE,US
+Ohio,OH,us_state,ohio,TRUE,US
+Oklahoma,OK,us_state,oklahoma,TRUE,US
+Oregon,OR,us_state,oregon,TRUE,US
+Pennsylvania,PA,us_state,pennsylvania,TRUE,US
+Puerto Rico,PR,us_state,puerto rico,FALSE,US
+Rhode Island,RI,us_state,rhode island,TRUE,US
+South Carolina,SC,us_state,south carolina,TRUE,US
+South Dakota,SD,us_state,south dakota,TRUE,US
+Tennessee,TN,us_state,tennessee,TRUE,US
+Texas,TX,us_state,texas,TRUE,US
+U.S. Minor Outlying Islands,UM,us_state,u.s. minor outlying islands,FALSE,US
+U.S. Virgin Islands,VI,us_state,u.s. virgin islands,FALSE,US
+Utah,UT,us_state,utah,TRUE,US
+Vermont,VT,us_state,vermont,TRUE,US
+Virginia,VA,us_state,virginia,TRUE,US
+Washington,WA,us_state,washington,TRUE,US
+West Virginia,WV,us_state,west virginia,TRUE,US
+Wisconsin,WI,us_state,wisconsin,TRUE,US
+Wyoming,WY,us_state,wyoming,TRUE,US
