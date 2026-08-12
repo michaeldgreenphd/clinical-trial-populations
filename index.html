@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260812">
+    <link rel="stylesheet" href="styles.css?v=20260813">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -509,7 +509,7 @@
             </div>
 
             <!-- ── State level: the map leads ─────────────────────────── -->
-            <div class="chart-row" id="us-map-row">
+            <div class="chart-row geo-row-split" id="us-map-row">
                 <div class="chart-container geography-chart-wide">
                     <h3>Where single-state trials happen</h3>
                     <p class="geo-headline" id="geo-state-headline"></p>
@@ -526,7 +526,10 @@
                         <span class="note" id="geo-map-metric-label">Trials sited</span>
                         <div class="map-legend" id="map-legend">
                             <span class="legend-label" id="legend-low">&mdash;</span>
-                            <div class="legend-gradient"></div>
+                            <div class="legend-gradient-wrap">
+                                <div class="legend-gradient" id="legend-grad"></div>
+                                <span class="legend-mid" id="legend-mid" style="display:none">50% parity</span>
+                            </div>
                             <span class="legend-label" id="legend-high">&mdash;</span>
                         </div>
                         <span class="note geo-legend-nospine"><span class="geo-swatch"></span> not on the single-state spine</span>
@@ -544,8 +547,8 @@
 
             <p class="note geo-spine-note">The country-level United States figure covers trials whose registered country list contains only the United States; the state-level figures cover trials whose registered facilities all sit in a single US state or territory. The two are drawn from different registry tables, they overlap without either containing the other, and a multi-state US trial appears in the country figure but in none of the state figures. <strong>Country and state figures are therefore never compared or shown on one axis.</strong></p>
 
-            <!-- ── Country level ──────────────────────────────────────── -->
-            <div class="chart-row">
+            <!-- ── Country level: mirrors the state row ───────────────── -->
+            <div class="chart-row geo-row-split" id="world-map-row">
                 <div class="chart-container geography-chart-wide">
                     <h3>Where single-country trials happen</h3>
                     <p class="geo-headline" id="geo-country-headline"></p>
@@ -558,17 +561,34 @@
                         <button class="layer-btn active" data-geo-est-country="pw_raw">Participant-weighted</button>
                         <button class="layer-btn" data-geo-est-country="tw_median">Trial-weighted median</button>
                     </div>
+                    <div class="map-controls-row">
+                        <span class="note" id="geo-worldmap-metric-label">Trials</span>
+                        <div class="map-legend">
+                            <span class="legend-label" id="legend-w-low">&mdash;</span>
+                            <div class="legend-gradient-wrap">
+                                <div class="legend-gradient" id="legend-w-grad"></div>
+                                <span class="legend-mid" id="legend-w-mid" style="display:none">50% parity</span>
+                            </div>
+                            <span class="legend-label" id="legend-w-high">&mdash;</span>
+                        </div>
+                        <span class="note geo-legend-nospine"><span class="geo-swatch"></span> not on the single-country spine</span>
+                    </div>
+                    <div id="world-map-container"></div>
+                    <p class="note">Countries that failed the trial-count gate stay uncolored &mdash; hover for the reason. A few small territories have no polygon at this map scale; they still appear in the ranking and the look-up.</p>
+                </div>
+                <div class="chart-container geography-chart-narrow">
+                    <h3>Ranked countries</h3>
                     <p class="note" id="geo-country-rank-metric"></p>
                     <div id="geo-country-ranked"><p class="note">Loading the geography contract&hellip;</p></div>
                 </div>
-                <div class="chart-container geography-chart-narrow">
+            </div>
+
+            <div class="chart-row" id="geo-bottom-row">
+                <div class="chart-container">
                     <h3>Case-mix adjusted &mdash; countries</h3>
                     <p class="note">Female share after case-mix adjustment. The adjusted estimand exists only where the case-mix model has covariate support. Geographies without one are listed with the reason &mdash; the descriptive value is a different quantity and is never substituted.</p>
                     <div id="geo-country-adjusted"></div>
                 </div>
-            </div>
-
-            <div class="chart-row">
                 <div class="chart-container">
                     <h3>Case-mix adjusted &mdash; states</h3>
                     <p class="note">Same terms as the country panel: only units with covariate support carry an adjusted value; the rest are listed with reasons.</p>
@@ -1372,9 +1392,9 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script defer src="geo/geo_reader.js?v=20260811"></script>
-    <script defer src="geo/geo_render.js?v=20260812"></script>
+    <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
-    <script defer src="geo/geo_ui.js?v=20260812"></script>
+    <script defer src="geo/geo_ui.js?v=20260813"></script>
     <script defer src="app.js?v=20260724"></script>
 </body>
 </html>

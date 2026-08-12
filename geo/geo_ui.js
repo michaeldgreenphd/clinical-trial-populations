@@ -19,6 +19,7 @@
         stateEstimand: 'pw_raw',
         mapDrawn: false,
         usTopology: null,
+        worldTopology: null,
     };
 
     function esc(s) {
@@ -156,10 +157,107 @@
         el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // ── Choropleth color scales ───────────────────────────────────────────
+    // Female share is diverging around 50% parity: blue = skews male, pink =
+    // skews female, neutral gray at the midpoint. The pink arm's OKLab
+    // lightness ladder was fitted numerically to the blue arm's, so equal
+    // deviations from parity read equally intense on both sides.
+    const SHARE_STOPS = ['#1c5cab', '#2a78d6', '#5598e7', '#9ec5f4', '#f0efec',
+        '#e6b0c3', '#ca7996', '#b8507a', '#97345f'];
+    // Trial counts stay a single-hue sequential ramp (the site's green).
+    const COUNT_STOPS = ['#e8f2e6', '#a9d2a4', '#5fA268', '#2C5F2D', '#123c1a'];
+
+    function shareScale(lo, hi) {
+        const e = Math.max(50 - lo, hi - 50, 1);
+        return {
+            scale: d3.scaleSequential(d3.piecewise(d3.interpolateRgb, SHARE_STOPS))
+                .domain([50 - e, 50 + e]),
+            lo: 50 - e, hi: 50 + e,
+        };
+    }
+
+    function setLegend(ids, cfg) {
+        const grad = document.getElementById(ids.grad);
+        if (grad) grad.style.background = 'linear-gradient(to right, ' + cfg.stops.join(', ') + ')';
+        const low = document.getElementById(ids.low);
+        const mid = document.getElementById(ids.mid);
+        const high = document.getElementById(ids.high);
+        if (low) low.textContent = cfg.low;
+        if (high) high.textContent = cfg.high;
+        if (mid) {
+            mid.textContent = cfg.mid || '';
+            mid.style.display = cfg.mid ? '' : 'none';
+        }
+        const label = document.getElementById(ids.label);
+        if (label) label.textContent = cfg.label;
+    }
+
+    /** Shared choropleth painter: fills from the model via the scale,
+     *  tooltips carry values or gate reasons, click opens the detail card. */
+    function drawChoropleth(cfg) {
+        const container = document.getElementById(cfg.containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        const svg = d3.select(container).append('svg')
+            .attr('viewBox', '0 0 ' + cfg.width + ' ' + cfg.height)
+            .attr('style', 'max-width:100%;height:auto;');
+        const tooltip = document.getElementById('map-tooltip');
+        const model = cfg.model;
+
+        svg.append('g').selectAll('path').data(cfg.features).enter().append('path')
+            .attr('d', cfg.path)
+            .attr('stroke', '#fff').attr('stroke-width', 0.6)
+            .attr('fill', function (f) {
+                const u = model.units[cfg.keyOf(f)];
+                if (u && u.status === 'value') return cfg.scale(u.value);
+                if (u && u.status === 'on_request') return '#d5d9d5';
+                return '#f0f2f0';        // not on the spine (gate-failed or no data attached)
+            })
+            .attr('cursor', function (f) {
+                const key = cfg.keyOf(f);
+                return (model.units[key] || model.gateFailed[key]) ? 'pointer' : 'default';
+            })
+            .on('mousemove', function (event, f) {
+                if (!tooltip) return;
+                const key = cfg.keyOf(f);
+                const u = model.units[key];
+                const gf = model.gateFailed[key];
+                let text;
+                if (u && u.status === 'value') {
+                    text = '<strong>' + esc(u.geo_name) + '</strong><br>' + cfg.valueLine(u) +
+                        (u.badge ? '<br>◆ concentration — one trial dominates' : '') +
+                        '<br><em>click for demographics</em>';
+                } else if (u && u.status === 'on_request') {
+                    text = '<strong>' + esc(u.geo_name) + '</strong><br>Viewable on request — click to ask for ' +
+                        'this geography by name.';
+                } else if (gf) {
+                    text = '<strong>' + esc(gf.geo_name) + '</strong><br>Not on the ' + cfg.spineNoun +
+                        ' — <em>' + esc(gf.reason) + '</em>';
+                } else {
+                    text = '<strong>' + esc(cfg.nameOf(f)) + '</strong><br>' + cfg.absentLine;
+                }
+                tooltip.innerHTML = text;
+                tooltip.style.display = 'block';
+                tooltip.style.left = (event.clientX + 12) + 'px';
+                tooltip.style.top = (event.clientY - 10) + 'px';
+            })
+            .on('mouseleave', function () { if (tooltip) tooltip.style.display = 'none'; })
+            .on('click', function (event, f) {
+                const key = cfg.keyOf(f);
+                const u = model.units[key] || model.gateFailed[key];
+                if (u && u.geo_code) showDetail(cfg.level, u.geo_code);
+            });
+    }
+
+    function unitValues(model) {
+        return Object.values(model.units)
+            .filter(function (u) { return u.status === 'value'; })
+            .map(function (u) { return u.value; });
+    }
+
     // ── The US map ────────────────────────────────────────────────────────
     async function renderMap() {
-        const container = document.getElementById('us-map-container');
-        if (!container || !state.ctx) return;
+        if (!document.getElementById('us-map-container') || !state.ctx) return;
         if (typeof root.ensureD3 !== 'function') return;
         await root.ensureD3();
         if (!state.usTopology) {
@@ -168,77 +266,117 @@
         const counts = state.stateMeasure === 'trials';
         const model = counts ? state.ctx.render.countMapModel()
             : state.ctx.render.mapModel(state.stateEstimand);
-        const values = Object.values(model.units)
-            .filter(function (u) { return u.status === 'value'; })
-            .map(function (u) { return u.value; });
+        const values = unitValues(model);
         const lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
-        const scale = d3.scaleSequential(d3.interpolateGreens).domain([lo - (hi - lo) * 0.25, hi]);
 
-        container.innerHTML = '';
-        const width = 975, height = 610;
-        const svg = d3.select(container).append('svg')
-            .attr('viewBox', '0 0 ' + width + ' ' + height)
-            .attr('style', 'max-width:100%;height:auto;');
-        const features = topojson.feature(state.usTopology, state.usTopology.objects.states).features;
-        const tooltip = document.getElementById('map-tooltip');
-
-        svg.append('g').selectAll('path').data(features).enter().append('path')
-            .attr('d', d3.geoPath())
-            .attr('stroke', '#fff').attr('stroke-width', 0.7)
-            .attr('fill', function (f) {
-                const key = f.properties.name.toLowerCase();
-                const u = model.units[key];
-                if (u && u.status === 'value') return scale(u.value);
-                if (u && u.status === 'on_request') return '#d5d9d5';
-                return '#f0f2f0';        // not on the spine (gate-failed or no data attached)
-            })
-            .attr('cursor', function (f) {
-                const key = f.properties.name.toLowerCase();
-                return (model.units[key] || model.gateFailed[key]) ? 'pointer' : 'default';
-            })
-            .on('mousemove', function (event, f) {
-                if (!tooltip) return;
-                const key = f.properties.name.toLowerCase();
-                const u = model.units[key];
-                const gf = model.gateFailed[key];
-                let text;
-                if (u && u.status === 'value') {
-                    const line = counts ? esc(u.text) + ' single-state trials sited here'
-                        : esc(model.estimandLabel) + ': ' + esc(u.text);
-                    text = '<strong>' + esc(u.geo_name) + '</strong><br>' + line +
-                        (u.badge ? '<br>◆ concentration — one trial dominates' : '') +
-                        '<br><em>click for demographics</em>';
-                } else if (u && u.status === 'on_request') {
-                    text = '<strong>' + esc(u.geo_name) + '</strong><br>Viewable on request — click to ask for ' +
-                        'this geography by name.';
-                } else if (gf) {
-                    text = '<strong>' + esc(gf.geo_name) + '</strong><br>Not on the single-state spine — <em>' +
-                        esc(gf.reason) + '</em>';
-                } else {
-                    text = '<strong>' + esc(f.properties.name) + '</strong><br>Not on the single-state spine ' +
-                        '(see the selectivity note below the map).';
-                }
-                tooltip.innerHTML = text;
-                tooltip.style.display = 'block';
-                tooltip.style.left = (event.pageX + 12) + 'px';
-                tooltip.style.top = (event.pageY - 10) + 'px';
-            })
-            .on('mouseleave', function () { if (tooltip) tooltip.style.display = 'none'; })
-            .on('click', function (event, f) {
-                const key = f.properties.name.toLowerCase();
-                const u = model.units[key] || model.gateFailed[key];
-                if (u && u.geo_code) showDetail('us_state', u.geo_code);
+        let scale;
+        const legendIds = { grad: 'legend-grad', low: 'legend-low', mid: 'legend-mid', high: 'legend-high', label: 'geo-map-metric-label' };
+        if (counts) {
+            scale = d3.scaleSequential(d3.piecewise(d3.interpolateRgb, COUNT_STOPS))
+                .domain([Math.max(0, lo - (hi - lo) * 0.15), hi]);
+            setLegend(legendIds, {
+                stops: COUNT_STOPS, label: 'Single-state trials sited',
+                low: lo.toLocaleString('en-US'), high: hi.toLocaleString('en-US'), mid: null,
             });
-
-        const legendLow = document.getElementById('legend-low');
-        const legendHigh = document.getElementById('legend-high');
-        if (legendLow) legendLow.textContent = counts ? lo.toLocaleString('en-US') : lo.toFixed(1) + '%';
-        if (legendHigh) legendHigh.textContent = counts ? hi.toLocaleString('en-US') : hi.toFixed(1) + '%';
-        const legendLabel = document.getElementById('geo-map-metric-label');
-        if (legendLabel) {
-            legendLabel.textContent = counts ? 'Single-state trials sited'
-                : model.estimandLabel + ' — female share';
+        } else {
+            const s = shareScale(lo, hi);
+            scale = s.scale;
+            setLegend(legendIds, {
+                stops: SHARE_STOPS, label: model.estimandLabel + ' — female share',
+                low: s.lo.toFixed(1) + '% skews male', high: s.hi.toFixed(1) + '% skews female',
+                mid: '50% parity',
+            });
         }
+
+        drawChoropleth({
+            containerId: 'us-map-container', width: 975, height: 610,
+            features: topojson.feature(state.usTopology, state.usTopology.objects.states).features,
+            path: d3.geoPath(),
+            keyOf: function (f) { return f.properties.name.toLowerCase(); },
+            nameOf: function (f) { return f.properties.name; },
+            model: model, scale: scale, level: 'us_state',
+            spineNoun: 'single-state spine',
+            absentLine: 'Not on the single-state spine (see the selectivity note below the map).',
+            valueLine: function (u) {
+                return counts ? esc(u.text) + ' single-state trials sited here'
+                    : esc(model.estimandLabel) + ': ' + esc(u.text);
+            },
+        });
+    }
+
+    // ── The world map ─────────────────────────────────────────────────────
+    // geo_dictionary polygon_keys use R maps-package world names; translate
+    // the atlas's Natural Earth names into that vocabulary before joining.
+    // Never the other way: shipped keys are the contract, the atlas adapts.
+    const ATLAS_TO_KEY = {
+        'United States of America': 'USA',
+        'United Kingdom': 'UK',
+        'Czechia': 'Czech Republic',
+        'Côte d\'Ivoire': 'Ivory Coast',
+        'Dem. Rep. Congo': 'Democratic Republic of the Congo',
+        'Dominican Rep.': 'Dominican Republic',
+        'Bosnia and Herz.': 'Bosnia and Herzegovina',
+        'Macedonia': 'North Macedonia',
+        'Central African Rep.': 'Central African Republic',
+        'S. Sudan': 'South Sudan',
+        'Eq. Guinea': 'Equatorial Guinea',
+        'Solomon Is.': 'Solomon Islands',
+        'eSwatini': 'Eswatini',
+    };
+
+    async function renderWorldMap() {
+        if (!document.getElementById('world-map-container') || !state.ctx) return;
+        if (typeof root.ensureD3 !== 'function') return;
+        await root.ensureD3();
+        if (!state.worldTopology) {
+            state.worldTopology = await d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+        }
+        const counts = state.countryMeasure === 'trials';
+        const model = counts ? state.ctx.render.countryCountMapModel()
+            : state.ctx.render.countryMapModel(state.countryEstimand);
+        const values = unitValues(model);
+        const lo = Math.min.apply(null, values), hi = Math.max.apply(null, values);
+
+        let scale;
+        const legendIds = { grad: 'legend-w-grad', low: 'legend-w-low', mid: 'legend-w-mid', high: 'legend-w-high', label: 'geo-worldmap-metric-label' };
+        if (counts) {
+            // One country dwarfs the rest (heavy tail), so color is on a log
+            // scale — labeled as such; the ranked list carries exact counts.
+            scale = d3.scaleSequentialLog(d3.piecewise(d3.interpolateRgb, COUNT_STOPS))
+                .domain([Math.max(1, lo), hi]);
+            setLegend(legendIds, {
+                stops: COUNT_STOPS, label: 'Single-country trials (log color scale)',
+                low: lo.toLocaleString('en-US'), high: hi.toLocaleString('en-US'), mid: null,
+            });
+        } else {
+            const s = shareScale(lo, hi);
+            scale = s.scale;
+            setLegend(legendIds, {
+                stops: SHARE_STOPS, label: model.estimandLabel + ' — female share',
+                low: s.lo.toFixed(1) + '% skews male', high: s.hi.toFixed(1) + '% skews female',
+                mid: '50% parity',
+            });
+        }
+
+        const width = 975, height = 500;
+        const features = topojson.feature(state.worldTopology, state.worldTopology.objects.countries)
+            .features.filter(function (f) { return f.properties.name !== 'Antarctica'; });
+        const projection = d3.geoNaturalEarth1().fitSize([width, height], { type: 'Sphere' });
+
+        drawChoropleth({
+            containerId: 'world-map-container', width: width, height: height,
+            features: features,
+            path: d3.geoPath(projection),
+            keyOf: function (f) { return ATLAS_TO_KEY[f.properties.name] || f.properties.name; },
+            nameOf: function (f) { return f.properties.name; },
+            model: model, scale: scale, level: 'country',
+            spineNoun: 'single-country spine',
+            absentLine: 'Not on the single-country spine, or no polygon at this map scale — use the look-up.',
+            valueLine: function (u) {
+                return counts ? esc(u.text) + ' single-country trials'
+                    : esc(model.estimandLabel) + ': ' + esc(u.text);
+            },
+        });
     }
 
     // ── Measure (where / who) and estimand toggles ────────────────────────
@@ -273,6 +411,7 @@
             currentModel(level), level);
         rankNote(level);
         if (level === 'us_state') renderMap();
+        else renderWorldMap();
     }
 
     function wireToggles() {

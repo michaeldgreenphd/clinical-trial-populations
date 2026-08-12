@@ -220,9 +220,9 @@
             return units;
         }
 
-        function gateFailedUnits() {
+        function gateFailedUnits(geoLevel) {
             const gateFailed = {};
-            reader.readGeo({ geoLevel: 'us_state', metric: 'no_value_gate_failed' })
+            reader.readGeo({ geoLevel: geoLevel, metric: 'no_value_gate_failed' })
                 .forEach(function (r) {
                     const dict = dictByKey[r.geo_level + '|' + r.geo_code];
                     if (!dict || dict.has_polygon !== 'TRUE') return;
@@ -239,7 +239,21 @@
                 axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'female_share_pct', estimand: estimand },
                 estimandLabel: ESTIMAND_LABELS[estimand] || estimand,
                 units: mapUnits(viewRows, fmtShare),
-                gateFailed: gateFailedUnits(),
+                gateFailed: gateFailedUnits('us_state'),
+            };
+        }
+
+        /** The world map, same terms as the US one: data attaches only where
+         *  geo_dictionary ships has_polygon = TRUE, keyed by its polygon_key. */
+        function countryMapModel(estimand) {
+            const viewRows = reader.geoView('country_descriptive')
+                .filter(function (r) { return r.estimand === estimand; });
+            const axis = assertHomogeneous(viewRows, 'countryMapModel');
+            return {
+                axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'female_share_pct', estimand: estimand },
+                estimandLabel: ESTIMAND_LABELS[estimand] || estimand,
+                units: mapUnits(viewRows, fmtShare),
+                gateFailed: gateFailedUnits('country'),
             };
         }
 
@@ -290,7 +304,21 @@
                 axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'n_trials', estimand: 'not_applicable' },
                 estimandLabel: 'Single-state trials sited',
                 units: mapUnits(rows, fmtCount),
-                gateFailed: gateFailedUnits(),
+                gateFailed: gateFailedUnits('us_state'),
+            };
+        }
+
+        /** The world map colored by single-country trials — same terms. */
+        function countryCountMapModel() {
+            const rows = reader.readGeo({
+                geoLevel: 'country', metric: 'n_trials', includeGateFailures: false,
+            });
+            const axis = assertHomogeneous(rows, 'countryCountMapModel');
+            return {
+                axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'n_trials', estimand: 'not_applicable' },
+                estimandLabel: 'Single-country trials',
+                units: mapUnits(rows, fmtCount),
+                gateFailed: gateFailedUnits('country'),
             };
         }
 
@@ -395,6 +423,8 @@
             adjustedPanelModel: adjustedPanelModel,
             mapModel: mapModel,
             countMapModel: countMapModel,
+            countryMapModel: countryMapModel,
+            countryCountMapModel: countryCountMapModel,
             detailCardModel: detailCardModel,
             searchIndex: searchIndex,
             assertHomogeneous: assertHomogeneous,
