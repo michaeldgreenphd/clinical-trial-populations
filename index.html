@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260724">
+    <link rel="stylesheet" href="styles.css?v=20260812">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -504,41 +504,26 @@
             <div class="chart-row">
                 <div class="chart-container geography-chart-wide">
                     <h3>Where single-geography trials happen, and who is in them</h3>
-                    <p class="note">Female share of participants in trials confined to one geography, from a frozen, audited analysis of the AACT registry. <strong>There is no population denominator on this tab:</strong> it describes the composition of trial participants and cannot claim over- or under-representation against any population.</p>
+                    <p class="note">The map and rankings show where trials confined to one geography are sited, from a frozen, audited analysis of the AACT registry. Click any geography &mdash; or look one up below &mdash; for its participant demographics: sex composition today; race, ethnicity and gender identity when a future pipeline run ships them. <strong>There is no population denominator on this tab:</strong> it describes the composition of trial participants and cannot claim over- or under-representation against any population.</p>
                 </div>
             </div>
 
-            <!-- ── Country level ──────────────────────────────────────── -->
-            <div class="chart-row">
-                <div class="chart-container geography-chart-wide">
-                    <h3>Countries — single-country trials</h3>
-                    <p class="note">Trials whose registered country list contains exactly one country. ◆ marks a geography where one trial supplies more than half the participants; hover the badge for the trial.</p>
-                    <div class="layer-toggle-group geo-est-toggle">
-                        <button class="layer-btn active" data-geo-est-country="pw_raw">Participant-weighted</button>
-                        <button class="layer-btn" data-geo-est-country="tw_median">Trial-weighted median</button>
-                    </div>
-                    <div id="geo-country-ranked"><p class="note">Loading the geography contract&hellip;</p></div>
-                </div>
-                <div class="chart-container geography-chart-narrow">
-                    <h3>Case-mix adjusted &mdash; countries</h3>
-                    <p class="note">The adjusted estimand exists only where the case-mix model has covariate support. Geographies without one are listed with the reason &mdash; the descriptive value is a different quantity and is never substituted.</p>
-                    <div id="geo-country-adjusted"></div>
-                </div>
-            </div>
-
-            <p class="note geo-spine-note">The country-level United States figure covers trials whose registered country list contains only the United States; the state-level figures cover trials whose registered facilities all sit in a single US state or territory. The two are drawn from different registry tables, they overlap without either containing the other, and a multi-state US trial appears in the country figure but in none of the state figures. <strong>Country and state figures are therefore never compared or shown on one axis.</strong></p>
-
-            <!-- ── State level ────────────────────────────────────────── -->
+            <!-- ── State level: the map leads ─────────────────────────── -->
             <div class="chart-row" id="us-map-row">
                 <div class="chart-container geography-chart-wide">
-                    <h3>US states &amp; territories &mdash; single-state trials</h3>
+                    <h3>Where single-state trials happen</h3>
+                    <p class="geo-headline" id="geo-state-headline"></p>
                     <p class="note"><strong>The state layer measures sites, not enrollment.</strong> A trial whose facilities all sit in one state may have enrolled people from anywhere; every state figure means &ldquo;trials sited here&rdquo;, never &ldquo;participants from here&rdquo;.</p>
-                    <div class="layer-toggle-group geo-est-toggle">
+                    <div class="layer-toggle-group geo-measure-toggle">
+                        <button class="layer-btn active" data-geo-measure-state="trials">Trials sited</button>
+                        <button class="layer-btn" data-geo-measure-state="share">Female share</button>
+                    </div>
+                    <div class="layer-toggle-group geo-est-toggle geo-hidden" id="geo-state-est-toggle">
                         <button class="layer-btn active" data-geo-est-state="pw_raw">Participant-weighted</button>
                         <button class="layer-btn" data-geo-est-state="tw_median">Trial-weighted median</button>
                     </div>
                     <div class="map-controls-row">
-                        <span class="note" id="geo-map-metric-label">Female share</span>
+                        <span class="note" id="geo-map-metric-label">Trials sited</span>
                         <div class="map-legend" id="map-legend">
                             <span class="legend-label" id="legend-low">&mdash;</span>
                             <div class="legend-gradient"></div>
@@ -552,7 +537,34 @@
                 </div>
                 <div class="chart-container geography-chart-narrow">
                     <h3>Ranked states</h3>
-                    <div id="geo-state-ranked"></div>
+                    <p class="note" id="geo-state-rank-metric"></p>
+                    <div id="geo-state-ranked"><p class="note">Loading the geography contract&hellip;</p></div>
+                </div>
+            </div>
+
+            <p class="note geo-spine-note">The country-level United States figure covers trials whose registered country list contains only the United States; the state-level figures cover trials whose registered facilities all sit in a single US state or territory. The two are drawn from different registry tables, they overlap without either containing the other, and a multi-state US trial appears in the country figure but in none of the state figures. <strong>Country and state figures are therefore never compared or shown on one axis.</strong></p>
+
+            <!-- ── Country level ──────────────────────────────────────── -->
+            <div class="chart-row">
+                <div class="chart-container geography-chart-wide">
+                    <h3>Where single-country trials happen</h3>
+                    <p class="geo-headline" id="geo-country-headline"></p>
+                    <p class="note">Trials whose registered country list contains exactly one country. ◆ marks a geography where one trial supplies more than half the participants; hover the badge for the trial.</p>
+                    <div class="layer-toggle-group geo-measure-toggle">
+                        <button class="layer-btn active" data-geo-measure-country="trials">Trials</button>
+                        <button class="layer-btn" data-geo-measure-country="share">Female share</button>
+                    </div>
+                    <div class="layer-toggle-group geo-est-toggle geo-hidden" id="geo-country-est-toggle">
+                        <button class="layer-btn active" data-geo-est-country="pw_raw">Participant-weighted</button>
+                        <button class="layer-btn" data-geo-est-country="tw_median">Trial-weighted median</button>
+                    </div>
+                    <p class="note" id="geo-country-rank-metric"></p>
+                    <div id="geo-country-ranked"><p class="note">Loading the geography contract&hellip;</p></div>
+                </div>
+                <div class="chart-container geography-chart-narrow">
+                    <h3>Case-mix adjusted &mdash; countries</h3>
+                    <p class="note">Female share after case-mix adjustment. The adjusted estimand exists only where the case-mix model has covariate support. Geographies without one are listed with the reason &mdash; the descriptive value is a different quantity and is never substituted.</p>
+                    <div id="geo-country-adjusted"></div>
                 </div>
             </div>
 
@@ -563,8 +575,8 @@
                     <div id="geo-state-adjusted"></div>
                 </div>
                 <div class="chart-container">
-                    <h3>Look up a geography</h3>
-                    <p class="note">Every geography in the registry &mdash; including those that did not clear the gate &mdash; with all of its values, reasons, and the concentration detail. Selecting one here is what makes &ldquo;viewable on request&rdquo; values render.</p>
+                    <h3>Demographics for a geography &mdash; on demand</h3>
+                    <p class="note">Every geography in the registry &mdash; including those that did not clear the gate &mdash; with its demographic composition, reasons, and concentration detail. Sex composition ships in the frozen run; race, ethnicity and gender identity will appear here when a future run ships them. Selecting a geography is what makes &ldquo;viewable on request&rdquo; values render.</p>
                     <input type="text" id="geo-search-input" list="geo-search-list" placeholder="Type a country or state name&hellip;" autocomplete="off">
                     <datalist id="geo-search-list"></datalist>
                     <div id="geo-detail-card"></div>
@@ -1360,9 +1372,9 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script defer src="geo/geo_reader.js?v=20260811"></script>
-    <script defer src="geo/geo_render.js?v=20260811"></script>
+    <script defer src="geo/geo_render.js?v=20260812"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
-    <script defer src="geo/geo_ui.js?v=20260811"></script>
+    <script defer src="geo/geo_ui.js?v=20260812"></script>
     <script defer src="app.js?v=20260724"></script>
 </body>
 </html>

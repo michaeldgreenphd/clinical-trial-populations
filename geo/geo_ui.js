@@ -13,6 +13,8 @@
 
     const state = {
         ctx: null,
+        countryMeasure: 'trials',   // 'trials' (where) | 'share' (who)
+        stateMeasure: 'trials',
         countryEstimand: 'pw_raw',
         stateEstimand: 'pw_raw',
         mapDrawn: false,
@@ -32,18 +34,33 @@
             'this geography’s participants — ' + esc(badge.topTrialId) + esc(share) + '">◆</span>';
     }
 
+    /** One-sentence finding under a section title, from a count model's top
+     *  entries — values verbatim from shipped rows, so it can never go stale. */
+    function setHeadline(elId, model, verb) {
+        const el = document.getElementById(elId);
+        if (!el || model.items.length < 3) return;
+        const top = model.items.slice(0, 3);
+        el.textContent = top[0].geo_name + ', ' + top[1].geo_name + ' and ' + top[2].geo_name +
+            ' ' + verb + ' (' + top.map(function (t) { return t.text; }).join(', ') + ').';
+    }
+
     // ── Ranked list (rankable rows only — the model enforces it) ──────────
     function renderRanked(elId, model, level) {
         const el = document.getElementById(elId);
         if (!el) return;
         const max = model.items.length ? model.items[0].value : 1;
-        let html = '<div class="geo-ranked">';
+        // Counts are heavy-tailed (one geography can dwarf the rest), so bars
+        // degenerate into hairlines against empty track — the ranked number
+        // column carries the information instead. Shares keep bars: they
+        // cluster in a band where relative length is readable.
+        const bars = model.axis.metric !== 'n_trials';
+        let html = '<div class="geo-ranked' + (bars ? '' : ' geo-ranked-nobar') + '">';
         model.items.forEach(function (it, i) {
             html += '<div class="geo-ranked-row" data-level="' + level + '" data-code="' + esc(it.geo_code) + '">' +
                 '<span class="geo-rank">' + (i + 1) + '</span>' +
                 '<span class="geo-rname">' + esc(it.geo_name) + badgeHtml(it.badge) + '</span>' +
-                '<span class="geo-rbar"><span class="geo-rbar-fill" style="width:' +
-                (100 * it.value / max).toFixed(1) + '%"></span></span>' +
+                (bars ? '<span class="geo-rbar"><span class="geo-rbar-fill" style="width:' +
+                    (100 * it.value / max).toFixed(1) + '%"></span></span>' : '') +
                 '<span class="geo-rval">' + esc(it.text) + '</span></div>';
         });
         html += '</div>';
@@ -95,6 +112,7 @@
                 esc(m.gateFail.reason) + '</em></p>';
         }
         if (m.composition.length) {
+            html += '<p class="geo-dim-head">Sex composition</p>';
             html += '<table class="geography-table"><tbody>';
             m.composition.forEach(function (c) {
                 if (c.cell.kind === 'withheld') {
@@ -107,6 +125,9 @@
                 }
             });
             html += '</tbody></table>';
+            html += '<p class="note geo-dim-coming">Race, ethnicity and gender identity: not in this contract ' +
+                'run — the frozen geography pipeline ships sex composition only. These panels populate here ' +
+                'when a future run ships those dimensions; nothing is estimated in the meantime.</p>';
         }
         html += '<p class="note">Trials on the spine: <strong>' + esc(m.nTrials.text) +
             '</strong> · participants: <strong>' + esc(m.nParticipants.text) + '</strong>' +
@@ -144,7 +165,9 @@
         if (!state.usTopology) {
             state.usTopology = await d3.json('https://cdn.jsdelivr.net/npm/us-atlas@3/states-albers-10m.json');
         }
-        const model = state.ctx.render.mapModel(state.stateEstimand);
+        const counts = state.stateMeasure === 'trials';
+        const model = counts ? state.ctx.render.countMapModel()
+            : state.ctx.render.mapModel(state.stateEstimand);
         const values = Object.values(model.units)
             .filter(function (u) { return u.status === 'value'; })
             .map(function (u) { return u.value; });
@@ -180,9 +203,11 @@
                 const gf = model.gateFailed[key];
                 let text;
                 if (u && u.status === 'value') {
-                    text = '<strong>' + esc(u.geo_name) + '</strong><br>' + esc(model.estimandLabel) +
-                        ': ' + esc(u.text) + (u.badge ? '<br>◆ concentration — one trial dominates' : '') +
-                        '<br><em>click for detail</em>';
+                    const line = counts ? esc(u.text) + ' single-state trials sited here'
+                        : esc(model.estimandLabel) + ': ' + esc(u.text);
+                    text = '<strong>' + esc(u.geo_name) + '</strong><br>' + line +
+                        (u.badge ? '<br>◆ concentration — one trial dominates' : '') +
+                        '<br><em>click for demographics</em>';
                 } else if (u && u.status === 'on_request') {
                     text = '<strong>' + esc(u.geo_name) + '</strong><br>Viewable on request — click to ask for ' +
                         'this geography by name.';
@@ -207,22 +232,79 @@
 
         const legendLow = document.getElementById('legend-low');
         const legendHigh = document.getElementById('legend-high');
-        if (legendLow) legendLow.textContent = lo.toFixed(1) + '%';
-        if (legendHigh) legendHigh.textContent = hi.toFixed(1) + '%';
+        if (legendLow) legendLow.textContent = counts ? lo.toLocaleString('en-US') : lo.toFixed(1) + '%';
+        if (legendHigh) legendHigh.textContent = counts ? hi.toLocaleString('en-US') : hi.toFixed(1) + '%';
         const legendLabel = document.getElementById('geo-map-metric-label');
-        if (legendLabel) legendLabel.textContent = model.estimandLabel + ' — female share';
+        if (legendLabel) {
+            legendLabel.textContent = counts ? 'Single-state trials sited'
+                : model.estimandLabel + ' — female share';
+        }
     }
 
-    // ── Estimand toggles ──────────────────────────────────────────────────
+    // ── Measure (where / who) and estimand toggles ────────────────────────
+    function currentModel(level) {
+        const r = state.ctx.render;
+        if (level === 'country') {
+            return state.countryMeasure === 'trials' ? r.countListModel('country')
+                : r.rankedListModel('country_descriptive', state.countryEstimand);
+        }
+        return state.stateMeasure === 'trials' ? r.countListModel('us_state')
+            : r.rankedListModel('state_descriptive', state.stateEstimand);
+    }
+
+    function rankNote(level) {
+        const el = document.getElementById(level === 'country' ?
+            'geo-country-rank-metric' : 'geo-state-rank-metric');
+        if (!el) return;
+        const measure = level === 'country' ? state.countryMeasure : state.stateMeasure;
+        if (measure === 'trials') {
+            el.textContent = level === 'country' ? 'Number of single-country trials.'
+                : 'Number of single-state trials sited in each state — sites, not enrollment.';
+        } else {
+            el.textContent = (level === 'country' ?
+                { pw_raw: 'Participant-weighted', tw_median: 'Trial-weighted median' }[state.countryEstimand]
+                : { pw_raw: 'Participant-weighted', tw_median: 'Trial-weighted median' }[state.stateEstimand]) +
+                ' female share of participants.';
+        }
+    }
+
+    function renderLevel(level) {
+        renderRanked(level === 'country' ? 'geo-country-ranked' : 'geo-state-ranked',
+            currentModel(level), level);
+        rankNote(level);
+        if (level === 'us_state') renderMap();
+    }
+
     function wireToggles() {
+        document.querySelectorAll('[data-geo-measure-country]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                state.countryMeasure = btn.dataset.geoMeasureCountry;
+                document.querySelectorAll('[data-geo-measure-country]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                const est = document.getElementById('geo-country-est-toggle');
+                if (est) est.classList.toggle('geo-hidden', state.countryMeasure !== 'share');
+                renderLevel('country');
+            });
+        });
         document.querySelectorAll('[data-geo-est-country]').forEach(function (btn) {
             btn.addEventListener('click', function () {
                 state.countryEstimand = btn.dataset.geoEstCountry;
                 document.querySelectorAll('[data-geo-est-country]').forEach(function (b) {
                     b.classList.toggle('active', b === btn);
                 });
-                renderRanked('geo-country-ranked',
-                    state.ctx.render.rankedListModel('country_descriptive', state.countryEstimand), 'country');
+                renderLevel('country');
+            });
+        });
+        document.querySelectorAll('[data-geo-measure-state]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                state.stateMeasure = btn.dataset.geoMeasureState;
+                document.querySelectorAll('[data-geo-measure-state]').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                const est = document.getElementById('geo-state-est-toggle');
+                if (est) est.classList.toggle('geo-hidden', state.stateMeasure !== 'share');
+                renderLevel('us_state');
             });
         });
         document.querySelectorAll('[data-geo-est-state]').forEach(function (btn) {
@@ -231,9 +313,7 @@
                 document.querySelectorAll('[data-geo-est-state]').forEach(function (b) {
                     b.classList.toggle('active', b === btn);
                 });
-                renderRanked('geo-state-ranked',
-                    state.ctx.render.rankedListModel('state_descriptive', state.stateEstimand), 'us_state');
-                renderMap();
+                renderLevel('us_state');
             });
         });
     }
@@ -263,19 +343,22 @@
             if (typeof root.ensureD3 === 'function') await root.ensureD3();
             state.ctx = await GeoData.load();
         } catch (e) {
-            const el = document.getElementById('geo-country-ranked');
-            if (el) el.innerHTML = '<p class="note">Could not load the geography contract: ' + esc(e.message) + '</p>';
+            ['geo-state-ranked', 'geo-country-ranked'].forEach(function (id) {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '<p class="note">Could not load the geography contract: ' + esc(e.message) + '</p>';
+            });
             throw e;
         }
         _rendered = true;
 
-        renderRanked('geo-country-ranked',
-            state.ctx.render.rankedListModel('country_descriptive', state.countryEstimand), 'country');
+        renderLevel('us_state');    // map + ranked states, trials-first
+        renderLevel('country');
         renderAdjusted('geo-country-adjusted', state.ctx.render.adjustedPanelModel('country'));
-        renderRanked('geo-state-ranked',
-            state.ctx.render.rankedListModel('state_descriptive', state.stateEstimand), 'us_state');
         renderAdjusted('geo-state-adjusted', state.ctx.render.adjustedPanelModel('us_state'));
-        renderMap();
+        setHeadline('geo-state-headline', state.ctx.render.countListModel('us_state'),
+            'host the most single-state trials');
+        setHeadline('geo-country-headline', state.ctx.render.countListModel('country'),
+            'run the most single-country trials');
         wireToggles();
         wireSearch();
 

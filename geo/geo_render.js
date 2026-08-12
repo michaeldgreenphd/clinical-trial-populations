@@ -202,17 +202,13 @@
          * take the UI's 'not in spine' fill; gate-failed units with a polygon
          * get their gate_reason for the tooltip via `gateFailed`.
          */
-        function mapModel(estimand) {
-            const viewRows = reader.geoView('state_descriptive')
-                .filter(function (r) { return r.estimand === estimand; });
-            const axis = assertHomogeneous(viewRows, 'mapModel');
-
+        function mapUnits(rows, fmt) {
             const units = {};
-            viewRows.forEach(function (r) {
+            rows.forEach(function (r) {
                 const dict = dictByKey[r.geo_level + '|' + r.geo_code];
                 if (!dict) throw new Error('mapModel: ' + r.geo_code + ' missing from geo_dictionary.csv');
                 if (dict.has_polygon !== 'TRUE') return;    // never on a map
-                const cell = valueCell(r);
+                const cell = valueCell(r, fmt);
                 units[dict.polygon_key] = {
                     geo_code: r.geo_code, geo_name: r.geo_name,
                     status: cell.kind === 'on_request' ? 'on_request' : 'value',
@@ -221,7 +217,10 @@
                     badge: cell.badge || null,
                 };
             });
+            return units;
+        }
 
+        function gateFailedUnits() {
             const gateFailed = {};
             reader.readGeo({ geoLevel: 'us_state', metric: 'no_value_gate_failed' })
                 .forEach(function (r) {
@@ -229,12 +228,69 @@
                     if (!dict || dict.has_polygon !== 'TRUE') return;
                     gateFailed[dict.polygon_key] = { geo_code: r.geo_code, geo_name: r.geo_name, reason: r.gate_reason };
                 });
+            return gateFailed;
+        }
 
+        function mapModel(estimand) {
+            const viewRows = reader.geoView('state_descriptive')
+                .filter(function (r) { return r.estimand === estimand; });
+            const axis = assertHomogeneous(viewRows, 'mapModel');
             return {
                 axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'female_share_pct', estimand: estimand },
                 estimandLabel: ESTIMAND_LABELS[estimand] || estimand,
-                units: units,
-                gateFailed: gateFailed,
+                units: mapUnits(viewRows, fmtShare),
+                gateFailed: gateFailedUnits(),
+            };
+        }
+
+        /**
+         * "Where the trials are" — the shipped tier-1 `n_trials` metric rows
+         * for one level, ranked within that level only. Deliberately NOT one
+         * of the four b1 views (those define the share views and stay the
+         * only source for them): each geography's count is a shipped row
+         * rendered verbatim through the same display_rule switch. Counts are
+         * never compared across levels (the model is level-homogeneous, and
+         * metric_dictionary.csv marks n_trials not comparable across the two
+         * spines) and never differenced or summed client-side.
+         */
+        function countListModel(geoLevel) {
+            const rows = reader.readGeo({
+                geoLevel: geoLevel, metric: 'n_trials', includeGateFailures: false,
+            });
+            if (!rows.length) throw new Error('countListModel: no n_trials rows for ' + geoLevel);
+            const axis = assertHomogeneous(rows, 'countListModel(' + geoLevel + ')');
+            const ranked = reader.rankable(rows).slice()
+                .sort(function (a, b) { return b.value - a.value; });
+            const onRequest = rows.filter(function (r) { return r.display_rule === 'omit_from_ranking'; });
+
+            return {
+                axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'n_trials', estimand: 'not_applicable' },
+                estimandLabel: geoLevel === 'country' ? 'Single-country trials' : 'Single-state trials sited',
+                items: ranked.map(function (r) {
+                    const cell = valueCell(r, fmtCount);
+                    return {
+                        geo_code: r.geo_code, geo_name: r.geo_name,
+                        value: cell.value, text: cell.text, badge: cell.badge,
+                        display_rule: r.display_rule,
+                    };
+                }),
+                onRequestCount: onRequest.length,
+                onRequestNames: onRequest.map(function (r) { return r.geo_name; }).sort(),
+                totalGeographies: new Set(rows.map(function (r) { return r.geo_code; })).size,
+            };
+        }
+
+        /** The US map colored by trials sited — same terms as countListModel. */
+        function countMapModel() {
+            const rows = reader.readGeo({
+                geoLevel: 'us_state', metric: 'n_trials', includeGateFailures: false,
+            });
+            const axis = assertHomogeneous(rows, 'countMapModel');
+            return {
+                axis: { geo_level: axis.geo_level, tier: axis.tier, metric: 'n_trials', estimand: 'not_applicable' },
+                estimandLabel: 'Single-state trials sited',
+                units: mapUnits(rows, fmtCount),
+                gateFailed: gateFailedUnits(),
             };
         }
 
@@ -335,8 +391,10 @@
         return {
             valueCell: valueCell,
             rankedListModel: rankedListModel,
+            countListModel: countListModel,
             adjustedPanelModel: adjustedPanelModel,
             mapModel: mapModel,
+            countMapModel: countMapModel,
             detailCardModel: detailCardModel,
             searchIndex: searchIndex,
             assertHomogeneous: assertHomogeneous,
