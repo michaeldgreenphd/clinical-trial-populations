@@ -4404,3 +4404,15 @@ footer p {
 }
 .geo-tier3-label { font-weight: 700; color: #4d3f77; }
 #geo-run-pin { margin-top: 1rem; font-family: var(--mono, monospace); font-size: 0.72rem; }
+
+/* Trials-first reframe: measure toggle, headlines, demographics-on-demand */
+.geo-hidden { display: none !important; }
+.geo-headline {
+    font-size: 1.02rem; font-weight: 600; margin: 0.25rem 0 0.5rem;
+    color: var(--text-primary, #1f2d24);
+}
+.geo-measure-toggle { margin-bottom: 0.35rem; }
+/* Count rankings drop the bar track; keep name and number adjacent. */
+.geo-ranked-nobar .geo-ranked-row { grid-template-columns: 1.7rem minmax(7rem, 13rem) 5.5rem; }
+.geo-dim-head { font-weight: 600; margin: 0.6rem 0 0.25rem; }
+.geo-dim-coming { font-style: italic; }

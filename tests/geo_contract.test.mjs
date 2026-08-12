@@ -306,3 +306,48 @@ test('prose tripwire: states named absent in the caveat are absent in the pinned
       `caveat names ${n} as absent, but it is on the spine in ${EXP.run_id} — update the prose`);
   }
 });
+
+// ---------------------------------------------------------------------------
+// The "where the trials are" views. Not one of the four b1 views: they render
+// the shipped tier-1 n_trials metric rows verbatim, one per geography, through
+// the same display_rule switch. This test pins that they can never widen
+// beyond that — no gate-failed unit, no tier-3 row, no cross-level mixing, and
+// every value byte-identical to the long table's.
+test('count views: shipped tier-1 n_trials rows only, level-homogeneous, values verbatim', () => {
+  for (const [level, mapped] of [['country', false], ['us_state', true]]) {
+    const model = render.countListModel(level);
+    const expected = tables.long.filter((r) =>
+      r.geo_level === level && r.metric === 'n_trials' && r.gate_status === 'pass');
+
+    assert.equal(model.axis.geo_level, level);
+    assert.equal(model.axis.tier, '1', `${level} count axis must be tier 1`);
+    assert.equal(model.items.length + model.onRequestCount, expected.length,
+      `${level}: every shipped count row is either ranked or on-request`);
+    for (const it of model.items) {
+      const row = expected.find((r) => r.geo_code === it.geo_code);
+      assert.ok(row, `${it.geo_code} ranked without a shipped n_trials row`);
+      assert.equal(it.value, Number(row.value), `${it.geo_code} count differs from the table`);
+      assert.ok(['show', 'badge_concentration'].includes(it.display_rule),
+        `${it.geo_code} entered the count ranking with display_rule ${it.display_rule}`);
+    }
+
+    if (mapped) {
+      const mapM = render.countMapModel();
+      assert.equal(mapM.axis.metric, 'n_trials');
+      for (const [key, u] of Object.entries(mapM.units)) {
+        const dict = geoDict.find((r) => r.geo_level === 'us_state' && r.geo_code === u.geo_code);
+        assert.equal(dict.has_polygon, 'TRUE', `${u.geo_code} on the map without has_polygon`);
+        assert.equal(dict.polygon_key, key);
+        const row = expected.find((r) => r.geo_code === u.geo_code);
+        if (u.status === 'value') assert.equal(u.value, Number(row.value));
+      }
+    }
+  }
+
+  // The two levels stay apart: a hand-built mix must throw, same as the shares.
+  const country = tables.long.find((r) => r.geo_level === 'country' && r.metric === 'n_trials');
+  const stateRow = tables.long.find((r) => r.geo_level === 'us_state' && r.metric === 'n_trials');
+  assert.throws(() => render.assertHomogeneous(
+    [country, stateRow].map((r) => ({ geo_level: r.geo_level, tier: r.tier })), 'test'),
+  /never share an axis/);
+});
