@@ -331,16 +331,25 @@ test('count views: shipped tier-1 n_trials rows only, level-homogeneous, values 
         `${it.geo_code} entered the count ranking with display_rule ${it.display_rule}`);
     }
 
-    if (mapped) {
-      const mapM = render.countMapModel();
-      assert.equal(mapM.axis.metric, 'n_trials');
-      for (const [key, u] of Object.entries(mapM.units)) {
-        const dict = geoDict.find((r) => r.geo_level === 'us_state' && r.geo_code === u.geo_code);
-        assert.equal(dict.has_polygon, 'TRUE', `${u.geo_code} on the map without has_polygon`);
-        assert.equal(dict.polygon_key, key);
-        const row = expected.find((r) => r.geo_code === u.geo_code);
-        if (u.status === 'value') assert.equal(u.value, Number(row.value));
-      }
+    const mapM = mapped ? render.countMapModel() : render.countryCountMapModel();
+    assert.equal(mapM.axis.metric, 'n_trials');
+    for (const [key, u] of Object.entries(mapM.units)) {
+      const dict = geoDict.find((r) => r.geo_level === level && r.geo_code === u.geo_code);
+      assert.equal(dict.has_polygon, 'TRUE', `${u.geo_code} on the map without has_polygon`);
+      assert.equal(dict.polygon_key, key);
+      const row = expected.find((r) => r.geo_code === u.geo_code);
+      if (u.status === 'value') assert.equal(u.value, Number(row.value));
+    }
+    // every gate-failed polygon carries its reason for the tooltip, and no
+    // has_polygon=FALSE unit (e.g. Hong Kong) ever attaches to either map
+    for (const gf of Object.values(mapM.gateFailed)) {
+      assert.ok(gf.reason, `${gf.geo_code} gate-failed on the map without a reason`);
+    }
+    const noPoly = geoDict.filter((r) => r.geo_level === level && r.has_polygon !== 'TRUE')
+      .map((r) => r.polygon_key);
+    for (const key of noPoly) {
+      assert.ok(!(key in mapM.units) && !(key in mapM.gateFailed),
+        `${key} attached to the ${level} map despite has_polygon=FALSE`);
     }
   }
 

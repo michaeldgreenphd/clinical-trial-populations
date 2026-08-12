@@ -4407,6 +4407,30 @@ footer p {
 
 /* Trials-first reframe: measure toggle, headlines, demographics-on-demand */
 .geo-hidden { display: none !important; }
+
+/* Symmetric geography rows: the two map rows share one 2.2:1 split, and the
+   legacy flex-era rules (#us-map-row display:flex, narrow-card width caps)
+   do not apply inside the grid. */
+#geography .geo-row-split {
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+    gap: 2rem;
+}
+#geography .geography-chart-narrow { flex: none; max-width: none; min-width: 0; }
+#geography .geography-chart-wide { min-width: 0; }
+@media (max-width: 900px) {
+    #geography .geo-row-split { grid-template-columns: 1fr; }
+}
+
+/* Legend: gradient set inline per measure; parity label under the midpoint. */
+.legend-gradient-wrap { position: relative; }
+.legend-mid {
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    font-size: 0.68rem; color: var(--text-muted, #6b7c71); white-space: nowrap;
+    padding-top: 2px;
+}
+.map-legend { padding-bottom: 0.9rem; }
+#world-map-container svg { display: block; }
 .geo-headline {
     font-size: 1.02rem; font-weight: 600; margin: 0.25rem 0 0.5rem;
     color: var(--text-primary, #1f2d24);
