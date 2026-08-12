@@ -1,0 +1,13 @@
+column,n_blank,n_rows,pct_blank,blank_means
+lo,798,823,97,no interval: only std_gcomp carries one
+hi,798,823,97,no interval: only std_gcomp carries one
+delta_from_raw_pp,798,823,97,the column applies to the adjusted estimands only
+support_share,677,823,82.3,the column applies to the adjusted estimands only
+gate_reason,352,823,42.8,no reason needed: the row renders normally
+pct_participants_exact,239,823,29,not computed for this tier or geo level
+top_trial_id,239,823,29,not computed for this tier or geo level
+top_trial_share_pct,239,823,29,not computed for this tier or geo level
+extrapolation_pp,239,823,29,the column applies to the adjusted estimands only
+value,196,823,23.8,no value exists for this row; display_rule and gate_reason say why
+n_trials,100,823,12.2,"the geography failed the gate, so it has no trial count on the spine"
+n_participants,100,823,12.2,"the geography failed the gate, so it has no trial count on the spine"

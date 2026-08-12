@@ -1,0 +1,28 @@
+operation,why
+Compare `female_share_pct` / `pw_raw` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `tw_median` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `std_gcomp` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `std_modal` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `n_trials` / `not_applicable` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `n_participants` / `not_applicable` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `iqr_width_pp` / `tw_median` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `pct_single_sex_reported` / `not_applicable` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `portfolio_female_share_pct` / `pw_raw` between a country row and a us_state row,comparable_across_geo_level = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `pw_raw` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `tw_median` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `std_gcomp` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `female_share_pct` / `std_modal` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `n_trials` / `not_applicable` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `n_participants` / `not_applicable` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `iqr_width_pp` / `tw_median` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `pct_single_sex_reported` / `not_applicable` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Compare `portfolio_female_share_pct` / `pw_raw` between tier 1 and tier 3,comparable_across_tier = FALSE in metric_dictionary.csv
+Difference `female_share_pct` / `pw_raw` against another estimand,"Differencing against tw_median is invalid: one weights by participants, the other by trials."
+Difference `female_share_pct` / `tw_median` against another estimand,Differencing against pw_raw is invalid; a large trial moves one and not the other.
+Difference `female_share_pct` / `std_gcomp` against another estimand,Difference against pw_raw is the case-mix contribution; that is delta_from_raw_pp and is the only defensible difference here.
+Difference `female_share_pct` / `std_modal` against another estimand,"Do not difference against std_gcomp; they are different reference distributions, not a decomposition."
+Difference `n_trials` / `not_applicable` against another estimand,Country and state spines have different filter chains; do not subtract one from the other.
+Difference `n_participants` / `not_applicable` against another estimand,Tier 1 and tier 3 participant counts overlap by construction; never sum them.
+Difference `iqr_width_pp` / `tw_median` against another estimand,"A spread, not a level; do not compare against any share."
+Difference `pct_single_sex_reported` / `not_applicable` against another estimand,Not comparable with any composition share.
+Difference `portfolio_female_share_pct` / `pw_raw` against another estimand,Never differenced against or plotted on the same scale as any tier 1 metric.

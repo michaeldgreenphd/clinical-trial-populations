@@ -1,0 +1,45 @@
+{
+  "views": {
+    "country_descriptive": {
+      "rows": 68,
+      "geographies": 34
+    },
+    "country_adjusted": {
+      "rows": 13,
+      "geographies": 13
+    },
+    "state_descriptive": {
+      "rows": 78,
+      "geographies": 39
+    },
+    "state_adjusted": {
+      "rows": 12,
+      "geographies": 12
+    }
+  },
+  "long_table_rows": 823,
+  "withheld_rows": 96,
+  "blank_value_rows": 196,
+  "gate_pass_rows": 584,
+  "absent_us_units": [
+    "Alaska",
+    "American Samoa",
+    "Delaware",
+    "Guam",
+    "Hawaii",
+    "Idaho",
+    "Maine",
+    "Mississippi",
+    "Montana",
+    "North Dakota",
+    "Northern Mariana Islands",
+    "Puerto Rico",
+    "South Dakota",
+    "U.S. Minor Outlying Islands",
+    "U.S. Virgin Islands",
+    "Vermont",
+    "West Virginia",
+    "Wyoming"
+  ],
+  "run_id": "geo_rep_2026-06-19_run063"
+}

@@ -501,148 +501,77 @@
 
         <!-- Geography Tab -->
         <section id="geography" class="tab-content">
-            <!-- Mobile builds load only the lightweight aggregate summary, which
-                 intentionally omits the heavy per-site geography data the map
-                 needs. Shown by renderGeographyDashboard() on mobile instead of
-                 an all-zero dashboard. -->
-            <div id="geo-mobile-notice" style="display:none; text-align:center; padding:2.5rem 1.5rem; max-width:560px; margin:1.5rem auto; background:transparent; border:1px solid var(--border-color); border-radius:8px;">
-                <div style="font-size:2.5rem; line-height:1;">🗺️</div>
-                <h3 style="margin:0.75rem 0 0.5rem;">Geography view is desktop-only</h3>
-                <p class="note" style="margin:0 0 0.5rem;">The interactive map breaks trials down by US state, city, and country using detailed per-site location data that's too large to load on mobile. Civic Sample serves a lightweight aggregate dashboard on phones instead.</p>
-                <p class="note" style="margin:0;">Open this dashboard on a desktop browser to explore the Geography tab.</p>
-            </div>
-            <div class="geography-controls">
-                <div class="geography-filter-row">
-                    <div class="geography-view-toggle">
-                        <button class="view-btn active" data-view="us">United States</button>
-                        <button class="view-btn" data-view="international">International</button>
-                    </div>
-                </div>
-                <!-- Reporting Layer Toggles (visible only for US view) -->
-                <div class="reporting-layer-controls" id="reporting-layer-controls">
-                    <span class="layer-label">Map Layer:</span>
-                    <div class="layer-toggle-group">
-                        <button class="layer-btn active" data-layer="volume">Trial Volume</button>
-                        <button class="layer-btn" data-layer="race">Race Reporting</button>
-                        <button class="layer-btn" data-layer="ethnicity">Ethnicity Reporting</button>
-                        <button class="layer-btn" data-layer="sex">Sex Reporting</button>
-                        <button class="layer-btn" data-layer="gender">Gender Reporting</button>
-                    </div>
+            <div class="chart-row">
+                <div class="chart-container geography-chart-wide">
+                    <h3>Where single-geography trials happen, and who is in them</h3>
+                    <p class="note">Female share of participants in trials confined to one geography, from a frozen, audited analysis of the AACT registry. <strong>There is no population denominator on this tab:</strong> it describes the composition of trial participants and cannot claim over- or under-representation against any population.</p>
                 </div>
             </div>
 
-            <div class="geography-stats">
-                <div class="stat-card">
-                    <div class="stat-value" id="geo-total-trials">0</div>
-                    <div class="stat-label">Total Trials</div>
+            <!-- ── Country level ──────────────────────────────────────── -->
+            <div class="chart-row">
+                <div class="chart-container geography-chart-wide">
+                    <h3>Countries — single-country trials</h3>
+                    <p class="note">Trials whose registered country list contains exactly one country. ◆ marks a geography where one trial supplies more than half the participants; hover the badge for the trial.</p>
+                    <div class="layer-toggle-group geo-est-toggle">
+                        <button class="layer-btn active" data-geo-est-country="pw_raw">Participant-weighted</button>
+                        <button class="layer-btn" data-geo-est-country="tw_median">Trial-weighted median</button>
+                    </div>
+                    <div id="geo-country-ranked"><p class="note">Loading the geography contract&hellip;</p></div>
                 </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="geo-single-site">0</div>
-                    <div class="stat-label">Single-site</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="geo-multi-site">0</div>
-                    <div class="stat-label">Multi-site</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-value" id="geo-not-reported">0</div>
-                    <div class="stat-label">Location Not Reported</div>
+                <div class="chart-container geography-chart-narrow">
+                    <h3>Case-mix adjusted &mdash; countries</h3>
+                    <p class="note">The adjusted estimand exists only where the case-mix model has covariate support. Geographies without one are listed with the reason &mdash; the descriptive value is a different quantity and is never substituted.</p>
+                    <div id="geo-country-adjusted"></div>
                 </div>
             </div>
 
-            <!-- US Map Container (visible for US view) -->
+            <p class="note geo-spine-note">The country-level United States figure covers trials whose registered country list contains only the United States; the state-level figures cover trials whose registered facilities all sit in a single US state or territory. The two are drawn from different registry tables, they overlap without either containing the other, and a multi-state US trial appears in the country figure but in none of the state figures. <strong>Country and state figures are therefore never compared or shown on one axis.</strong></p>
+
+            <!-- ── State level ────────────────────────────────────────── -->
             <div class="chart-row" id="us-map-row">
                 <div class="chart-container geography-chart-wide">
-                    <h3 id="geography-chart-title">Trials by US State</h3>
-                    <p class="note" id="geography-chart-subtitle">Click a state to see city-level breakdown. Darker colors indicate higher values.</p>
+                    <h3>US states &amp; territories &mdash; single-state trials</h3>
+                    <p class="note"><strong>The state layer measures sites, not enrollment.</strong> A trial whose facilities all sit in one state may have enrolled people from anywhere; every state figure means &ldquo;trials sited here&rdquo;, never &ldquo;participants from here&rdquo;.</p>
+                    <div class="layer-toggle-group geo-est-toggle">
+                        <button class="layer-btn active" data-geo-est-state="pw_raw">Participant-weighted</button>
+                        <button class="layer-btn" data-geo-est-state="tw_median">Trial-weighted median</button>
+                    </div>
                     <div class="map-controls-row">
+                        <span class="note" id="geo-map-metric-label">Female share</span>
                         <div class="map-legend" id="map-legend">
-                            <span class="legend-label" id="legend-low">0</span>
+                            <span class="legend-label" id="legend-low">&mdash;</span>
                             <div class="legend-gradient"></div>
-                            <span class="legend-label" id="legend-high">100</span>
+                            <span class="legend-label" id="legend-high">&mdash;</span>
                         </div>
-                        <button class="reset-zoom-btn" id="reset-zoom-btn" style="display: none;">
-                            <span class="reset-icon">↩</span> Reset View
-                        </button>
+                        <span class="note geo-legend-nospine"><span class="geo-swatch"></span> not on the single-state spine</span>
                     </div>
-                    <div id="us-map-container">
-                        <!-- SVG Map will be rendered by D3.js -->
-                    </div>
+                    <div id="us-map-container"></div>
                     <div id="map-tooltip" class="map-tooltip"></div>
+                    <p class="note">The single-geography spine is selective, and unevenly so: it keeps 54% of US-facility trials in aggregate, but the per-unit median retention is 6.5%, and a state that only ever hosts one site of a national trial contributes nothing. This is why Alaska, Wyoming, Hawaii, Mississippi and Puerto Rico are absent.</p>
                 </div>
-                <!-- Regional Diversity Chart -->
                 <div class="chart-container geography-chart-narrow">
-                    <h3>Regional Distribution</h3>
-                    <p class="note">Trials by US Census Region</p>
-                    <div id="regional-chart-container">
-                        <canvas id="regional-diversity-chart"></canvas>
-                    </div>
-                    <div class="region-legend" id="region-legend">
-                        <!-- Legend populated by JS -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- State Detail Section (shows cities when a state is clicked) -->
-            <div class="chart-row" id="state-detail-row" style="display: none;">
-                <div class="chart-container geography-chart-wide">
-                    <div class="state-detail-header">
-                        <h3 id="state-detail-title">Cities in Selected State</h3>
-                        <button class="close-detail-btn" id="close-state-detail">&times; Close</button>
-                    </div>
-                    <div id="state-detail-container">
-                        <table class="geography-table" id="city-table">
-                            <thead>
-                                <tr>
-                                    <th>Rank</th>
-                                    <th>City</th>
-                                    <th id="city-metric-header">Number of Trials</th>
-                                    <th>% of State Total</th>
-                                </tr>
-                            </thead>
-                            <tbody id="city-table-body">
-                                <!-- Populated by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- International Table (visible for international view) -->
-            <div class="chart-row" id="international-table-row" style="display: none;">
-                <div class="chart-container geography-chart-wide">
-                    <h3>Trials by Country</h3>
-                    <p class="note">Number of trials with at least one site in each country (excluding United States).</p>
-                    <div id="geography-list-container">
-                        <table class="geography-table" id="geography-table">
-                            <thead>
-                                <tr>
-                                    <th>Rank</th>
-                                    <th id="geo-location-header">Country</th>
-                                    <th>Number of Trials</th>
-                                    <th>% of Filtered Trials</th>
-                                </tr>
-                            </thead>
-                            <tbody id="geography-table-body">
-                                <!-- Populated by JavaScript -->
-                            </tbody>
-                        </table>
-                    </div>
+                    <h3>Ranked states</h3>
+                    <div id="geo-state-ranked"></div>
                 </div>
             </div>
 
             <div class="chart-row">
                 <div class="chart-container">
-                    <h3>Site Distribution</h3>
-                    <p class="note">Breakdown of trials by number of sites.</p>
-                    <canvas id="site-distribution-chart"></canvas>
+                    <h3>Case-mix adjusted &mdash; states</h3>
+                    <p class="note">Same terms as the country panel: only units with covariate support carry an adjusted value; the rest are listed with reasons.</p>
+                    <div id="geo-state-adjusted"></div>
                 </div>
                 <div class="chart-container">
-                    <h3>Geographic Reporting Over Time</h3>
-                    <p class="note">Percentage of trials reporting location data by year.</p>
-                    <canvas id="geo-reporting-trend-chart"></canvas>
+                    <h3>Look up a geography</h3>
+                    <p class="note">Every geography in the registry &mdash; including those that did not clear the gate &mdash; with all of its values, reasons, and the concentration detail. Selecting one here is what makes &ldquo;viewable on request&rdquo; values render.</p>
+                    <input type="text" id="geo-search-input" list="geo-search-list" placeholder="Type a country or state name&hellip;" autocomplete="off">
+                    <datalist id="geo-search-list"></datalist>
+                    <div id="geo-detail-card"></div>
                 </div>
             </div>
+
+            <p class="note" id="geo-run-pin"></p>
         </section>
 
         <!-- FDA Oversight Tab -->
@@ -1430,6 +1359,10 @@
     <!-- Toast notification container -->
     <div id="toast-container" class="toast-container"></div>
 
+    <script defer src="geo/geo_reader.js?v=20260811"></script>
+    <script defer src="geo/geo_render.js?v=20260811"></script>
+    <script defer src="geo/geo_data.js?v=20260811"></script>
+    <script defer src="geo/geo_ui.js?v=20260811"></script>
     <script defer src="app.js?v=20260724"></script>
 </body>
 </html>

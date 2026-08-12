@@ -1,0 +1,24 @@
+{
+  "regional-diversity-chart": [
+    {
+      "label": "South",
+      "value": 115051,
+      "pct": 37.3
+    },
+    {
+      "label": "Midwest",
+      "value": 72859,
+      "pct": 23.6
+    },
+    {
+      "label": "West",
+      "value": 63560,
+      "pct": 20.6
+    },
+    {
+      "label": "Northeast",
+      "value": 57074,
+      "pct": 18.5
+    }
+  ]
+}

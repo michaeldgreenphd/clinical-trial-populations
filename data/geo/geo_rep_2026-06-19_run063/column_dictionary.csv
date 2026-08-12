@@ -1,0 +1,10 @@
+column_pattern,quantity_type,unit,valid_lo,valid_hi,definition
+^(pw_raw|tw_median|std_gcomp|std_modal|std_restricted|value|median_pct|pct_female|portfolio_female_share_pct|adj_female_share_pct|acs_female_share_pct|tw_q25|tw_q75|std_lo|std_hi|extrap_lo|extrap_hi|top_female_share_pct|top_male_share_pct|top_trial_share_pct|pw_female_share_pct|std_additive|std_interaction)$,share_pct,percent,0,100,"A share of a whole, expressed 0-100."
+^(delta_pp|iqr_width_pp|fit_width_pp|extrapolation_pp|abs_diff_pp|range_across_estimands_pp|within_range_pp|within_sd_pp|median_within_trial_range_pp|max_within_trial_range_pp|median_within_trial_sd_pp|change_from_none_pp|gap_pp)$,pp_difference,percentage points,-100,100,A difference between two shares.
+^excess_rate$,pp_difference,proportion difference,-1,1,Observed rate minus the binomial expectation for a fair split. Negative means fewer exact splits than chance predicts.
+^(support_share|observed_rate|expected_rate|se_expected|icc_one_way|icc_lo|icc_hi|icc_interval_width|share)$,probability,proportion 0-1,0,1,A proportion or probability.
+^(rho_coverage_vs_participation|spearman.*|.*_rho)$,correlation,correlation coefficient,-1,1,A rank or product-moment correlation.
+^p_value$,p_value,probability,0,1,A p-value.
+^(n_.*|.*_n|n)$,count,count,0,Inf,"A count of trials, participants, rows or geographies."
+^(?!(?:median_pct|pct_female|portfolio_female_share_pct|adj_female_share_pct|acs_female_share_pct|top_female_share_pct|top_male_share_pct|top_trial_share_pct|pw_female_share_pct)$)(pct_[A-Za-z0-9_]+|[A-Za-z0-9_]+_pct)$,share_pct,percent,0,100,A percentage on the 0-100 scale.
+^(nct_id|geo_code|unit_code|top_trial_id|frame_stamp|run_id|snapshot_date)$,id,identifier,,,"An identifier, not a quantity."
