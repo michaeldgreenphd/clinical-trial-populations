@@ -683,7 +683,7 @@
 
           {!loading && error === "empty" && (
             <EmptyState icon="📭" title="No extraction records found"
-              hint="The triage inbox reads data/fda_extracted_latest.csv and data/lit_extracted_latest.csv. Run the extraction pipeline (or scripts/build_triage_latest.py) to populate them." />
+              hint="The triage inbox reads data/fda_extracted_latest.csv and data/lit_extracted_latest.csv. Run the civicsample-engine extraction pipeline to populate them." />
           )}
 
           {!loading && error !== "empty" && tab === "pending" && (
