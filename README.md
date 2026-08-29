@@ -23,6 +23,7 @@ engine.
 | `beta/approval-queue.jsx` | The beta Approval Queue tab — fetched and compiled in the browser at runtime |
 | `about/`, `race/`, `geography/`, … | One-line redirect stubs so `/race` etc. deep-link into the app |
 | `data/` | The published data the dashboard fetches: demographics parts, summaries, extraction results, the pinned geography run |
+| `data/pilot_trials_manuscripts/` | Trial manuscript PDFs the site serves directly — manuscript links fall back to these when a paper has no DOI |
 | `snapshots/` + `history.json` | Dated point-in-time copies powering the "View snapshot" selector (4 recent bi-weekly in full, then monthly summaries) |
 | `condition_ontology.json` | Condition category tree the app loads at startup (canonical copy lives in the engine, published here) |
 | `tests/` + `package.json` | Geography contract tests (`npm ci && npm test`), run by CI on any push touching geo code or data |
@@ -51,6 +52,17 @@ Geography tab changes should keep the contract tests green:
 ```bash
 npm ci && npm test
 ```
+
+## Known quirks (so reviews don't rediscover them)
+
+- **The beta Approval Queue tab sits behind a client-side password prompt**
+  in `app.js`. It is a curtain, not security — the passwords are visible in
+  this public repo, so everything here, data included, should be treated as
+  public. Replacing or removing the gate is an open item.
+- **`data/details.part1.json.gz` / `part2` are frozen.** The study-detail
+  modal serves them as-is; their generator was retired before the repo
+  split, so their contents predate the weekly data. Reviving regeneration
+  is queued in the engine repo.
 
 ## History
 
