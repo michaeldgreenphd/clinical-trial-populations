@@ -36,7 +36,8 @@ keeps the tab current in perpetuity.
    cross-check suite (`a_/b_cross_checks`, `b2_reader_test`,
    `b3_view_invariants`) is what validates the *numbers*; the app never
    re-derives them.
-3. **Advance the pin.** `python3 scripts/geo/advance_run.py /path/to/run_dir`
+3. **Advance the pin.** From a checkout of *this* repository:
+   `python3 scripts/geo/advance_run.py /path/to/run_dir`
    — refuses non-`final` runs, hash-verifies the 12 contract files, stages
    them, rewrites the pin, regenerates the expectations, and prints an
    old→new diff of every number that moved.
@@ -47,6 +48,24 @@ keeps the tab current in perpetuity.
 5. **PR, gated.** `npm test` locally, then a PR; the `geo-contract-tests`
    workflow re-runs the 13 acceptance tests on the new pin. Remove the
    previous run directory in the same PR unless both should be retained.
+
+## Which repository owns which step
+
+The pipeline moved to
+[`civicsample-engine`](https://github.com/michaeldgreenphd/civicsample-engine)
+in the 2026 frontend/backend split, but this loop deliberately stayed split
+across both repos along the line of *what each step writes*:
+
+| Step | Repo | Why |
+|---|---|---|
+| 1. Watch for a newer AACT snapshot | engine (`geo-snapshot-watcher.yml`) | It reads this repo's `active_run.json` over HTTPS, writes nothing, and opens its advisory issue where the pipeline maintainers look |
+| 2. Run the pipeline (`refresh.R`) | neither | Every run directory ships its own complete pipeline; that is what makes an old run reproducible |
+| 3. Advance the pin (`advance_run.py`) | **this repo** | Every path it writes is a site path — the staged run directory, the pin, and the expectations file. A copy living elsewhere would stage into the wrong working tree |
+| 4. Review, PR, merge | this repo | `geo-contract-tests` is the gate |
+
+`tests/repo_wiring.test.mjs` asserts step 3's script is actually present and
+that the paths naming it resolve, so a future repository reshuffle cannot
+quietly break the loop again.
 
 ## Why the AACT fork matters
 
