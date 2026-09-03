@@ -477,6 +477,40 @@ const civicWatermarkPlugin = {
     }
 };
 
+// A hairline between the lowest and highest value on each row of the FDA
+// dot plot. The length of that connector IS the finding — short where a
+// regulator is watching, long where nobody is — so it is drawn as data,
+// behind the points, rather than left for the reader to measure by eye.
+const fdaRowConnectorPlugin = {
+    id: 'fdaRowConnector',
+    beforeDatasetsDraw(chart) {
+        const { ctx, scales } = chart;
+        if (!scales || !scales.y || chart.canvas.id !== 'fda-reporting-chart') return;
+        const points = {};
+        chart.data.datasets.forEach((ds, di) => {
+            const meta = chart.getDatasetMeta(di);
+            if (meta.hidden) return;
+            meta.data.forEach((pt, pi) => {
+                const key = ds.data[pi] && ds.data[pi].y;
+                if (key == null) return;
+                (points[key] = points[key] || []).push(pt);
+            });
+        });
+        ctx.save();
+        ctx.strokeStyle = 'rgba(27, 67, 50, 0.22)';
+        ctx.lineWidth = 2;
+        Object.values(points).forEach(pts => {
+            if (pts.length < 2) return;
+            const xs = pts.map(p => p.x);
+            ctx.beginPath();
+            ctx.moveTo(Math.min(...xs), pts[0].y);
+            ctx.lineTo(Math.max(...xs), pts[0].y);
+            ctx.stroke();
+        });
+        ctx.restore();
+    }
+};
+
 // ── Composition donuts: the number goes on the chart ──────────────────────
 // Every donut used to hide its headline behind a hover tooltip and identify
 // its categories with a colour key alone. These two pieces put the value on
@@ -1911,6 +1945,25 @@ function hideDashboardSpinner() {
     if (el) el.style.display = 'none';
 }
 
+// Each Overview tile says what its figure counts. The percentages get their
+// own numerator, which is the number a reader reaches for next; the total
+// gets the year window it was drawn from.
+function renderOverviewTileContext(total, raceCount, ethCount, bothCount) {
+    const set = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    const y0 = document.getElementById('year-start');
+    const y1 = document.getElementById('year-end');
+    set('stat-sub-total', y0 && y1 && !dashboardSummary
+        ? `results posted ${y0.value}\u2013${y1.value}`
+        : 'trials with results posted');
+    const n = (c) => `${c.toLocaleString()} of ${total.toLocaleString()} trials`;
+    set('stat-sub-race', total ? n(raceCount) : '\u2014');
+    set('stat-sub-ethnicity', total ? n(ethCount) : '\u2014');
+    set('stat-sub-both', total ? n(bothCount) : '\u2014');
+}
+
 // ── The Overview finding, and the filter selection in words ───────────────
 // Both are generated from values already on this page. The finding quotes the
 // four stat tiles and states the gap between two of them; it derives no new
@@ -2038,6 +2091,7 @@ function renderDashboard() {
         document.getElementById('both-reporting').textContent =
             t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
         renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
+        renderOverviewTileContext(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
         renderFilterSummary(t, true);
 
         // All chart functions check dashboardSummary internally
@@ -2083,6 +2137,7 @@ function renderDashboard() {
     document.getElementById('both-reporting').textContent =
         filtered.length > 0 ? `${((bothCount / filtered.length) * 100).toFixed(1)}%` : '0%';
     renderOverviewFinding(filtered.length, raceCount, ethCount, bothCount);
+    renderOverviewTileContext(filtered.length, raceCount, ethCount, bothCount);
     renderFilterSummary(filtered.length);
 
     // Render only the Overview tab chart immediately (the visible tab).
@@ -4918,30 +4973,119 @@ function renderFdaOversight(filtered) {
         }));
     }
 
+    // A dot plot, not grouped bars. The finding here is that sex is reported
+    // almost universally in every class (96-99%) while race and ethnicity
+    // fall away — and where oversight is never reported they collapse. Three
+    // dots on a shared row show that spread directly; fifteen bars made you
+    // hunt for it, in 643px of canvas with a y-axis running to 100 when
+    // nothing falls below 24.
+    const FIELDS = ['sex', 'race', 'ethnicity'];
+    const rows = labels.map((label, i) => ({
+        label,
+        n: keyCounts[i],
+        values: Object.fromEntries(FIELDS.map(f => [f, datasets[FIELDS.indexOf(f)].data[i]]))
+    }));
+    // Ordered by race reporting, so the axis reads as a gradient rather than
+    // an arbitrary sequence. Every row is named, so the order carries no
+    // meaning the labels do not already give.
+    rows.sort((a, b) => b.values.race - a.values.race);
+    // The "(n=…)" suffix is useful on a wide axis and simply truncates on a
+    // phone, so it drops there and lives in the tooltip instead.
+    const rowLabels = rows.map(r => isMobileDevice
+        ? r.label.replace(/\s*\(n=[^)]*\)\s*$/, '')
+        : r.label);
+    rows.forEach((r, i) => { r.axisLabel = rowLabels[i]; });
+
+    const allValues = rows.flatMap(r => FIELDS.map(f => r.values[f])).filter(v => Number.isFinite(v));
+    // Start the axis a little below the lowest value instead of at zero: no
+    // class reports below ~24%, and 0-24 is empty space that squeezes the
+    // range that actually exists.
+    const axMin = Math.max(0, Math.floor((Math.min(...allValues) - 8) / 5) * 5);
+
     charts.fdaReporting = new Chart(ctx, {
-        type: 'bar',
-        data: { labels, datasets },
+        type: 'scatter',
+        data: {
+            datasets: FIELDS.map(field => ({
+                label: field.charAt(0).toUpperCase() + field.slice(1),
+                data: rows.map(r => ({ x: r.values[field], y: r.axisLabel })),
+                backgroundColor: demoColors[field],
+                borderColor: '#ffffff',
+                borderWidth: 1.5,
+                pointRadius: 6,
+                pointHoverRadius: 8
+            }))
+        },
         options: {
             responsive: true,
             maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
+            // Short and wide: five rows need far less height than the bars did.
+            aspectRatio: isMobileDevice ? 1 : 2.6,
+            layout: { padding: { top: 18, right: 34, bottom: 6, left: 4 } },
             scales: {
-                y: {
-                    beginAtZero: true,
+                x: {
+                    min: axMin,
                     max: 100,
-                    title: { display: true, text: '% of Trials Reporting' }
+                    title: { display: true, text: '% of Trials Reporting' },
+                    ticks: { callback: v => v + '%' }
+                },
+                y: {
+                    type: 'category',
+                    labels: rowLabels,
+                    offset: true,
+                    grid: { display: false },
+                    ticks: {
+                        autoSkip: false,
+                        crossAlign: 'far',
+                        // Returning an array renders one line per element, so a
+                        // long class name wraps instead of being clipped on a
+                        // narrow axis.
+                        callback(value) {
+                            const text = this.getLabelForValue(value);
+                            if (!isMobileDevice || text.length <= 20) return text;
+                            const out = [];
+                            let line = '';
+                            for (const word of String(text).split(' ')) {
+                                if ((line + ' ' + word).trim().length > 20) { out.push(line.trim()); line = word; }
+                                else line += ' ' + word;
+                            }
+                            if (line.trim()) out.push(line.trim());
+                            return out;
+                        }
+                    }
                 }
             },
             plugins: {
-                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
+                legend: {
+                    position: 'top',
+                    align: 'start',
+                    labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 16 }
+                },
                 tooltip: {
                     callbacks: {
-                        label: c => ` ${c.dataset.label}: ${c.parsed.y}% of ${keyCounts[c.dataIndex].toLocaleString()} trials`
+                        title: c => (c.length ? rows[c[0].dataIndex].label : ''),
+                        label: c => ` ${c.dataset.label}: ${c.parsed.x}% of ` +
+                            `${(rows[c.dataIndex].n || 0).toLocaleString()} trials`
                     }
                 },
-                datalabels: { display: false }
+                // Every dot carries its value, including the middle one.
+                // On a wide plot all three sit above their dot, so each
+                // number is unambiguously its row's. A phone has ~36px
+                // between the race and sex dots — not enough for two labels
+                // side by side — so there race drops below its own marker
+                // rather than a value being dropped altogether.
+                datalabels: {
+                    display: true,
+                    anchor: 'center',
+                    align: (c) => (isMobileDevice && c.datasetIndex === 1 ? 'bottom' : 'top'),
+                    offset: 7,
+                    clamp: true,
+                    color: '#212529',
+                    font: { size: isMobileDevice ? 10 : 11, weight: '600' },
+                    formatter: v => (typeof v.x === 'number' ? v.x.toFixed(1) : '')
+                }
             }
-        }
+        },
+        plugins: [ChartDataLabels, fdaRowConnectorPlugin]
     });
 }
 
@@ -5332,8 +5476,26 @@ function renderAIPanelChart(panelCounts) {
     if (!ctx) return;
 
     const sorted = Object.entries(panelCounts).sort((a, b) => b[1] - a[1]);
-    const labels = sorted.map(e => e[0]);
-    const values = sorted.map(e => e[1]);
+
+    // Radiology holds 1,104 devices and the smallest panels hold one. Against
+    // a linear axis scaled to 1,104 everything below ten is a hairline, so the
+    // tail is combined into a single labelled row rather than a stack of bars
+    // nobody can see, and every bar carries its own count — which is what
+    // makes a one-pixel bar still readable.
+    const TAIL_BELOW = 10;
+    const head = sorted.filter(([, v]) => v >= TAIL_BELOW);
+    const tail = sorted.filter(([, v]) => v < TAIL_BELOW);
+    const tailTotal = tail.reduce((a, [, v]) => a + v, 0);
+
+    const labels = head.map(e => e[0]);
+    const values = head.map(e => e[1]);
+    const colors = head.map(() => RACE_RAMP[1]);
+    if (tail.length) {
+        labels.push(`${tail.length} panels under ${TAIL_BELOW}`);
+        values.push(tailTotal);
+        colors.push(RACE_RAMP[4]);
+    }
+    const tailNames = tail.map(([k, v]) => `${k} (${v})`).join(', ');
 
     if (charts.aiPanel) charts.aiPanel.destroy();
     charts.aiPanel = new Chart(ctx, {
@@ -5343,7 +5505,8 @@ function renderAIPanelChart(panelCounts) {
             datasets: [{
                 label: 'Devices',
                 data: values,
-                backgroundColor: '#1b4332'
+                backgroundColor: colors,
+                borderRadius: 2
             }]
         },
         options: {
@@ -5351,11 +5514,33 @@ function renderAIPanelChart(panelCounts) {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             indexAxis: 'y',
+            // Room at the right for the value that sits past the bar end.
+            layout: { padding: { right: 40 } },
             scales: {
                 x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
             },
-            plugins: { legend: { display: false }, datalabels: { display: false } }
-        }
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: c => c.dataIndex === labels.length - 1 && tail.length
+                            ? ` ${c.parsed.x} devices across ${tailNames}`
+                            : ` ${c.parsed.x.toLocaleString()} devices`
+                    }
+                },
+                datalabels: {
+                    display: true,
+                    anchor: 'end',
+                    align: 'end',
+                    offset: 4,
+                    clamp: true,
+                    color: '#495057',
+                    font: { size: 11, weight: '500' },
+                    formatter: v => v.toLocaleString()
+                }
+            }
+        },
+        plugins: [ChartDataLabels]
     });
 }
 

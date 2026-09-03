@@ -821,7 +821,9 @@ main {
     padding: var(--pad-panel);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    text-align: center;
+    /* Left, not centred: a row of centred numbers of different lengths has
+       no shared edge to read down. */
+    text-align: left;
 }
 
 .stat-card h3 {
@@ -831,12 +833,16 @@ main {
     text-transform: uppercase;
     letter-spacing: 0.09em;
     color: var(--text-secondary);
-    margin-bottom: 0.625rem;
+    margin-bottom: 0.35rem;
 }
 
-/* Secondary line under a stat value (overlaps, sub-splits, share of total). */
+/* The context line: what the value is a share of, or what it counts. Part of
+   the tile's anatomy rather than an option — a figure that cannot say what
+   its denominator is probably should not be a tile. */
 .stat-card .stat-sub {
-    margin-top: 0.4rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-color);
     font-size: var(--fs-small);
     line-height: 1.4;
     color: var(--text-secondary);
@@ -903,7 +909,10 @@ main {
     position: relative;
 }
 
-.chart-container h3 {
+/* Direct child only: stat tiles nested inside a panel have their own h3
+   rule, and this one was leaking a border onto them — which is where the
+   AI Devices tiles' extra rule came from. */
+.chart-container > h3 {
     font-size: var(--fs-title);
     letter-spacing: -0.01em;
     padding-bottom: 0.875rem;
