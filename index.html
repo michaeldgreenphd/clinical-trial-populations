@@ -341,18 +341,22 @@
                 <div class="stat-card">
                     <h3>Total Studies</h3>
                     <p class="stat-value" id="total-studies">-</p>
+                    <p class="stat-sub" id="stat-sub-total">&nbsp;</p>
                 </div>
                 <div class="stat-card">
                     <h3>Report Race</h3>
                     <p class="stat-value" id="race-reporting">-</p>
+                    <p class="stat-sub" id="stat-sub-race">&nbsp;</p>
                 </div>
                 <div class="stat-card">
                     <h3>Report Ethnicity</h3>
                     <p class="stat-value" id="ethnicity-reporting">-</p>
+                    <p class="stat-sub" id="stat-sub-ethnicity">&nbsp;</p>
                 </div>
                 <div class="stat-card">
                     <h3>Report Both</h3>
                     <p class="stat-value" id="both-reporting">-</p>
+                    <p class="stat-sub" id="stat-sub-both">&nbsp;</p>
                 </div>
             </div>
 
@@ -503,6 +507,12 @@
                 <div class="table-controls">
                     <input type="text" id="study-table-search" placeholder="Search studies by title, ID, or condition..." />
                     <div class="rows-per-page" id="studies-rows" title="Rows shown per page"><span class="rows-label">Rows</span><button type="button" class="rows-btn active" data-rows="15">15</button><button type="button" class="rows-btn" data-rows="25">25</button><button type="button" class="rows-btn" data-rows="50">50</button></div>
+                    <details class="column-picker" id="column-picker">
+                        <summary>Add columns</summary>
+                        <div class="column-picker-menu" id="column-picker-menu">
+                            <!-- checkboxes generated in app.js from STUDY_COLUMNS -->
+                        </div>
+                    </details>
                     <span id="study-count" class="study-count"></span>
                 </div>
 
@@ -517,24 +527,25 @@
                         <table id="studies-table" class="studies-table">
                             <thead>
                                 <tr>
-                                    <th data-sort="nct_id" class="sortable">NCT ID</th>
+                                    <th data-sort="nct_id" class="sortable col-nct">NCT ID</th>
                                     <th data-sort="brief_title" class="sortable col-title">Title</th>
-                                    <th data-sort="results_date" class="sortable">Results Reported</th>
+                                    <th data-sort="results_date" class="sortable col-results-date">Results Reported</th>
+                                    <th class="text-center col-reported" title="Which of the five dimensions this trial reports">Reported</th>
                                     <th data-sort="completion_to_report_days" class="sortable col-time-to-report">Time to Report</th>
-                                    <th class="text-center">Details</th>
-                                    <th class="text-center">Race</th>
-                                    <th class="text-center">Ethnicity</th>
-                                    <th class="text-center">Sex</th>
-                                    <th class="text-center">Gender</th>
-                                    <th class="text-center">Geography</th>
-                                    <th data-sort="enrollment" class="sortable text-right">Participants</th>
-                                    <th data-sort="start_date" class="sortable">Study Start Date</th>
-                                    <th data-sort="primary_completion_date" class="sortable">Study End Date</th>
-                                    <th data-sort="phase" class="sortable">Phase</th>
-                                    <th class="text-center sortable" data-sort="is_fda_regulated_drug">FDA Drug</th>
-                                    <th class="text-center sortable" data-sort="is_fda_regulated_device">FDA Device</th>
-                                    <th class="text-center sortable" data-sort="is_unapproved_device">Unapproved Device</th>
-                                    <th>Publications</th>
+                                    <th class="text-center col-details">Details</th>
+                                    <th class="text-center col-race">Race</th>
+                                    <th class="text-center col-ethnicity">Ethnicity</th>
+                                    <th class="text-center col-sex">Sex</th>
+                                    <th class="text-center col-gender">Gender</th>
+                                    <th class="text-center col-geography">Geography</th>
+                                    <th data-sort="enrollment" class="sortable text-right col-enrollment">Participants</th>
+                                    <th data-sort="start_date" class="sortable col-start">Study Start Date</th>
+                                    <th data-sort="primary_completion_date" class="sortable col-end">Study End Date</th>
+                                    <th data-sort="phase" class="sortable col-phase">Phase</th>
+                                    <th class="text-center sortable col-fda-drug" data-sort="is_fda_regulated_drug">FDA Drug</th>
+                                    <th class="text-center sortable col-fda-device" data-sort="is_fda_regulated_device">FDA Device</th>
+                                    <th class="text-center sortable col-unapproved" data-sort="is_unapproved_device">Unapproved Device</th>
+                                    <th class="col-publications">Publications</th>
                                 </tr>
                             </thead>
                             <tbody id="studies-table-body">
