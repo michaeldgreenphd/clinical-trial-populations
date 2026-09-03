@@ -50,37 +50,79 @@
     </div>
 
     <header>
-        <h1>Civic Sample</h1>
-        <p class="subtitle">Striving for diversity and representation in clinical trials</p>
-        <p class="last-updated">Last updated: <span id="last-updated"></span></p>
-        <div class="history-selector">
-            <label for="history-date">View snapshot:</label>
-            <select id="history-date">
-                <option value="latest">Latest</option>
-                <!-- Historical dates populated by JavaScript -->
-            </select>
+        <div class="masthead-identity">
+            <h1>Civic Sample</h1>
+            <p class="subtitle">Striving for diversity and representation in clinical trials</p>
+        </div>
+        <div class="masthead-meta">
+            <p class="last-updated">Last updated: <span id="last-updated"></span></p>
+            <div class="history-selector">
+                <label for="history-date">View snapshot:</label>
+                <select id="history-date">
+                    <option value="latest">Latest</option>
+                    <!-- Historical dates populated by JavaScript -->
+                </select>
+            </div>
         </div>
     </header>
 
+    <!-- Every tab is still a <button class="tab" data-tab="…">; the groups
+         only change where the buttons sit in the DOM, so tab switching,
+         hash routing and deep links are untouched. -->
+    <!-- The filter panel states its selection in words and stays closed
+         until asked for; the panel itself is unchanged behind it. -->
     <nav class="tabs">
         <button class="tab active" data-tab="overview">Overview</button>
-        <button class="tab" data-tab="about">About</button>
-        <button class="tab" data-tab="faq">FAQ</button>
-        <button class="tab" data-tab="studies">Studies</button>
-        <button class="tab" data-tab="race">Race</button>
-        <button class="tab" data-tab="ethnicity">Ethnicity</button>
-        <button class="tab" data-tab="sex">Sex</button>
-        <button class="tab" data-tab="gender">Gender</button>
-        <button class="tab" data-tab="geography">Geography</button>
-        <button class="tab" data-tab="fda-oversight">FDA Oversight</button>
-        <button class="tab" data-tab="ai-devices">AI Devices</button>
-        <button class="tab" data-tab="fda-extraction">(Beta) AI Demographic Extraction</button>
-        <button class="tab" data-tab="lit-extraction">(Beta) Paper Data Extraction</button>
-        <button class="tab" data-tab="approval-queue">(Beta) Approval Queue</button>
+
+        <details class="nav-group" id="nav-demographics">
+            <summary>Demographics</summary>
+            <div class="nav-menu">
+                <button class="tab" data-tab="race">Race</button>
+                <button class="tab" data-tab="ethnicity">Ethnicity</button>
+                <button class="tab" data-tab="sex">Sex</button>
+                <button class="tab" data-tab="gender">Gender</button>
+                <button class="tab" data-tab="geography">Geography</button>
+            </div>
+        </details>
+
+        <details class="nav-group" id="nav-context">
+            <summary>Context</summary>
+            <div class="nav-menu">
+                <button class="tab" data-tab="studies">Studies</button>
+                <button class="tab" data-tab="fda-oversight">FDA Oversight</button>
+                <button class="tab" data-tab="ai-devices">AI Devices</button>
+            </div>
+        </details>
+
+        <details class="nav-group" id="nav-tools">
+            <summary>Tools <span class="nav-beta">Beta</span></summary>
+            <div class="nav-menu">
+                <button class="tab" data-tab="fda-extraction">AI Demographic Extraction</button>
+                <button class="tab" data-tab="lit-extraction">Paper Data Extraction</button>
+                <button class="tab" data-tab="approval-queue">Approval Queue</button>
+            </div>
+        </details>
+
+        <span class="nav-secondary">
+            <button class="tab" data-tab="about">About</button>
+            <button class="tab" data-tab="faq">FAQ</button>
+        </span>
     </nav>
 
     <main>
-        <section id="filters">
+        <!-- The selection in words, on the page ground: no card, no border,
+             no accent rail. The panel below it stays closed until asked for,
+             so a tab opens on its data rather than on its controls. -->
+        <div id="filter-summary" class="filter-summary">
+            <span class="filter-summary-label">Showing</span>
+            <span class="filter-summary-text" id="filter-summary-text">the full dataset</span>
+            <button type="button" class="filter-summary-toggle" id="filter-summary-toggle"
+                    aria-expanded="false" aria-controls="filters">Filters</button>
+            <!-- app.js hides this button on the phone view, where the panel
+                 it controls is not part of that experience. -->
+        </div>
+
+        <section id="filters" hidden>
             <!-- Primary filters — always visible -->
             <div class="filter-row">
                 <div class="filter-group filter-group--range">
@@ -287,6 +329,14 @@
 
         <!-- Overview Tab -->
         <section id="overview" class="tab-content active">
+            <!-- Tier 1: the tab's answer, stated before its controls. The
+                 text is generated in app.js from values already on this page
+                 (renderOverviewFinding) — it derives no new statistic. -->
+            <div class="panel-hero overview-finding" id="overview-finding" hidden>
+                <p class="finding-headline" id="finding-headline"></p>
+                <p class="finding-context" id="finding-context"></p>
+            </div>
+
             <div class="stats-grid">
                 <div class="stat-card">
                     <h3>Total Studies</h3>
@@ -502,7 +552,8 @@
         <!-- Geography Tab -->
         <section id="geography" class="tab-content">
             <div class="chart-row">
-                <div class="chart-container geography-chart-wide">
+                <!-- Tier 1: this tab's framing statement is its finding. -->
+                <div class="chart-container panel-hero geography-chart-wide">
                     <h3>Where single-geography trials happen, and who is in them</h3>
                     <p class="note">The map and rankings show where trials confined to one geography are sited, from a frozen, audited analysis of the AACT registry. Click any geography &mdash; or look one up below &mdash; for its participant demographics: sex composition today; race, ethnicity and gender identity when a future pipeline run ships them. <strong>There is no population denominator on this tab:</strong> it describes the composition of trial participants and cannot claim over- or under-representation against any population.</p>
                 </div>

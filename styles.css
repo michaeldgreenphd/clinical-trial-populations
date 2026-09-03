@@ -12,6 +12,27 @@
     --border-color: #d8e6e0;
     --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    /* Type scale — 7 steps replacing 33 hand-picked rem values. Every
+       font-size in this file references one of these; nothing sets a raw
+       size, so the ramp cannot regrow one declaration at a time. */
+    --fs-label: 0.6875rem;   /* 11px — mono tile labels, axis ticks, eyebrows */
+    --fs-small: 0.75rem;     /* 12px — captions, secondary detail, chart notes */
+    --fs-body: 0.875rem;     /* 14px — body copy, table cells, controls */
+    --fs-title: 1rem;        /* 16px — panel and card titles */
+    --fs-lead: 1.1875rem;    /* 19px — section leads, headline findings */
+    --fs-xl: 1.5rem;         /* 24px — page and tab headings */
+    --fs-display: 2.25rem;   /* 36px — stat-tile values */
+
+    /* Surface tiers. Every card used to share one padding signature, one
+       radius and one border, so the filter panel, a stat tile and the key
+       chart were the same visual object. Three tiers give the eye somewhere
+       to land; nothing else about the card changes. */
+    --pad-hero: 1.5rem 1.75rem;    /* tier 1 — the finding, one per tab */
+    --pad-panel: 1.25rem 1.5rem;   /* tier 2 — charts, tiles, tables */
+    --pad-chrome: 0.75rem 1rem;    /* tier 3 — controls and pagination */
+    --elev-hero: 0 1px 3px rgba(27, 67, 50, 0.08), 0 4px 12px rgba(27, 67, 50, 0.05);
+    --surface-sunk: #eef2f0;       /* chrome ground: recessed, not raised */
+
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
@@ -80,14 +101,14 @@
 
 .loading-text {
     font-family: var(--font-sans);
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
     font-weight: 600;
     color: var(--primary-color);
     margin-bottom: 0.5rem;
 }
 
 .loading-subtext {
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
     color: var(--text-secondary);
     margin-bottom: 1rem;
 }
@@ -144,7 +165,7 @@
     align-items: center;
     gap: 0.4rem;
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     color: var(--text-color);
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--border-color);
@@ -202,49 +223,82 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.015em;
 }
 
+/* One band instead of five stacked centred lines. The masthead used to cost
+   215px on every one of the 14 tabs before any data appeared; identity and
+   provenance both survive on a single row. */
 header {
     background: var(--primary-color);
     color: white;
-    padding: 2rem;
-    text-align: center;
+    padding: 0.875rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.masthead-identity {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    min-width: 0;
 }
 
 header h1 {
-    font-size: 2rem;
+    font-size: var(--fs-lead);
     letter-spacing: -0.02em;
-    margin-bottom: 0.5rem;
+    margin: 0;
+    white-space: nowrap;
 }
 
 header .subtitle {
-    opacity: 0.85;
-    font-size: 0.95rem;
+    opacity: 0.8;
+    font-size: var(--fs-small);
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 header .last-updated {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.08em;
     opacity: 0.7;
-    margin-top: 0.75rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.masthead-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .history-selector {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 0.75rem;
+}
+
+/* The tagline is identity, not information: below the width where it fits
+   on the masthead row it goes, rather than wrapping the band to two lines. */
+@media (max-width: 900px) {
+    header .subtitle { display: none; }
 }
 
 .history-selector label {
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     opacity: 0.9;
     color: white;
 }
 
 .history-selector select {
     padding: 0.35rem 0.6rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     border: 1px solid rgba(255,255,255,0.3);
     border-radius: 0.25rem;
     background: rgba(255,255,255,0.12);
@@ -263,22 +317,106 @@ header .last-updated {
     /* flex-start (not center) so wrapped rows stay left-aligned under the
        row above instead of each floating independently centered, which
        looked detached whenever the tabs overflow onto multiple lines. */
+    align-items: center;
     justify-content: flex-start;
-    gap: 0.5rem;
+    gap: 0.25rem;
     row-gap: 0.5rem;
-    padding: 1rem;
+    padding: 0.5rem 2rem;
     background: var(--card-background);
     border-bottom: 1px solid var(--border-color);
     flex-wrap: wrap;
 }
 
+/* Fourteen flat tabs wrapped to two rows, with three "(Beta)" labels mixed
+   into the main sequence. Grouping puts them on one row and moves "Beta"
+   from three tab names to one group, where it means "this whole group is
+   provisional" instead of decorating each item.
+   Every .tab button is still a .tab button in the DOM — the groups only
+   change where they sit, so tab switching, deep links and anything that
+   clicks .tab[data-tab=…] keep working unchanged. */
+.nav-group { position: relative; }
+
+.nav-group > summary {
+    list-style: none;
+    padding: 0.5rem 0.9rem;
+    font-size: var(--fs-body);
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.nav-group > summary::-webkit-details-marker { display: none; }
+
+.nav-group > summary::after {
+    content: '▾';
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.nav-group > summary:hover { background: var(--background); }
+
+.nav-group > summary:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* The group carrying the current tab reads as active, so the nav still says
+   where you are once the tab itself sits inside a menu. */
+.nav-group:has(.tab.active) > summary {
+    color: var(--primary-color);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 var(--primary-color);
+}
+
+.nav-group[open] > summary { background: var(--background); }
+
+.nav-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 15rem;
+    padding: 0.375rem;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-hero);
+}
+
+.nav-menu .tab { text-align: left; width: 100%; }
+
+.nav-beta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    margin-left: 0.35rem;
+}
+
+.nav-secondary { margin-left: auto; display: flex; gap: 0.25rem; }
+
+@media (max-width: 720px) {
+    .tabs { padding: 0.5rem 1rem; }
+    .nav-secondary { margin-left: 0; }
+    .nav-menu { min-width: 12rem; }
+}
+
 .tab {
-    padding: 0.65rem 1.25rem;
+    padding: 0.5rem 0.9rem;
     border: none;
     background: transparent;
+    white-space: nowrap;
     cursor: pointer;
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-secondary);
     border-radius: var(--radius-md);
@@ -306,12 +444,80 @@ main {
     overflow-x: hidden;
 }
 
+/* The filter selection, stated in words on the page ground. No container:
+   a border, a fill or an accent rail would make the controls look like
+   content, which is the thing this change exists to stop. */
+.filter-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin: 0 0 1.25rem;
+    font-size: var(--fs-body);
+    color: var(--text-primary);
+}
+
+.filter-summary-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.filter-summary-text { min-width: 0; }
+
+.filter-summary-text b {
+    font-weight: 600;
+    border-bottom: 1px dotted var(--border-color);
+}
+
+.filter-summary-toggle {
+    margin-left: auto;
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: none;
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    font-weight: 500;
+    color: var(--primary-light);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.filter-summary-toggle::after { content: ' \25be'; opacity: 0.7; }
+.filter-summary-toggle[aria-expanded="true"]::after { content: ' \25b4'; }
+.filter-summary-toggle:hover { background: var(--surface-sunk); }
+.filter-summary-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Tier 1 on Overview: the finding, before the controls and before the tiles. */
+.overview-finding { margin-bottom: 1.25rem; }
+
+.finding-headline {
+    font-size: var(--fs-lead);
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+}
+
+.finding-context {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0;
+}
+
 #filters {
-    padding: 1rem;
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    margin-bottom: 2rem;
+    padding: var(--pad-chrome);
+    background: var(--surface-sunk);
+    border: none;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.5rem;
 }
 
 .filter-row {
@@ -342,7 +548,7 @@ main {
 }
 
 .filter-group label {
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-secondary);
     white-space: nowrap;
@@ -357,7 +563,7 @@ main {
     background: var(--card-background);
     color: var(--text-primary);
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 .filter-group select:focus-visible,
@@ -392,7 +598,7 @@ main {
 
 .filter-hint {
     font-weight: 400;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
 }
 
@@ -475,7 +681,7 @@ main {
     background: var(--primary-dark);
     color: #fff;
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     font-weight: 500;
     padding: 3px 7px;
     border-radius: 4px;
@@ -509,7 +715,7 @@ main {
     border: none;
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 1.2rem;
+    font-size: var(--fs-lead);
     padding: 0.25rem;
     line-height: 1;
 }
@@ -525,7 +731,7 @@ main {
     border-radius: var(--radius-md);
     cursor: pointer;
     font-family: var(--font-sans);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-primary);
     transition: all 0.2s;
@@ -544,7 +750,7 @@ main {
     border-radius: var(--radius-md);
     cursor: pointer;
     font-family: var(--font-sans);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-secondary);
     transition: background 0.2s, color 0.2s;
@@ -577,7 +783,7 @@ main {
     background: var(--primary-color);
     color: white;
     border-radius: 1rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
 }
 
 .filter-tag button {
@@ -585,7 +791,7 @@ main {
     border: none;
     color: white;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--fs-title);
     padding: 0;
     line-height: 1;
 }
@@ -612,15 +818,15 @@ main {
 
 .stat-card {
     background: var(--card-background);
-    padding: 1.75rem 2rem;
+    padding: var(--pad-panel);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     text-align: center;
 }
 
 .stat-card h3 {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.09em;
@@ -631,7 +837,7 @@ main {
 /* Secondary line under a stat value (overlaps, sub-splits, share of total). */
 .stat-card .stat-sub {
     margin-top: 0.4rem;
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     line-height: 1.4;
     color: var(--text-secondary);
 }
@@ -647,7 +853,7 @@ main {
 .fda-pathway-note .note { margin: 0; }
 
 .stat-value {
-    font-size: 2.25rem;
+    font-size: var(--fs-display);
     font-weight: 700;
     letter-spacing: -0.02em;
     font-variant-numeric: tabular-nums;
@@ -663,11 +869,33 @@ main {
 
 .chart-container {
     background: var(--card-background);
-    padding: 1.75rem 2rem;
+    padding: var(--pad-panel);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     min-width: 0;
     overflow: hidden;
+}
+
+/* Tier 1 — the finding. The only element on a tab that lifts off the page,
+   which is what makes it read as the thing to look at first. Composes with
+   .chart-container, so a panel is promoted by adding one class. */
+.chart-container.panel-hero,
+.panel-hero {
+    background: var(--card-background);
+    padding: var(--pad-hero);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elev-hero);
+    min-width: 0;
+}
+
+/* Tier 3 — chrome. Recessed rather than raised: controls are the frame,
+   not the content. */
+.panel-chrome {
+    background: var(--surface-sunk);
+    padding: var(--pad-chrome);
+    border: none;
+    border-radius: var(--radius-sm);
 }
 
 /* ── Table scroll container with arrow buttons ── */
@@ -676,7 +904,7 @@ main {
 }
 
 .chart-container h3 {
-    font-size: 1.0625rem;
+    font-size: var(--fs-title);
     letter-spacing: -0.01em;
     padding-bottom: 0.875rem;
     border-bottom: 1px solid var(--border-color);
@@ -716,7 +944,7 @@ main {
 .note {
     color: var(--text-secondary);
     font-style: italic;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     line-height: 1.6;
     margin-bottom: 1rem;
 }
@@ -744,7 +972,7 @@ main {
 
 .rows-per-page .rows-label {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: var(--fs-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -758,7 +986,7 @@ main {
     background: transparent;
     padding: 0.35rem 0.7rem;
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     cursor: pointer;
 }
@@ -770,7 +998,7 @@ main {
 
 .pager-range {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
     padding: 0 0.4rem;
@@ -797,7 +1025,7 @@ main {
     padding: 0.6rem 0.9rem;
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     line-height: 1.5;
     color: var(--text-secondary);
 }
@@ -805,7 +1033,7 @@ main {
 /* Small print directly under a chart (annotation legends, rule context). */
 .chart-footnote {
     margin-top: 0.5rem;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     line-height: 1.5;
     color: var(--text-secondary);
 }
@@ -824,7 +1052,7 @@ main {
     background: none;
     padding: 0;
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     color: var(--primary-color);
     cursor: pointer;
@@ -837,7 +1065,7 @@ main {
 /* Footer provenance: when the data was last pulled from the registry. */
 .footer-extracted {
     font-family: var(--font-mono);
-    font-size: 0.85em;
+    font-size: var(--fs-body);
     opacity: 0.85;
 }
 
@@ -852,7 +1080,7 @@ main {
     border-radius: var(--radius-sm);
     background: transparent;
     font-family: var(--font-sans);
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     color: var(--text-primary);
 }
 
@@ -885,12 +1113,12 @@ main {
     padding: 0.5rem;
     border: 1px solid var(--border-color);
     border-radius: 0.25rem;
-    font-size: 1rem;
+    font-size: var(--fs-title);
 }
 
 .study-count {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
 }
 
 /* Drag bar – sits outside the scroll wrapper so it never scrolls away */
@@ -917,7 +1145,7 @@ main {
 }
 
 .drag-bar-label {
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     font-weight: 500;
     color: rgba(255, 255, 255, 0.85);
     letter-spacing: 0.06em;
@@ -926,7 +1154,7 @@ main {
 }
 
 .drag-bar-icon {
-    font-size: 0.65rem;
+    font-size: var(--fs-label);
     color: rgba(255, 255, 255, 0.5);
     pointer-events: none;
 }
@@ -943,7 +1171,7 @@ main {
     border-radius: 6px;
     background: var(--primary-color, #2d6a4f);
     color: #fff;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     cursor: pointer;
     transition: background 0.15s, opacity 0.2s;
     display: flex;
@@ -1014,7 +1242,7 @@ main {
 .table-loading-overlay p {
     margin-top: 0.75rem;
     color: var(--secondary-text);
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
 }
 
 .studies-loading-screen {
@@ -1029,12 +1257,12 @@ main {
 .studies-loading-screen p {
     margin-top: 1rem;
     color: var(--secondary-text);
-    font-size: 1rem;
+    font-size: var(--fs-title);
     font-weight: 500;
 }
 
 .studies-loading-sub {
-    font-size: 0.8rem !important;
+    font-size: var(--fs-small) !important;
     font-weight: 400 !important;
     margin-top: 0.25rem !important;
 }
@@ -1044,7 +1272,7 @@ main {
     width: 100%;
     min-width: 1600px;
     border-collapse: collapse;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     border: none;
 }
 
@@ -1059,7 +1287,7 @@ main {
 .studies-table th {
     padding: 0.75rem 1rem 0.75rem 0.5rem;
     text-align: left;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
@@ -1150,7 +1378,7 @@ main {
 
 .studies-table .nct-link {
     font-family: var(--font-mono);
-    font-size: 0.8125rem;
+    font-size: var(--fs-small);
     color: var(--primary-color);
     text-decoration: none;
     font-weight: 500;
@@ -1162,7 +1390,7 @@ main {
 
 .studies-table .check-mark {
     color: var(--accent-color);
-    font-size: 1.25rem;
+    font-size: var(--fs-lead);
     font-weight: 600;
 }
 
@@ -1174,7 +1402,7 @@ main {
     border-radius: 6px;
     padding: 0.75rem 1rem;
     margin-bottom: 1.25rem;
-    font-size: 0.88rem;
+    font-size: var(--fs-body);
     color: #5d4037;
     line-height: 1.5;
 }
@@ -1187,7 +1415,7 @@ main {
 .demo-disabled {
     display: inline-block;
     color: #c0c8cc;
-    font-size: 1rem;
+    font-size: var(--fs-title);
     font-weight: 300;
     cursor: not-allowed;
     opacity: 0.6;
@@ -1196,7 +1424,7 @@ main {
 
 .studies-table .x-mark {
     color: #95a5a6;
-    font-size: 1.1rem;
+    font-size: var(--fs-title);
     opacity: 0.7;
     font-weight: 300;
 }
@@ -1213,7 +1441,7 @@ main {
     display: inline-block;
     padding: 0.25rem 0.5rem;
     border-radius: 0.25rem;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 500;
     background: var(--background);
     color: var(--text-primary);
@@ -1225,7 +1453,7 @@ footer {
     background: var(--card-background);
     border-top: 1px solid var(--border-color);
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
 }
 
 footer a {
@@ -1274,7 +1502,7 @@ footer p {
     }
 
     .studies-table {
-        font-size: 0.75rem;
+        font-size: var(--fs-small);
     }
 
     .studies-table th,
@@ -1308,11 +1536,11 @@ footer p {
 
     .drag-bar-label::before {
         content: 'Swipe or tap arrows to scroll';
-        font-size: 0.65rem;
+        font-size: var(--fs-label);
     }
 
     header h1 {
-        font-size: 1.5rem;
+        font-size: var(--fs-xl);
     }
 
     main {
@@ -1325,7 +1553,7 @@ footer p {
 
     .tab {
         padding: 0.5rem 1rem;
-        font-size: 0.875rem;
+        font-size: var(--fs-body);
     }
 }
 
@@ -1421,12 +1649,12 @@ footer p {
 .breakdown-modal h4 {
     color: var(--primary-color);
     margin-bottom: 0.5rem;
-    font-size: 1.25rem;
+    font-size: var(--fs-lead);
 }
 
 .modal-subtitle {
     color: var(--text-secondary);
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     margin-bottom: 1rem;
 }
 
@@ -1488,12 +1716,12 @@ footer p {
 .quarantine-header {
     color: #8a6d3b;
     margin: 0 0 0.5rem 0;
-    font-size: 1rem;
+    font-size: var(--fs-title);
 }
 
 .quarantine-note {
     color: #78350f;
-    font-size: 0.825rem;
+    font-size: var(--fs-small);
     margin-bottom: 0.75rem;
 }
 
@@ -1509,7 +1737,7 @@ footer p {
     padding: 0.5rem 1.5rem;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--fs-title);
     margin-top: 1rem;
     transition: background 0.2s;
 }
@@ -1531,13 +1759,13 @@ footer p {
     }
 
     .breakdown-modal h4 {
-        font-size: 1.1rem;
+        font-size: var(--fs-title);
     }
 
     .breakdown-table th,
     .breakdown-table td {
         padding: 0.5rem;
-        font-size: 0.875rem;
+        font-size: var(--fs-body);
     }
 }
 
@@ -1569,7 +1797,7 @@ footer p {
 
 .study-details-modal .modal-header h3 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: var(--fs-lead);
     font-weight: 600;
 }
 
@@ -1577,7 +1805,7 @@ footer p {
     background: rgba(255, 255, 255, 0.2);
     border: none;
     color: white;
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
     width: 32px;
     height: 32px;
     border-radius: 50%;
@@ -1608,7 +1836,7 @@ footer p {
 
 .detail-section h5 {
     color: var(--primary-color);
-    font-size: 1.1rem;
+    font-size: var(--fs-title);
     margin-bottom: 1rem;
     font-weight: 600;
 }
@@ -1634,7 +1862,7 @@ footer p {
     padding: 1rem;
     border-radius: 4px;
     margin-top: 0.75rem;
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
     line-height: 1.6;
 }
 
@@ -1660,7 +1888,7 @@ footer p {
     color: white;
     padding: 0.25rem 0.5rem;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     margin-left: 0.5rem;
 }
@@ -1708,7 +1936,7 @@ footer p {
 
 .enrollment-badge::after {
     content: " (est.)";
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: #6b7280;
     font-weight: normal;
 }
@@ -1733,7 +1961,7 @@ footer p {
     }
 
     .study-details-modal .modal-header h3 {
-        font-size: 1rem;
+        font-size: var(--fs-title);
     }
 
     .study-details-modal .modal-body {
@@ -1783,7 +2011,7 @@ footer p {
     padding: 0.75rem;
     background: #f3f4f6;
     border-left: 3px solid var(--primary-color);
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     line-height: 1.5;
 }
 
@@ -1794,7 +2022,7 @@ footer p {
 
 .modal-subtitle {
     color: #6b7280;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     margin: 0.5rem 0 1rem 0;
 }
 
@@ -1875,7 +2103,7 @@ footer p {
 }
 
 .sparkline-value {
-    font-size: 0.8125rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     min-width: 50px;
     margin-left: 0.25rem;
@@ -1896,7 +2124,7 @@ footer p {
     padding: 0.5rem 0.75rem;
     background: rgba(0, 0, 0, 0.9);
     color: white;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     white-space: nowrap;
     border-radius: 0.25rem;
     z-index: 1000;
@@ -1929,7 +2157,7 @@ footer p {
 
 .pub-list-link {
     display: block;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     color: var(--primary-color);
     text-decoration: none;
     white-space: normal;
@@ -1945,7 +2173,7 @@ footer p {
 
 .pub-list-more {
     display: inline-block;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     text-decoration: none;
     margin-top: 0.15rem;
@@ -1972,7 +2200,7 @@ footer p {
     color: var(--text-primary);
     cursor: pointer;
     border-radius: 0.25rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     transition: all 0.15s;
     min-width: 36px;
 }
@@ -2023,7 +2251,7 @@ footer p {
 
 .faq-section summary::after {
     content: '\25B6';
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     transition: transform 0.2s ease;
     flex-shrink: 0;
@@ -2041,7 +2269,7 @@ footer p {
 
 .faq-section summary h4 {
     color: var(--primary-color);
-    font-size: 1.05rem;
+    font-size: var(--fs-title);
     margin: 0;
     font-weight: 600;
 }
@@ -2054,7 +2282,7 @@ footer p {
     width: 100%;
     border-collapse: collapse;
     margin-top: 1rem;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 /* Phone widths: the mapping table is wider than the viewport — scroll it
@@ -2091,7 +2319,7 @@ footer p {
 
 .faq-mapping-table td:last-child {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
 }
 
 /* Simplified condition dropdown styling */
@@ -2112,7 +2340,7 @@ footer p {
 }
 
 .about-intro p {
-    font-size: 1.15rem;
+    font-size: var(--fs-lead);
     line-height: 1.8;
     color: var(--text-primary);
 }
@@ -2123,7 +2351,7 @@ footer p {
 
 .about-team h3 {
     color: var(--primary-color);
-    font-size: 1.5rem;
+    font-size: var(--fs-xl);
     margin-bottom: 2rem;
     text-align: center;
 }
@@ -2153,7 +2381,7 @@ footer p {
 
 .team-member h4 {
     color: var(--primary-color);
-    font-size: 1.25rem;
+    font-size: var(--fs-lead);
     margin-bottom: 0.5rem;
 }
 
@@ -2173,7 +2401,7 @@ footer p {
 
 .team-bio {
     color: var(--text-secondary);
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
     line-height: 1.6;
     text-align: left;
 }
@@ -2185,7 +2413,7 @@ footer p {
 }
 
 .about-mission p {
-    font-size: 1.05rem;
+    font-size: var(--fs-title);
     line-height: 1.8;
     color: var(--text-primary);
     font-style: italic;
@@ -2233,7 +2461,7 @@ footer p {
     background: var(--card-background);
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     transition: all 0.2s;
 }
 
@@ -2261,14 +2489,14 @@ footer p {
 }
 
 .geography-stats .stat-value {
-    font-size: 1.75rem;
+    font-size: var(--fs-xl);
     font-weight: 700;
     color: var(--primary-color);
 }
 
 .geography-stats .stat-label {
     font-family: var(--font-mono);
-    font-size: 0.6875rem;
+    font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.09em;
@@ -2283,7 +2511,7 @@ footer p {
 .geography-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 .geography-table th,
@@ -2334,7 +2562,7 @@ footer p {
 
 .city-master-row .expand-chevron {
     display: inline-block;
-    font-size: 0.65rem;
+    font-size: var(--fs-label);
     color: var(--text-secondary);
     margin-left: 0.35rem;
     transition: transform 0.2s ease;
@@ -2354,7 +2582,7 @@ footer p {
 .detail-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
 }
 
 .detail-table th {
@@ -2385,7 +2613,7 @@ footer p {
 
 .detail-table .nct-link {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
 }
 
 #geography-list-container {
@@ -2413,7 +2641,7 @@ footer p {
 .layer-label {
     font-weight: 600;
     color: var(--text-secondary);
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 .layer-toggle-group {
@@ -2428,7 +2656,7 @@ footer p {
     background: var(--card-background);
     color: var(--text-secondary);
     cursor: pointer;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     border-radius: 4px;
     transition: all 0.2s;
 }
@@ -2508,7 +2736,7 @@ footer p {
     color: white;
     border: none;
     border-radius: 6px;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -2520,7 +2748,7 @@ footer p {
 }
 
 .reset-zoom-btn .reset-icon {
-    font-size: 1rem;
+    font-size: var(--fs-title);
 }
 
 /* Map Legend */
@@ -2539,7 +2767,7 @@ footer p {
 }
 
 .legend-label {
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     min-width: 40px;
 }
@@ -2560,7 +2788,7 @@ footer p {
     padding: 0.6rem 0.9rem;
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 4px;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     pointer-events: none;
     z-index: 1000;
     display: none;
@@ -2584,7 +2812,7 @@ footer p {
     margin-top: 0.4rem;
     padding-top: 0.4rem;
     border-top: 1px solid rgba(255,255,255,0.2);
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: #94a3b8;
     font-style: italic;
 }
@@ -2613,7 +2841,7 @@ footer p {
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
 }
 
 .region-color {
@@ -2662,7 +2890,7 @@ footer p {
     padding: 0.4rem 0.8rem;
     cursor: pointer;
     border-radius: 4px;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     color: var(--text-secondary);
     transition: all 0.2s;
 }
@@ -2698,7 +2926,7 @@ footer p {
 }
 
 .country-sites > strong {
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
     color: var(--text-primary);
 }
 
@@ -2728,7 +2956,7 @@ footer p {
 
 .sites-list .location-details {
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     flex: 1;
 }
 
@@ -2820,7 +3048,7 @@ footer p {
 
     .layer-btn {
         padding: 0.3rem 0.6rem;
-        font-size: 0.75rem;
+        font-size: var(--fs-small);
     }
 }
 
@@ -2852,14 +3080,14 @@ footer p {
     padding: 0.5rem 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     margin-bottom: 1rem;
 }
 
 .fda-link {
     color: var(--primary-color);
     font-weight: 600;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     text-decoration: none;
     white-space: nowrap;
 }
@@ -2874,7 +3102,7 @@ footer p {
     padding: 2px 9px;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     letter-spacing: 0.03em;
     line-height: 1.5;
     white-space: nowrap;
@@ -2900,7 +3128,7 @@ footer p {
 /* Premarket pathway label in the AI Devices table (colored per pathway). */
 .ai-pathway {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     letter-spacing: 0.03em;
     white-space: nowrap;
@@ -2920,7 +3148,7 @@ footer p {
 .extraction-cost-banner h3 {
     margin: 0 0 1rem 0;
     color: var(--primary-color);
-    font-size: 1.1rem;
+    font-size: var(--fs-title);
 }
 
 .cost-grid {
@@ -2952,7 +3180,7 @@ footer p {
 }
 
 .cost-label {
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: var(--text-secondary);
@@ -2960,14 +3188,14 @@ footer p {
 }
 
 .cost-value {
-    font-size: 1.4rem;
+    font-size: var(--fs-xl);
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 0.15rem;
 }
 
 .cost-unit {
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     color: var(--text-secondary);
 }
 
@@ -3004,11 +3232,11 @@ footer p {
 .model-card-label {
     font-family: var(--font-sans);
     font-weight: 600;
-    font-size: 1rem;
+    font-size: var(--fs-title);
 }
 
 .model-card-tier {
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.5px;
     opacity: 0.85;
@@ -3035,13 +3263,13 @@ footer p {
 
 .model-metric-value {
     font-weight: 700;
-    font-size: 1rem;
+    font-size: var(--fs-title);
     color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 
 .model-metric-label {
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     text-align: right;
 }
@@ -3055,7 +3283,7 @@ footer p {
 
 .model-metric-highlight .model-metric-value {
     color: #155724;
-    font-size: 1.15rem;
+    font-size: var(--fs-lead);
 }
 
 /* Model Selector — pill-style toggle buttons */
@@ -3064,7 +3292,7 @@ footer p {
     align-items: center;
     gap: 0.5rem;
     margin: 1rem 0;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     flex-wrap: wrap;
 }
 
@@ -3072,7 +3300,7 @@ footer p {
     font-weight: 600;
     color: var(--text-secondary);
     text-transform: uppercase;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     letter-spacing: 0.5px;
     margin-right: 0.5rem;
 }
@@ -3084,7 +3312,7 @@ footer p {
     border-radius: var(--radius-md);
     background: white;
     color: var(--text-primary, #1f2937);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     transition: all 0.15s ease;
     font-family: inherit;
@@ -3122,7 +3350,7 @@ footer p {
     padding: 4px 6px;
     border-radius: 4px;
     border-left: 3px solid transparent;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     line-height: 1.3;
 }
 
@@ -3137,7 +3365,7 @@ footer p {
 }
 
 .sbs-label {
-    font-size: 0.65rem;
+    font-size: var(--fs-label);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -3151,7 +3379,7 @@ footer p {
 .sbs-nomatch {
     color: #9aa5a0;
     font-style: italic;
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
 }
 
 /* Agreement Badges */
@@ -3159,7 +3387,7 @@ footer p {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3182,7 +3410,7 @@ footer p {
     color: var(--text-secondary);
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3198,7 +3426,7 @@ footer p {
     border: 1px solid #fdba74;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3209,7 +3437,7 @@ footer p {
     border: 1px solid #7dd3fc;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     letter-spacing: 0.02em;
     margin-top: 4px;
@@ -3263,7 +3491,7 @@ footer p {
     border: 1px solid #c4b5fd;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3285,7 +3513,7 @@ footer p {
     background: #f9fafb;
     color: #6b7280;
     font-style: italic;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     line-height: 1.4;
 }
 
@@ -3297,7 +3525,7 @@ footer p {
     display: inline;
     margin-left: 6px;
     font-style: normal;
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     color: #9ca3af;
     letter-spacing: 0.02em;
 }
@@ -3309,7 +3537,7 @@ footer p {
     color: #1b4332;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3319,7 +3547,7 @@ footer p {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
 }
 
@@ -3357,14 +3585,14 @@ footer p {
 
 .study-details-cell strong {
     display: block;
-    font-size: 0.88rem;
+    font-size: var(--fs-body);
     line-height: 1.3;
     margin-bottom: 3px;
 }
 
 .study-details-study-name {
     display: block;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     color: var(--text-primary);
     line-height: 1.3;
     margin-bottom: 2px;
@@ -3372,7 +3600,7 @@ footer p {
 
 .study-details-meta {
     display: block;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     line-height: 1.3;
     word-break: break-all;
@@ -3421,20 +3649,20 @@ footer p {
 .reporting-freq-pct {
     position: relative;
     z-index: 1;
-    font-size: 1.3rem;
+    font-size: var(--fs-lead);
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .reporting-freq-label {
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 600;
     color: var(--text-primary);
     margin-bottom: 2px;
 }
 
 .reporting-freq-detail {
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
 }
 
@@ -3455,7 +3683,7 @@ footer p {
     max-width: 380px;
     padding: 0.85rem 1.25rem;
     border-radius: 0.5rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     line-height: 1.4;
     animation: toast-in 0.3s ease-out;
     display: flex;
@@ -3477,7 +3705,7 @@ footer p {
 
 .toast-icon {
     flex-shrink: 0;
-    font-size: 1.1rem;
+    font-size: var(--fs-title);
 }
 
 .toast.removing {
@@ -3518,7 +3746,7 @@ footer p {
 }
 
 .snapshot-loading-overlay p {
-    font-size: 1rem;
+    font-size: var(--fs-title);
     font-weight: 500;
     color: var(--text-primary);
 }
@@ -3539,7 +3767,7 @@ footer p {
     color: white;
     padding: 1.1rem 1.5rem;
     font-weight: 600;
-    font-size: 1.05rem;
+    font-size: var(--fs-title);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -3553,7 +3781,7 @@ footer p {
     height: 28px;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 1rem;
+    font-size: var(--fs-title);
     line-height: 1;
 }
 
@@ -3564,7 +3792,7 @@ footer p {
 .password-gate-modal p {
     margin: 0 0 0.9rem;
     color: #555;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     line-height: 1.45;
 }
 
@@ -3573,7 +3801,7 @@ footer p {
     padding: 0.55rem 0.75rem;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
     box-sizing: border-box;
 }
 
@@ -3588,7 +3816,7 @@ footer p {
     background: #f8d7da;
     padding: 0.45rem 0.65rem;
     border-radius: 4px;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     margin-top: 0.6rem;
     display: none;
 }
@@ -3607,7 +3835,7 @@ footer p {
 .password-gate-actions button {
     padding: 0.5rem 1rem;
     border-radius: 6px;
-    font-size: 0.88rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     cursor: pointer;
     border: 1px solid transparent;
@@ -3633,7 +3861,7 @@ footer p {
     display: inline-block;
     padding: 2px 8px;
     border-radius: 4px;
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     font-weight: 500;
     margin-right: 4px;
 }
@@ -3675,7 +3903,7 @@ footer p {
 
 .disc-cell .disc-values {
     display: block;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     color: #374151;
     margin: 2px 0;
     word-break: break-word;
@@ -3695,7 +3923,7 @@ footer p {
 
 .disc-actions button {
     padding: 2px 8px;
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     border-radius: 4px;
     border: 1px solid transparent;
     cursor: pointer;
@@ -3724,7 +3952,7 @@ footer p {
 
 .disc-resolution {
     display: inline-block;
-    font-size: 0.75rem;
+    font-size: var(--fs-small);
     font-weight: 500;
     padding: 2px 8px;
     border-radius: 4px;
@@ -3749,7 +3977,7 @@ footer p {
     color: #1f2937;
     border: 1px solid #d1d5db;
     padding: 3px 10px;
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     border-radius: 4px;
     cursor: pointer;
     font-weight: 500;
@@ -3766,13 +3994,13 @@ footer p {
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: 0.75rem 1.25rem;
     margin-bottom: 1rem;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 .extraction-meta-grid > div strong {
     display: block;
     color: #374151;
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     text-transform: uppercase;
     letter-spacing: 0.03em;
     margin-bottom: 2px;
@@ -3782,7 +4010,7 @@ footer p {
     list-style: none;
     margin: 0;
     padding: 0;
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
 }
 
 .extraction-kv-list li {
@@ -3810,11 +4038,11 @@ footer p {
 .extraction-inline-list {
     display: inline;
     color: #374151;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
 }
 
 .extraction-stacked-values {
-    font-size: 0.82rem;
+    font-size: var(--fs-small);
     line-height: 1.35;
     color: #374151;
 }
@@ -3849,7 +4077,7 @@ footer p {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
     background: var(--card-background);
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-primary);
 }
@@ -3882,7 +4110,7 @@ footer p {
     align-items: center;
     gap: 0.5rem;
     padding: 0.3rem 0.4rem;
-    font-size: 0.875rem;
+    font-size: var(--fs-body);
     border-radius: var(--radius-sm);
     cursor: pointer;
 }
@@ -3906,7 +4134,7 @@ footer p {
     border-radius: var(--radius-sm);
     background: var(--card-background);
     font-family: var(--font-sans);
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     cursor: pointer;
     color: var(--text-secondary);
 }
@@ -3918,7 +4146,7 @@ footer p {
 
 .industry-meta {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-secondary);
@@ -3936,11 +4164,11 @@ footer p {
     border-collapse: collapse;
     width: 100%;
     min-width: 940px;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
 }
 
 .industry-heatmap th {
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -3957,7 +4185,7 @@ footer p {
     text-align: left;
     text-transform: none;
     letter-spacing: 0;
-    font-size: 0.85rem;
+    font-size: var(--fs-body);
     color: var(--text-primary);
     white-space: nowrap;
     border-bottom: none;
@@ -3967,7 +4195,7 @@ footer p {
 .industry-heatmap-base {
     display: block;
     font-family: var(--font-mono);
-    font-size: 0.66rem;
+    font-size: var(--fs-label);
     font-weight: 400;
     text-transform: none;
     letter-spacing: 0.02em;
@@ -4001,7 +4229,7 @@ footer p {
 
 .industry-cellrange-label {
     font-family: var(--font-mono);
-    font-size: 0.65rem;
+    font-size: var(--fs-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-secondary);
@@ -4016,7 +4244,7 @@ footer p {
     border: none;
     background: transparent;
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     color: var(--text-primary);
     text-align: center;
     appearance: textfield;
@@ -4057,7 +4285,7 @@ footer p {
 
 .industry-forest-head {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.07em;
     color: var(--text-secondary);
@@ -4074,7 +4302,7 @@ footer p {
 
 .industry-forest-row + .industry-forest-row { border-top: 1px solid #f0f4f2; }
 
-.industry-forest-name { font-size: 0.9rem; font-weight: 500; }
+.industry-forest-name { font-size: var(--fs-body); font-weight: 500; }
 
 .industry-forest-plot { position: relative; height: 18px; }
 
@@ -4105,7 +4333,7 @@ footer p {
 
 .industry-forest-stats {
     font-family: var(--font-mono);
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
     text-align: right;
@@ -4114,7 +4342,7 @@ footer p {
 .industry-forest-stats strong { color: var(--text-primary); font-weight: 500; }
 
 .industry-footnote {
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     line-height: 1.55;
     color: var(--text-secondary);
     margin: 1rem 0 0;
@@ -4139,7 +4367,7 @@ footer p {
     border-radius: var(--radius-md);
     background: transparent;
     font-family: var(--font-sans);
-    font-size: 0.9rem;
+    font-size: var(--fs-body);
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
@@ -4163,7 +4391,7 @@ footer p {
 .industry-demo-tab:disabled::after {
     content: ' soon';
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.07em;
     vertical-align: 0.12em;
@@ -4181,7 +4409,7 @@ footer p {
 
 .industry-mini-toggle .view-btn {
     padding: 0.42rem 0.8rem;
-    font-size: 0.78rem;
+    font-size: var(--fs-small);
 }
 
 .industry-methods-footnote {
@@ -4191,7 +4419,7 @@ footer p {
 }
 
 .industry-methods-footnote p {
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     line-height: 1.6;
     color: var(--text-secondary);
 }
@@ -4203,7 +4431,7 @@ footer p {
 
 .industry-faq-title {
     font-family: var(--font-mono);
-    font-size: 0.7rem;
+    font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
     letter-spacing: 0.09em;
@@ -4212,7 +4440,7 @@ footer p {
 }
 
 .industry-faq .faq-section summary h4 {
-    font-size: 0.95rem;
+    font-size: var(--fs-body);
 }
 
 /* — Industry sponsor dropdown: full-list mode — */
@@ -4238,7 +4466,7 @@ footer p {
 
 .industry-sponsor-n {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
     flex-shrink: 0;
@@ -4287,7 +4515,7 @@ footer p {
         flex: 1 1 0;
         text-align: center;
         padding: 0.6rem 0.25rem;
-        font-size: 0.8rem;
+        font-size: var(--fs-small);
         white-space: normal;
         line-height: 1.25;
     }
@@ -4296,23 +4524,23 @@ footer p {
     .industry-sponsor-options { left: 0; right: 0; max-width: none; }
 
     .industry-meta {
-        font-size: 0.62rem;
+        font-size: var(--fs-label);
         letter-spacing: 0.04em;
         line-height: 1.6;
     }
 
     /* Heatmap: tighter cells, smaller labels, narrower pinned column. */
-    .industry-heatmap { min-width: 760px; font-size: 0.78rem; }
-    .industry-heatmap th { font-size: 0.62rem; padding: 0.45rem 0.3rem; }
+    .industry-heatmap { min-width: 760px; font-size: var(--fs-small); }
+    .industry-heatmap th { font-size: var(--fs-label); padding: 0.45rem 0.3rem; }
     .industry-heatmap tbody th {
-        font-size: 0.72rem;
+        font-size: var(--fs-small);
         padding: 0 0.5rem;
         max-width: 118px;
         white-space: normal;
         line-height: 1.2;
     }
-    .industry-heatmap td { padding: 0.55rem 0.25rem; min-width: 46px; font-size: 0.75rem; }
-    .industry-heatmap-base { font-size: 0.58rem; }
+    .industry-heatmap td { padding: 0.55rem 0.25rem; min-width: 46px; font-size: var(--fs-small); }
+    .industry-heatmap-base { font-size: var(--fs-label); }
 
     .industry-forest { padding: 1rem 0.75rem; }
 }
@@ -4331,7 +4559,7 @@ footer p {
     border-radius: var(--radius-md);
     background: transparent;
     font-family: var(--font-sans);
-    font-size: 0.8rem;
+    font-size: var(--fs-small);
     font-weight: 500;
     color: var(--text-secondary);
     cursor: pointer;
@@ -4362,7 +4590,7 @@ footer p {
 .geo-ranked-row {
     display: grid; grid-template-columns: 1.7rem minmax(7rem, 13rem) 1fr 4.2rem;
     align-items: center; gap: 0.45rem; padding: 2px 4px; border-radius: 4px;
-    cursor: pointer; font-size: 0.8rem;
+    cursor: pointer; font-size: var(--fs-small);
 }
 /* Narrow containers (side panels) drop the bar rather than clipping the value */
 .geography-chart-narrow .geo-ranked-row { grid-template-columns: 1.7rem 1fr 4.2rem; }
@@ -4380,10 +4608,10 @@ footer p {
     margin: 1.2rem 0; padding: 0.7rem 0.9rem; background: #f6f8f6;
     border: 1px solid var(--border-color, #dce6da); border-radius: 6px;
 }
-.geo-adjusted-table td, .geo-adjusted-table th { font-size: 0.8rem; }
+.geo-adjusted-table td, .geo-adjusted-table th { font-size: var(--fs-small); }
 .geo-adjusted-table td:nth-child(n+2), .geo-adjusted-table th:nth-child(n+2) { white-space: nowrap; }
 #geo-country-adjusted, #geo-state-adjusted { overflow-x: auto; }
-.geo-withheld { margin-top: 0.75rem; font-size: 0.82rem; }
+.geo-withheld { margin-top: 0.75rem; font-size: var(--fs-small); }
 .geo-withheld summary { cursor: pointer; color: var(--text-muted, #6b7c71); }
 .geo-withheld ul { margin: 0.5rem 0 0 1.1rem; padding: 0; }
 .geo-withheld li { margin-bottom: 0.35rem; }
@@ -4403,7 +4631,7 @@ footer p {
     background: #f3f1f7; border: 1px solid #d9d3e8;   /* deliberately NOT the tier-1 green */
 }
 .geo-tier3-label { font-weight: 700; color: #4d3f77; }
-#geo-run-pin { margin-top: 1rem; font-family: var(--mono, monospace); font-size: 0.72rem; }
+#geo-run-pin { margin-top: 1rem; font-family: var(--mono, monospace); font-size: var(--fs-small); }
 
 /* Trials-first reframe: measure toggle, headlines, demographics-on-demand */
 .geo-hidden { display: none !important; }
@@ -4426,13 +4654,13 @@ footer p {
 .legend-gradient-wrap { position: relative; }
 .legend-mid {
     position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
-    font-size: 0.68rem; color: var(--text-muted, #6b7c71); white-space: nowrap;
+    font-size: var(--fs-label); color: var(--text-muted, #6b7c71); white-space: nowrap;
     padding-top: 2px;
 }
 .map-legend { padding-bottom: 0.9rem; }
 #world-map-container svg { display: block; }
 .geo-headline {
-    font-size: 1.02rem; font-weight: 600; margin: 0.25rem 0 0.5rem;
+    font-size: var(--fs-title); font-weight: 600; margin: 0.25rem 0 0.5rem;
     color: var(--text-primary, #1f2d24);
 }
 .geo-measure-toggle { margin-bottom: 0.35rem; }
