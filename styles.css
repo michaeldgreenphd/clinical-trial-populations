@@ -23,6 +23,16 @@
     --fs-xl: 1.5rem;         /* 24px — page and tab headings */
     --fs-display: 2.25rem;   /* 36px — stat-tile values */
 
+    /* Surface tiers. Every card used to share one padding signature, one
+       radius and one border, so the filter panel, a stat tile and the key
+       chart were the same visual object. Three tiers give the eye somewhere
+       to land; nothing else about the card changes. */
+    --pad-hero: 1.5rem 1.75rem;    /* tier 1 — the finding, one per tab */
+    --pad-panel: 1.25rem 1.5rem;   /* tier 2 — charts, tiles, tables */
+    --pad-chrome: 0.75rem 1rem;    /* tier 3 — controls and pagination */
+    --elev-hero: 0 1px 3px rgba(27, 67, 50, 0.08), 0 4px 12px rgba(27, 67, 50, 0.05);
+    --surface-sunk: #eef2f0;       /* chrome ground: recessed, not raised */
+
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
@@ -213,22 +223,42 @@ h1, h2, h3, h4, h5, h6 {
     letter-spacing: -0.015em;
 }
 
+/* One band instead of five stacked centred lines. The masthead used to cost
+   215px on every one of the 14 tabs before any data appeared; identity and
+   provenance both survive on a single row. */
 header {
     background: var(--primary-color);
     color: white;
-    padding: 2rem;
-    text-align: center;
+    padding: 0.875rem 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.masthead-identity {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    min-width: 0;
 }
 
 header h1 {
-    font-size: var(--fs-display);
+    font-size: var(--fs-lead);
     letter-spacing: -0.02em;
-    margin-bottom: 0.5rem;
+    margin: 0;
+    white-space: nowrap;
 }
 
 header .subtitle {
-    opacity: 0.85;
-    font-size: var(--fs-body);
+    opacity: 0.8;
+    font-size: var(--fs-small);
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 header .last-updated {
@@ -237,14 +267,27 @@ header .last-updated {
     text-transform: uppercase;
     letter-spacing: 0.08em;
     opacity: 0.7;
-    margin-top: 0.75rem;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.masthead-meta {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .history-selector {
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
-    margin-top: 0.75rem;
+}
+
+/* The tagline is identity, not information: below the width where it fits
+   on the masthead row it goes, rather than wrapping the band to two lines. */
+@media (max-width: 900px) {
+    header .subtitle { display: none; }
 }
 
 .history-selector label {
@@ -274,19 +317,103 @@ header .last-updated {
     /* flex-start (not center) so wrapped rows stay left-aligned under the
        row above instead of each floating independently centered, which
        looked detached whenever the tabs overflow onto multiple lines. */
+    align-items: center;
     justify-content: flex-start;
-    gap: 0.5rem;
+    gap: 0.25rem;
     row-gap: 0.5rem;
-    padding: 1rem;
+    padding: 0.5rem 2rem;
     background: var(--card-background);
     border-bottom: 1px solid var(--border-color);
     flex-wrap: wrap;
 }
 
+/* Fourteen flat tabs wrapped to two rows, with three "(Beta)" labels mixed
+   into the main sequence. Grouping puts them on one row and moves "Beta"
+   from three tab names to one group, where it means "this whole group is
+   provisional" instead of decorating each item.
+   Every .tab button is still a .tab button in the DOM — the groups only
+   change where they sit, so tab switching, deep links and anything that
+   clicks .tab[data-tab=…] keep working unchanged. */
+.nav-group { position: relative; }
+
+.nav-group > summary {
+    list-style: none;
+    padding: 0.5rem 0.9rem;
+    font-size: var(--fs-body);
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.nav-group > summary::-webkit-details-marker { display: none; }
+
+.nav-group > summary::after {
+    content: '▾';
+    margin-left: 0.4rem;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.nav-group > summary:hover { background: var(--background); }
+
+.nav-group > summary:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* The group carrying the current tab reads as active, so the nav still says
+   where you are once the tab itself sits inside a menu. */
+.nav-group:has(.tab.active) > summary {
+    color: var(--primary-color);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 var(--primary-color);
+}
+
+.nav-group[open] > summary { background: var(--background); }
+
+.nav-menu {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 15rem;
+    padding: 0.375rem;
+    background: var(--card-background);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    box-shadow: var(--elev-hero);
+}
+
+.nav-menu .tab { text-align: left; width: 100%; }
+
+.nav-beta {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.65;
+    margin-left: 0.35rem;
+}
+
+.nav-secondary { margin-left: auto; display: flex; gap: 0.25rem; }
+
+@media (max-width: 720px) {
+    .tabs { padding: 0.5rem 1rem; }
+    .nav-secondary { margin-left: 0; }
+    .nav-menu { min-width: 12rem; }
+}
+
 .tab {
-    padding: 0.65rem 1.25rem;
+    padding: 0.5rem 0.9rem;
     border: none;
     background: transparent;
+    white-space: nowrap;
     cursor: pointer;
     font-family: var(--font-sans);
     font-size: var(--fs-body);
@@ -318,11 +445,11 @@ main {
 }
 
 #filters {
-    padding: 1rem;
-    background: var(--card-background);
-    border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
-    margin-bottom: 2rem;
+    padding: var(--pad-chrome);
+    background: var(--surface-sunk);
+    border: none;
+    border-radius: var(--radius-sm);
+    margin-bottom: 1.5rem;
 }
 
 .filter-row {
@@ -623,9 +750,9 @@ main {
 
 .stat-card {
     background: var(--card-background);
-    padding: 1.75rem 2rem;
+    padding: var(--pad-panel);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     text-align: center;
 }
 
@@ -674,11 +801,33 @@ main {
 
 .chart-container {
     background: var(--card-background);
-    padding: 1.75rem 2rem;
+    padding: var(--pad-panel);
     border: 1px solid var(--border-color);
-    border-radius: 0.5rem;
+    border-radius: var(--radius-md);
     min-width: 0;
     overflow: hidden;
+}
+
+/* Tier 1 — the finding. The only element on a tab that lifts off the page,
+   which is what makes it read as the thing to look at first. Composes with
+   .chart-container, so a panel is promoted by adding one class. */
+.chart-container.panel-hero,
+.panel-hero {
+    background: var(--card-background);
+    padding: var(--pad-hero);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--elev-hero);
+    min-width: 0;
+}
+
+/* Tier 3 — chrome. Recessed rather than raised: controls are the frame,
+   not the content. */
+.panel-chrome {
+    background: var(--surface-sunk);
+    padding: var(--pad-chrome);
+    border: none;
+    border-radius: var(--radius-sm);
 }
 
 /* ── Table scroll container with arrow buttons ── */

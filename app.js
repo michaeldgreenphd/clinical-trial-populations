@@ -1222,8 +1222,34 @@ function applyRouteFromHash() {
 function initTabs() {
     const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue']);
 
+    // Nav groups: a tab inside a menu closes it on the way through, and the
+    // menus behave like menus — Escape closes, and opening one closes the
+    // others. The <details> element supplies the keyboard handling.
+    const navGroups = () => document.querySelectorAll('.nav-group');
+    const closeNavGroups = (except) => navGroups().forEach(g => {
+        if (g !== except) g.removeAttribute('open');
+    });
+    navGroups().forEach(group => {
+        group.addEventListener('toggle', () => {
+            if (group.open) closeNavGroups(group);
+        });
+    });
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.nav-group')) closeNavGroups();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Escape') return;
+        const open = document.querySelector('.nav-group[open]');
+        if (!open) return;
+        open.removeAttribute('open');
+        const summary = open.querySelector('summary');
+        if (summary) summary.focus();
+    });
+
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', async () => {
+            closeNavGroups();
+
             // Gate the Beta extraction tabs behind a session-scoped password.
             // If the user cancels or enters the wrong password we leave the
             // currently active tab in place rather than surfacing a dead state.
