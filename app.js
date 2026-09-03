@@ -2332,6 +2332,8 @@ async function prepareStudiesTab() {
     const loadingScreen = document.getElementById('studies-loading-screen');
     const readyContent = document.getElementById('studies-ready-content');
 
+    initColumnPicker();
+
     if (studiesTabReady) {
         // Already loaded — just re-render
         currentPage = 0;
@@ -2435,33 +2437,34 @@ function renderStudiesTable() {
 
         return `
         <tr>
-            <td>
+            <td class="col-nct">
                 <a href="https://clinicaltrials.gov/study/${study.nct_id}"
                    target="_blank"
                    class="nct-link">${study.nct_id}</a>
             </td>
             <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
-            <td>${resultsDate}</td>
+            <td class="col-results-date">${resultsDate}</td>
+            <td class="text-center col-reported">${renderReportedCell(study)}</td>
             <td class="col-time-to-report">${renderSparkline(getTimeToReport(study))}</td>
-            <td class="text-center">
+            <td class="text-center col-details">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M8 4.5a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4.5z"/>
                     </svg>
                 </button>
             </td>
-            <td class="text-center">${renderDemographicCell(study, 'race')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'ethnicity')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'sex')}</td>
-            <td class="text-center">${renderDemographicCell(study, 'gender')}</td>
-            <td class="text-center">${renderGeographyCell(study)}</td>
-            <td class="text-right">${enrollmentBadge}</td>
-            <td>${startDate}</td>
-            <td>${endDate}</td>
-            <td><span class="phase-badge">${study.phase || '\u2014'}</span></td>
-            <td class="text-center">${renderFdaCell(study.is_fda_regulated_drug, 'Yes: FDA Regulated Drug')}</td>
-            <td class="text-center">${renderFdaCell(study.is_fda_regulated_device, 'Yes: FDA Regulated Device')}</td>
-            <td class="text-center">${renderFdaCell(study.is_unapproved_device, 'Yes: Unapproved Device')}</td>
+            <td class="text-center col-race">${renderDemographicCell(study, 'race')}</td>
+            <td class="text-center col-ethnicity">${renderDemographicCell(study, 'ethnicity')}</td>
+            <td class="text-center col-sex">${renderDemographicCell(study, 'sex')}</td>
+            <td class="text-center col-gender">${renderDemographicCell(study, 'gender')}</td>
+            <td class="text-center col-geography">${renderGeographyCell(study)}</td>
+            <td class="text-right col-enrollment">${enrollmentBadge}</td>
+            <td class="col-start">${startDate}</td>
+            <td class="col-end">${endDate}</td>
+            <td class="col-phase"><span class="phase-badge">${study.phase || '\u2014'}</span></td>
+            <td class="text-center col-fda-drug">${renderFdaCell(study.is_fda_regulated_drug, 'Yes: FDA Regulated Drug')}</td>
+            <td class="text-center col-fda-device">${renderFdaCell(study.is_fda_regulated_device, 'Yes: FDA Regulated Device')}</td>
+            <td class="text-center col-unapproved">${renderFdaCell(study.is_unapproved_device, 'Yes: Unapproved Device')}</td>
             <td class="col-publications">${renderPublications(study)}</td>
         </tr>
         `;
@@ -2498,11 +2501,20 @@ function initTableScroll() {
     const SCROLL_AMOUNT = 300; // pixels per click
 
     // -- Update arrow visibility based on scroll position --
+    // With the curated column set the table usually fits, so the whole scroll
+    // apparatus — arrows and the drag bar — hides itself when there is
+    // nothing to scroll. An affordance for an action you cannot take is worse
+    // than no affordance.
     function updateArrows() {
         const maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
-        btnLeft.classList.toggle('hidden', wrapper.scrollLeft <= 0);
-        btnRight.classList.toggle('hidden', wrapper.scrollLeft >= maxScroll - 1);
+        const scrollable = maxScroll > 1;
+        const dragBar = document.getElementById('table-drag-bar');
+        if (dragBar) dragBar.hidden = !scrollable;
+        btnLeft.classList.toggle('hidden', !scrollable || wrapper.scrollLeft <= 0);
+        btnRight.classList.toggle('hidden', !scrollable || wrapper.scrollLeft >= maxScroll - 1);
     }
+    // The column picker changes the table's width, so re-check after it does.
+    document.addEventListener('civicsample:columnschanged', updateArrows);
 
     wrapper.addEventListener('scroll', updateArrows);
     // Also update on resize
@@ -2648,6 +2660,116 @@ function renderFdaCell(value, tooltipText) {
         return '<span class="text-muted" title="Sponsor reported No">No</span>';
     }
     return '<span class="text-muted" title="Oversight status not reported">\u2014</span>';
+}
+
+// ── The Studies table's optional columns ─────────────────────────────────
+// The table carried 18 columns, five of them near-identical yes/no icons for
+// race, ethnicity, sex, gender and geography. Those five collapse into one
+// "Reported" cell of five pips; the rest of the detail moves behind a picker.
+// Every column stays in the DOM and is hidden by class, so sorting, the
+// data-sort bindings and every existing cell renderer are untouched.
+const STUDY_COLUMNS = [
+    // `w` is the width this column needs; the table's min-width is the sum of
+    // the visible ones, so the default view fits and a wide selection scrolls.
+    { key: 'reported', label: 'Reported', on: true, fixed: true, w: 120 },
+    { key: 'nct', label: 'NCT ID', on: true, fixed: true, w: 130 },
+    { key: 'title', label: 'Title', on: true, fixed: true, w: 400 },
+    { key: 'results-date', label: 'Results reported', on: true, w: 140 },
+    { key: 'details', label: 'Details', on: true, w: 80 },
+    { key: 'enrollment', label: 'Participants', on: true, w: 120 },
+    { key: 'phase', label: 'Phase', on: true, w: 100 },
+    { key: 'race', label: 'Race', on: false, w: 90 },
+    { key: 'ethnicity', label: 'Ethnicity', on: false, w: 100 },
+    { key: 'sex', label: 'Sex', on: false, w: 80 },
+    { key: 'gender', label: 'Gender', on: false, w: 90 },
+    { key: 'geography', label: 'Geography', on: false, w: 110 },
+    { key: 'time-to-report', label: 'Time to report', on: false, w: 140 },
+    { key: 'start', label: 'Study start date', on: false, w: 140 },
+    { key: 'end', label: 'Study end date', on: false, w: 140 },
+    { key: 'fda-drug', label: 'FDA drug', on: false, w: 110 },
+    { key: 'fda-device', label: 'FDA device', on: false, w: 120 },
+    { key: 'unapproved', label: 'Unapproved device', on: false, w: 160 },
+    { key: 'publications', label: 'Publications', on: false, w: 160 }
+];
+const STUDY_COLUMNS_KEY = 'civicsample.studyColumns';
+
+// The five dimensions, in a fixed order, as pips. A filled pip is reported;
+// a hollow one is not. The same five columns are still available singly.
+const REPORTED_DIMENSIONS = [
+    { field: 'race', label: 'Race' },
+    { field: 'ethnicity', label: 'Ethnicity' },
+    { field: 'sex', label: 'Sex' },
+    { field: 'gender', label: 'Gender' },
+    { field: 'geography', label: 'Geography' }
+];
+
+function studyReportsDimension(study, field) {
+    if (field === 'geography') {
+        const c = study.countries;
+        return Array.isArray(c) ? c.length > 0 : !!c;
+    }
+    return !!study[field]?.reported;
+}
+
+function renderReportedCell(study) {
+    const flags = REPORTED_DIMENSIONS.map(d => ({ ...d, on: studyReportsDimension(study, d.field) }));
+    const n = flags.filter(f => f.on).length;
+    const pips = flags.map(f =>
+        `<span class="pip ${f.on ? 'pip-on' : 'pip-off'}" aria-hidden="true"></span>`).join('');
+    const title = flags.map(f => `${f.label}: ${f.on ? 'reported' : 'not reported'}`).join(', ');
+    return `<span class="reported-cell" title="${escapeHtml(title)}">` +
+        `<span class="pips">${pips}</span>` +
+        `<span class="pip-count">${n} of 5</span>` +
+        `<span class="sr-only">${escapeHtml(title)}</span></span>`;
+}
+
+function loadStudyColumns() {
+    const on = new Set(STUDY_COLUMNS.filter(c => c.on).map(c => c.key));
+    try {
+        const saved = JSON.parse(localStorage.getItem(STUDY_COLUMNS_KEY) || 'null');
+        if (Array.isArray(saved)) {
+            const valid = new Set(STUDY_COLUMNS.map(c => c.key));
+            const restored = saved.filter(k => valid.has(k));
+            if (restored.length) {
+                on.clear();
+                restored.forEach(k => on.add(k));
+                STUDY_COLUMNS.filter(c => c.fixed).forEach(c => on.add(c.key));
+            }
+        }
+    } catch (e) { /* a blocked or corrupt store just means the defaults */ }
+    return on;
+}
+
+function applyStudyColumns(on) {
+    const table = document.getElementById('studies-table');
+    if (!table) return;
+    STUDY_COLUMNS.forEach(c => table.classList.toggle('hide-' + c.key, !on.has(c.key)));
+    const width = STUDY_COLUMNS.filter(c => on.has(c.key)).reduce((a, c) => a + (c.w || 100), 0);
+    table.style.setProperty('--studies-min-width', width + 'px');
+    document.dispatchEvent(new CustomEvent('civicsample:columnschanged'));
+    try {
+        localStorage.setItem(STUDY_COLUMNS_KEY, JSON.stringify([...on]));
+    } catch (e) { /* the choice just does not persist */ }
+}
+
+function initColumnPicker() {
+    const menu = document.getElementById('column-picker-menu');
+    if (!menu || menu.dataset.wired) return;
+    menu.dataset.wired = '1';
+    const on = loadStudyColumns();
+    menu.innerHTML = STUDY_COLUMNS.filter(c => !c.fixed).map(c =>
+        `<label class="column-option"><input type="checkbox" value="${c.key}"` +
+        `${on.has(c.key) ? ' checked' : ''}> ${escapeHtml(c.label)}</label>`).join('');
+    menu.addEventListener('change', () => {
+        const chosen = new Set([...menu.querySelectorAll('input:checked')].map(i => i.value));
+        STUDY_COLUMNS.filter(c => c.fixed).forEach(c => chosen.add(c.key));
+        applyStudyColumns(chosen);
+    });
+    document.addEventListener('click', (e) => {
+        const picker = document.getElementById('column-picker');
+        if (picker && picker.open && !e.target.closest('#column-picker')) picker.open = false;
+    });
+    applyStudyColumns(on);
 }
 
 function renderDemographicCell(study, field) {
