@@ -1964,9 +1964,18 @@ function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
 // The words above the filter panel. Reads the controls rather than the data,
 // so it says what was ASKED for — which is what a reader needs in order to
 // know what the numbers below it are about.
-function renderFilterSummary(total) {
+function renderFilterSummary(total, unfiltered) {
     const el = document.getElementById('filter-summary-text');
     if (!el) return;
+
+    // The phone view renders pre-computed aggregates of the whole dataset and
+    // applies no filters, so reading the (desktop) controls here would claim
+    // a narrowing that was never applied.
+    if (unfiltered) {
+        el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
+            'the full dataset, unfiltered \u00b7 filters are a desktop feature';
+        return;
+    }
     const val = (id) => {
         const n = document.getElementById(id);
         if (!n) return null;
@@ -2004,6 +2013,7 @@ function initFilterSummary() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel) return;
+    if (dashboardSummary) { btn.hidden = true; return; }   // no panel to open
     btn.addEventListener('click', () => {
         const open = panel.hidden;
         panel.hidden = !open;
@@ -2028,7 +2038,7 @@ function renderDashboard() {
         document.getElementById('both-reporting').textContent =
             t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
         renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
-        renderFilterSummary(t);
+        renderFilterSummary(t, true);
 
         // All chart functions check dashboardSummary internally
         const stub = [];
