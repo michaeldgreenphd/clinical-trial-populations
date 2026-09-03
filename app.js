@@ -75,34 +75,93 @@ function hideSnapshotLoading() {
 // Historical snapshots are served from the snapshots/ directory on GitHub Pages (same origin)
 
 // Colors for charts
+// ── Chart colour tokens ───────────────────────────────────────────────────
+// One palette for every chart, replacing the three that had drifted apart
+// (Tailwind defaults on Overview/Race, a pink/blue pair on Sex/Gender, a
+// custom trio on FDA Oversight). Validated for CVD separation, chroma and
+// contrast against the card surface rather than picked by eye; the previous
+// FDA trio failed — #C26C8E vs #4A7BA6 separated by only ΔE 4.4 under
+// protanopia, and two of the three read grey at mark size.
+//
+// Assigned by ENTITY, in this fixed order, so a filter that drops a series
+// never repaints the survivors. The brand green #1b4332 stays on chrome:
+// as a chart mark it falls under the chroma floor and reads dark grey, so
+// data gets its chart-grade sibling --c1 instead.
+const CHART_COLORS = {
+    c1: '#0F7A4F',   // green — same hue family as the brand, chart-grade chroma
+    c2: '#C2477E',   // rose
+    c3: '#2E6FB7',   // blue
+    c4: '#C77A0A',   // amber
+    c5: '#7A4FCF',   // violet
+    // Absence, not a series. Deliberately below the chroma floor: "not
+    // reported" should read as grey and never compete with a real category.
+    notReported: '#8A968F'
+};
+
+// Race has seven categories plus "unknown", more than any categorical palette
+// can separate safely (an eight-hue set fails the normal-vision floor, never
+// mind CVD). So the race compositions use one hue as a ramp: a step per
+// category, assigned by FIXED category — not by rank — so the donut and the
+// stacked distribution bar always agree and no filter repaints a category.
+// Steps run dark to light in typical-share order, which keeps the sorted
+// donut close to monotonic without the colour depending on the data.
+// Identity comes from the direct labels on the arcs, never from the hue.
+//
+// The light end stops at 2:1 against the white card rather than running to
+// near-white: the palest step carries Native Hawaiian/Pacific Islander at
+// 0.4%, and a near-white sliver with a white border between arcs is simply
+// invisible. (The 3:1 mark-contrast rule is a categorical-palette rule; a
+// sequential ramp is judged on lightness monotonicity, which this holds —
+// luminance 0.06 to 0.47, every step at least 1.25x the one before.)
+const RACE_RAMP = ['#0B5137', '#156944', '#1F7E55', '#2E9268', '#43A57D', '#5BB694', '#77C6AA'];
+
 const COLORS = {
+    // Composition of participants by race: ramp steps, one per category.
     race: {
-        american_indian_alaska_native: '#ef4444',
-        asian: '#f59e0b',
-        black_african_american: '#10b981',
-        native_hawaiian_pacific_islander: '#3b82f6',
-        white: '#8b5cf6',
-        more_than_one_race: '#ec4899',
-        unknown_not_reported: '#6b7280',
-        other: '#1d1d1d'
+        white: RACE_RAMP[0],
+        black_african_american: RACE_RAMP[1],
+        asian: RACE_RAMP[2],
+        other: RACE_RAMP[3],
+        more_than_one_race: RACE_RAMP[4],
+        american_indian_alaska_native: RACE_RAMP[5],
+        native_hawaiian_pacific_islander: RACE_RAMP[6],
+        unknown_not_reported: CHART_COLORS.notReported
+    },
+    // Three race series tracked over time is a different job from a
+    // composition: these are identities on a line chart, so they take
+    // distinct hues. They are not meant to match the ramp above.
+    raceTrend: {
+        white: CHART_COLORS.c5,
+        black_african_american: CHART_COLORS.c2,
+        asian: CHART_COLORS.c4
     },
     ethnicity: {
-        hispanic_latino: '#f59e0b',
-        not_hispanic_latino: '#3b82f6',
-        unknown_not_reported: '#6b7280'
+        hispanic_latino: CHART_COLORS.c4,
+        not_hispanic_latino: CHART_COLORS.c3,
+        unknown_not_reported: CHART_COLORS.notReported
     },
     sex: {
-        female: '#ec4899',
-        male: '#3b82f6',
-        unknown: '#6b7280'
+        female: CHART_COLORS.c2,
+        male: CHART_COLORS.c3,
+        unknown: CHART_COLORS.notReported
     },
     gender: {
-        woman: '#ec4899',
-        man: '#3b82f6',
-        nonbinary: '#8b5cf6',
-        transgender: '#f97316',
-        other: '#f59e0b',
-        unknown: '#6b7280'
+        // woman/man keep sex's hues so the two tabs agree
+        woman: CHART_COLORS.c2,
+        man: CHART_COLORS.c3,
+        // amber before green before violet: violet adjacent to Man's blue
+        // failed both the CVD and normal-vision separation floors
+        nonbinary: CHART_COLORS.c4,
+        transgender: CHART_COLORS.c1,
+        other: CHART_COLORS.c5,
+        unknown: CHART_COLORS.notReported
+    },
+    // Reporting-trend series (Race / Ethnicity / Both), shared by the
+    // Overview trend line and the FDA regulatory-status bars.
+    reporting: {
+        race: CHART_COLORS.c1,
+        ethnicity: CHART_COLORS.c4,
+        both: CHART_COLORS.c3
     }
 };
 
@@ -417,6 +476,178 @@ const civicWatermarkPlugin = {
         ctx.restore();
     }
 };
+
+// ── Composition donuts: the number goes on the chart ──────────────────────
+// Every donut used to hide its headline behind a hover tooltip and identify
+// its categories with a colour key alone. These two pieces put the value on
+// the arc and the finding in the hole, so the chart states its own result.
+//
+// The centre carries the largest slice — including "not reported" when that
+// is the largest, because on some tabs the absence IS the finding.
+const donutCentreFindingPlugin = {
+    id: 'donutCentreFinding',
+    afterDatasetsDraw(chart) {
+        const f = chart.options.plugins && chart.options.plugins.donutCentreFinding;
+        if (!f || !f.value) return;
+        const meta = chart.getDatasetMeta(0);
+        if (!meta || !meta.data || !meta.data.length) return;
+        const arc = meta.data[0];
+        const { x, y } = arc.tooltipPosition ? arc.tooltipPosition() : arc;
+        // The hole's diameter caps how much text can sit inside it.
+        const hole = (arc.innerRadius || 0) * 2;
+        if (hole < 54) return;                       // too small to read: skip
+        const big = Math.max(15, Math.min(30, Math.round(hole * 0.30)));
+        const small = Math.max(9, Math.round(big * 0.42));
+        const ctx = chart.ctx;
+        ctx.save();
+        ctx.textAlign = 'center';
+        const cx = arc.x !== undefined ? arc.x : x;
+        const cy = arc.y !== undefined ? arc.y : y;
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = `700 ${big}px ${Chart.defaults.font.family}`;
+        ctx.fillStyle = '#212529';
+        ctx.fillText(f.value, cx, cy + big * 0.1);
+        ctx.font = `500 ${small}px ${Chart.defaults.font.family}`;
+        ctx.fillStyle = '#6c757d';
+        ctx.fillText(f.label, cx, cy + big * 0.1 + small * 1.35);
+        ctx.restore();
+    }
+};
+
+// Arcs at or above this share are labelled in place; the rest keep their
+// slice and appear in the legend below, which carries nothing else.
+const DONUT_LABEL_MIN_PCT = 3;
+
+// In the hole the text is read as a finding, so absence is spelled out:
+// "45.2% not reported" says what "45.2% Unknown" only implies.
+const DONUT_CENTRE_LABEL = {
+    'Unknown': 'not reported',
+    'Unknown or Not Reported': 'not reported'
+};
+
+// Long OMB category names need shortening to sit beside an arc.
+const DONUT_LABEL_SHORT = {
+    'Black/African American': 'Black/African Am.',
+    'American Indian/Alaska Native': 'Am. Indian/AK Native',
+    'Native Hawaiian/Pacific Islander': 'Native Hawaiian/PI',
+    'More than one race': 'Two or more races',
+    'Not Hispanic/Latino': 'Not Hispanic',
+    'Unknown or Not Reported': 'Not reported'
+};
+
+// Donut colours keyed by the display labels the totals objects use, so the
+// mapping is visible next to the palette instead of riding on key order.
+// Race has no entry: eight categories exceed what colour can separate, so it
+// uses the sequential ramp (see donutConfig).
+const DONUT_COLORS = {
+    ethnicity: {
+        'Hispanic/Latino': COLORS.ethnicity.hispanic_latino,
+        'Not Hispanic/Latino': COLORS.ethnicity.not_hispanic_latino,
+        'Unknown': COLORS.ethnicity.unknown_not_reported
+    },
+    sex: {
+        'Female': COLORS.sex.female,
+        'Male': COLORS.sex.male,
+        'Unknown': COLORS.sex.unknown
+    },
+    gender: {
+        'Woman': COLORS.gender.woman,
+        'Man': COLORS.gender.man,
+        'Non-binary': COLORS.gender.nonbinary,
+        'Transgender': COLORS.gender.transgender,
+        'Other': COLORS.gender.other,
+        'Unknown or Not Reported': COLORS.gender.unknown
+    }
+};
+
+// Category names that mean absence rather than a group. They keep the
+// neutral grey and, in ramp mode, sort to the end instead of joining the
+// magnitude ramp.
+const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported']);
+
+/**
+ * Build a Chart.js doughnut config that labels its own arcs.
+ *
+ * totals   {label: value} in category order
+ * colors   {label: hex} for entity-coloured dimensions, or null to use
+ *          RACE_RAMP: slices sort by share and take ramp steps, which is a
+ *          magnitude encoding for a composition too large to colour by
+ *          identity. Absence categories keep the grey either way.
+ * noun     what the values count, for the tooltip and the centre caption
+ *
+ * On mobile the arc labels are dropped and the full legend returns: outside
+ * labels collide on a square canvas at phone width.
+ */
+function donutConfig(totals, colors, noun) {
+    let entries = Object.entries(totals).filter(([, v]) => Number(v) > 0);
+    const total = entries.reduce((a, [, v]) => a + Number(v), 0);
+
+    let backgroundColor;
+    if (colors) {
+        backgroundColor = entries.map(([k]) => colors[k] || CHART_COLORS.notReported);
+    } else {
+        const absent = entries.filter(([k]) => DONUT_ABSENT_LABELS.has(k));
+        const present = entries.filter(([k]) => !DONUT_ABSENT_LABELS.has(k))
+            .sort((a, b) => Number(b[1]) - Number(a[1]));
+        entries = present.concat(absent);
+        backgroundColor = entries.map(([k], i) =>
+            DONUT_ABSENT_LABELS.has(k) ? CHART_COLORS.notReported
+                : RACE_RAMP[Math.min(i, RACE_RAMP.length - 1)]);
+    }
+
+    const labels = entries.map(([k]) => k);
+    const values = entries.map(([, v]) => Number(v));
+    const pct = (v) => total > 0 ? (v / total) * 100 : 0;
+    const top = values.indexOf(Math.max(...values));
+
+    return {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data: values, backgroundColor, borderColor: '#ffffff', borderWidth: 2 }] },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            aspectRatio: CHART_ASPECT_RATIO,
+            // Room for the outside labels; on mobile the legend needs it instead.
+            radius: isMobileDevice ? '90%' : '68%',
+            layout: { padding: isMobileDevice ? 0 : { left: 8, right: 8, top: 4 } },
+            plugins: {
+                donutCentreFinding: top >= 0 ? {
+                    value: pct(values[top]).toFixed(1) + '%',
+                    label: DONUT_CENTRE_LABEL[labels[top]]
+                        || DONUT_LABEL_SHORT[labels[top]] || labels[top]
+                } : null,
+                legend: {
+                    // Desktop: the arc labels are the key, so the legend is
+                    // left holding only what they could not label.
+                    display: isMobileDevice || values.some(v => pct(v) < DONUT_LABEL_MIN_PCT),
+                    position: isMobileDevice ? 'bottom' : 'bottom',
+                    labels: {
+                        boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11 },
+                        filter: (item) => isMobileDevice
+                            || pct(values[item.index]) < DONUT_LABEL_MIN_PCT
+                    }
+                },
+                datalabels: isMobileDevice ? { display: false } : {
+                    display: (c) => pct(c.dataset.data[c.dataIndex]) >= DONUT_LABEL_MIN_PCT,
+                    formatter: (v, c) => {
+                        const name = String(c.chart.data.labels[c.dataIndex]);
+                        return [DONUT_LABEL_SHORT[name] || name, pct(v).toFixed(1) + '%'];
+                    },
+                    anchor: 'end', align: 'end', offset: 7, clamp: true,
+                    textAlign: 'center',
+                    color: '#212529',
+                    font: { size: 11, weight: '500', lineHeight: 1.25 }
+                },
+                tooltip: {
+                    callbacks: {
+                        label: (context) => ` ${context.parsed.toLocaleString()} ${noun} (${pct(context.parsed).toFixed(1)}%)`
+                    }
+                }
+            }
+        },
+        plugins: [ChartDataLabels, donutCentreFindingPlugin]
+    };
+}
 
 // Event annotations: a dashed vertical marker with a mono caption, drawn
 // behind the data. Charts opt in via options.plugins.eventLines or by
@@ -2944,22 +3175,22 @@ function renderReportingTrends(filtered) {
                 {
                     label: 'Race',
                     data: years.map(y => (byYear[y].race / byYear[y].total) * 100),
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                    borderColor: COLORS.reporting.race,
+                    backgroundColor: COLORS.reporting.race + '1a',
                     tension: 0.3
                 },
                 {
                     label: 'Ethnicity',
                     data: years.map(y => (byYear[y].ethnicity / byYear[y].total) * 100),
-                    borderColor: '#f59e0b',
-                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                    borderColor: COLORS.reporting.ethnicity,
+                    backgroundColor: COLORS.reporting.ethnicity + '1a',
                     tension: 0.3
                 },
                 {
                     label: 'Both',
                     data: years.map(y => (byYear[y].both / byYear[y].total) * 100),
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    borderColor: COLORS.reporting.both,
+                    backgroundColor: COLORS.reporting.both + '1a',
                     tension: 0.3
                 }
             ]
@@ -3018,33 +3249,7 @@ function renderRaceDistribution(filtered) {
 
     if (charts.raceDistribution) charts.raceDistribution.destroy();
 
-    charts.raceDistribution = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: Object.values(COLORS.race)
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
-            plugins: {
-                legend: { position: CHART_LEGEND_POSITION },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
+    charts.raceDistribution = new Chart(ctx, donutConfig(totals, null, 'participants'));
 }
 
 function renderRaceTrends(filtered) {
@@ -3086,22 +3291,22 @@ function renderRaceTrends(filtered) {
                 {
                     label: 'White',
                     data: years.map(y => byYear[y].total > 0 ? (byYear[y].white / byYear[y].total) * 100 : 0),
-                    borderColor: COLORS.race.white,
-                    backgroundColor: COLORS.race.white + '20',
+                    borderColor: COLORS.raceTrend.white,
+                    backgroundColor: COLORS.raceTrend.white + '20',
                     tension: 0.3
                 },
                 {
                     label: 'Black/African American',
                     data: years.map(y => byYear[y].total > 0 ? (byYear[y].black / byYear[y].total) * 100 : 0),
-                    borderColor: COLORS.race.black_african_american,
-                    backgroundColor: COLORS.race.black_african_american + '20',
+                    borderColor: COLORS.raceTrend.black_african_american,
+                    backgroundColor: COLORS.raceTrend.black_african_american + '20',
                     tension: 0.3
                 },
                 {
                     label: 'Asian',
                     data: years.map(y => byYear[y].total > 0 ? (byYear[y].asian / byYear[y].total) * 100 : 0),
-                    borderColor: COLORS.race.asian,
-                    backgroundColor: COLORS.race.asian + '20',
+                    borderColor: COLORS.raceTrend.asian,
+                    backgroundColor: COLORS.raceTrend.asian + '20',
                     tension: 0.3
                 }
             ]
@@ -3173,7 +3378,7 @@ function renderRaceSubcategories(category) {
             datasets: [{
                 label: 'Count',
                 data: Object.values(subcategories),
-                backgroundColor: '#3b82f6'
+                backgroundColor: RACE_RAMP[1]
             }]
         },
         options: {
@@ -3213,33 +3418,7 @@ function renderEthnicityDistribution(filtered) {
 
     if (charts.ethnicityDistribution) charts.ethnicityDistribution.destroy();
 
-    charts.ethnicityDistribution = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: Object.values(COLORS.ethnicity)
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
-            plugins: {
-                legend: { position: CHART_LEGEND_POSITION },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
+    charts.ethnicityDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.ethnicity, 'participants'));
 }
 
 function renderEthnicityTrends(filtered) {
@@ -3340,7 +3519,7 @@ function renderEthnicitySubcategories(filtered) {
             datasets: [{
                 label: 'Count',
                 data: Object.values(subcategories),
-                backgroundColor: '#f59e0b'
+                backgroundColor: COLORS.ethnicity.hispanic_latino
             }]
         },
         options: {
@@ -3399,8 +3578,8 @@ function renderRaceReportedParticipants(filtered) {
             datasets: [{
                 label: 'Participants with Known Race',
                 data: participantData,
-                backgroundColor: COLORS.race.asian + '80',
-                borderColor: COLORS.race.asian,
+                backgroundColor: RACE_RAMP[1] + '80',
+                borderColor: RACE_RAMP[1],
                 borderWidth: 1
             }]
         },
@@ -3852,33 +4031,7 @@ function renderSexDistribution(filtered) {
 
     if (charts.sexDistribution) charts.sexDistribution.destroy();
 
-    charts.sexDistribution = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: Object.values(COLORS.sex)
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
-            plugins: {
-                legend: { position: CHART_LEGEND_POSITION },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
+    charts.sexDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.sex, 'participants'));
 }
 
 function renderSexTrends(filtered) {
@@ -3959,37 +4112,9 @@ function renderGenderDistribution(filtered) {
         });
     }
 
-    const genderColors = [COLORS.gender.woman, COLORS.gender.man, COLORS.gender.nonbinary, COLORS.gender.transgender, COLORS.gender.other, COLORS.gender.unknown];
-
     if (charts.genderDistribution) charts.genderDistribution.destroy();
 
-    charts.genderDistribution = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: Object.keys(totals),
-            datasets: [{
-                data: Object.values(totals),
-                backgroundColor: genderColors
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
-            plugins: {
-                legend: { position: CHART_LEGEND_POSITION },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const pct = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : '0.0';
-                            return ` ${context.parsed.toLocaleString()} participants (${pct}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
+    charts.genderDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.gender, 'participants'));
 }
 
 /**
@@ -4174,8 +4299,8 @@ function renderGenderReportedParticipants(filtered) {
             datasets: [{
                 label: 'Participants with Known Gender',
                 data: years.map(y => byYear[y]),
-                backgroundColor: '#8b5cf680',
-                borderColor: '#8b5cf6',
+                backgroundColor: COLORS.gender.nonbinary + '80',
+                borderColor: COLORS.gender.nonbinary,
                 borderWidth: 1
             }]
         },
@@ -4506,7 +4631,8 @@ function renderFdaOversight(filtered) {
     if (!ctx) return;
     if (charts.fdaReporting) charts.fdaReporting.destroy();
 
-    const demoColors = { sex: '#4A7BA6', race: '#52b788', ethnicity: '#C26C8E' };
+    const demoColors = { sex: COLORS.reporting.both, race: COLORS.reporting.race,
+        ethnicity: COLORS.reporting.ethnicity };
     let labels, keyCounts, datasets;
     if (legacy) {
         keyCounts = [f.counts.drug, f.counts.device, f.counts.unapproved, f.counts.nonRegulated];
