@@ -444,6 +444,74 @@ main {
     overflow-x: hidden;
 }
 
+/* The filter selection, stated in words on the page ground. No container:
+   a border, a fill or an accent rail would make the controls look like
+   content, which is the thing this change exists to stop. */
+.filter-summary {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    margin: 0 0 1.25rem;
+    font-size: var(--fs-body);
+    color: var(--text-primary);
+}
+
+.filter-summary-label {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.filter-summary-text { min-width: 0; }
+
+.filter-summary-text b {
+    font-weight: 600;
+    border-bottom: 1px dotted var(--border-color);
+}
+
+.filter-summary-toggle {
+    margin-left: auto;
+    padding: 0.25rem 0.5rem;
+    border: none;
+    background: none;
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    font-weight: 500;
+    color: var(--primary-light);
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+}
+
+.filter-summary-toggle::after { content: ' \25be'; opacity: 0.7; }
+.filter-summary-toggle[aria-expanded="true"]::after { content: ' \25b4'; }
+.filter-summary-toggle:hover { background: var(--surface-sunk); }
+.filter-summary-toggle:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Tier 1 on Overview: the finding, before the controls and before the tiles. */
+.overview-finding { margin-bottom: 1.25rem; }
+
+.finding-headline {
+    font-size: var(--fs-lead);
+    font-weight: 600;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+}
+
+.finding-context {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0;
+}
+
 #filters {
     padding: var(--pad-chrome);
     background: var(--surface-sunk);

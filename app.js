@@ -768,6 +768,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             renderStudiesTable();
         });
         initSubcategoryButtons();
+        initFilterSummary();
         updateLoadingProgress(90, 'Rendering charts...');
         renderDashboard();
         updateLoadingProgress(100, 'Done');
@@ -1266,12 +1267,13 @@ function initTabs() {
 
             // Hide filters on FAQ, About, and AI Devices tabs
             const filtersSection = document.getElementById('filters');
+            const filterSummary = document.getElementById('filter-summary');
             const noFilterTabs = ['faq', 'about', 'ai-devices', 'geography', 'fda-extraction', 'lit-extraction', 'approval-queue'];
-            if (noFilterTabs.includes(tab.dataset.tab)) {
-                filtersSection.style.display = 'none';
-            } else {
-                filtersSection.style.display = '';
-            }
+            const hideFilters = noFilterTabs.includes(tab.dataset.tab);
+            // style.display governs whether this tab has filters at all;
+            // the panel's `hidden` attribute governs whether they are expanded.
+            filtersSection.style.display = hideFilters ? 'none' : '';
+            if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
 
             // Render table when Studies tab is selected - preload ALL data first
             if (tab.dataset.tab === 'studies') {
@@ -1909,6 +1911,106 @@ function hideDashboardSpinner() {
     if (el) el.style.display = 'none';
 }
 
+// ── The Overview finding, and the filter selection in words ───────────────
+// Both are generated from values already on this page. The finding quotes the
+// four stat tiles and states the gap between two of them; it derives no new
+// statistic, cites no year (the most recent year in the data is partial, so
+// an endpoint would mislead), and asserts nothing when the cohort is empty.
+// This is the geography tab's pattern generalised: a tab opens by saying what
+// its data says.
+function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
+    const box = document.getElementById('overview-finding');
+    const head = document.getElementById('finding-headline');
+    const ctx = document.getElementById('finding-context');
+    if (!box || !head || !ctx) return;
+
+    if (!total) {
+        box.hidden = false;
+        head.textContent = 'No trials match these filters.';
+        ctx.textContent = 'Widen the year range or clear a filter to see a result.';
+        return;
+    }
+
+    // Below this many trials a percentage in a headline reads as a finding
+    // when it is really two or three studies. The geography tab withholds an
+    // estimand under its support floor rather than printing a fragile number;
+    // this is the same discipline on a filtered cohort — the counts are
+    // reported instead, and nothing is asserted.
+    const HEADLINE_MIN_TRIALS = 100;
+
+    if (total < HEADLINE_MIN_TRIALS) {
+        const verb = (n) => (n === 1 ? 'reports' : 'report');
+        head.innerHTML = `<strong>${raceCount.toLocaleString()}</strong> of ` +
+            `${total.toLocaleString()} trials ${verb(raceCount)} race; ` +
+            `<strong>${bothCount.toLocaleString()}</strong> ${verb(bothCount)} ` +
+            'race and ethnicity together.';
+        ctx.textContent = `Too few trials to state a rate — under ${HEADLINE_MIN_TRIALS}, ` +
+            'counts are reported instead. Widen the filters for a percentage.';
+        box.hidden = false;
+        return;
+    }
+
+    const pct = (n) => (n / total) * 100;
+    const race = pct(raceCount), eth = pct(ethCount), both = pct(bothCount);
+    const gap = race - both;
+
+    head.innerHTML = `<strong>${race.toFixed(1)}%</strong> of these trials report race, ` +
+        `but only <strong>${both.toFixed(1)}%</strong> report race and ethnicity together.`;
+    ctx.textContent = `${total.toLocaleString()} trials · ` +
+        `${gap.toFixed(1)}-point gap · ethnicity reported by ${eth.toFixed(1)}%`;
+    box.hidden = false;
+}
+
+// The words above the filter panel. Reads the controls rather than the data,
+// so it says what was ASKED for — which is what a reader needs in order to
+// know what the numbers below it are about.
+function renderFilterSummary(total) {
+    const el = document.getElementById('filter-summary-text');
+    if (!el) return;
+    const val = (id) => {
+        const n = document.getElementById(id);
+        if (!n) return null;
+        const v = n.tagName === 'SELECT' ? (n.options[n.selectedIndex] || {}).text : n.value;
+        return v == null ? null : String(v).trim();
+    };
+    const isAll = (v) => !v || /^all\b/i.test(v);
+    const bold = (v) => `<b>${escapeHtml(v)}</b>`;
+
+    const parts = [];
+    if (typeof total === 'number') parts.push(`${bold(total.toLocaleString())} trials`);
+
+    const type = val('study-type');
+    if (!isAll(type) && type) parts.push(bold(type.toLowerCase()));
+
+    const y0 = val('year-start'), y1 = val('year-end');
+    if (y0 && y1) parts.push(`results posted ${bold(y0 + '\u2013' + y1)}`);
+
+    // Only narrowed dimensions earn a phrase; "all sponsors, all purposes,
+    // all conditions, all statuses" is four phrases that say nothing.
+    const narrowed = [
+        ['sponsor', 'sponsor'], ['purpose', 'purpose'],
+        ['condition-primary', 'condition'], ['condition-secondary', 'subcategory'],
+        ['fda-status', 'FDA status']
+    ].filter(([id]) => !isAll(val(id)))
+     .map(([id, noun]) => `${noun} ${bold(val(id))}`);
+
+    if (narrowed.length) parts.push(...narrowed);
+    else parts.push('all sponsors, purposes and conditions');
+
+    el.innerHTML = parts.join(' \u00b7 ');
+}
+
+function initFilterSummary() {
+    const btn = document.getElementById('filter-summary-toggle');
+    const panel = document.getElementById('filters');
+    if (!btn || !panel) return;
+    btn.addEventListener('click', () => {
+        const open = panel.hidden;
+        panel.hidden = !open;
+        btn.setAttribute('aria-expanded', String(open));
+    });
+}
+
 function renderDashboard() {
     if (!data && !dashboardSummary) return;
 
@@ -1925,6 +2027,8 @@ function renderDashboard() {
             t > 0 ? `${((s.cards.ethCount / t) * 100).toFixed(1)}%` : '0%';
         document.getElementById('both-reporting').textContent =
             t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
+        renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
+        renderFilterSummary(t);
 
         // All chart functions check dashboardSummary internally
         const stub = [];
@@ -1968,6 +2072,8 @@ function renderDashboard() {
         filtered.length > 0 ? `${((ethCount / filtered.length) * 100).toFixed(1)}%` : '0%';
     document.getElementById('both-reporting').textContent =
         filtered.length > 0 ? `${((bothCount / filtered.length) * 100).toFixed(1)}%` : '0%';
+    renderOverviewFinding(filtered.length, raceCount, ethCount, bothCount);
+    renderFilterSummary(filtered.length);
 
     // Render only the Overview tab chart immediately (the visible tab).
     // All other tab charts are rendered on-demand when their tab is clicked
