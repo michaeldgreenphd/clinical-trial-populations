@@ -1,6 +1,10 @@
 # Node (geo contract tests)
 node_modules/
 
+# Python bytecode from running scripts/geo/advance_run.py by hand
+__pycache__/
+*.pyc
+
 # IDE / OS
 .vscode/
 .idea/
