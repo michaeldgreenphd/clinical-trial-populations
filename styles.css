@@ -5,7 +5,8 @@
     --accent-color: #52b788;
     --accent-light: #95d5b2;
     --secondary-color: #6c757d;
-    --background: #f8faf9;
+    --background: #ffffff;         /* the page ground */
+    --tint: #f1f5f3;               /* a faint fill: hovers, chips, controls */
     --card-background: #ffffff;
     --text-primary: #212529;
     --text-secondary: #6c757d;
@@ -30,7 +31,12 @@
     --pad-hero: 1.5rem 1.75rem;    /* tier 1 — the finding, one per tab */
     --pad-panel: 1.25rem 1.5rem;   /* tier 2 — charts, tiles, tables */
     --pad-chrome: 0.75rem 1rem;    /* tier 3 — controls and pagination */
-    --elev-hero: 0 1px 3px rgba(27, 67, 50, 0.08), 0 4px 12px rgba(27, 67, 50, 0.05);
+    /* The only shadow in the file. It is for things that genuinely float
+       above the page — the nav menu, the column picker — where the reader
+       has to see what is in front of what. Page content never uses it:
+       depth on a static panel is decoration, and it is the thing that made
+       the dashboard read as generated. */
+    --elev-overlay: 0 1px 3px rgba(27, 67, 50, 0.10), 0 6px 16px rgba(27, 67, 50, 0.07);
     --surface-sunk: #eef2f0;       /* chrome ground: recessed, not raised */
 
     --radius-sm: 4px;
@@ -170,7 +176,7 @@
     padding: 0.4rem 0.75rem;
     border: 1px solid var(--border-color);
     border-radius: 4px;
-    background: var(--background);
+    background: var(--tint);
     transition: all 0.2s;
     user-select: none;
 }
@@ -357,7 +363,7 @@ header .last-updated {
     opacity: 0.7;
 }
 
-.nav-group > summary:hover { background: var(--background); }
+.nav-group > summary:hover { background: var(--tint); }
 
 .nav-group > summary:focus-visible {
     outline: 2px solid var(--primary-color);
@@ -372,7 +378,7 @@ header .last-updated {
     box-shadow: inset 0 -2px 0 var(--primary-color);
 }
 
-.nav-group[open] > summary { background: var(--background); }
+.nav-group[open] > summary { background: var(--tint); }
 
 .nav-menu {
     position: absolute;
@@ -387,7 +393,7 @@ header .last-updated {
     background: var(--card-background);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: var(--elev-hero);
+    box-shadow: var(--elev-overlay);
 }
 
 .nav-menu .tab { text-align: left; width: 100%; }
@@ -424,7 +430,7 @@ header .last-updated {
 }
 
 .tab:hover {
-    background: var(--background);
+    background: var(--tint);
 }
 
 .tab:focus-visible {
@@ -891,7 +897,6 @@ main {
     padding: var(--pad-hero);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-lg);
-    box-shadow: var(--elev-hero);
     min-width: 0;
 }
 
@@ -902,6 +907,95 @@ main {
     padding: var(--pad-chrome);
     border: none;
     border-radius: var(--radius-sm);
+}
+
+/* ===== Paper surfaces =====
+   Everything above draws a filled, bordered, rounded box around every piece
+   of content. Six of them stacked on a ground two percent off white is the
+   look people mean by "generated dashboard": the borders end up carrying all
+   the structure, because nothing else is doing it.
+
+   Below, the boxes come off and the structure moves to rules and whitespace,
+   the way a printed page does it. Same type, same green, same padding scale —
+   only the surfaces change.
+
+   Geography is deliberately exempt. Its maps, legends and ranked lists are
+   plates, not page flow: a frame around a choropleth is doing real work, and
+   nothing about how that tab renders its numbers may move. */
+
+.tab-content:not(#geography) .chart-container {
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0 0 1.25rem;
+}
+
+.tab-content:not(#geography) .chart-container.panel-hero,
+.tab-content:not(#geography) .panel-hero {
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    border-radius: 0;
+    padding: 0 0 1.35rem;
+}
+
+/* The finding's rule doubles as the top edge of the stat band, so the two
+   are one object rather than two stacked ones. */
+.tab-content:not(#geography) .overview-finding { margin-bottom: 0; }
+
+.tab-content:not(#geography) .stats-grid {
+    gap: 0;
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2.25rem;
+}
+
+/* Where a finding sits directly above the band, its rule is the band's top
+   edge; two rules there stack into a visibly thicker one. Written as :has()
+   rather than an adjacent-sibling rule on the band so that a hidden finding
+   — the small-n case — still leaves the band closed on both sides. */
+.tab-content:not(#geography) .panel-hero:has(+ .stats-grid) {
+    border-bottom: none;
+}
+
+/* A definition set beside the argument, not boxed away from it. */
+.tab-content:not(#geography) .fda-pathway-note {
+    border: none;
+    border-left: 2px solid var(--border-color);
+    border-radius: 0;
+    padding: 0.15rem 0 0.15rem 1.15rem;
+}
+
+.tab-content:not(#geography) .stat-card {
+    background: none;
+    border: none;
+    border-left: 1px solid var(--border-color);
+    border-radius: 0;
+    padding: 1.35rem 1.5rem;
+}
+
+.tab-content:not(#geography) .stats-grid > .stat-card:first-child {
+    border-left: none;
+    padding-left: 0;
+}
+
+/* The band is a row of columns, which only holds while they are on one row.
+   Below the wrap point it becomes two, and the dividers have to turn with it
+   or the first tile of the second row grows a stray left edge. */
+@media (max-width: 820px) {
+    .tab-content:not(#geography) .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .tab-content:not(#geography) .stat-card {
+        padding: 1.1rem 1.1rem;
+    }
+    .tab-content:not(#geography) .stats-grid > .stat-card:nth-child(2n+1) {
+        border-left: none;
+        padding-left: 0;
+    }
+    .tab-content:not(#geography) .stats-grid > .stat-card:nth-child(n+3) {
+        border-top: 1px solid var(--border-color);
+    }
 }
 
 /* ── Table scroll container with arrow buttons ── */
@@ -1455,7 +1549,7 @@ main {
     border-radius: 0.25rem;
     font-size: var(--fs-small);
     font-weight: 500;
-    background: var(--background);
+    background: var(--tint);
     color: var(--text-primary);
 }
 
@@ -4127,7 +4221,7 @@ footer p {
     cursor: pointer;
 }
 
-.industry-sponsor-option:hover { background: var(--background); }
+.industry-sponsor-option:hover { background: var(--tint); }
 
 .industry-sponsor-option input { accent-color: var(--primary-color); }
 
@@ -4777,7 +4871,7 @@ footer p {
     background: var(--card-background);
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
-    box-shadow: var(--elev-hero);
+    box-shadow: var(--elev-overlay);
 }
 
 .column-option {
@@ -4792,4 +4886,4 @@ footer p {
     border-radius: var(--radius-sm);
 }
 
-.column-option:hover { background: var(--background); }
+.column-option:hover { background: var(--tint); }
