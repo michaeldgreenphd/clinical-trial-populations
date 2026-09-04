@@ -2627,26 +2627,29 @@ function initTableScroll() {
         });
     }
 
-    // Initial arrow state
+    // Initial arrow state. Measured once now and again after the browser has
+    // laid the table out: on the first render the wrapper is measured before
+    // the table picks up its --studies-min-width, so the first reading says
+    // "scrollable" for a table that then fits, and nothing re-measured until
+    // the next scroll or column change.
+    _updateTableArrows = updateArrows;
     updateArrows();
+    requestAnimationFrame(() => requestAnimationFrame(updateArrows));
 }
 
 // Backward compat — old call sites invoke fixTableScroll()
 let _tableScrollInitialized = false;
+// Set by initTableScroll so the re-render path runs the same function rather
+// than a second copy of the logic. The copy that used to live below had not
+// learned to hide the drag bar, so on the first render of the Studies tab the
+// bar appeared over a table that does not scroll.
+let _updateTableArrows = null;
 function fixTableScroll() {
     if (!_tableScrollInitialized) {
         _tableScrollInitialized = true;
         initTableScroll();
-    } else {
-        // Just update arrows on re-render
-        const wrapper = document.getElementById('studies-table-wrapper');
-        const btnLeft = document.getElementById('table-scroll-left');
-        const btnRight = document.getElementById('table-scroll-right');
-        if (wrapper && btnLeft && btnRight) {
-            const maxScroll = wrapper.scrollWidth - wrapper.clientWidth;
-            btnLeft.classList.toggle('hidden', wrapper.scrollLeft <= 0);
-            btnRight.classList.toggle('hidden', wrapper.scrollLeft >= maxScroll - 1);
-        }
+    } else if (_updateTableArrows) {
+        _updateTableArrows();
     }
 }
 
@@ -2758,11 +2761,18 @@ const REPORTED_DIMENSIONS = [
     { field: 'geography', label: 'Geography' }
 ];
 
+// The Geography column counts a study as having geography when EITHER source
+// is present (renderGeographyCell), so the pip has to use the same test or the
+// summary cell and the detail column could contradict each other. In today's
+// data every record with sites also has countries, so this is a latent
+// disagreement rather than a visible one — which is exactly when it is
+// cheapest to remove.
+function studyHasGeography(study) {
+    return (study.study_sites || []).length > 0 || (study.countries || []).length > 0;
+}
+
 function studyReportsDimension(study, field) {
-    if (field === 'geography') {
-        const c = study.countries;
-        return Array.isArray(c) ? c.length > 0 : !!c;
-    }
+    if (field === 'geography') return studyHasGeography(study);
     return !!study[field]?.reported;
 }
 
@@ -2862,9 +2872,8 @@ function renderDemographicCell(study, field) {
 function renderGeographyCell(study) {
     const sites = study.study_sites || [];
     const countries = study.countries || [];
-    const hasGeo = sites.length > 0 || countries.length > 0;
 
-    if (!hasGeo) {
+    if (!studyHasGeography(study)) {
         return '<span class="demo-disabled" title="No geography data">✗</span>';
     }
 
