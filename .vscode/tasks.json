@@ -1,0 +1,44 @@
+{
+  // One task: serve the repo root over HTTP. CLAUDE.md §1 explains why this is
+  // the only way to run the site locally — the app fetch()es its JSON and gzip
+  // data over relative paths, which a file:// origin blocks, so index.html
+  // opened as a file comes up empty and looks broken for a reason unrelated to
+  // whatever you changed.
+  //
+  // It is the default build task (Ctrl+Shift+B / Cmd+Shift+B) and offers to
+  // start when the folder opens, so the served page is the path of least
+  // resistance. It runs in the background in its own terminal panel.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Serve site at http://localhost:8000",
+      "detail": "python3 -m http.server 8000 from the repo root. Never open index.html as a file:// URL.",
+      "type": "shell",
+      "command": "python3",
+      "args": ["-m", "http.server", "8000", "--bind", "127.0.0.1"],
+      "windows": { "command": "python" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "isBackground": true,
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false
+      },
+      "problemMatcher": {
+        // http.server reports no problems; the pattern is a placeholder so the
+        // background matcher can tell VS Code when the server is up. Its only
+        // output line is "Serving HTTP on 127.0.0.1 port 8000 (...)".
+        "owner": "http.server",
+        "pattern": { "regexp": "^never-matches-this-server-prints-no-problems$", "file": 1, "location": 2, "message": 3 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^Serving HTTP on",
+          "endsPattern": "^Serving HTTP on .* port 8000"
+        }
+      },
+      "runOptions": { "runOn": "folderOpen" }
+    }
+  ]
+}

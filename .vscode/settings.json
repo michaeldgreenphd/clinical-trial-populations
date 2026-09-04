@@ -1,0 +1,83 @@
+{
+  // Workspace settings for clinical-trial-populations. Nothing here is served;
+  // this file only shapes how VS Code edits the files that are.
+  //
+  // No Python configuration on purpose. The one .py file
+  // (scripts/geo/advance_run.py) is a hand-run maintenance script that never
+  // runs in CI, and this repository is otherwise HTML, CSS and JavaScript.
+
+  // ── Whitespace on save ────────────────────────────────────────────────────
+  // The shipped files carry no trailing whitespace today and end in a newline,
+  // so these settings cannot create noise in them; they only stop new noise.
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.trimFinalNewlines": false,
+  "files.eol": "\n",
+
+  // ── Formatting ────────────────────────────────────────────────────────────
+  // Default formatters are the built-in ones (no extension to install), set
+  // per language because a single global default cannot cover HTML, CSS and
+  // JavaScript at once. Formatting stays a deliberate action (Shift+Alt+F),
+  // never on save: app.js is ~8,000 lines of hand-formatted code with no
+  // formatter config in the repo, and a format-on-save would turn a one-line
+  // fix into a whole-file diff.
+  "editor.formatOnSave": false,
+  "editor.formatOnPaste": false,
+  "editor.formatOnType": false,
+  "[html]": { "editor.defaultFormatter": "vscode.html-language-features" },
+  "[css]": { "editor.defaultFormatter": "vscode.css-language-features" },
+  "[javascript]": { "editor.defaultFormatter": "vscode.typescript-language-features" },
+  "[json]": { "editor.defaultFormatter": "vscode.json-language-features" },
+  "[jsonc]": { "editor.defaultFormatter": "vscode.json-language-features" },
+
+  // Markdown uses trailing double spaces as hard line breaks; leave them.
+  "[markdown]": { "files.trimTrailingWhitespace": false },
+
+  // ── Pipeline output is not edited here ────────────────────────────────────
+  // data/** and snapshots/** are written into this repository by
+  // civicsample-engine's weekly job and must stay byte-identical to what it
+  // wrote (CLAUDE.md §1). A stray whitespace trim there is a data defect, not
+  // a style change. Three layers, each sufficient on its own:
+  //
+  // 1. Read-only in the editor. Typing is refused and there is nothing to
+  //    save, so no save-time behaviour can run. data/geo/README.md is the one
+  //    hand-written file in that tree and stays editable.
+  "files.readonlyInclude": {
+    "data/**": true,
+    "snapshots/**": true
+  },
+  "files.readonlyExclude": {
+    "data/geo/README.md": true
+  },
+  // 2. Opened as plain text rather than JSON/CSV, so no language formatter or
+  //    validator attaches to multi-megabyte files.
+  "files.associations": {
+    "**/data/**/*.json": "plaintext",
+    "**/data/**/*.csv": "plaintext",
+    "**/snapshots/**/*.json": "plaintext",
+    "**/snapshots/**/*.csv": "plaintext"
+  },
+  // 3. Even as plain text, and even if someone runs "File: Set Active Editor
+  //    Writeable" to make a deliberate edit, no whitespace is touched on save.
+  "[plaintext]": {
+    "files.trimTrailingWhitespace": false,
+    "files.insertFinalNewline": false,
+    "files.trimFinalNewlines": false,
+    "editor.formatOnSave": false
+  },
+
+  // ── Keep the big trees out of search and the file watcher ─────────────────
+  // data/ is ~1.9 GB of gzip parts and CSV, snapshots/ holds dated copies of
+  // the same. Neither belongs in a search result or a watcher.
+  "search.exclude": {
+    "data/**": true,
+    "snapshots/**": true,
+    "**/node_modules": true,
+    "package-lock.json": true
+  },
+  "files.watcherExclude": {
+    "**/data/**": true,
+    "**/snapshots/**": true,
+    "**/node_modules/**": true
+  }
+}

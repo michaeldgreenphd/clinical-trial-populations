@@ -6,7 +6,11 @@ __pycache__/
 *.pyc
 
 # IDE / OS
-.vscode/
+.vscode/*
+# Shared editor config is committed: the serve task and the data/** guard are
+# repository facts, like CLAUDE.md. Everything else in .vscode/ stays personal.
+!.vscode/settings.json
+!.vscode/tasks.json
 .idea/
 *.swp
 .DS_Store
