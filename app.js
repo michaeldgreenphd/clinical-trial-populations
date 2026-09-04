@@ -1958,7 +1958,7 @@ function renderOverviewTileContext(total, raceCount, ethCount, bothCount) {
     set('stat-sub-total', y0 && y1 && !dashboardSummary
         ? `results posted ${y0.value}\u2013${y1.value}`
         : 'trials with results posted');
-    const n = (c) => `${c.toLocaleString()} of ${total.toLocaleString()} trials`;
+    const n = (c) => `${c.toLocaleString()} trials`;
     set('stat-sub-race', total ? n(raceCount) : '\u2014');
     set('stat-sub-ethnicity', total ? n(ethCount) : '\u2014');
     set('stat-sub-both', total ? n(bothCount) : '\u2014');
@@ -1971,7 +1971,29 @@ function renderOverviewTileContext(total, raceCount, ethCount, bothCount) {
 // an endpoint would mislead), and asserts nothing when the cohort is empty.
 // This is the geography tab's pattern generalised: a tab opens by saying what
 // its data says.
-function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
+// The two endpoint years the finding may quote: the earliest and the latest
+// year in the current selection that are complete and not too thin to state a
+// rate from. The current calendar year is partial by definition — 2026 holds
+// 4,145 trials against 7,292 in 2025 — so quoting it would understate the
+// trend every January. Returns null when the selection has fewer than two
+// usable years, and the finding falls back to stating levels.
+const FINDING_MIN_YEAR_TRIALS = 100;
+
+function findingEndpoints(byYear) {
+    const thisYear = String(new Date().getUTCFullYear());
+    const usable = Object.keys(byYear).sort()
+        .filter(y => y < thisYear && byYear[y].total >= FINDING_MIN_YEAR_TRIALS);
+    if (usable.length < 2) return null;
+    const first = usable[0], last = usable[usable.length - 1];
+    const pct = (y, k) => (byYear[y][k] / byYear[y].total) * 100;
+    return {
+        firstYear: first, lastYear: last,
+        firstRace: pct(first, 'race'), lastRace: pct(last, 'race'),
+        lastBoth: pct(last, 'both')
+    };
+}
+
+function renderOverviewFinding(total, raceCount, ethCount, bothCount, byYear) {
     const box = document.getElementById('overview-finding');
     const head = document.getElementById('finding-headline');
     const ctx = document.getElementById('finding-context');
@@ -2004,13 +2026,28 @@ function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
     }
 
     const pct = (n) => (n / total) * 100;
-    const race = pct(raceCount), eth = pct(ethCount), both = pct(bothCount);
-    const gap = race - both;
+    const race = pct(raceCount), both = pct(bothCount);
 
+    // The tiles below already state the levels. The sentence states the change
+    // over the selected years, which no tile can show — so the two are not the
+    // same fact twice.
+    const e = byYear ? findingEndpoints(byYear) : null;
+    if (e) {
+        const gap = e.lastRace - e.lastBoth;
+        const verb = e.lastRace >= e.firstRace ? 'climbed' : 'fallen';
+        head.innerHTML = `Race reporting has ${verb} from ` +
+            `<strong>${e.firstRace.toFixed(1)}%</strong> of trials in ${e.firstYear} to ` +
+            `<strong>${e.lastRace.toFixed(1)}%</strong> in ${e.lastYear} — but reporting both ` +
+            `race and ethnicity still trails it by <strong>${gap.toFixed(1)} points</strong>.`;
+        ctx.textContent = `Complete years only; ${String(new Date().getUTCFullYear())} is still in progress.`;
+        box.hidden = false;
+        return;
+    }
+
+    // Too few complete years to describe a change: state where things stand.
     head.innerHTML = `<strong>${race.toFixed(1)}%</strong> of these trials report race, ` +
-        `but only <strong>${both.toFixed(1)}%</strong> report race and ethnicity together.`;
-    ctx.textContent = `${total.toLocaleString()} trials · ` +
-        `${gap.toFixed(1)}-point gap · ethnicity reported by ${eth.toFixed(1)}%`;
+        `and <strong>${both.toFixed(1)}%</strong> report race and ethnicity together.`;
+    ctx.textContent = 'Too few complete years in this selection to describe a trend.';
     box.hidden = false;
 }
 
@@ -2090,7 +2127,8 @@ function renderDashboard() {
             t > 0 ? `${((s.cards.ethCount / t) * 100).toFixed(1)}%` : '0%';
         document.getElementById('both-reporting').textContent =
             t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
-        renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
+        renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount,
+            reportingByYear([]));
         renderOverviewTileContext(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
         renderFilterSummary(t, true);
 
@@ -2136,7 +2174,8 @@ function renderDashboard() {
         filtered.length > 0 ? `${((ethCount / filtered.length) * 100).toFixed(1)}%` : '0%';
     document.getElementById('both-reporting').textContent =
         filtered.length > 0 ? `${((bothCount / filtered.length) * 100).toFixed(1)}%` : '0%';
-    renderOverviewFinding(filtered.length, raceCount, ethCount, bothCount);
+    renderOverviewFinding(filtered.length, raceCount, ethCount, bothCount,
+        reportingByYear(filtered));
     renderOverviewTileContext(filtered.length, raceCount, ethCount, bothCount);
     renderFilterSummary(filtered.length);
 
@@ -3468,29 +3507,34 @@ function formatCountries(countries) {
 }
 
 // Chart rendering functions (keeping existing logic)
+// Reporting counts per results-posted year, for the trend chart and for the
+// Overview finding — one aggregation so the sentence and the plot cannot
+// disagree about what the series says.
+function reportingByYear(filtered) {
+    const byYear = {};
+    if (dashboardSummary) {
+        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
+            byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported };
+        }
+        return byYear;
+    }
+    filtered.forEach(study => {
+        const year = study.results_date?.substring(0, 4);
+        if (!year) return;
+        if (!byYear[year]) byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0 };
+        byYear[year].total++;
+        if (study.race?.reported) byYear[year].race++;
+        if (study.ethnicity?.reported) byYear[year].ethnicity++;
+        if (study.race?.reported && study.ethnicity?.reported) byYear[year].both++;
+    });
+    return byYear;
+}
+
 function renderReportingTrends(filtered) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
 
-    let byYear;
-    if (dashboardSummary) {
-        byYear = {};
-        for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
-            byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported };
-        }
-    } else {
-        byYear = {};
-        filtered.forEach(study => {
-            const year = study.results_date?.substring(0, 4);
-            if (!year) return;
-            if (!byYear[year]) byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0 };
-            byYear[year].total++;
-            if (study.race?.reported) byYear[year].race++;
-            if (study.ethnicity?.reported) byYear[year].ethnicity++;
-            if (study.race?.reported && study.ethnicity?.reported) byYear[year].both++;
-        });
-    }
-
+    const byYear = reportingByYear(filtered);
     const years = Object.keys(byYear).sort();
 
     if (charts.reportingTrends) charts.reportingTrends.destroy();
