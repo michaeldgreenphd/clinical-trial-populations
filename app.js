@@ -1255,7 +1255,7 @@ function applyRouteFromHash() {
 }
 
 function initTabs() {
-    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue']);
+    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue', 'industry']);
 
     // Nav groups: a tab inside a menu closes it on the way through, and the
     // menus behave like menus — Escape closes, and opening one closes the
@@ -1368,6 +1368,12 @@ function initTabs() {
             }
             if (tab.dataset.tab === 'approval-queue') {
                 loadApprovalQueueTab();
+            }
+            // Industry Sponsors sits in the Tools group behind the same gate as
+            // the extraction tabs (BETA_GATED_TABS above). The /#industry route
+            // reaches the same loader through openIndustryView().
+            if (tab.dataset.tab === 'industry') {
+                loadIndustryView();
             }
 
             updateShareUrl();
@@ -7282,13 +7288,16 @@ function showLitExtractionDetails(idx) {
 window.showLitExtractionDetails = showLitExtractionDetails;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// (Gated) Industry Sponsor Representation — hidden route: /#industry
+// (Gated) Industry Sponsor Representation — Tools › Industry Sponsors, and the
+// /#industry route
 //
 // Rebuilds the standalone sponsor analysis (condition-baseline deviations,
 // female share over time, adjusted contrasts vs Other Industry) on top of
 // data/industry_sponsors.json, which the civicsample-engine weekly
-// pipeline derives from the extraction. The route never appears in the nav and
-// only initializes behind the shared Beta password gate.
+// pipeline derives from the extraction. The tab button is gated through
+// BETA_GATED_TABS in initTabs(); the hash route is gated in openIndustryView().
+// Neither path initializes the view until the shared Beta password has
+// validated for the session.
 // ═══════════════════════════════════════════════════════════════════════════
 
 const INDUSTRY_PINK = '#C26C8E';   // above baseline / more women (sex tier)
@@ -7961,6 +7970,9 @@ function renderIndustryCatRow() {
     });
 }
 
+// Hash-route entry (/#industry, including the industry/ redirect stub). The
+// Tools tab button takes the other entry: initTabs() gates it through
+// BETA_GATED_TABS, activates the section, and calls loadIndustryView().
 async function openIndustryView() {
     // Session-scoped gate: nothing renders until the shared Beta password has
     // validated (betaExtractionUnlocked in sessionStorage).
@@ -7972,10 +7984,19 @@ async function openIndustryView() {
 
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    const navBtn = document.querySelector('.tab[data-tab="industry"]');
+    if (navBtn) navBtn.classList.add('active');   // lights the Tools group via :has(.tab.active)
     document.getElementById('industry').classList.add('active');
     const filtersSection = document.getElementById('filters');
     if (filtersSection && !dashboardSummary) filtersSection.style.display = '';
 
+    await loadIndustryView();
+}
+
+// Shared by both entries. Assumes the gate has passed and #industry is the
+// active section; fetches the dataset once, then renders.
+async function loadIndustryView() {
+    updateIndustryShareUrl();   // #industry in the bar even if the fetch below fails
     if (!industryData) {
         try {
             const resp = await fetch(`data/industry_sponsors.json?v=${DATA_CACHE_VERSION}`);
