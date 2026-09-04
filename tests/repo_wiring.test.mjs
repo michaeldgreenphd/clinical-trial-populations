@@ -60,16 +60,19 @@ test('the advance script resolves its write paths to this repository root', () =
   }
 });
 
-test('the contract-test workflow triggers on paths that exist', () => {
+test('the test workflow runs on every push and pull request, with no path filter', () => {
+  // This test used to check that the workflow's trigger globs named directories
+  // that exist. The docs wiring suite reads the whole tree, so the workflow now
+  // has no path filter at all — a filter is a second inventory that goes stale
+  // the way the documents did. Guard that it stays that way, and that the
+  // checkout fetches full history for the cache-key base comparison.
   const yml = read('.github/workflows/geo-contract-tests.yml');
-  const globs = [...yml.matchAll(/^\s+- "([^"]+)"/gm)].map((m) => m[1]);
-  const dirGlobs = globs.filter((g) => g.endsWith('/**')).map((g) => g.slice(0, -3));
-  assert.ok(dirGlobs.length >= 3, 'expected the workflow to watch several directories');
-  for (const dir of dirGlobs) {
-    assert.ok(existsSync(join(repo, dir)),
-      `geo-contract-tests.yml triggers on "${dir}/**", which no longer exists — ` +
-      'either restore the directory or drop the trigger path');
-  }
+  assert.ok(!/^\s+paths(-ignore)?:/m.test(yml),
+    'geo-contract-tests.yml has a path filter again; the docs wiring suite needs to run on every change');
+  assert.match(yml, /^on:\n\s+push:\n\s+pull_request:/m,
+    'geo-contract-tests.yml must trigger on push and pull_request');
+  assert.match(yml, /fetch-depth:\s*0/,
+    'checkout needs fetch-depth: 0 so the cache-key test can diff against the base branch');
 });
 
 test('the pinned run directory holds the contract files the pin names', () => {

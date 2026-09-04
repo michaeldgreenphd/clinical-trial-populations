@@ -72,12 +72,16 @@ zero; three-state flags stay strings (`'true'` / `'false'` /
 Advancing the pinned run is a deliberate act, reviewed as its own pull
 request. The script that performs it, `scripts/geo/advance_run.py`, belongs
 in this repository rather than in the engine, because every path it writes
-resolves from its own repository root. If it is missing, that is the bug.
+resolves from its own repository root. If it is missing, that is the bug;
+`tests/repo_wiring.test.mjs` checks that it stays here, and
+`tests/docs_wiring.test.mjs` checks that every path and command this file
+and `CLAUDE.md` name still resolves.
 
 **Asset cache keys.** `index.html` pins `styles.css` and `app.js` with version
 query strings. A change to either file that does not bump its key ships new
 markup to returning browsers running the old script — treat a missing bump as
-a defect, not a nit.
+a defect, not a nit. On a pull request, `tests/docs_wiring.test.mjs` fails
+when either file, or a `geo/` script, changes without its key changing.
 
 **Published data files** under `data/` are written by the engine's weekly job.
 Editing them by hand, or changing how the app reads them, needs a
