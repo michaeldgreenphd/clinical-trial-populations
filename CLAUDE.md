@@ -9,9 +9,15 @@ exist because the obvious reading of the rule is wrong here.
 
 ## 1. Stack & Environment
 
-**This repository is the front end only. It contains no Python and no build
-step.** The pipeline that produces its data is a separate repository,
+**This repository is the front end. Nothing here is built, and nothing here
+runs on a server.** The pipeline that produces its data is a separate
+repository,
 [`civicsample-engine`](https://github.com/michaeldgreenphd/civicsample-engine).
+
+The single exception to "no Python" is `scripts/geo/advance_run.py`, a
+maintenance script a person runs by hand to advance the geography pin. It is
+not part of the site, is never served, and never runs in CI. Everything the
+browser executes is JavaScript.
 
 * **Core stack:** static HTML, CSS and vanilla JavaScript. No framework, no
   bundler, no transpiler — what is committed is what the browser runs. A
