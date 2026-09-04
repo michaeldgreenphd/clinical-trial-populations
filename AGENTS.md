@@ -69,8 +69,11 @@ correctness failure rather than a style question:
 Blanks there mean absence with a reason (see `d3_blank_inventory.csv`), never
 zero; three-state flags stay strings (`'true'` / `'false'` /
 `'not_applicable'`); and the app must never follow `geo_rep_LATEST.txt`.
-Advancing the pinned run is a deliberate act performed by
-`scripts/geo/advance_run.py`, reviewed as its own pull request.
+Advancing the pinned run is a deliberate act, reviewed as its own pull
+request. The script that performs it, `scripts/geo/advance_run.py`, is
+restored to this repository by the open `geo-advance-restore` pull request
+and is not on `main` yet; it has to live here rather than in the engine,
+because every path it writes resolves from its own repository root.
 
 **Asset cache keys.** `index.html` pins `styles.css` and `app.js` with version
 query strings. A change to either file that does not bump its key ships new
