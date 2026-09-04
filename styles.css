@@ -854,7 +854,12 @@ main {
     color: var(--text-secondary);
 }
 
-/* Regulatory-pathway explainer on the FDA Oversight tab. */
+/* Regulatory-pathway explainers on FDA Oversight and AI Devices. These are
+   definitions, not panels: at the full 1400px content width they ran to about
+   140 characters a line, roughly twice a comfortable measure, and the AI
+   Devices one became a nine-line wall. Capping the measure is the whole fix —
+   the container stays, because the border is what separates the explainer
+   from the charts under it. */
 .fda-pathway-note {
     border: 1px solid var(--border-color);
     border-radius: var(--radius-md);
@@ -862,7 +867,17 @@ main {
     margin: 0 0 1.5rem;
 }
 
-.fda-pathway-note .note { margin: 0; }
+.fda-pathway-note .note {
+    margin: 0;
+    max-width: 74ch;
+}
+
+/* Same reasoning for a panel's own framing paragraph, which sits at full
+   width on the geography and AI Devices tabs. */
+.chart-container > .note,
+.panel-hero > .note {
+    max-width: 88ch;
+}
 
 .stat-value {
     font-size: var(--fs-display);
@@ -1225,6 +1240,10 @@ main {
 }
 
 /* Drag bar – sits outside the scroll wrapper so it never scrolls away */
+/* A class selector beats the UA stylesheet's [hidden] rule, so display:flex
+   above would keep the bar on screen even with the attribute set. */
+.table-drag-bar[hidden] { display: none; }
+
 .table-drag-bar {
     display: flex;
     align-items: center;
