@@ -3571,6 +3571,8 @@ function renderReportingTrends(filtered) {
             responsive: true,
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
+            // Room at the right for the labels that replace the legend.
+            layout: { padding: { right: isMobileDevice ? 0 : 92 } },
             scales: {
                 y: {
                     beginAtZero: true,
@@ -3579,9 +3581,32 @@ function renderReportingTrends(filtered) {
                 }
             },
             plugins: {
-                legend: { position: 'top' }
+                // On a wide plot each line ends in its own name and value, so
+                // identity and level arrive together and the legend is not
+                // needed. A phone has no room at the right edge, so there the
+                // legend stays and the labels go.
+                legend: { display: isMobileDevice, position: 'top' },
+                datalabels: isMobileDevice ? { display: false } : {
+                    // 'auto' rather than true: the plugin drops a label that
+                    // would overlap another, so a narrow filter can never
+                    // produce two labels printed on top of each other.
+                    display: (c) => (c.dataIndex === c.dataset.data.length - 1 ? 'auto' : false),
+                    formatter: (v, c) => `${c.dataset.label} ${Math.round(v)}%`,
+                    anchor: 'end',
+                    // Ethnicity and Both are structurally close — Both is the
+                    // intersection, so it can never exceed Ethnicity — and a
+                    // filter can bring them within a point of each other.
+                    // Fanning their labels apart by angle keeps both readable
+                    // without depending on the values.
+                    align: (c) => [0, -22, 22][c.datasetIndex] ?? 0,
+                    offset: 8,
+                    clamp: true,
+                    color: (c) => c.dataset.borderColor,
+                    font: { size: 12, weight: '600' }
+                }
             }
-        }
+        },
+        plugins: [ChartDataLabels]
     });
 }
 
