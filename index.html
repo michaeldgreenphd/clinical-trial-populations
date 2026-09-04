@@ -100,6 +100,7 @@
                 <button class="tab" data-tab="fda-extraction">AI Demographic Extraction</button>
                 <button class="tab" data-tab="lit-extraction">Paper Data Extraction</button>
                 <button class="tab" data-tab="approval-queue">Approval Queue</button>
+                <button class="tab" data-tab="industry">Industry Sponsors</button>
             </div>
         </details>
 
@@ -943,9 +944,10 @@
             </div>
         </section>
 
-        <!-- (Gated) Industry Sponsor Representation — hidden route: /#industry.
-             Not in the nav; initializes only when the URL hash matches and the
-             session has passed the shared Beta password gate. -->
+        <!-- (Gated) Industry Sponsor Representation — Tools › Industry Sponsors,
+             and the /#industry route (the industry/ redirect stub lands here).
+             Both paths run through the shared Beta password gate before the
+             view initializes. -->
         <section id="industry" class="tab-content">
             <!-- Demographic tier: which characteristic the sponsor panel reports
                  on. Sex is live; the rest are placeholders for future data. -->
@@ -1457,6 +1459,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20260903"></script>
+    <script defer src="app.js?v=20260904"></script>
 </body>
 </html>
