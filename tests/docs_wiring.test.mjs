@@ -22,6 +22,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(repo, p), 'utf8');
@@ -193,6 +194,49 @@ test('the geo/ scripts index.html loads are cache-keyed too', () => {
     .filter((m) => !/^\?v=/.test(m[2] ?? ''))
     .map((m) => m[1]);
   assert.deepEqual(unkeyed, [], `geo scripts loaded without a ?v= key: ${unkeyed.join(', ')}`);
+});
+
+// The two tests above check that a key exists. This one checks the claim the
+// docs actually make: a change to the asset comes with a change to its key.
+// It needs a base revision to compare against, which exists on a pull request
+// (GITHUB_BASE_REF, with fetch-depth 0) or when a developer sets
+// DOCS_WIRING_BASE=main locally. Anywhere else it skips and says why, rather
+// than passing vacuously.
+const KEYED_ASSETS = ['styles.css', 'app.js', 'geo/geo_reader.js', 'geo/geo_render.js', 'geo/geo_data.js', 'geo/geo_ui.js'];
+
+const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+
+function cacheKeys(html) {
+  const keys = {};
+  for (const m of html.matchAll(/(?:href|src)="([^"?]+)\?v=([^"]+)"/g)) keys[m[1]] = m[2];
+  return keys;
+}
+
+function baseRevision() {
+  const ref = process.env.DOCS_WIRING_BASE || process.env.GITHUB_BASE_REF;
+  if (!ref) return null;
+  for (const candidate of [ref, `origin/${ref}`]) {
+    try { return git('merge-base', candidate, 'HEAD'); } catch { /* try the next spelling */ }
+  }
+  throw new Error(`base ref "${ref}" is not available — on CI, checkout needs fetch-depth: 0`);
+}
+
+test('a change to a cache-keyed asset comes with a change to its ?v= key', (t) => {
+  const base = baseRevision();
+  if (!base) {
+    t.skip('no base revision: set DOCS_WIRING_BASE=main to compare against main (CI sets GITHUB_BASE_REF on pull requests)');
+    return;
+  }
+  const changed = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean);
+  const before = cacheKeys(git('show', `${base}:index.html`));
+  const after = cacheKeys(read('index.html'));
+  const unbumped = KEYED_ASSETS
+    .filter((asset) => changed.includes(asset))
+    .filter((asset) => before[asset] !== undefined && before[asset] === after[asset]);
+  assert.deepEqual(unbumped, [],
+    `these files changed since ${base.slice(0, 7)} but index.html still loads them with the same ?v= key — ` +
+    'returning browsers will keep the cached copy; bump the key: ' +
+    unbumped.map((a) => `${a}?v=${after[a]}`).join(', '));
 });
 
 // ---------------------------------------------------------------------------

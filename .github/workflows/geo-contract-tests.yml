@@ -1,31 +1,30 @@
 name: Geography contract tests
 
-# The ten acceptance tests from the geography handoff (§10) plus port-fidelity
-# checks, run against the pinned run in data/geo/active_run.json. They gate any
-# change to the contract data, the reader port, the render layer, or the pin.
+# Runs `npm test`: the ten geography acceptance tests (handoff §10) against the
+# pinned run in data/geo/active_run.json, the repository wiring tests, and the
+# docs wiring tests that check every claim AGENTS.md and CLAUDE.md make.
+#
+# No path filter, on purpose. The docs wiring suite reads the whole tree
+# (every directory for a redirect stub, every .py file, CNAME, .nojekyll,
+# index.html, the documents themselves), so any list of trigger paths is a
+# second copy of that inventory that goes stale the way the documents did.
+# The suite runs in about a second; running it on every push is cheaper than
+# maintaining the list.
+#
+# fetch-depth 0 gives the cache-key test the base branch to diff against, so
+# a pull request that changes styles.css or app.js without bumping its ?v= key
+# fails here instead of shipping stale script to returning browsers.
 on:
   push:
-    paths:
-      - "geo/**"
-      - "data/geo/**"
-      - "scripts/geo/**"
-      - "tests/**"
-      - "package.json"
-      - ".github/workflows/geo-contract-tests.yml"
   pull_request:
-    paths:
-      - "geo/**"
-      - "data/geo/**"
-      - "scripts/geo/**"
-      - "tests/**"
-      - "package.json"
-      - ".github/workflows/geo-contract-tests.yml"
 
 jobs:
   acceptance:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22

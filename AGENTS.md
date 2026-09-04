@@ -79,7 +79,8 @@ command this file and `CLAUDE.md` name still resolves.
 **Asset cache keys.** `index.html` pins `styles.css` and `app.js` with version
 query strings. A change to either file that does not bump its key ships new
 markup to returning browsers running the old script — treat a missing bump as
-a defect, not a nit.
+a defect, not a nit. On a pull request, `tests/docs_wiring.test.mjs` fails
+when either file, or a `geo/` script, changes without its key changing.
 
 **Published data files** under `data/` are written by the engine's weekly job.
 Editing them by hand, or changing how the app reads them, needs a
