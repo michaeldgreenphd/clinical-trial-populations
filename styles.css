@@ -33,6 +33,17 @@
     --elev-hero: 0 1px 3px rgba(27, 67, 50, 0.08), 0 4px 12px rgba(27, 67, 50, 0.05);
     --surface-sunk: #eef2f0;       /* chrome ground: recessed, not raised */
 
+    /* Mono is for text you would copy, compare character by character, or
+       paste into a search box: identifiers, dates, hashes, column-aligned
+       figures. Words that are simply labels are prose in the sans face —
+       tracked uppercase mono over every number is the house style of
+       generated dashboards, and it makes labels look technical without
+       making them any more precise.
+       Uppercase survives on table column heads, which is an editorial
+       convention rather than chrome, and they all share this one tracking
+       value; three different ones were live before. */
+    --track-caps: 0.08em;
+
     --radius-sm: 4px;
     --radius-md: 6px;
     --radius-lg: 8px;
@@ -262,11 +273,14 @@ header .subtitle {
 }
 
 header .last-updated {
+    font-size: var(--fs-small);
+    opacity: 0.75;
+}
+
+/* The rule, demonstrated: the words are prose, the date is mono because it
+   is a value you compare against another date. */
+header .last-updated span {
     font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.7;
     margin: 0;
     white-space: nowrap;
 }
@@ -393,11 +407,8 @@ header .last-updated {
 .nav-menu .tab { text-align: left; width: 100%; }
 
 .nav-beta {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    opacity: 0.65;
+    font-size: var(--fs-small);
+    opacity: 0.7;
     margin-left: 0.35rem;
 }
 
@@ -458,10 +469,7 @@ main {
 }
 
 .filter-summary-label {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
 }
 
@@ -506,7 +514,6 @@ main {
 }
 
 .finding-context {
-    font-family: var(--font-mono);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     margin: 0.5rem 0 0;
@@ -826,12 +833,12 @@ main {
     text-align: left;
 }
 
+/* Tile labels are h3 for the outline, but they are labels, not headings:
+   the global heading rule's negative tracking is wrong at 12px. */
 .stat-card h3 {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
+    font-size: var(--fs-small);
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: normal;
     color: var(--text-secondary);
     margin-bottom: 0.35rem;
 }
@@ -995,10 +1002,7 @@ main {
 }
 
 .rows-per-page .rows-label {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-size: var(--fs-small);
     color: var(--text-secondary);
     padding: 0 0.6rem;
     white-space: nowrap;
@@ -1173,11 +1177,9 @@ main {
 }
 
 .drag-bar-label {
-    font-size: var(--fs-label);
+    font-size: var(--fs-small);
     font-weight: 500;
     color: rgba(255, 255, 255, 0.85);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
     pointer-events: none;
 }
 
@@ -1321,7 +1323,7 @@ main {
     font-size: var(--fs-small);
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: var(--track-caps);
     color: var(--text-secondary);
     border: none;
     border-bottom: 1px solid #E5E7EB;
@@ -2526,11 +2528,9 @@ footer p {
 }
 
 .geography-stats .stat-label {
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
+    font-size: var(--fs-small);
     font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.09em;
+    letter-spacing: normal;
     color: var(--text-secondary);
     margin-top: 0.375rem;
 }
