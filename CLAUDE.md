@@ -19,9 +19,17 @@ maintenance script a person runs by hand to advance the geography pin. It is
 not part of the site, is never served, and never runs in CI. Everything the
 browser executes is JavaScript.
 
-* **Core stack:** static HTML, CSS and vanilla JavaScript. No framework, no
-  bundler, no transpiler — what is committed is what the browser runs. A
-  change is testable by opening the file.
+* **Core stack:** static HTML, CSS and vanilla JavaScript. There is no build
+  step: nothing is compiled ahead of time, and what is committed is what
+  ships.
+* **One framework, deliberately contained.** The beta Approval Queue tab is a
+  React island. Opening it lazy-loads React 18, ReactDOM, the Tailwind Play
+  CDN and `@babel/standalone`, then transpiles `beta/approval-queue.jsx` in
+  the browser (`app.js`, the `_loadScriptOnce` block). Tailwind's preflight
+  reset is disabled before its first build and its utilities are scoped to
+  `#approval-queue-root`, so it cannot bleed into the vanilla-CSS dashboard.
+  A change to that tab is React work with CDN runtime dependencies and should
+  be reviewed as such; nothing else in the repository is.
 * **Charting:** Chart.js v4 with chartjs-plugin-datalabels v2, and D3 with
   TopoJSON for the maps, all from CDN. The datalabels plugin is **not**
   auto-registered; a chart that wants it must pass it in `plugins:`.
@@ -34,6 +42,12 @@ browser executes is JavaScript.
 * **`.nojekyll`** is present and load-bearing. Removing it makes Pages drop
   every path beginning with an underscore.
 * **Tests:** `npm test` runs `node --test tests/*.test.mjs`. No other runner.
+* **Running it locally: serve the folder.** `python3 -m http.server 8000`,
+  then `http://localhost:8000`. Opening `index.html` as a `file://` URL does
+  not work — the app `fetch()`es its JSON and gzip data over relative paths,
+  which that origin blocks, so the page loads with no data and looks broken
+  for a reason that has nothing to do with the change. A UI change is not
+  verified until it has been seen on a served page.
 
 ## 2. Agent Responsibilities
 
