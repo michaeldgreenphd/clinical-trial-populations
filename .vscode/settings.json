@@ -36,7 +36,7 @@
   // ── Pipeline output is not edited here ────────────────────────────────────
   // data/** and snapshots/** are written into this repository by
   // civicsample-engine's weekly job and must stay byte-identical to what it
-  // wrote (CLAUDE.md §1). A stray whitespace trim there is a data defect, not
+  // wrote (AGENTS.md, Stack and environment). A stray whitespace trim there is a data defect, not
   // a style change. Three layers, each sufficient on its own:
   //
   // 1. Read-only in the editor. Typing is refused and there is nothing to
