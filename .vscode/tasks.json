@@ -1,5 +1,5 @@
 {
-  // One task: serve the repo root over HTTP. CLAUDE.md §1 explains why this is
+  // One task: serve the repo root over HTTP. AGENTS.md explains why this is
   // the only way to run the site locally — the app fetch()es its JSON and gzip
   // data over relative paths, which a file:// origin blocks, so index.html
   // opened as a file comes up empty and looks broken for a reason unrelated to

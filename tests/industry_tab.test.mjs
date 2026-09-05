@@ -4,7 +4,7 @@
  * must stay behind the shared Beta password gate. These tests read the
  * markup and script statically — the served-page behaviour (prompt appears,
  * wrong password refused, right password renders) is checked by hand on a
- * served page, as CLAUDE.md requires, and is not repeatable from node.
+ * served page, as AGENTS.md requires, and is not repeatable from node.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

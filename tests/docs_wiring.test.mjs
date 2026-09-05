@@ -8,7 +8,7 @@
  * These tests assert the claims a test can check: every path the documents
  * name resolves, every identifier they name appears where they say it does,
  * the Pages files they call load-bearing are present, the twelve redirect
- * stubs still use the root-absolute targets CLAUDE.md carves out of the
+ * stubs still use the root-absolute targets AGENTS.md carves out of the
  * relative-paths rule, the cache keys they say exist do exist, `npm test` is
  * what they say it is, and neither document points at unlanded work.
  *
@@ -250,11 +250,11 @@ test('the twelve directory redirect stubs exist and use root-absolute /#<tab> ta
     .filter((d) => existsSync(join(repo, d, 'index.html')))
     .sort();
   assert.equal(stubs.length, 12,
-    `CLAUDE.md says there are twelve directory index.html stubs; found ${stubs.length}: ${stubs.join(', ')} — ` +
+    `AGENTS.md says there are twelve directory index.html stubs; found ${stubs.length}: ${stubs.join(', ')} — ` +
     'update the document or restore the stub');
-  matches(docs['CLAUDE.md'], /\btwelve\b/, 'CLAUDE.md no longer says "twelve"; keep the count and the wording together');
+  matches(docs['AGENTS.md'], /\btwelve\b/, 'AGENTS.md no longer says "twelve"; keep the count and the wording together');
   for (const named of ['race', 'geography', 'studies']) {
-    assert.ok(stubs.includes(named), `CLAUDE.md names ${named}/ as a stub, but ${named}/index.html is missing`);
+    assert.ok(stubs.includes(named), `AGENTS.md names ${named}/ as a stub, but ${named}/index.html is missing`);
   }
   for (const dir of stubs) {
     const html = read(join(dir, 'index.html'));
@@ -279,7 +279,7 @@ test('CNAME and .nojekyll are present and CNAME names the custom domain', () => 
     '.nojekyll is missing — without it Pages drops every path beginning with an underscore');
   assert.ok(exists('CNAME'), 'CNAME is missing — the custom domain civicsample.com comes from it');
   assert.equal(read('CNAME').trim(), 'civicsample.com',
-    `CNAME reads "${read('CNAME').trim()}", but CLAUDE.md says the custom domain is civicsample.com`);
+    `CNAME reads "${read('CNAME').trim()}", but AGENTS.md says the custom domain is civicsample.com`);
   assert.equal(read('CNAME').trim().split('\n').length, 1, 'CNAME must hold exactly one domain');
 });
 
@@ -320,14 +320,14 @@ test('npm test is exactly what the docs say it is, and is the only runner', () =
   const pkg = JSON.parse(read('package.json'));
   const documented = 'node --test tests/*.test.mjs';
   assert.equal(pkg.scripts?.test, documented,
-    `package.json "test" is ${JSON.stringify(pkg.scripts?.test)}; CLAUDE.md says \`npm test\` runs \`${documented}\``);
-  assert.ok(docs['CLAUDE.md'].includes(`\`${documented}\``),
-    'CLAUDE.md no longer quotes the test command; keep package.json and the document together');
+    `package.json "test" is ${JSON.stringify(pkg.scripts?.test)}; AGENTS.md says \`npm test\` runs \`${documented}\``);
+  assert.ok(docs['AGENTS.md'].includes(`\`${documented}\``),
+    'AGENTS.md no longer quotes the test command; keep package.json and the document together');
   const otherRunners = Object.keys(pkg.scripts).filter((k) => k !== 'test' && /test/i.test(k));
-  assert.deepEqual(otherRunners, [], `CLAUDE.md says "No other runner"; package.json has: ${otherRunners.join(', ')}`);
+  assert.deepEqual(otherRunners, [], `AGENTS.md says "No other runner"; package.json has: ${otherRunners.join(', ')}`);
   for (const dep of ['jest', 'mocha', 'vitest', 'ava', 'tap']) {
     assert.ok(!(dep in (pkg.devDependencies ?? {})) && !(dep in (pkg.dependencies ?? {})),
-      `CLAUDE.md says "No other runner"; package.json depends on ${dep}`);
+      `AGENTS.md says "No other runner"; package.json depends on ${dep}`);
   }
 });
 
@@ -347,11 +347,11 @@ function walk(dir, out = []) {
 test('the only Python file is scripts/geo/advance_run.py and no workflow runs it', () => {
   const py = walk(repo).filter((f) => f.endsWith('.py')).sort();
   assert.deepEqual(py, ['scripts/geo/advance_run.py'],
-    'CLAUDE.md says advance_run.py is the single exception to "no Python"; found: ' + py.join(', '));
+    'AGENTS.md says advance_run.py is the single exception to "no Python"; found: ' + py.join(', '));
   for (const wf of readdirSync(join(repo, '.github/workflows'))) {
     const yml = read(join('.github/workflows', wf));
     assert.ok(!/\bpython3?\b|advance_run/.test(yml),
-      `.github/workflows/${wf} runs Python; CLAUDE.md says the advance script never runs in CI`);
+      `.github/workflows/${wf} runs Python; AGENTS.md says the advance script never runs in CI`);
   }
 });
 
@@ -360,18 +360,18 @@ test('there is no deployment workflow and no build step', () => {
   const deployers = /actions\/deploy-pages|actions\/upload-pages-artifact|peaceiris\/actions-gh-pages|github-pages-deploy-action/;
   for (const wf of workflows) {
     assert.ok(!deployers.test(read(join('.github/workflows', wf))),
-      `.github/workflows/${wf} deploys Pages; CLAUDE.md says merging to main is deploying and there is no deployment workflow`);
+      `.github/workflows/${wf} deploys Pages; AGENTS.md says merging to main is deploying and there is no deployment workflow`);
   }
   const pkg = JSON.parse(read('package.json'));
   const buildish = Object.keys(pkg.scripts).filter((k) => /^(build|bundle|compile|prepare)$/.test(k));
-  assert.deepEqual(buildish, [], `CLAUDE.md says there is no build step; package.json has: ${buildish.join(', ')}`);
+  assert.deepEqual(buildish, [], `AGENTS.md says there is no build step; package.json has: ${buildish.join(', ')}`);
 });
 
 // ---------------------------------------------------------------------------
-// 9. The CDN runtime claims in CLAUDE.md §1
+// 9. The CDN runtime claims in AGENTS.md §1
 // ---------------------------------------------------------------------------
 
-test('the React island loads what CLAUDE.md says it loads, scoped how it says', () => {
+test('the React island loads what AGENTS.md says it loads, scoped how it says', () => {
   const app = read('app.js');
   const claims = [
     [/function _loadScriptOnce\(/, 'defines _loadScriptOnce'],
@@ -384,7 +384,7 @@ test('the React island loads what CLAUDE.md says it loads, scoped how it says', 
     [/fetch\('beta\/approval-queue\.jsx/, 'fetches beta/approval-queue.jsx over a relative path'],
   ];
   for (const [re, what] of claims) {
-    matches(app, re, `CLAUDE.md says app.js ${what}; it no longer does`);
+    matches(app, re, `AGENTS.md says app.js ${what}; it no longer does`);
   }
   assert.ok(exists('beta/approval-queue.jsx'), 'beta/approval-queue.jsx is missing');
   matches(read('index.html'), /id="approval-queue-root"/, 'index.html has no #approval-queue-root mount point');
@@ -394,16 +394,16 @@ test('charting libraries come from CDN and datalabels is passed per chart, not r
   const html = read('index.html');
   const app = read('app.js');
   matches(html, /<script[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js[^"]*"/,
-    'CLAUDE.md says Chart.js loads from CDN; index.html no longer does');
+    'AGENTS.md says Chart.js loads from CDN; index.html no longer does');
   matches(html, /<script[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/chartjs-plugin-datalabels@2[^"]*"/,
-    'CLAUDE.md says chartjs-plugin-datalabels v2 loads from CDN; index.html no longer does');
+    'AGENTS.md says chartjs-plugin-datalabels v2 loads from CDN; index.html no longer does');
   const globalRegister = [...app.matchAll(/Chart\.register\(([^)]*)\)/g)].filter((m) => /ChartDataLabels/.test(m[1]));
   assert.deepEqual(globalRegister.map((m) => m[0]), [],
-    'CLAUDE.md says the datalabels plugin is not auto-registered, but app.js registers it globally');
+    'AGENTS.md says the datalabels plugin is not auto-registered, but app.js registers it globally');
   matches(app, /plugins:\s*\[[^\]]*ChartDataLabels/,
-    'CLAUDE.md says a chart that wants datalabels passes it in plugins:; no chart does');
-  matches(app, /d3js\.org\/d3\.v\d+/, 'CLAUDE.md says D3 loads from CDN; app.js no longer does');
-  matches(app, /topojson-client@/, 'CLAUDE.md says TopoJSON loads from CDN; app.js no longer does');
+    'AGENTS.md says a chart that wants datalabels passes it in plugins:; no chart does');
+  matches(app, /d3js\.org\/d3\.v\d+/, 'AGENTS.md says D3 loads from CDN; app.js no longer does');
+  matches(app, /topojson-client@/, 'AGENTS.md says TopoJSON loads from CDN; app.js no longer does');
 });
 
 // ---------------------------------------------------------------------------
