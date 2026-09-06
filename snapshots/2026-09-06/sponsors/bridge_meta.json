@@ -1,0 +1,24 @@
+{
+  "built_at": "2026-09-06T10:54:21.208740+00:00",
+  "source_extracted_at": "2026-09-06T10:50:30.897075+00:00",
+  "pipeline_commit": "5872104de08f8317ff430b2dd45f897dab96bcb5",
+  "rules_sha256": "3e13bc5926f6f8bc5025151c60ea7dc8f40a5f7b8d7a209026ba29472e70601c",
+  "module_version": "v3.1",
+  "aact_loader_commit": "b8c16d3395ba7e548d852bccf3b47a7ff22af5f5",
+  "aact_source_files": [
+    "app/models/sponsor.rb:3-21"
+  ],
+  "n_rows": 29383,
+  "n_companies": 95,
+  "n_trials": 27669,
+  "n_shared_rows": 0,
+  "bridge_bytes_gz": 259261,
+  "adapter_log": {
+    "n_records": 79977,
+    "n_rows_emitted": 127238,
+    "n_rows_dropped_empty_collaborator_name": 0,
+    "n_unknown_lead_names": 0,
+    "n_empty_lead_names": 0,
+    "novel_agency_classes": {}
+  }
+}
