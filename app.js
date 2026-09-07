@@ -7392,9 +7392,15 @@ function renderIndustryBenchmarkToggle() {
     });
 }
 const INDUSTRY_SUBTITLES = {
-    sex: 'Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).',
-    race: 'Racial composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the race-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).',
-    ethnicity: 'Ethnic composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the ethnicity-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).'
+    sex: 'Female share of enrollment, by sponsor and condition. Mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.',
+    race: 'Racial shares of explicitly reported participants, by sponsor and condition. Race-reporting interventional trials with primary completion in 2009 or later, not terminated.',
+    ethnicity: 'Ethnic shares of explicitly reported participants, by sponsor and condition. Ethnicity-reporting interventional trials with primary completion in 2009 or later, not terminated.'
+};
+
+const INDUSTRY_VIEW_QUESTIONS = {
+    heatmap: 'Is a sponsor’s typical {metric} share above or below the selected benchmark for the same condition?',
+    trend: 'Has each sponsor’s typical {metric} share moved over time?',
+    forest: 'Holding phase, size, year, countries and therapeutic area fixed, does a sponsor still differ from Other Industry?'
 };
 
 function industryCatIndex() {
@@ -7429,7 +7435,7 @@ function industryActive() {
 // Muted editorial line palette for the trend view (pink/blue stay reserved
 // for the deviation encodings, matching the source figures).
 const INDUSTRY_LINE_COLORS = [
-    '#1b4332', '#52b788', '#C26C8E', '#4A7BA6', '#8a6d3b',
+    '#1b4332', '#52b788', '#8a6d3b',
     '#5f5aa2', '#b56576', '#457b9d', '#6b705c', '#9d4edd'
 ];
 
@@ -7654,15 +7660,21 @@ function renderIndustryHeatmap(rows) {
         }
     });
 
-    let html = '<div class="industry-heatmap-wrap"><table class="industry-heatmap"><thead><tr><th></th>';
+    const metric = industryMetricLabel();
+    let html = `<div class="industry-legend">
+        <span><i aria-hidden="true" style="background:${industryDevColor(-15)}"></i>fewer ${escapeHtml(metric)} than benchmark</span>
+        <span><i aria-hidden="true" style="background:${industryDevColor(0)}"></i>at benchmark</span>
+        <span><i aria-hidden="true" style="background:${industryDevColor(15)}"></i>more ${escapeHtml(metric)} than benchmark</span>
+        <span><span class="industry-legend-thin">(n)</span> too few trials (n shown)</span>
+    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: condition categories with reporting trials in the current filter, most trials first. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
-        html += `<th title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
+        html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
     const { min: cellMin, max: cellMax } = industryCellRange();
     sponsors.forEach(sp => {
-        html += `<tr><th>${escapeHtml(sp)}</th>`;
+        html += `<tr><th scope="row">${escapeHtml(sp)}</th>`;
         conditions.forEach(c => {
             const vals = byCond[c].bySponsor[sp] || [];
             const base = industryMedian(byCond[c].all);
@@ -7680,25 +7692,15 @@ function renderIndustryHeatmap(rows) {
         html += '</tr>';
     });
     html += '</tbody></table></div>';
-    const metric = industryMetricLabel();
     const benchDesc = industryBenchmark === 'parity' ? 'a 50% parity benchmark'
         : industryBenchmark === 'census' ? `the category's 2020 U.S. Census population share (${industryBenchmarkFor(null)}%)`
         : "the condition's pooled median across all industry trials in the current filter";
-    const prevNote = industryDemo === 'sex' ? ''
-        : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration.`;
-    const condNote = industryDemo === 'sex' && !industrySexSpecific
-        ? "Columns are every named condition category with reporting trials in the current filter, ordered by trial count (sex-specific categories excluded; toggle above to include them)."
-        : "Columns are every named condition category with reporting trials in the current filter, ordered by trial count, including sex-specific ones.";
-    const catColor = industryCatColor();
-    const encNote = catColor
-        ? `cells use the category's color from the site-wide ${industryDemo} palette, <span style="color:${catColor}">richer</span> above the benchmark and fading to <span style="color:${INDUSTRY_GREY}">grey</span> below it`
-        : `<span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below`;
     const rangeDesc = cellMax === Infinity
         ? `fewer than ${cellMin} trials`
         : `a trial count outside ${cellMin}&ndash;${cellMax}`;
     const smallNote = cellMin < (d.min_cell || 10)
         ? ` (medians over so few trials are volatile &mdash; the default floor is ${d.min_cell})` : '';
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; ${encNote}, clamped at &plusmn;15. Cells with ${rangeDesc} show their n in grey${smallNote}. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points, clamped at &plusmn;15. Cells with ${rangeDesc} show their n uncoloured${smallNote}.</p>`;
     host.innerHTML = html;
 }
 
@@ -7725,8 +7727,14 @@ function renderIndustryTrend(rows) {
         }
     });
 
+    const tokens = getComputedStyle(document.documentElement);
+    const secondaryColor = tokens.getPropertyValue('--text-secondary').trim();
+    const borderColor = tokens.getPropertyValue('--border-color').trim();
+    const labelSize = parseFloat(tokens.getPropertyValue('--fs-label')) * parseFloat(tokens.fontSize);
+    const pointStyles = ['circle', 'triangle', 'rect', 'rectRot', 'cross', 'star', 'crossRot', 'dash', 'line', 'rectRounded'];
+    const lastIndexWithValue = dataset => dataset.data.findLastIndex(value => value !== null);
     const datasets = sponsors.map((sp, i) => {
-        const color = sp === 'Other Industry' ? '#8d99ae'
+        const color = sp === 'Other Industry' ? secondaryColor
             : INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length];
         return {
             label: sp,
@@ -7735,7 +7743,8 @@ function renderIndustryTrend(rows) {
                 return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
             }),
             borderColor: color, backgroundColor: color,
-            spanGaps: false, tension: 0.25, pointRadius: 2, borderWidth: 2
+            spanGaps: false, tension: 0.25, pointRadius: 3, borderWidth: 2,
+            pointStyle: pointStyles[i % pointStyles.length]
         };
     });
     datasets.push({
@@ -7744,12 +7753,12 @@ function renderIndustryTrend(rows) {
             const v = pooled[y] || [];
             return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
         }),
-        borderColor: '#9aa5a0', backgroundColor: '#9aa5a0',
+        borderColor: secondaryColor, backgroundColor: secondaryColor,
         borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, tension: 0.25, spanGaps: false
     });
     if (industryBenchmark === 'census') {
         const cv = industryBenchmarkFor(null);
-        const censusColor = industryCatColor() || '#b9a56b';
+        const censusColor = industryCatColor() || secondaryColor;
         if (typeof cv === 'number') datasets.push({
             label: `Census share (${cv}%)`,
             data: years.map(() => cv),
@@ -7761,7 +7770,7 @@ function renderIndustryTrend(rows) {
         datasets.push({
             label: '50% parity',
             data: years.map(() => 50),
-            borderColor: '#c9c9c9', backgroundColor: '#c9c9c9',
+            borderColor, backgroundColor: borderColor,
             borderDash: [2, 4], pointRadius: 0, borderWidth: 1, order: 99
         });
     }
@@ -7777,14 +7786,22 @@ function renderIndustryTrend(rows) {
     if (industryChart) industryChart.destroy();
     industryChart = new Chart(canvas, {
         type: 'line',
+        plugins: [ChartDataLabels],
         data: { labels: years, datasets },
         options: {
             responsive: true, maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO || 2,
+            layout: { padding: { right: isMobileDevice ? 0 : 160 } },
             plugins: {
-                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
+                legend: { display: isMobileDevice, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
-                datalabels: { display: false }
+                datalabels: {
+                    display: ctx => !isMobileDevice && ctx.dataIndex === lastIndexWithValue(ctx.dataset),
+                    align: 'right', anchor: 'end',
+                    formatter: (_value, ctx) => ctx.dataset.label,
+                    font: { size: labelSize, family: tokens.getPropertyValue('--font-mono').trim() },
+                    color: ctx => ctx.dataset.borderColor
+                }
             },
             scales: {
                 y: industryDemo === 'sex'
@@ -7870,14 +7887,15 @@ function renderIndustryForest() {
 
 function renderIndustry() {
     if (!industryData) return;
+    const question = document.getElementById('industry-view-question');
+    if (question) question.textContent = INDUSTRY_VIEW_QUESTIONS[industryView].replace('{metric}', industryMetricLabel());
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
     if (meta) {
         const ord = industrySelectedOrdered();
         const trunc = ord.total > ord.list.length
             ? ` · sponsors ${ord.start + 1}–${ord.start + ord.list.length} of ${ord.total.toLocaleString()} (by volume)` : '';
-        const demoBit = industryDemo === 'sex' ? 'sex' : `${industryDemo}: ${industryMetricLabel()}`;
-        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${demoBit} · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
+        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter${trunc}`;
     }
     renderIndustryPager();
     updateIndustryShareUrl();
@@ -7996,7 +8014,6 @@ async function openIndustryView() {
 // Shared by both entries. Assumes the gate has passed and #industry is the
 // active section; fetches the dataset once, then renders.
 async function loadIndustryView() {
-    updateIndustryShareUrl();   // #industry in the bar even if the fetch below fails
     if (!industryData) {
         try {
             const resp = await fetch(`data/industry_sponsors.json?v=${DATA_CACHE_VERSION}`);
@@ -8008,7 +8025,9 @@ async function loadIndustryView() {
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
+            updateIndustryShareUrl();
         } catch (e) {
+            updateIndustryShareUrl();   // #industry in the bar even if the fetch fails
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by the civicsample-engine pipeline during the weekly extraction.</p>`;
             return;

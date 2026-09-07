@@ -17,6 +17,15 @@ const read = (p) => readFileSync(join(repo, p), 'utf8');
 const html = read('index.html');
 const app = read('app.js');
 
+test('the first Industry load restores shared parameters before rewriting the URL', () => {
+  const loader = app.match(/async function loadIndustryView\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(loader, 'loadIndustryView() is missing');
+  const apply = loader.indexOf('applyIndustryShareParams()');
+  const update = loader.indexOf('updateIndustryShareUrl()');
+  assert.ok(apply >= 0 && update > apply, 'shared parameters must be read before the hash is rewritten');
+  assert.match(loader, /catch \(e\) \{\s*updateIndustryShareUrl\(\)/);
+});
+
 // The <details id="nav-tools"> block, from its opening tag to its closing tag.
 function toolsGroup() {
   const m = html.match(/<details class="nav-group" id="nav-tools">[\s\S]*?<\/details>/);
@@ -61,4 +70,18 @@ test('both entries reach the same gate and the same loader', () => {
   assert.match(app, /const BETA_PASSWORD = '[^']+';/, 'BETA_PASSWORD constant is gone');
   assert.match(app, /validator: \(pw\) => pw === BETA_PASSWORD/,
     'promptForBetaAccess() no longer validates against BETA_PASSWORD');
+});
+
+
+test('Industry trend uses point shapes and keeps deviation hues out of its line palette', () => {
+  const trend = app.match(/function renderIndustryTrend\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(trend);
+  assert.match(trend, /pointStyle:/);
+  assert.match(trend, /plugins: \[ChartDataLabels\]/);
+  const palette = app.match(/const INDUSTRY_LINE_COLORS = \[[\s\S]*?\];/)?.[0];
+  assert.ok(palette);
+  for (const name of ['INDUSTRY_PINK', 'INDUSTRY_BLUE']) {
+    const hex = app.match(new RegExp('const ' + name + " = '([^']+)'"))[1];
+    assert.ok(!palette.toLowerCase().includes(hex.toLowerCase()), name + ' belongs to deviations');
+  }
 });
