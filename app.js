@@ -7684,7 +7684,7 @@ function renderIndustryHeatmap(rows) {
         <span><i aria-hidden="true" style="background:${industryDevColor(0)}"></i>at benchmark</span>
         <span><i aria-hidden="true" style="background:${industryDevColor(15)}"></i>more ${escapeHtml(metric)} than benchmark</span>
         <span><span class="industry-legend-thin">(n)</span> ${rangeDesc} (n shown)</span>
-    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: condition categories with reporting trials in the current filter, most trials first. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
+    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: ${conditions.length.toLocaleString()} condition ${conditions.length === 1 ? 'category' : 'categories'} with reporting trials in the current filter, most trials first; the table scrolls sideways for the rest. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
         html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;

@@ -178,3 +178,17 @@ test('the benchmark toggle offers two live options and no disabled placeholder',
   assert.ok(buttons.every(b => /data-ibench=/.test(b)), 'a benchmark button has no data-ibench, so clicking it selects nothing');
   assert.ok(!buttons.some(b => /\bdisabled\b/.test(b)), 'a disabled benchmark button is back; a control that can never act is filler');
 });
+
+// On the full cohort the heatmap has about 127 condition columns and a
+// 1400px screen shows twelve, so the caption has to say how many there are
+// and that the table scrolls, or the twelfth column reads as the last. The
+// count is the number of columns rendered, not a statistic about trials.
+test('the heatmap caption states its column count and that the table scrolls', () => {
+  const fn = app.match(/function renderIndustryHeatmap\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'renderIndustryHeatmap() is gone');
+  const caption = fn.match(/<caption class="industry-heatmap-caption">([\s\S]*?)<\/caption>/)?.[1];
+  assert.ok(caption, 'the heatmap has no caption');
+  assert.match(caption, /\$\{conditions\.length\.toLocaleString\(\)\}/,
+    'the caption no longer states how many condition columns there are');
+  assert.match(caption, /scrolls sideways/, 'the caption no longer says the table scrolls');
+});
