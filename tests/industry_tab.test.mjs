@@ -77,11 +77,39 @@ test('Industry trend uses point shapes and keeps deviation hues out of its line 
   const trend = app.match(/function renderIndustryTrend\(rows\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(trend);
   assert.match(trend, /pointStyle:/);
-  assert.match(trend, /plugins: \[ChartDataLabels\]/);
+  assert.match(trend, /plugins: \[industryTrendEndLabels\]/,
+    'the trend chart no longer registers the end-label plugin, so its lines lose their names');
   const palette = app.match(/const INDUSTRY_LINE_COLORS = \[[\s\S]*?\];/)?.[0];
   assert.ok(palette);
   for (const name of ['INDUSTRY_PINK', 'INDUSTRY_BLUE']) {
     const hex = app.match(new RegExp('const ' + name + " = '([^']+)'"))[1];
     assert.ok(!palette.toLowerCase().includes(hex.toLowerCase()), name + ' belongs to deviations');
+  }
+});
+
+// The end labels replaced a right-hand legend, so they have to stay readable
+// where sponsor medians converge. The plugin's job is that separation; these
+// check the two guards that keep it honest, since neither is visible from a
+// screenshot of the default ten-sponsor page.
+test('Industry trend end labels are pushed apart and give up rather than overlap', () => {
+  const plugin = app.match(/const industryTrendEndLabels = \{[\s\S]*?\n\};/)?.[0];
+  assert.ok(plugin, 'the trend end-label plugin is gone');
+  assert.match(plugin, /INDUSTRY_ENDLABEL_GAP/,
+    'labels are drawn without enforcing a minimum spacing, so converging lines overstrike');
+  assert.match(plugin, /items\.length \* INDUSTRY_ENDLABEL_GAP > room/,
+    'the plugin no longer bails when the labels cannot fit, so a long sponsor page smears them together');
+  // Reference lines are named in the footnote; labelling them too is what put
+  // "All industry (pooled)" on top of "50% parity".
+  assert.match(plugin, /if \(!ds\.industryEndLabel\) return;/,
+    'every dataset gets an end label again, including the pooled and parity reference lines');
+  const trend = app.match(/function renderIndustryTrend\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  const sponsorBlock = trend.match(/const datasets = sponsors\.map\([\s\S]*?\n    \}\);/)?.[0];
+  assert.ok(sponsorBlock, 'the sponsor dataset block moved; check it still opts into end labels');
+  assert.match(sponsorBlock, /industryEndLabel: true/, 'sponsor lines no longer opt into end labels');
+  for (const ref of ['All industry (pooled)', 'Census share', '50% parity']) {
+    const idx = trend.indexOf(ref);
+    assert.ok(idx > 0, `the ${ref} dataset is gone`);
+    const block = trend.slice(idx, idx + 400);
+    assert.ok(!/industryEndLabel/.test(block), `${ref} opted into an end label; it belongs in the footnote`);
   }
 });

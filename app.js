@@ -7718,6 +7718,89 @@ function renderIndustryHeatmap(rows) {
     host.innerHTML = html;
 }
 
+// Trims a label to the room available, with an ellipsis, so a long sponsor
+// name cannot run off the right edge of the canvas.
+function industryFitText(ctx, text, room) {
+    if (ctx.measureText(text).width <= room) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > room) t = t.slice(0, -1);
+    return t + '…';
+}
+
+// End-of-line sponsor names for the trend chart, so the reader does not have
+// to match a line against a legend. Drawn here rather than with
+// chartjs-plugin-datalabels because that plugin places each label
+// independently: ten sponsor medians converge tightly around 40-50% female,
+// so labels at their raw positions overstrike each other and several names
+// become unreadable. This walks them in y order, pushes them apart to a
+// minimum spacing, and draws a leader line back to the point wherever a label
+// had to move. Only series that opt in with industryEndLabel get one; the
+// pooled, census and parity reference lines are named in the footnote.
+const INDUSTRY_ENDLABEL_GAP = 14;    // px between stacked label centres
+const INDUSTRY_ENDLABEL_PAD = 160;   // px reserved right of the plot for them
+
+const industryTrendEndLabels = {
+    id: 'industryTrendEndLabels',
+    afterDatasetsDraw(chart, _args, opts) {
+        if (!opts || !opts.enabled) return;
+        const { ctx, chartArea } = chart;
+        const items = [];
+        chart.data.datasets.forEach((ds, i) => {
+            if (!ds.industryEndLabel) return;
+            const meta = chart.getDatasetMeta(i);
+            if (meta.hidden) return;
+            let last = -1;
+            for (let j = ds.data.length - 1; j >= 0; j--) {
+                if (ds.data[j] !== null && ds.data[j] !== undefined) { last = j; break; }
+            }
+            const pt = last >= 0 ? meta.data[last] : null;
+            if (!pt) return;
+            items.push({ text: ds.label, color: ds.borderColor, px: pt.x, py: pt.y, y: pt.y });
+        });
+        // No room to stack them without overlapping is a reason to draw none,
+        // never a reason to draw them on top of each other.
+        const room = chartArea.bottom - chartArea.top;
+        if (!items.length || items.length * INDUSTRY_ENDLABEL_GAP > room) return;
+
+        items.sort((a, b) => a.py - b.py);
+        for (let i = 1; i < items.length; i++) {
+            if (items[i].y - items[i - 1].y < INDUSTRY_ENDLABEL_GAP) {
+                items[i].y = items[i - 1].y + INDUSTRY_ENDLABEL_GAP;
+            }
+        }
+        const overrun = items[items.length - 1].y - chartArea.bottom;
+        if (overrun > 0) {
+            items[items.length - 1].y -= overrun;
+            for (let i = items.length - 2; i >= 0; i--) {
+                if (items[i + 1].y - items[i].y < INDUSTRY_ENDLABEL_GAP) {
+                    items[i].y = items[i + 1].y - INDUSTRY_ENDLABEL_GAP;
+                }
+            }
+        }
+
+        const x = chartArea.right + 10;
+        const width = chart.width - x - 4;
+        ctx.save();
+        if (opts.font) ctx.font = opts.font;
+        ctx.textBaseline = 'middle';
+        items.forEach(it => {
+            if (Math.abs(it.y - it.py) > 1) {
+                ctx.strokeStyle = it.color;
+                ctx.globalAlpha = 0.4;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(it.px + 3, it.py);
+                ctx.lineTo(x - 4, it.y);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+            ctx.fillStyle = it.color;
+            ctx.fillText(industryFitText(ctx, it.text, width), x, it.y);
+        });
+        ctx.restore();
+    }
+};
+
 function renderIndustryTrend(rows) {
     const d = industryData;
     const canvas = document.getElementById('industry-trend-canvas');
@@ -7746,7 +7829,10 @@ function renderIndustryTrend(rows) {
     const borderColor = tokens.getPropertyValue('--border-color').trim();
     const labelSize = parseFloat(tokens.getPropertyValue('--fs-label')) * parseFloat(tokens.fontSize);
     const pointStyles = ['circle', 'triangle', 'rect', 'rectRot', 'cross', 'star', 'crossRot', 'dash', 'line', 'rectRounded'];
-    const lastIndexWithValue = dataset => dataset.data.findLastIndex(value => value !== null);
+    // End labels stand in for the legend only while they fit down the side of
+    // the plot. A 50-sponsor page would not, so above the threshold the legend
+    // comes back and the reserved right margin goes to it instead.
+    const useEndLabels = !isMobileDevice && sponsors.length <= 20;
     const datasets = sponsors.map((sp, i) => {
         const color = sp === 'Other Industry' ? secondaryColor
             : INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length];
@@ -7758,7 +7844,8 @@ function renderIndustryTrend(rows) {
             }),
             borderColor: color, backgroundColor: color,
             spanGaps: false, tension: 0.25, pointRadius: 3, borderWidth: 2,
-            pointStyle: pointStyles[i % pointStyles.length]
+            pointStyle: pointStyles[i % pointStyles.length],
+            industryEndLabel: true
         };
     });
     datasets.push({
@@ -7800,22 +7887,20 @@ function renderIndustryTrend(rows) {
     if (industryChart) industryChart.destroy();
     industryChart = new Chart(canvas, {
         type: 'line',
-        plugins: [ChartDataLabels],
+        plugins: [industryTrendEndLabels],
         data: { labels: years, datasets },
         options: {
             responsive: true, maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO || 2,
-            layout: { padding: { right: isMobileDevice ? 0 : 160 } },
+            layout: { padding: { right: useEndLabels ? INDUSTRY_ENDLABEL_PAD : 0 } },
             plugins: {
-                legend: { display: isMobileDevice, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
+                industryTrendEndLabels: {
+                    enabled: useEndLabels,
+                    font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`
+                },
+                legend: { display: !useEndLabels, position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
-                datalabels: {
-                    display: ctx => !isMobileDevice && ctx.dataIndex === lastIndexWithValue(ctx.dataset),
-                    align: 'right', anchor: 'end',
-                    formatter: (_value, ctx) => ctx.dataset.label,
-                    font: { size: labelSize, family: tokens.getPropertyValue('--font-mono').trim() },
-                    color: ctx => ctx.dataset.borderColor
-                }
+                datalabels: { display: false }
             },
             scales: {
                 y: industryDemo === 'sex'

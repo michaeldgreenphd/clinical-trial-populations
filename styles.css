@@ -4400,8 +4400,14 @@ footer p {
 }
 
 .industry-cellrange input:focus {
-    outline: none;
     background: var(--tint);
+}
+
+/* The tint alone is nearly invisible against the card, so keyboard focus
+   keeps a real ring here like every other control on the page. */
+.industry-cellrange input:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 1px;
 }
 
 .industry-cellrange input::-webkit-outer-spin-button,
