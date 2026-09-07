@@ -4535,6 +4535,13 @@ footer p {
 }
 
 /* — Industry: demographic tier, role/scope toggles, footnote, FAQ — */
+/* Tier 1 of the Industry hero: the purpose line between the title and the
+   demographic tier. Reuses Overview's finding classes for type; this rule
+   only sets the gap so the mono context line does not sit on the tier. */
+.industry-claim {
+    margin: 0.25rem 0 1.1rem;
+}
+
 .industry-demo-nav {
     display: flex;
     gap: 0.5rem;

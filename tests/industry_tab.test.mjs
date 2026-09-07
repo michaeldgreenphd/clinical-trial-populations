@@ -150,3 +150,18 @@ test('the heatmap legend describes uncoloured cells by the trials-per-cell windo
   assert.match(heat, /industry-legend-thin">\(n\)<\/span> \$\{rangeDesc\} \(n shown\)/,
     'the legend calls every uncoloured cell "too few trials", which is backwards for cells above a user-set maximum');
 });
+
+// The tab opens with a statement of purpose, in the Overview finding's voice,
+// before the reader meets a control. It is static copy: it asserts no number,
+// so it must never grow one, and it has to come before the demographic tier
+// or it stops being the first thing read.
+test('the Industry tab states its purpose before its first control', () => {
+  const hero = html.match(/<section id="industry"[\s\S]*?<div class="panel-hero">([\s\S]*?)<\/div>\s*<div class="industry-controls">/);
+  assert.ok(hero, 'the Industry hero block is gone or no longer precedes the controls');
+  const claim = hero[1].indexOf('class="finding-headline"');
+  const tier = hero[1].indexOf('class="industry-demo-nav"');
+  assert.ok(claim >= 0, 'the hero has no finding-headline purpose line');
+  assert.ok(tier > claim, 'the purpose line has to come before the Sex/Race/Ethnicity tier');
+  const headline = hero[1].match(/<p class="finding-headline">([^<]*)<\/p>/)[1];
+  assert.ok(!/\d/.test(headline), `the purpose line carries a number ("${headline}") — a number there is a finding, which the engine must ship`);
+});

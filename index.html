@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260906j">
+    <link rel="stylesheet" href="styles.css?v=20260907">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -952,6 +952,13 @@
             <div class="chart-container">
                 <div class="panel-hero">
                     <h3>Industry Sponsors</h3>
+                    <!-- Tier 1: what the tab is for, stated before any control.
+                         Static copy in the Overview finding's voice; it asserts
+                         no number, so it needs nothing from the dataset. -->
+                    <div class="industry-claim">
+                        <p class="finding-headline">The largest industry sponsors, compared on who they enroll.</p>
+                        <p class="finding-context">by condition &middot; over time &middot; adjusted for trial mix</p>
+                    </div>
                     <nav class="industry-demo-nav" aria-label="Demographic characteristic">
                         <button type="button" class="industry-demo-tab active" data-idemo="sex">Sex</button>
                         <button type="button" class="industry-demo-tab" data-idemo="race">Race</button>
