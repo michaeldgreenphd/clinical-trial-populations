@@ -7379,10 +7379,13 @@ function renderIndustryBenchmarkToggle() {
         ? { key: 'parity', label: '50% Parity' }
         : { key: 'census', label: 'Census Share' };
     if (industryBenchmark !== 'cohort' && industryBenchmark !== alt.key) industryBenchmark = 'cohort';
+    // No Disease Prevalence option: the dataset ships prevalence_benchmarks
+    // with status "pending" and null tables, so the control could never do
+    // anything. Re-add it behind a check on that status once the engine
+    // publishes the per-condition breakdowns; the FAQ says it is coming.
     box.innerHTML = `
         <button type="button" class="view-btn ${industryBenchmark === 'cohort' ? 'active' : ''}" data-ibench="cohort">Cohort Baseline</button>
-        <button type="button" class="view-btn ${industryBenchmark === alt.key ? 'active' : ''}" data-ibench="${alt.key}">${alt.label}</button>
-        <button type="button" class="view-btn" disabled title="Disease-prevalence benchmarks are pending integration">Disease Prevalence</button>`;
+        <button type="button" class="view-btn ${industryBenchmark === alt.key ? 'active' : ''}" data-ibench="${alt.key}">${alt.label}</button>`;
     box.querySelectorAll('.view-btn[data-ibench]').forEach(btn => {
         btn.addEventListener('click', () => {
             industryBenchmark = btn.dataset.ibench;
@@ -7392,9 +7395,15 @@ function renderIndustryBenchmarkToggle() {
     });
 }
 const INDUSTRY_SUBTITLES = {
-    sex: 'Female enrollment share across the top-10 industry sponsors, over the mixed-sex, sex-reporting interventional cohort (primary completion 2009 or later, not terminated).',
-    race: 'Racial composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the race-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).',
-    ethnicity: 'Ethnic composition of enrollment across the top-10 industry sponsors \u2014 each category\u2019s share of explicitly reported participants, over the ethnicity-reporting trials of the industry cohort (primary completion 2009 or later, not terminated).'
+    sex: 'Percent female is female / (female + male) within each trial, with explicitly reported Unknown counts excluded; shown by sponsor and condition over the mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.',
+    race: 'Racial shares of explicitly reported participants, by sponsor and condition. Race-reporting interventional trials with primary completion in 2009 or later, not terminated.',
+    ethnicity: 'Ethnic shares of explicitly reported participants, by sponsor and condition. Ethnicity-reporting interventional trials with primary completion in 2009 or later, not terminated.'
+};
+
+const INDUSTRY_VIEW_QUESTIONS = {
+    heatmap: 'Is a sponsor’s typical {metric} share above or below the selected benchmark for the same condition?',
+    trend: 'Has each sponsor’s typical {metric} share moved over time?',
+    forest: 'Holding phase, size, year, countries and therapeutic area fixed, does a sponsor still differ from Other Industry?'
 };
 
 function industryCatIndex() {
@@ -7429,7 +7438,7 @@ function industryActive() {
 // Muted editorial line palette for the trend view (pink/blue stay reserved
 // for the deviation encodings, matching the source figures).
 const INDUSTRY_LINE_COLORS = [
-    '#1b4332', '#52b788', '#C26C8E', '#4A7BA6', '#8a6d3b',
+    '#1b4332', '#52b788', '#8a6d3b',
     '#5f5aa2', '#b56576', '#457b9d', '#6b705c', '#9d4edd'
 ];
 
@@ -7535,10 +7544,21 @@ function renderIndustrySponsorMenu() {
     const listed = industryMenuCompanies();
     const nFor = i => (Array.isArray(d.company_n) && d.company_n[i] != null)
         ? `<span class="industry-sponsor-n">n=${d.company_n[i].toLocaleString()}</span>` : '';
+    // Header row naming the two columns, so the bare n= badge says what it
+    // counts. Only when the dataset actually carries company_n; the older
+    // cached format has no counts to label. It sits outside
+    // .industry-sponsor-list and carries its own class, so the type-to-filter
+    // handler below (which hides .industry-sponsor-option rows) leaves it be.
+    // The hidden checkbox is a spacer: it takes exactly the box a row's
+    // checkbox takes in this browser, so "Sponsor" sits over the names.
+    const listHead = Array.isArray(d.company_n)
+        ? '<div class="industry-sponsor-listhead"><input type="checkbox" class="industry-sponsor-listhead-spacer" disabled tabindex="-1" aria-hidden="true"><span class="industry-sponsor-name">Sponsor</span><span>Trials in cohort</span></div>'
+        : '';
     // The companies list is already volume-ranked descending, so index order
     // is display order. The type-to-filter box matters on the All scope,
     // where the list runs to thousands of sponsors.
     box.innerHTML = `<input type="text" class="industry-sponsor-search" id="industry-sponsor-search" placeholder="Filter sponsors…" autocomplete="off">
+        ${listHead}
         <div class="industry-sponsor-list">` + listed.map((sp, i) => `
         <label class="industry-sponsor-option">
             <input type="checkbox" value="${escapeHtml(sp)}" ${industrySelected.has(sp) ? 'checked' : ''}>
@@ -7554,7 +7574,7 @@ function renderIndustrySponsorMenu() {
             row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });
-    box.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    box.querySelectorAll('.industry-sponsor-option input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
             if (cb.checked) industrySelected.add(cb.value); else industrySelected.delete(cb.value);
             updateIndustrySummaryLabel(summary);
@@ -7654,15 +7674,24 @@ function renderIndustryHeatmap(rows) {
         }
     });
 
-    let html = '<div class="industry-heatmap-wrap"><table class="industry-heatmap"><thead><tr><th></th>';
+    const metric = industryMetricLabel();
+    const { min: cellMin, max: cellMax } = industryCellRange();
+    // An uncoloured cell is outside the trials-per-cell window at either end,
+    // so the legend names the window rather than calling every one "too few".
+    const rangeDesc = cellMax === Infinity ? `fewer than ${cellMin} trials` : `a trial count outside ${cellMin}&ndash;${cellMax}`;
+    let html = `<div class="industry-legend">
+        <span><i aria-hidden="true" style="background:${industryDevColor(-15)}"></i>fewer ${escapeHtml(metric)} than benchmark</span>
+        <span><i aria-hidden="true" style="background:${industryDevColor(0)}"></i>at benchmark</span>
+        <span><i aria-hidden="true" style="background:${industryDevColor(15)}"></i>more ${escapeHtml(metric)} than benchmark</span>
+        <span><span class="industry-legend-thin">(n)</span> ${rangeDesc} (n shown)</span>
+    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: condition categories with reporting trials in the current filter, most trials first. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
-        html += `<th title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
+        html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
-    const { min: cellMin, max: cellMax } = industryCellRange();
     sponsors.forEach(sp => {
-        html += `<tr><th>${escapeHtml(sp)}</th>`;
+        html += `<tr><th scope="row">${escapeHtml(sp)}</th>`;
         conditions.forEach(c => {
             const vals = byCond[c].bySponsor[sp] || [];
             const base = industryMedian(byCond[c].all);
@@ -7680,27 +7709,139 @@ function renderIndustryHeatmap(rows) {
         html += '</tr>';
     });
     html += '</tbody></table></div>';
-    const metric = industryMetricLabel();
     const benchDesc = industryBenchmark === 'parity' ? 'a 50% parity benchmark'
         : industryBenchmark === 'census' ? `the category's 2020 U.S. Census population share (${industryBenchmarkFor(null)}%)`
         : "the condition's pooled median across all industry trials in the current filter";
-    const prevNote = industryDemo === 'sex' ? ''
-        : ` Population disease-prevalence benchmarks by ${industryDemo} are held as placeholders pending integration.`;
-    const condNote = industryDemo === 'sex' && !industrySexSpecific
-        ? "Columns are every named condition category with reporting trials in the current filter, ordered by trial count (sex-specific categories excluded; toggle above to include them)."
-        : "Columns are every named condition category with reporting trials in the current filter, ordered by trial count, including sex-specific ones.";
-    const catColor = industryCatColor();
-    const encNote = catColor
-        ? `cells use the category's color from the site-wide ${industryDemo} palette, <span style="color:${catColor}">richer</span> above the benchmark and fading to <span style="color:${INDUSTRY_GREY}">grey</span> below it`
-        : `<span style="color:${INDUSTRY_PINK}">pink</span> above the benchmark, <span style="color:${INDUSTRY_BLUE}">blue</span> below`;
-    const rangeDesc = cellMax === Infinity
-        ? `fewer than ${cellMin} trials`
-        : `a trial count outside ${cellMin}&ndash;${cellMax}`;
     const smallNote = cellMin < (d.min_cell || 10)
         ? ` (medians over so few trials are volatile &mdash; the default floor is ${d.min_cell})` : '';
-    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points &mdash; ${encNote}, clamped at &plusmn;15. Cells with ${rangeDesc} show their n in grey${smallNote}. ${condNote}${prevNote} Descriptive; the Adjusted Differences view is the inferential version.</p>`;
+    html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points, clamped at &plusmn;15. Cells with ${rangeDesc} show their n uncoloured${smallNote}.</p>`;
     host.innerHTML = html;
 }
+
+// Trims a label to the room available, with an ellipsis, so a long sponsor
+// name cannot run off the right edge of the canvas.
+function industryFitText(ctx, text, room) {
+    if (ctx.measureText(text).width <= room) return text;
+    let t = text;
+    while (t.length > 1 && ctx.measureText(t + '…').width > room) t = t.slice(0, -1);
+    return t + '…';
+}
+
+// End-of-line sponsor names for the trend chart, so the reader does not have
+// to match a line against a legend. Drawn here rather than with
+// chartjs-plugin-datalabels because that plugin places each label
+// independently: ten sponsor medians converge tightly around 40-50% female,
+// so labels at their raw positions overstrike each other and several names
+// become unreadable. This walks them in y order, pushes them apart to a
+// minimum spacing, and draws a leader line back to the point wherever a label
+// had to move. Only series that opt in with industryEndLabel get one; the
+// pooled, census and parity reference lines are named in the footnote.
+const INDUSTRY_ENDLABEL_GAP = 14;    // px between stacked label centres
+const INDUSTRY_ENDLABEL_PAD = 160;   // px reserved right of the plot for them
+const INDUSTRY_ENDLABEL_OVERHEAD = 90; // px of axis and title under the plot, until the first layout has measured it
+
+const industryTrendEndLabels = {
+    id: 'industryTrendEndLabels',
+    // Decides from the room the chart actually has whether the names fit down
+    // its side. isMobileDevice is fixed at load, so a desktop window narrowed
+    // afterwards would otherwise keep the legend hidden while the labels no
+    // longer fit, leaving the lines unnamed. When they do not fit, the legend
+    // comes back and the reserved margin goes with it.
+    beforeLayout(chart, _args, opts) {
+        if (!opts || !opts.enabled) return;
+        const n = chart.data.datasets.filter(ds => ds.industryEndLabel).length;
+        // The vertical overhead (axis labels, title) as the previous layout
+        // measured it at its own size. Taking the new height minus the old
+        // plot height instead would understate the room after growing back
+        // and keep the legend on for good.
+        const overhead = chart.$industryOverhead ?? INDUSTRY_ENDLABEL_OVERHEAD;
+        const fits = n * INDUSTRY_ENDLABEL_GAP <= chart.height - overhead;
+        chart.options.plugins.legend.display = !fits;
+        chart.options.layout.padding = { right: fits ? INDUSTRY_ENDLABEL_PAD : 0 };
+    },
+    afterLayout(chart, _args, opts) {
+        if (!opts || !opts.enabled || !chart.chartArea) return;
+        chart.$industryOverhead = chart.height - (chart.chartArea.bottom - chart.chartArea.top);
+    },
+    afterDatasetsDraw(chart, _args, opts) {
+        if (!opts || !opts.enabled) return;
+        const { ctx, chartArea } = chart;
+        const items = [];
+        chart.data.datasets.forEach((ds, i) => {
+            if (!ds.industryEndLabel) return;
+            const meta = chart.getDatasetMeta(i);
+            if (meta.hidden) return;
+            let last = -1;
+            for (let j = ds.data.length - 1; j >= 0; j--) {
+                if (ds.data[j] !== null && ds.data[j] !== undefined) { last = j; break; }
+            }
+            const pt = last >= 0 ? meta.data[last] : null;
+            if (!pt) return;
+            items.push({ text: ds.label, color: ds.borderColor, px: pt.x, py: pt.y, y: pt.y });
+        });
+        // No room to stack them without overlapping is a reason to draw none,
+        // never a reason to draw them on top of each other. If the legend is
+        // hidden too, one deferred update lets beforeLayout, now with a
+        // measured plot area, bring it back; once per chart, so it cannot loop.
+        const room = chartArea.bottom - chartArea.top;
+        if (!items.length || items.length * INDUSTRY_ENDLABEL_GAP > room) {
+            if (items.length && !chart.options.plugins.legend.display && !chart.$industryRelayout) {
+                chart.$industryRelayout = true;
+                requestAnimationFrame(() => { if (chart.canvas) chart.update('none'); });
+            }
+            return;
+        }
+
+        // A value outside the fixed axis range (a Sex-tier median above 80%,
+        // say) is placed outside the plot, and the spacing below only handles
+        // overrun at the bottom. Every label starts inside the plot; its
+        // leader line still points at where the value actually sits.
+        items.forEach(it => { it.y = Math.min(Math.max(it.y, chartArea.top), chartArea.bottom); });
+        items.sort((a, b) => a.py - b.py);
+        for (let i = 1; i < items.length; i++) {
+            if (items[i].y - items[i - 1].y < INDUSTRY_ENDLABEL_GAP) {
+                items[i].y = items[i - 1].y + INDUSTRY_ENDLABEL_GAP;
+            }
+        }
+        const overrun = items[items.length - 1].y - chartArea.bottom;
+        if (overrun > 0) {
+            items[items.length - 1].y -= overrun;
+            for (let i = items.length - 2; i >= 0; i--) {
+                if (items[i + 1].y - items[i].y < INDUSTRY_ENDLABEL_GAP) {
+                    items[i].y = items[i + 1].y - INDUSTRY_ENDLABEL_GAP;
+                }
+            }
+        }
+
+        const x = chartArea.right + 10;
+        const width = chart.width - x - 4;
+        ctx.save();
+        if (opts.font) ctx.font = opts.font;
+        ctx.textBaseline = 'middle';
+        items.forEach(it => {
+            if (Math.abs(it.y - it.py) > 1) {
+                ctx.strokeStyle = it.color;
+                ctx.globalAlpha = 0.4;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(it.px + 3, it.py);
+                ctx.lineTo(x - 4, it.y);
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+            }
+            // The series colour goes on a small marker only. The name is set
+            // in the page's text colour, because several line hues fall short
+            // of 4.5:1 against white at this size (#52b788 is about 2.5:1).
+            ctx.fillStyle = it.color;
+            ctx.beginPath();
+            ctx.arc(x + 3.5, it.y, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = opts.textColor || '#212529';
+            ctx.fillText(industryFitText(ctx, it.text, width - 12), x + 12, it.y);
+        });
+        ctx.restore();
+    }
+};
 
 function renderIndustryTrend(rows) {
     const d = industryData;
@@ -7725,8 +7866,17 @@ function renderIndustryTrend(rows) {
         }
     });
 
+    const tokens = getComputedStyle(document.documentElement);
+    const secondaryColor = tokens.getPropertyValue('--text-secondary').trim();
+    const borderColor = tokens.getPropertyValue('--border-color').trim();
+    const labelSize = parseFloat(tokens.getPropertyValue('--fs-label')) * parseFloat(tokens.fontSize);
+    const pointStyles = ['circle', 'triangle', 'rect', 'rectRot', 'cross', 'star', 'crossRot', 'dash', 'line', 'rectRounded'];
+    // End labels stand in for the legend only while they fit down the side of
+    // the plot. A 50-sponsor page would not, so above the threshold the legend
+    // comes back and the reserved right margin goes to it instead.
+    const useEndLabels = !isMobileDevice && sponsors.length <= 20;
     const datasets = sponsors.map((sp, i) => {
-        const color = sp === 'Other Industry' ? '#8d99ae'
+        const color = sp === 'Other Industry' ? secondaryColor
             : INDUSTRY_LINE_COLORS[i % INDUSTRY_LINE_COLORS.length];
         return {
             label: sp,
@@ -7735,7 +7885,9 @@ function renderIndustryTrend(rows) {
                 return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
             }),
             borderColor: color, backgroundColor: color,
-            spanGaps: false, tension: 0.25, pointRadius: 2, borderWidth: 2
+            spanGaps: false, tension: 0.25, pointRadius: 3, borderWidth: 2,
+            pointStyle: pointStyles[i % pointStyles.length],
+            industryEndLabel: true
         };
     });
     datasets.push({
@@ -7744,12 +7896,12 @@ function renderIndustryTrend(rows) {
             const v = pooled[y] || [];
             return v.length >= INDUSTRY_TREND_MIN_N ? +industryMedian(v).toFixed(1) : null;
         }),
-        borderColor: '#9aa5a0', backgroundColor: '#9aa5a0',
+        borderColor: secondaryColor, backgroundColor: secondaryColor,
         borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5, tension: 0.25, spanGaps: false
     });
     if (industryBenchmark === 'census') {
         const cv = industryBenchmarkFor(null);
-        const censusColor = industryCatColor() || '#b9a56b';
+        const censusColor = industryCatColor() || secondaryColor;
         if (typeof cv === 'number') datasets.push({
             label: `Census share (${cv}%)`,
             data: years.map(() => cv),
@@ -7761,7 +7913,7 @@ function renderIndustryTrend(rows) {
         datasets.push({
             label: '50% parity',
             data: years.map(() => 50),
-            borderColor: '#c9c9c9', backgroundColor: '#c9c9c9',
+            borderColor, backgroundColor: borderColor,
             borderDash: [2, 4], pointRadius: 0, borderWidth: 1, order: 99
         });
     }
@@ -7777,12 +7929,19 @@ function renderIndustryTrend(rows) {
     if (industryChart) industryChart.destroy();
     industryChart = new Chart(canvas, {
         type: 'line',
+        plugins: [industryTrendEndLabels],
         data: { labels: years, datasets },
         options: {
             responsive: true, maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO || 2,
+            layout: { padding: { right: useEndLabels ? INDUSTRY_ENDLABEL_PAD : 0 } },
             plugins: {
-                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
+                industryTrendEndLabels: {
+                    enabled: useEndLabels,
+                    font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`,
+                    textColor: tokens.getPropertyValue('--text-primary').trim()
+                },
+                legend: { display: !useEndLabels, position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
                 datalabels: { display: false }
             },
@@ -7826,25 +7985,8 @@ function renderIndustryForest() {
     const span = (hi - lo) || 1;
     const px = v => ((v - lo) / span * 100).toFixed(2) + '%';
 
-    let html = '<div class="industry-forest">';
-    html += `<div class="industry-forest-head"><span></span><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span>pp [95% CI]</span></div>`;
-    const fCatColor = industryCatColor();
-    const fPos = fCatColor || INDUSTRY_PINK;
-    const fNeg = fCatColor ? INDUSTRY_GREY : INDUSTRY_BLUE;
-    contrasts.forEach(c => {
-        const color = c.beta >= 0 ? fPos : fNeg;
-        html += `
-        <div class="industry-forest-row">
-            <span class="industry-forest-name">${escapeHtml(c.sponsor)}</span>
-            <span class="industry-forest-plot">
-                <span class="industry-forest-zero" style="left:${px(0)}"></span>
-                <span class="industry-forest-ci" style="left:${px(c.lo)}; width:calc(${px(c.hi)} - ${px(c.lo)}); background:${color}"></span>
-                <span class="industry-forest-dot" style="left:${px(c.beta)}; background:${color}"></span>
-            </span>
-            <span class="industry-forest-stats"><strong>${c.beta >= 0 ? '+' : ''}${c.beta.toFixed(1)}</strong> [${c.lo.toFixed(1)}, ${c.hi.toFixed(1)}] &middot; n=${c.n.toLocaleString()}</span>
-        </div>`;
-    });
-    html += '</div>';
+    // Outcome wording. Built before the header because the header's direction
+    // label names the group, and the footnote reuses the same nouns.
     let outcomeDesc, groupNoun;
     if (industryDemo === 'sex') {
         outcomeDesc = 'within-trial percent female'; groupNoun = 'women';
@@ -7860,24 +8002,46 @@ function renderIndustryForest() {
         outcomeDesc = `the within-trial share of ${lb} participants among ${lb} + White participants (the balance vs White)`;
         groupNoun = `${lb} participants`;
     }
+
+    let html = '<div class="industry-forest">';
+    // The direction label states which side is which in words, so the read
+    // does not depend on telling the two bar colours apart.
+    html += `<div class="industry-forest-head"><span>Sponsor</span><span class="industry-forest-axiswrap"><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span class="industry-forest-dir">&#8592; fewer ${escapeHtml(groupNoun)} &middot; more ${escapeHtml(groupNoun)} &#8594;</span></span><span>Difference, pp [95% CI] &middot; n</span></div>`;
+    const fCatColor = industryCatColor();
+    const fPos = fCatColor || INDUSTRY_PINK;
+    const fNeg = fCatColor ? INDUSTRY_GREY : INDUSTRY_BLUE;
+    contrasts.forEach(c => {
+        const color = c.beta >= 0 ? fPos : fNeg;
+        html += `
+        <div class="industry-forest-row">
+            <span class="industry-forest-name">${escapeHtml(c.sponsor)}</span>
+            <span class="industry-forest-plot">
+                <span class="industry-forest-zero" style="left:${px(0)}"></span>
+                <span class="industry-forest-ci" style="left:${px(c.lo)}; width:calc(${px(c.hi)} - ${px(c.lo)}); background:${color}"></span>
+                <span class="industry-forest-dot" style="left:${px(c.beta)}; background:${color}"></span>
+            </span>
+            <span class="industry-forest-stats"><strong>${c.beta >= 0 ? '+' : ''}${c.beta.toFixed(1)}</strong><span>[${c.lo.toFixed(1)}, ${c.hi.toFixed(1)}]</span><span>n=${c.n.toLocaleString()}</span></span>
+        </div>`;
+    });
+    html += '</div>';
     const pooledNote = pooled ? ` (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2})` : '';
-    const fEncNote = fCatColor
-        ? `Bars in the <span style="color:${fCatColor}">category's palette color</span> mark sponsors enrolling more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_GREY}">grey</span> bars fewer.`
-        : `<span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer.`;
-    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). ${fEncNote} Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
+    // The header's direction label now says which side means more and which
+    // fewer, so the footnote no longer explains the two bar colours.
+    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
     host.innerHTML = html;
 }
 
 function renderIndustry() {
     if (!industryData) return;
+    const question = document.getElementById('industry-view-question');
+    if (question) question.textContent = INDUSTRY_VIEW_QUESTIONS[industryView].replace('{metric}', industryMetricLabel());
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
     if (meta) {
         const ord = industrySelectedOrdered();
         const trunc = ord.total > ord.list.length
             ? ` · sponsors ${ord.start + 1}–${ord.start + ord.list.length} of ${ord.total.toLocaleString()} (by volume)` : '';
-        const demoBit = industryDemo === 'sex' ? 'sex' : `${industryDemo}: ${industryMetricLabel()}`;
-        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter · ${demoBit} · ${industryRole === 'lead' ? 'lead sponsor only' : 'lead & collaborator'} · ${industryScope === 'all' ? 'all industry sponsors' : 'top 10 sponsors'}${trunc} · extraction ${industryData.source_extracted_at ? industryData.source_extracted_at.slice(0, 10) : '—'}`;
+        meta.textContent = `${rows.length.toLocaleString()} of ${industryData.cohort_n.toLocaleString()} cohort trials in the current filter${trunc}`;
     }
     renderIndustryPager();
     updateIndustryShareUrl();
@@ -7996,19 +8160,23 @@ async function openIndustryView() {
 // Shared by both entries. Assumes the gate has passed and #industry is the
 // active section; fetches the dataset once, then renders.
 async function loadIndustryView() {
-    updateIndustryShareUrl();   // #industry in the bar even if the fetch below fails
     if (!industryData) {
         try {
             const resp = await fetch(`data/industry_sponsors.json?v=${DATA_CACHE_VERSION}`);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             industryData = await resp.json();
             industrySelected = new Set(industryTop10());
-            renderIndustrySponsorMenu();
             renderIndustryCatRow();
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
+            // After the route parameters, not before: the menu lists the top
+            // 10 or every sponsor depending on scope, so a shared scope=all
+            // link must build it once the scope is known, summary included.
+            renderIndustrySponsorMenu();
+            updateIndustryShareUrl();
         } catch (e) {
+            updateIndustryShareUrl();   // #industry in the bar even if the fetch fails
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by the civicsample-engine pipeline during the weekly extraction.</p>`;
             return;

@@ -17,6 +17,19 @@ const read = (p) => readFileSync(join(repo, p), 'utf8');
 const html = read('index.html');
 const app = read('app.js');
 
+test('the first Industry load restores shared parameters before rewriting the URL', () => {
+  const loader = app.match(/async function loadIndustryView\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(loader, 'loadIndustryView() is missing');
+  const apply = loader.indexOf('applyIndustryShareParams()');
+  const update = loader.indexOf('updateIndustryShareUrl()');
+  assert.ok(apply >= 0 && update > apply, 'shared parameters must be read before the hash is rewritten');
+  // The sponsor menu lists the top 10 or every sponsor depending on scope, so
+  // it has to be built after a shared scope=all is restored, not before.
+  const menu = loader.indexOf('renderIndustrySponsorMenu()');
+  assert.ok(menu > apply, 'the sponsor menu is built before shared parameters are applied, so a scope=all link lists only the top 10');
+  assert.match(loader, /catch \(e\) \{\s*updateIndustryShareUrl\(\)/);
+});
+
 // The <details id="nav-tools"> block, from its opening tag to its closing tag.
 function toolsGroup() {
   const m = html.match(/<details class="nav-group" id="nav-tools">[\s\S]*?<\/details>/);
@@ -61,4 +74,79 @@ test('both entries reach the same gate and the same loader', () => {
   assert.match(app, /const BETA_PASSWORD = '[^']+';/, 'BETA_PASSWORD constant is gone');
   assert.match(app, /validator: \(pw\) => pw === BETA_PASSWORD/,
     'promptForBetaAccess() no longer validates against BETA_PASSWORD');
+});
+
+
+test('Industry trend uses point shapes and keeps deviation hues out of its line palette', () => {
+  const trend = app.match(/function renderIndustryTrend\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(trend);
+  assert.match(trend, /pointStyle:/);
+  assert.match(trend, /plugins: \[industryTrendEndLabels\]/,
+    'the trend chart no longer registers the end-label plugin, so its lines lose their names');
+  const palette = app.match(/const INDUSTRY_LINE_COLORS = \[[\s\S]*?\];/)?.[0];
+  assert.ok(palette);
+  for (const name of ['INDUSTRY_PINK', 'INDUSTRY_BLUE']) {
+    const hex = app.match(new RegExp('const ' + name + " = '([^']+)'"))[1];
+    assert.ok(!palette.toLowerCase().includes(hex.toLowerCase()), name + ' belongs to deviations');
+  }
+});
+
+// The end labels replaced a right-hand legend, so they have to stay readable
+// where sponsor medians converge. The plugin's job is that separation; these
+// check the two guards that keep it honest, since neither is visible from a
+// screenshot of the default ten-sponsor page.
+test('Industry trend end labels are pushed apart and give up rather than overlap', () => {
+  const plugin = app.match(/const industryTrendEndLabels = \{[\s\S]*?\n\};/)?.[0];
+  assert.ok(plugin, 'the trend end-label plugin is gone');
+  assert.match(plugin, /INDUSTRY_ENDLABEL_GAP/,
+    'labels are drawn without enforcing a minimum spacing, so converging lines overstrike');
+  assert.match(plugin, /items\.length \* INDUSTRY_ENDLABEL_GAP > room/,
+    'the plugin no longer bails when the labels cannot fit, so a long sponsor page smears them together');
+  // Bailing must not leave the lines unnamed: when the labels cannot fit, the
+  // legend has to come back, decided from the room the chart actually has.
+  assert.match(plugin, /beforeLayout\(chart, _args, opts\) \{[\s\S]*?legend\.display = !fits/,
+    'the plugin no longer restores the legend when the labels do not fit, so a narrowed desktop window loses the series names');
+  // Names in the page text colour, series colour on the marker only: several
+  // line hues are under 4.5:1 against white at this size.
+  assert.match(plugin, /ctx\.fillStyle = opts\.textColor/,
+    'end labels are drawn in the series colour again, which fails contrast for the lighter hues');
+  // A median outside the fixed Sex axis (above 80%) sits outside the plot;
+  // its label has to start inside or it is drawn off the canvas, unnamed.
+  assert.match(plugin, /Math\.min\(Math\.max\(it\.y, chartArea\.top\), chartArea\.bottom\)/,
+    'end labels are no longer clamped into the plot, so an out-of-range median loses its name');
+  // Reference lines are named in the footnote; labelling them too is what put
+  // "All industry (pooled)" on top of "50% parity".
+  assert.match(plugin, /if \(!ds\.industryEndLabel\) return;/,
+    'every dataset gets an end label again, including the pooled and parity reference lines');
+  const trend = app.match(/function renderIndustryTrend\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  const sponsorBlock = trend.match(/const datasets = sponsors\.map\([\s\S]*?\n    \}\);/)?.[0];
+  assert.ok(sponsorBlock, 'the sponsor dataset block moved; check it still opts into end labels');
+  assert.match(sponsorBlock, /industryEndLabel: true/, 'sponsor lines no longer opt into end labels');
+  for (const ref of ['All industry (pooled)', 'Census share', '50% parity']) {
+    const idx = trend.indexOf(ref);
+    assert.ok(idx > 0, `the ${ref} dataset is gone`);
+    const block = trend.slice(idx, idx + 400);
+    assert.ok(!/industryEndLabel/.test(block), `${ref} opted into an end label; it belongs in the footnote`);
+  }
+});
+
+// AGENTS.md: every rendered percentage names its denominator. The Sex tier's
+// only always-visible statement of it is the subtitle, which exists twice:
+// the markup's initial text and the string app.js swaps in on tier changes.
+test('the Sex subtitle names the percent-female denominator, identically in markup and script', () => {
+  const fromScript = app.match(/const INDUSTRY_SUBTITLES = \{[\s\S]*?sex: '([^']+)'/)?.[1];
+  const fromMarkup = html.match(/<p class="note industry-subtitle" id="industry-subtitle">([^<]+)<\/p>/)?.[1];
+  assert.ok(fromScript && fromMarkup, 'the Sex subtitle is missing from app.js or index.html');
+  assert.match(fromScript, /female \/ \(female \+ male\)/,
+    'the visible Sex subtitle no longer names the denominator; the FAQ alone is collapsed by default');
+  assert.equal(fromMarkup, fromScript, 'the initial subtitle in index.html differs from the one app.js restores');
+});
+
+// An uncoloured (n) cell can sit above a user-set maximum as well as below
+// the minimum, so the legend has to describe the window, not just "too few".
+test('the heatmap legend describes uncoloured cells by the trials-per-cell window', () => {
+  const heat = app.match(/function renderIndustryHeatmap\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(heat, 'renderIndustryHeatmap() is missing');
+  assert.match(heat, /industry-legend-thin">\(n\)<\/span> \$\{rangeDesc\} \(n shown\)/,
+    'the legend calls every uncoloured cell "too few trials", which is backwards for cells above a user-set maximum');
 });
