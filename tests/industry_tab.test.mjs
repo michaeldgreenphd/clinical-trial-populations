@@ -23,6 +23,10 @@ test('the first Industry load restores shared parameters before rewriting the UR
   const apply = loader.indexOf('applyIndustryShareParams()');
   const update = loader.indexOf('updateIndustryShareUrl()');
   assert.ok(apply >= 0 && update > apply, 'shared parameters must be read before the hash is rewritten');
+  // The sponsor menu lists the top 10 or every sponsor depending on scope, so
+  // it has to be built after a shared scope=all is restored, not before.
+  const menu = loader.indexOf('renderIndustrySponsorMenu()');
+  assert.ok(menu > apply, 'the sponsor menu is built before shared parameters are applied, so a scope=all link lists only the top 10');
   assert.match(loader, /catch \(e\) \{\s*updateIndustryShareUrl\(\)/);
 });
 
@@ -98,6 +102,14 @@ test('Industry trend end labels are pushed apart and give up rather than overlap
     'labels are drawn without enforcing a minimum spacing, so converging lines overstrike');
   assert.match(plugin, /items\.length \* INDUSTRY_ENDLABEL_GAP > room/,
     'the plugin no longer bails when the labels cannot fit, so a long sponsor page smears them together');
+  // Bailing must not leave the lines unnamed: when the labels cannot fit, the
+  // legend has to come back, decided from the room the chart actually has.
+  assert.match(plugin, /beforeLayout\(chart, _args, opts\) \{[\s\S]*?legend\.display = !fits/,
+    'the plugin no longer restores the legend when the labels do not fit, so a narrowed desktop window loses the series names');
+  // Names in the page text colour, series colour on the marker only: several
+  // line hues are under 4.5:1 against white at this size.
+  assert.match(plugin, /ctx\.fillStyle = opts\.textColor/,
+    'end labels are drawn in the series colour again, which fails contrast for the lighter hues');
   // Reference lines are named in the footnote; labelling them too is what put
   // "All industry (pooled)" on top of "50% parity".
   assert.match(plugin, /if \(!ds\.industryEndLabel\) return;/,
@@ -112,4 +124,13 @@ test('Industry trend end labels are pushed apart and give up rather than overlap
     const block = trend.slice(idx, idx + 400);
     assert.ok(!/industryEndLabel/.test(block), `${ref} opted into an end label; it belongs in the footnote`);
   }
+});
+
+// An uncoloured (n) cell can sit above a user-set maximum as well as below
+// the minimum, so the legend has to describe the window, not just "too few".
+test('the heatmap legend describes uncoloured cells by the trials-per-cell window', () => {
+  const heat = app.match(/function renderIndustryHeatmap\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(heat, 'renderIndustryHeatmap() is missing');
+  assert.match(heat, /industry-legend-thin">\(n\)<\/span> \$\{rangeDesc\} \(n shown\)/,
+    'the legend calls every uncoloured cell "too few trials", which is backwards for cells above a user-set maximum');
 });

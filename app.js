@@ -7675,18 +7675,21 @@ function renderIndustryHeatmap(rows) {
     });
 
     const metric = industryMetricLabel();
+    const { min: cellMin, max: cellMax } = industryCellRange();
+    // An uncoloured cell is outside the trials-per-cell window at either end,
+    // so the legend names the window rather than calling every one "too few".
+    const rangeDesc = cellMax === Infinity ? `fewer than ${cellMin} trials` : `a trial count outside ${cellMin}&ndash;${cellMax}`;
     let html = `<div class="industry-legend">
         <span><i aria-hidden="true" style="background:${industryDevColor(-15)}"></i>fewer ${escapeHtml(metric)} than benchmark</span>
         <span><i aria-hidden="true" style="background:${industryDevColor(0)}"></i>at benchmark</span>
         <span><i aria-hidden="true" style="background:${industryDevColor(15)}"></i>more ${escapeHtml(metric)} than benchmark</span>
-        <span><span class="industry-legend-thin">(n)</span> too few trials (n shown)</span>
+        <span><span class="industry-legend-thin">(n)</span> ${rangeDesc} (n shown)</span>
     </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: condition categories with reporting trials in the current filter, most trials first. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
         html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
-    const { min: cellMin, max: cellMax } = industryCellRange();
     sponsors.forEach(sp => {
         html += `<tr><th scope="row">${escapeHtml(sp)}</th>`;
         conditions.forEach(c => {
@@ -7709,9 +7712,6 @@ function renderIndustryHeatmap(rows) {
     const benchDesc = industryBenchmark === 'parity' ? 'a 50% parity benchmark'
         : industryBenchmark === 'census' ? `the category's 2020 U.S. Census population share (${industryBenchmarkFor(null)}%)`
         : "the condition's pooled median across all industry trials in the current filter";
-    const rangeDesc = cellMax === Infinity
-        ? `fewer than ${cellMin} trials`
-        : `a trial count outside ${cellMin}&ndash;${cellMax}`;
     const smallNote = cellMin < (d.min_cell || 10)
         ? ` (medians over so few trials are volatile &mdash; the default floor is ${d.min_cell})` : '';
     html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points, clamped at &plusmn;15. Cells with ${rangeDesc} show their n uncoloured${smallNote}.</p>`;
@@ -7738,9 +7738,31 @@ function industryFitText(ctx, text, room) {
 // pooled, census and parity reference lines are named in the footnote.
 const INDUSTRY_ENDLABEL_GAP = 14;    // px between stacked label centres
 const INDUSTRY_ENDLABEL_PAD = 160;   // px reserved right of the plot for them
+const INDUSTRY_ENDLABEL_OVERHEAD = 90; // px of axis and title under the plot, until the first layout has measured it
 
 const industryTrendEndLabels = {
     id: 'industryTrendEndLabels',
+    // Decides from the room the chart actually has whether the names fit down
+    // its side. isMobileDevice is fixed at load, so a desktop window narrowed
+    // afterwards would otherwise keep the legend hidden while the labels no
+    // longer fit, leaving the lines unnamed. When they do not fit, the legend
+    // comes back and the reserved margin goes with it.
+    beforeLayout(chart, _args, opts) {
+        if (!opts || !opts.enabled) return;
+        const n = chart.data.datasets.filter(ds => ds.industryEndLabel).length;
+        // The vertical overhead (axis labels, title) as the previous layout
+        // measured it at its own size. Taking the new height minus the old
+        // plot height instead would understate the room after growing back
+        // and keep the legend on for good.
+        const overhead = chart.$industryOverhead ?? INDUSTRY_ENDLABEL_OVERHEAD;
+        const fits = n * INDUSTRY_ENDLABEL_GAP <= chart.height - overhead;
+        chart.options.plugins.legend.display = !fits;
+        chart.options.layout.padding = { right: fits ? INDUSTRY_ENDLABEL_PAD : 0 };
+    },
+    afterLayout(chart, _args, opts) {
+        if (!opts || !opts.enabled || !chart.chartArea) return;
+        chart.$industryOverhead = chart.height - (chart.chartArea.bottom - chart.chartArea.top);
+    },
     afterDatasetsDraw(chart, _args, opts) {
         if (!opts || !opts.enabled) return;
         const { ctx, chartArea } = chart;
@@ -7758,9 +7780,17 @@ const industryTrendEndLabels = {
             items.push({ text: ds.label, color: ds.borderColor, px: pt.x, py: pt.y, y: pt.y });
         });
         // No room to stack them without overlapping is a reason to draw none,
-        // never a reason to draw them on top of each other.
+        // never a reason to draw them on top of each other. If the legend is
+        // hidden too, one deferred update lets beforeLayout, now with a
+        // measured plot area, bring it back; once per chart, so it cannot loop.
         const room = chartArea.bottom - chartArea.top;
-        if (!items.length || items.length * INDUSTRY_ENDLABEL_GAP > room) return;
+        if (!items.length || items.length * INDUSTRY_ENDLABEL_GAP > room) {
+            if (items.length && !chart.options.plugins.legend.display && !chart.$industryRelayout) {
+                chart.$industryRelayout = true;
+                requestAnimationFrame(() => { if (chart.canvas) chart.update('none'); });
+            }
+            return;
+        }
 
         items.sort((a, b) => a.py - b.py);
         for (let i = 1; i < items.length; i++) {
@@ -7794,8 +7824,15 @@ const industryTrendEndLabels = {
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
+            // The series colour goes on a small marker only. The name is set
+            // in the page's text colour, because several line hues fall short
+            // of 4.5:1 against white at this size (#52b788 is about 2.5:1).
             ctx.fillStyle = it.color;
-            ctx.fillText(industryFitText(ctx, it.text, width), x, it.y);
+            ctx.beginPath();
+            ctx.arc(x + 3.5, it.y, 3.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = opts.textColor || '#212529';
+            ctx.fillText(industryFitText(ctx, it.text, width - 12), x + 12, it.y);
         });
         ctx.restore();
     }
@@ -7896,7 +7933,8 @@ function renderIndustryTrend(rows) {
             plugins: {
                 industryTrendEndLabels: {
                     enabled: useEndLabels,
-                    font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`
+                    font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`,
+                    textColor: tokens.getPropertyValue('--text-primary').trim()
                 },
                 legend: { display: !useEndLabels, position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
@@ -8123,11 +8161,14 @@ async function loadIndustryView() {
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             industryData = await resp.json();
             industrySelected = new Set(industryTop10());
-            renderIndustrySponsorMenu();
             renderIndustryCatRow();
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
+            // After the route parameters, not before: the menu lists the top
+            // 10 or every sponsor depending on scope, so a shared scope=all
+            // link must build it once the scope is known, summary included.
+            renderIndustrySponsorMenu();
             updateIndustryShareUrl();
         } catch (e) {
             updateIndustryShareUrl();   // #industry in the bar even if the fetch fails

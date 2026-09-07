@@ -4448,7 +4448,11 @@ footer p {
     margin-bottom: 0.5rem;
 }
 
-.industry-forest-axis { position: relative; height: 1em; }
+/* Both are blocks on purpose: the zero tick is placed by a percentage of
+   the column's width, and an inline span whose only child is absolutely
+   positioned has no width to take a percentage of. */
+.industry-forest-axiswrap { display: block; }
+.industry-forest-axis { display: block; position: relative; height: 1em; }
 
 .industry-forest-zerolabel { position: absolute; transform: translateX(-50%); }
 
