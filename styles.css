@@ -4426,7 +4426,7 @@ footer p {
 .industry-forest-head,
 .industry-forest-row {
     display: grid;
-    grid-template-columns: 190px 1fr 190px;
+    grid-template-columns: 190px 1fr 230px;
     align-items: center;
     gap: 1rem;
 }
@@ -4445,6 +4445,19 @@ footer p {
 .industry-forest-axis { position: relative; height: 1em; }
 
 .industry-forest-zerolabel { position: absolute; transform: translateX(-50%); }
+
+/* Axis cell of the header: the zero tick, and under it a plain-words
+   statement of which direction means more and which means fewer. Sentence
+   case, because the group nouns are proper names ("Black/African American
+   participants") that uppercasing makes harder to read, not easier. */
+.industry-forest-dir {
+    display: block;
+    margin-top: 0.15rem;
+    text-align: center;
+    text-transform: none;
+    letter-spacing: 0;
+    line-height: 1.3;
+}
 
 .industry-forest-row { padding: 0.55rem 0; }
 
@@ -4479,7 +4492,15 @@ footer p {
     border: 1.5px solid var(--card-background);
 }
 
+/* Estimate, interval and n on one line, in that order. Held on one line
+   because the estimate is the point of the row and used to wrap onto a
+   second line for every negative sponsor. */
 .industry-forest-stats {
+    display: flex;
+    justify-content: flex-end;
+    align-items: baseline;
+    gap: 0.45rem;
+    white-space: nowrap;
     font-family: var(--font-mono);
     font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
@@ -4499,6 +4520,8 @@ footer p {
 @media (max-width: 700px) {
     .industry-forest-head, .industry-forest-row { grid-template-columns: 110px 1fr; }
     .industry-forest-stats, .industry-forest-head span:last-child { grid-column: 2; text-align: left; }
+    /* Stacked under the bar, the stats line starts at the left edge. */
+    .industry-forest-stats { justify-content: flex-start; }
 }
 
 /* — Industry: demographic tier, role/scope toggles, footnote, FAQ — */
@@ -4594,6 +4617,26 @@ footer p {
 }
 
 /* — Industry sponsor dropdown: full-list mode — */
+
+/* Names the two columns below it, so the n= badge on each row reads as a
+   trial count rather than an unexplained number. */
+.industry-sponsor-listhead {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.4rem;
+    border-bottom: 1px solid var(--border-color);
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-secondary);
+}
+
+/* Occupies a row checkbox's box without drawing one, so the header's
+   "Sponsor" starts where the names below it start. */
+.industry-sponsor-listhead-spacer { visibility: hidden; }
+
 .industry-sponsor-list {
     max-height: 320px;
     overflow-y: auto;

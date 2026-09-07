@@ -7379,10 +7379,13 @@ function renderIndustryBenchmarkToggle() {
         ? { key: 'parity', label: '50% Parity' }
         : { key: 'census', label: 'Census Share' };
     if (industryBenchmark !== 'cohort' && industryBenchmark !== alt.key) industryBenchmark = 'cohort';
+    // No Disease Prevalence option: the dataset ships prevalence_benchmarks
+    // with status "pending" and null tables, so the control could never do
+    // anything. Re-add it behind a check on that status once the engine
+    // publishes the per-condition breakdowns; the FAQ says it is coming.
     box.innerHTML = `
         <button type="button" class="view-btn ${industryBenchmark === 'cohort' ? 'active' : ''}" data-ibench="cohort">Cohort Baseline</button>
-        <button type="button" class="view-btn ${industryBenchmark === alt.key ? 'active' : ''}" data-ibench="${alt.key}">${alt.label}</button>
-        <button type="button" class="view-btn" disabled title="Disease-prevalence benchmarks are pending integration">Disease Prevalence</button>`;
+        <button type="button" class="view-btn ${industryBenchmark === alt.key ? 'active' : ''}" data-ibench="${alt.key}">${alt.label}</button>`;
     box.querySelectorAll('.view-btn[data-ibench]').forEach(btn => {
         btn.addEventListener('click', () => {
             industryBenchmark = btn.dataset.ibench;
@@ -7541,10 +7544,21 @@ function renderIndustrySponsorMenu() {
     const listed = industryMenuCompanies();
     const nFor = i => (Array.isArray(d.company_n) && d.company_n[i] != null)
         ? `<span class="industry-sponsor-n">n=${d.company_n[i].toLocaleString()}</span>` : '';
+    // Header row naming the two columns, so the bare n= badge says what it
+    // counts. Only when the dataset actually carries company_n; the older
+    // cached format has no counts to label. It sits outside
+    // .industry-sponsor-list and carries its own class, so the type-to-filter
+    // handler below (which hides .industry-sponsor-option rows) leaves it be.
+    // The hidden checkbox is a spacer: it takes exactly the box a row's
+    // checkbox takes in this browser, so "Sponsor" sits over the names.
+    const listHead = Array.isArray(d.company_n)
+        ? '<div class="industry-sponsor-listhead"><input type="checkbox" class="industry-sponsor-listhead-spacer" disabled tabindex="-1" aria-hidden="true"><span class="industry-sponsor-name">Sponsor</span><span>Trials in cohort</span></div>'
+        : '';
     // The companies list is already volume-ranked descending, so index order
     // is display order. The type-to-filter box matters on the All scope,
     // where the list runs to thousands of sponsors.
     box.innerHTML = `<input type="text" class="industry-sponsor-search" id="industry-sponsor-search" placeholder="Filter sponsors…" autocomplete="off">
+        ${listHead}
         <div class="industry-sponsor-list">` + listed.map((sp, i) => `
         <label class="industry-sponsor-option">
             <input type="checkbox" value="${escapeHtml(sp)}" ${industrySelected.has(sp) ? 'checked' : ''}>
@@ -7560,7 +7574,7 @@ function renderIndustrySponsorMenu() {
             row.style.display = !q || row.textContent.toLowerCase().includes(q) ? '' : 'none';
         });
     });
-    box.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    box.querySelectorAll('.industry-sponsor-option input[type="checkbox"]').forEach(cb => {
         cb.addEventListener('change', () => {
             if (cb.checked) industrySelected.add(cb.value); else industrySelected.delete(cb.value);
             updateIndustrySummaryLabel(summary);
@@ -7843,25 +7857,8 @@ function renderIndustryForest() {
     const span = (hi - lo) || 1;
     const px = v => ((v - lo) / span * 100).toFixed(2) + '%';
 
-    let html = '<div class="industry-forest">';
-    html += `<div class="industry-forest-head"><span></span><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span>pp [95% CI]</span></div>`;
-    const fCatColor = industryCatColor();
-    const fPos = fCatColor || INDUSTRY_PINK;
-    const fNeg = fCatColor ? INDUSTRY_GREY : INDUSTRY_BLUE;
-    contrasts.forEach(c => {
-        const color = c.beta >= 0 ? fPos : fNeg;
-        html += `
-        <div class="industry-forest-row">
-            <span class="industry-forest-name">${escapeHtml(c.sponsor)}</span>
-            <span class="industry-forest-plot">
-                <span class="industry-forest-zero" style="left:${px(0)}"></span>
-                <span class="industry-forest-ci" style="left:${px(c.lo)}; width:calc(${px(c.hi)} - ${px(c.lo)}); background:${color}"></span>
-                <span class="industry-forest-dot" style="left:${px(c.beta)}; background:${color}"></span>
-            </span>
-            <span class="industry-forest-stats"><strong>${c.beta >= 0 ? '+' : ''}${c.beta.toFixed(1)}</strong> [${c.lo.toFixed(1)}, ${c.hi.toFixed(1)}] &middot; n=${c.n.toLocaleString()}</span>
-        </div>`;
-    });
-    html += '</div>';
+    // Outcome wording. Built before the header because the header's direction
+    // label names the group, and the footnote reuses the same nouns.
     let outcomeDesc, groupNoun;
     if (industryDemo === 'sex') {
         outcomeDesc = 'within-trial percent female'; groupNoun = 'women';
@@ -7877,11 +7874,32 @@ function renderIndustryForest() {
         outcomeDesc = `the within-trial share of ${lb} participants among ${lb} + White participants (the balance vs White)`;
         groupNoun = `${lb} participants`;
     }
+
+    let html = '<div class="industry-forest">';
+    // The direction label states which side is which in words, so the read
+    // does not depend on telling the two bar colours apart.
+    html += `<div class="industry-forest-head"><span>Sponsor</span><span class="industry-forest-axiswrap"><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span class="industry-forest-dir">&#8592; fewer ${escapeHtml(groupNoun)} &middot; more ${escapeHtml(groupNoun)} &#8594;</span></span><span>Difference, pp [95% CI] &middot; n</span></div>`;
+    const fCatColor = industryCatColor();
+    const fPos = fCatColor || INDUSTRY_PINK;
+    const fNeg = fCatColor ? INDUSTRY_GREY : INDUSTRY_BLUE;
+    contrasts.forEach(c => {
+        const color = c.beta >= 0 ? fPos : fNeg;
+        html += `
+        <div class="industry-forest-row">
+            <span class="industry-forest-name">${escapeHtml(c.sponsor)}</span>
+            <span class="industry-forest-plot">
+                <span class="industry-forest-zero" style="left:${px(0)}"></span>
+                <span class="industry-forest-ci" style="left:${px(c.lo)}; width:calc(${px(c.hi)} - ${px(c.lo)}); background:${color}"></span>
+                <span class="industry-forest-dot" style="left:${px(c.beta)}; background:${color}"></span>
+            </span>
+            <span class="industry-forest-stats"><strong>${c.beta >= 0 ? '+' : ''}${c.beta.toFixed(1)}</strong><span>[${c.lo.toFixed(1)}, ${c.hi.toFixed(1)}]</span><span>n=${c.n.toLocaleString()}</span></span>
+        </div>`;
+    });
+    html += '</div>';
     const pooledNote = pooled ? ` (n=${pooled.n.toLocaleString()}; pooled R&sup2;=${pooled.r2})` : '';
-    const fEncNote = fCatColor
-        ? `Bars in the <span style="color:${fCatColor}">category's palette color</span> mark sponsors enrolling more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_GREY}">grey</span> bars fewer.`
-        : `<span style="color:${INDUSTRY_PINK}">Pink</span> enrolls more ${groupNoun} than Other Industry at the same trial mix; <span style="color:${INDUSTRY_BLUE}">blue</span> fewer.`;
-    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). ${fEncNote} Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
+    // The header's direction label now says which side means more and which
+    // fewer, so the footnote no longer explains the two bar colours.
+    html += `<p class="industry-footnote">Each row is a sponsor's adjusted difference in ${outcomeDesc} vs the Other Industry bucket, in percentage points, from a two-group model holding phase, log enrollment, completion year, country count, and therapeutic area fixed (95% CIs; a bar crossing zero is not distinguishable from zero). Model estimates are computed on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}${pooledNote} and respond to the Role toggle but not to the year/condition filters.</p>`;
     host.innerHTML = html;
 }
 
