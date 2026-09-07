@@ -165,3 +165,16 @@ test('the Industry tab states its purpose before its first control', () => {
   const headline = hero[1].match(/<p class="finding-headline">([^<]*)<\/p>/)[1];
   assert.ok(!/\d/.test(headline), `the purpose line carries a number ("${headline}") — a number there is a finding, which the engine must ship`);
 });
+
+// #237 removed the permanently disabled "Disease Prevalence" button: the
+// dataset ships prevalence_benchmarks as pending with null tables, so the
+// control could never do anything. The toggle now offers exactly two live
+// options per tier. This closes the untested behaviour #237 named.
+test('the benchmark toggle offers two live options and no disabled placeholder', () => {
+  const fn = app.match(/function renderIndustryBenchmarkToggle\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'renderIndustryBenchmarkToggle() is gone');
+  const buttons = [...fn.matchAll(/<button[^>]*>/g)].map(m => m[0]);
+  assert.equal(buttons.length, 2, `expected exactly two benchmark buttons in the template, found ${buttons.length}`);
+  assert.ok(buttons.every(b => /data-ibench=/.test(b)), 'a benchmark button has no data-ibench, so clicking it selects nothing');
+  assert.ok(!buttons.some(b => /\bdisabled\b/.test(b)), 'a disabled benchmark button is back; a control that can never act is filler');
+});
