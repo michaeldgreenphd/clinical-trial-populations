@@ -7395,7 +7395,7 @@ function renderIndustryBenchmarkToggle() {
     });
 }
 const INDUSTRY_SUBTITLES = {
-    sex: 'Female share of enrollment, by sponsor and condition. Mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.',
+    sex: 'Percent female is female / (female + male) within each trial, with explicitly reported Unknown counts excluded; shown by sponsor and condition over the mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.',
     race: 'Racial shares of explicitly reported participants, by sponsor and condition. Race-reporting interventional trials with primary completion in 2009 or later, not terminated.',
     ethnicity: 'Ethnic shares of explicitly reported participants, by sponsor and condition. Ethnicity-reporting interventional trials with primary completion in 2009 or later, not terminated.'
 };
@@ -7792,6 +7792,11 @@ const industryTrendEndLabels = {
             return;
         }
 
+        // A value outside the fixed axis range (a Sex-tier median above 80%,
+        // say) is placed outside the plot, and the spacing below only handles
+        // overrun at the bottom. Every label starts inside the plot; its
+        // leader line still points at where the value actually sits.
+        items.forEach(it => { it.y = Math.min(Math.max(it.y, chartArea.top), chartArea.bottom); });
         items.sort((a, b) => a.py - b.py);
         for (let i = 1; i < items.length; i++) {
             if (items[i].y - items[i - 1].y < INDUSTRY_ENDLABEL_GAP) {

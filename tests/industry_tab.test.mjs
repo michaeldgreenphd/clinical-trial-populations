@@ -110,6 +110,10 @@ test('Industry trend end labels are pushed apart and give up rather than overlap
   // line hues are under 4.5:1 against white at this size.
   assert.match(plugin, /ctx\.fillStyle = opts\.textColor/,
     'end labels are drawn in the series colour again, which fails contrast for the lighter hues');
+  // A median outside the fixed Sex axis (above 80%) sits outside the plot;
+  // its label has to start inside or it is drawn off the canvas, unnamed.
+  assert.match(plugin, /Math\.min\(Math\.max\(it\.y, chartArea\.top\), chartArea\.bottom\)/,
+    'end labels are no longer clamped into the plot, so an out-of-range median loses its name');
   // Reference lines are named in the footnote; labelling them too is what put
   // "All industry (pooled)" on top of "50% parity".
   assert.match(plugin, /if \(!ds\.industryEndLabel\) return;/,
@@ -124,6 +128,18 @@ test('Industry trend end labels are pushed apart and give up rather than overlap
     const block = trend.slice(idx, idx + 400);
     assert.ok(!/industryEndLabel/.test(block), `${ref} opted into an end label; it belongs in the footnote`);
   }
+});
+
+// AGENTS.md: every rendered percentage names its denominator. The Sex tier's
+// only always-visible statement of it is the subtitle, which exists twice:
+// the markup's initial text and the string app.js swaps in on tier changes.
+test('the Sex subtitle names the percent-female denominator, identically in markup and script', () => {
+  const fromScript = app.match(/const INDUSTRY_SUBTITLES = \{[\s\S]*?sex: '([^']+)'/)?.[1];
+  const fromMarkup = html.match(/<p class="note industry-subtitle" id="industry-subtitle">([^<]+)<\/p>/)?.[1];
+  assert.ok(fromScript && fromMarkup, 'the Sex subtitle is missing from app.js or index.html');
+  assert.match(fromScript, /female \/ \(female \+ male\)/,
+    'the visible Sex subtitle no longer names the denominator; the FAQ alone is collapsed by default');
+  assert.equal(fromMarkup, fromScript, 'the initial subtitle in index.html differs from the one app.js restores');
 });
 
 // An uncoloured (n) cell can sit above a user-set maximum as well as below
