@@ -191,4 +191,13 @@ test('the heatmap caption states its column count and that the table scrolls', (
   assert.match(caption, /\$\{conditions\.length\.toLocaleString\(\)\}/,
     'the caption no longer states how many condition columns there are');
   assert.match(caption, /scrolls sideways/, 'the caption no longer says the table scrolls');
+  // The scroll sentence must be gated on measured overflow: with one column
+  // (a specific secondary condition selected) the table fits, and a caption
+  // promising more columns offscreen would be false.
+  assert.match(caption, /industry-heatmap-scrollnote" hidden>/, 'the scroll sentence renders unconditionally instead of hidden until overflow is measured');
+  const sync = app.match(/function industrySyncHeatmapScrollNote\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(sync, 'industrySyncHeatmapScrollNote() is gone, so the scroll sentence is never shown or is always shown');
+  assert.match(sync, /scrollWidth <= wrap\.clientWidth/, 'the scroll sentence is no longer decided by comparing scrollWidth with clientWidth');
+  assert.match(fn, /industrySyncHeatmapScrollNote\(\);/, 'renderIndustryHeatmap() no longer measures overflow after rendering');
+  assert.match(app, /addEventListener\('resize'[\s\S]{0,200}industrySyncHeatmapScrollNote/, 'the overflow check is not re-run on resize');
 });
