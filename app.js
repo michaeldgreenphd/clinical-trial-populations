@@ -7330,6 +7330,53 @@ const INDUSTRY_CAT_LABELS = {
 let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
 let industryBenchmark = 'cohort';      // 'cohort' | 'parity' (sex) | 'census' (race/eth)
 let industrySexSpecific = false;       // Sex tier: include sex-specific condition categories
+let industryConditionMode = 'top';     // 'top' | 'all' | 'custom'; display only
+let industryConditionSelected = new Set();
+const industryConditionMobile = window.matchMedia('(max-width: 768px)');
+
+function industryVisibleConditions(available) {
+    if (industryConditionMode === 'all') return available;
+    if (industryConditionMode === 'custom') return available.filter(c => industryConditionSelected.has(c));
+    return available.slice(0, industryConditionMobile.matches ? 5 : 10);
+}
+
+function renderIndustryConditionControls(available, visible) {
+    const limit = industryConditionMobile.matches ? 5 : 10;
+    const top = document.getElementById('industry-condition-top');
+    top.textContent = `Top ${limit}`;
+    top.setAttribute('aria-pressed', String(industryConditionMode === 'top'));
+    const all = document.getElementById('industry-condition-all');
+    all.textContent = `Show all ${available.length}`;
+    all.setAttribute('aria-pressed', String(industryConditionMode === 'all'));
+    const unavailable = industryConditionMode === 'custom'
+        ? [...industryConditionSelected].filter(c => !available.includes(c)).length : 0;
+    document.getElementById('industry-condition-status').textContent =
+        `${visible.length} of ${available.length} conditions shown · ${industryConditionMode === 'custom' ? 'Custom selection' : 'Most reporting trials first'}` +
+        (unavailable ? ` · ${unavailable} selected conditions unavailable under the current filters; selections retained.` : '');
+    const options = document.getElementById('industry-condition-options');
+    // Keep the focused checkbox in place when selection alone changes.
+    const key = JSON.stringify(available);
+    if (options.dataset.conditions !== key) {
+        options.dataset.conditions = key;
+        options.innerHTML = '<legend>Available conditions</legend>' + available.map(c =>
+            `<label><input type="checkbox" value="${escapeHtml(c)}"><span>${escapeHtml(c)}</span></label>`).join('');
+    }
+    options.querySelectorAll('input').forEach(input => { input.checked = visible.includes(input.value); });
+    filterIndustryConditionOptions();
+    const benchmark = industryBenchmark === 'parity' ? 'Benchmark: fixed 50% parity reference.'
+        : industryBenchmark === 'census' ? `Benchmark: ${industryData.census?.source || '2020 U.S. Census population shares'}.`
+        : 'Benchmark: trial-enrollment baseline, calculated within each condition.';
+    const extracted = industryData.source_extracted_at;
+    document.getElementById('industry-benchmark-source').textContent = benchmark +
+        ' Disease-prevalence data is not integrated.' + (extracted ? ` Trial data extracted ${extracted.slice(0, 10)}.` : '');
+}
+
+function filterIndustryConditionOptions() {
+    const query = document.getElementById('industry-condition-search').value.trim().toLowerCase();
+    const labels = [...document.querySelectorAll('#industry-condition-options label')];
+    labels.forEach(label => { label.hidden = !label.textContent.toLowerCase().includes(query); });
+    document.getElementById('industry-condition-no-matches').hidden = labels.some(label => !label.hidden);
+}
 
 // Condition axis for the current tier: every named category with at least
 // one metric-reporting trial in the current filter, ordered by descending
@@ -7648,7 +7695,13 @@ function renderIndustryPager() {
 function renderIndustryHeatmap(rows) {
     const d = industryData;
     const host = document.getElementById('industry-view-heatmap');
-    const conditions = industryConditions(rows);
+    const available = industryConditions(rows);
+    const conditions = industryVisibleConditions(available);
+    renderIndustryConditionControls(available, conditions);
+    if (!conditions.length) {
+        host.innerHTML = `<p class="note">${available.length ? 'No condition columns selected. Use Choose conditions or Top conditions above to populate the table.' : 'No conditions have reporting trials under the current filters.'}</p>`;
+        return;
+    }
     const topN = d.top_n || 10;
     const sponsors = industrySelectedOrdered().list;
     if (industryScope === 'all') sponsors.push('Other Industry');
@@ -7687,7 +7740,7 @@ function renderIndustryHeatmap(rows) {
     </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: ${conditions.length.toLocaleString()} condition ${conditions.length === 1 ? 'category' : 'categories'} with reporting trials in the current filter${conditions.length > 1 ? ', most trials first' : ''}.<span class="industry-heatmap-scrollnote" hidden> The table scrolls sideways for the rest.</span> Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
-        html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
+        html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter"><span class="industry-condition-name">${escapeHtml(c)}</span><span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
     });
     html += '</tr></thead><tbody>';
     sponsors.forEach(sp => {
@@ -7730,6 +7783,9 @@ function industrySyncHeatmapScrollNote() {
     note.hidden = wrap.scrollWidth <= wrap.clientWidth;
 }
 let industryScrollNoteTimer = null;
+industryConditionMobile.addEventListener('change', () => {
+    if (industryData && industryActive() && industryView === 'heatmap') renderIndustry();
+});
 window.addEventListener('resize', () => {
     clearTimeout(industryScrollNoteTimer);
     industryScrollNoteTimer = setTimeout(industrySyncHeatmapScrollNote, 150);
@@ -8069,6 +8125,7 @@ function renderIndustry() {
     // The trials-per-cell window only shapes the heatmap.
     const cellRangeBox = document.getElementById('industry-cellrange');
     if (cellRangeBox) cellRangeBox.style.display = industryView === 'heatmap' ? '' : 'none';
+    document.getElementById('industry-condition-controls').hidden = industryView !== 'heatmap';
     if (industryView === 'heatmap') renderIndustryHeatmap(rows);
     else if (industryView === 'trend') renderIndustryTrend(rows);
     else renderIndustryForest();
@@ -8085,6 +8142,8 @@ function updateIndustryShareUrl() {
     if (industryScope !== 'top10') p.set('scope', industryScope);
     if (industryView !== 'heatmap') p.set('view', industryView);
     if (industrySexSpecific) p.set('ss', '1');
+    if (industryConditionMode !== 'top') p.set('columns', industryConditionMode);
+    if (industryConditionMode === 'custom') industryConditionSelected.forEach(c => p.append('condition', c));
     const q = p.toString();
     history.replaceState(null, '', '#industry' + (q ? '?' + q : ''));
 }
@@ -8108,6 +8167,8 @@ function applyIndustryShareParams() {
     if (p.get('scope') === 'all') industryScope = 'all';
     if (['trend', 'forest'].indexOf(p.get('view')) >= 0) industryView = p.get('view');
     industrySexSpecific = p.get('ss') === '1';
+    if (['all', 'custom'].includes(p.get('columns'))) industryConditionMode = p.get('columns');
+    industryConditionSelected = new Set(p.getAll('condition').filter(c => industryData.secondaries.includes(c)));
     const setActive = (sel, attr, val) => document.querySelectorAll(sel).forEach(b =>
         b.classList.toggle('active', b.dataset[attr] === val));
     setActive('.industry-demo-tab[data-idemo]', 'idemo', industryDemo);
@@ -8207,6 +8268,40 @@ function industryRoute() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Column controls change presentation only, never the filtered trial cohort.
+    ['top', 'all'].forEach(mode => {
+        document.getElementById('industry-condition-' + mode)?.addEventListener('click', () => {
+            industryConditionMode = mode;
+            renderIndustry();
+        });
+    });
+    document.getElementById('industry-condition-search')?.addEventListener('input', filterIndustryConditionOptions);
+    document.getElementById('industry-condition-options')?.addEventListener('change', e => {
+        if (!e.target.matches('input[type="checkbox"]')) return;
+        if (industryConditionMode !== 'custom') {
+            industryConditionSelected = new Set(industryVisibleConditions(industryConditions(industryFilteredRows())));
+        }
+        industryConditionMode = 'custom';
+        if (e.target.checked) industryConditionSelected.add(e.target.value);
+        else industryConditionSelected.delete(e.target.value);
+        renderIndustry();
+    });
+    document.getElementById('industry-condition-select-all')?.addEventListener('click', () => {
+        industryConditionMode = 'custom';
+        industryConditions(industryFilteredRows()).forEach(c => industryConditionSelected.add(c));
+        renderIndustry();
+    });
+    document.getElementById('industry-condition-clear')?.addEventListener('click', () => {
+        industryConditionMode = 'custom';
+        industryConditionSelected.clear();
+        renderIndustry();
+    });
+    document.getElementById('industry-condition-picker')?.addEventListener('keydown', e => {
+        if (e.key === 'Escape') {
+            e.currentTarget.open = false;
+            e.currentTarget.querySelector('summary').focus();
+        }
+    });
     // View switcher.
     document.querySelectorAll('#industry-view-toggle .view-btn').forEach(btn => {
         btn.addEventListener('click', () => {

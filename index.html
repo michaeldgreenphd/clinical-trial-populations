@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260907">
+    <link rel="stylesheet" href="styles.css?v=20260908-conditions">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -1012,6 +1012,35 @@
                 <div id="industry-meta" class="industry-meta"></div>
                 <div class="industry-pager" id="industry-pager"></div>
 
+                <div id="industry-condition-controls" class="industry-condition-controls">
+                    <div class="industry-condition-toolbar">
+                        <div><strong>Condition columns</strong><p id="industry-condition-status" role="status"></p></div>
+                        <div class="industry-condition-actions">
+                            <button type="button" id="industry-condition-top" aria-controls="industry-view-heatmap">Top 10</button>
+                            <button type="button" id="industry-condition-all" aria-controls="industry-view-heatmap">Show all</button>
+                        </div>
+                    </div>
+                    <details id="industry-condition-picker">
+                        <summary>Choose conditions</summary>
+                        <p class="note">Search and select the columns to compare. These choices affect this table only; columns stay ordered by reporting trial count.</p>
+                        <label for="industry-condition-search">Search conditions</label>
+                        <input type="search" id="industry-condition-search" placeholder="e.g., Asthma" autocomplete="off">
+                        <div class="industry-condition-actions">
+                            <button type="button" id="industry-condition-select-all">Select all available</button>
+                            <button type="button" id="industry-condition-clear">Clear selection</button>
+                        </div>
+                        <fieldset id="industry-condition-options"><legend>Available conditions</legend></fieldset>
+                        <p id="industry-condition-no-matches" hidden>No conditions match your search.</p>
+                    </details>
+                    <p class="industry-benchmark-source" id="industry-benchmark-source"></p>
+                    <details class="industry-source-details">
+                        <summary>Where do these benchmarks come from?</summary>
+                        <p>Trial enrollment comes from ClinicalTrials.gov, published by civicsample-engine in <a href="data/industry_sponsors.json">the industry dataset</a>. Cohort Baseline is the condition’s pooled median within-trial share across all industry trials in the current filter. It is not disease prevalence.</p>
+                        <p>50% Parity is a fixed reference. Census Share uses <a href="https://www.census.gov/library/stories/2021/08/improved-race-ethnicity-measures-reveal-united-states-population-much-more-multiracial.html">2020 U.S. Census race and Hispanic-origin population shares</a>, as recorded in the dataset. It describes the U.S. population, not patients with a particular disease or the countries where these trials enrolled.</p>
+                        <p>Disease-prevalence benchmarks by sex, race, and ethnicity are not integrated: the published prevalence tables are pending. No disease-specific epidemiology data is used in this table.</p>
+                    </details>
+                </div>
+
                 <div id="industry-view-heatmap" class="industry-view"></div>
                 <div id="industry-view-trend" class="industry-view" style="display:none">
                     <div class="industry-canvas-wrap"><canvas id="industry-trend-canvas"></canvas></div>
@@ -1482,6 +1511,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20260908"></script>
+    <script defer src="app.js?v=20260908-conditions"></script>
 </body>
 </html>
