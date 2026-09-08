@@ -150,3 +150,54 @@ test('the heatmap legend describes uncoloured cells by the trials-per-cell windo
   assert.match(heat, /industry-legend-thin">\(n\)<\/span> \$\{rangeDesc\} \(n shown\)/,
     'the legend calls every uncoloured cell "too few trials", which is backwards for cells above a user-set maximum');
 });
+
+// The tab opens with a statement of purpose, in the Overview finding's voice,
+// before the reader meets a control. It is static copy: it asserts no number,
+// so it must never grow one, and it has to come before the demographic tier
+// or it stops being the first thing read.
+test('the Industry tab states its purpose before its first control', () => {
+  const hero = html.match(/<section id="industry"[\s\S]*?<div class="panel-hero">([\s\S]*?)<\/div>\s*<div class="industry-controls">/);
+  assert.ok(hero, 'the Industry hero block is gone or no longer precedes the controls');
+  const claim = hero[1].indexOf('class="finding-headline"');
+  const tier = hero[1].indexOf('class="industry-demo-nav"');
+  assert.ok(claim >= 0, 'the hero has no finding-headline purpose line');
+  assert.ok(tier > claim, 'the purpose line has to come before the Sex/Race/Ethnicity tier');
+  const headline = hero[1].match(/<p class="finding-headline">([^<]*)<\/p>/)[1];
+  assert.ok(!/\d/.test(headline), `the purpose line carries a number ("${headline}") — a number there is a finding, which the engine must ship`);
+});
+
+// #237 removed the permanently disabled "Disease Prevalence" button: the
+// dataset ships prevalence_benchmarks as pending with null tables, so the
+// control could never do anything. The toggle now offers exactly two live
+// options per tier. This closes the untested behaviour #237 named.
+test('the benchmark toggle offers two live options and no disabled placeholder', () => {
+  const fn = app.match(/function renderIndustryBenchmarkToggle\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'renderIndustryBenchmarkToggle() is gone');
+  const buttons = [...fn.matchAll(/<button[^>]*>/g)].map(m => m[0]);
+  assert.equal(buttons.length, 2, `expected exactly two benchmark buttons in the template, found ${buttons.length}`);
+  assert.ok(buttons.every(b => /data-ibench=/.test(b)), 'a benchmark button has no data-ibench, so clicking it selects nothing');
+  assert.ok(!buttons.some(b => /\bdisabled\b/.test(b)), 'a disabled benchmark button is back; a control that can never act is filler');
+});
+
+// On the full cohort the heatmap has about 127 condition columns and a
+// 1400px screen shows twelve, so the caption has to say how many there are
+// and that the table scrolls, or the twelfth column reads as the last. The
+// count is the number of columns rendered, not a statistic about trials.
+test('the heatmap caption states its column count and that the table scrolls', () => {
+  const fn = app.match(/function renderIndustryHeatmap\(rows\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(fn, 'renderIndustryHeatmap() is gone');
+  const caption = fn.match(/<caption class="industry-heatmap-caption">([\s\S]*?)<\/caption>/)?.[1];
+  assert.ok(caption, 'the heatmap has no caption');
+  assert.match(caption, /\$\{conditions\.length\.toLocaleString\(\)\}/,
+    'the caption no longer states how many condition columns there are');
+  assert.match(caption, /scrolls sideways/, 'the caption no longer says the table scrolls');
+  // The scroll sentence must be gated on measured overflow: with one column
+  // (a specific secondary condition selected) the table fits, and a caption
+  // promising more columns offscreen would be false.
+  assert.match(caption, /industry-heatmap-scrollnote" hidden>/, 'the scroll sentence renders unconditionally instead of hidden until overflow is measured');
+  const sync = app.match(/function industrySyncHeatmapScrollNote\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(sync, 'industrySyncHeatmapScrollNote() is gone, so the scroll sentence is never shown or is always shown');
+  assert.match(sync, /scrollWidth <= wrap\.clientWidth/, 'the scroll sentence is no longer decided by comparing scrollWidth with clientWidth');
+  assert.match(fn, /industrySyncHeatmapScrollNote\(\);/, 'renderIndustryHeatmap() no longer measures overflow after rendering');
+  assert.match(app, /addEventListener\('resize'[\s\S]{0,200}industrySyncHeatmapScrollNote/, 'the overflow check is not re-run on resize');
+});

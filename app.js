@@ -7684,7 +7684,7 @@ function renderIndustryHeatmap(rows) {
         <span><i aria-hidden="true" style="background:${industryDevColor(0)}"></i>at benchmark</span>
         <span><i aria-hidden="true" style="background:${industryDevColor(15)}"></i>more ${escapeHtml(metric)} than benchmark</span>
         <span><span class="industry-legend-thin">(n)</span> ${rangeDesc} (n shown)</span>
-    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: condition categories with reporting trials in the current filter, most trials first. Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
+    </div><div class="industry-heatmap-wrap"><table class="industry-heatmap"><caption class="industry-heatmap-caption">Columns: ${conditions.length.toLocaleString()} condition ${conditions.length === 1 ? 'category' : 'categories'} with reporting trials in the current filter${conditions.length > 1 ? ', most trials first' : ''}.<span class="industry-heatmap-scrollnote" hidden> The table scrolls sideways for the rest.</span> Under each name: the benchmark the cells are measured against.</caption><thead><tr><th scope="col">Sponsor</th>`;
     conditions.forEach(c => {
         const base = industryMedian(byCond[c].all);
         html += `<th scope="col" title="${byCond[c].all.length.toLocaleString()} reporting trials in the current filter">${escapeHtml(c)}<span class="industry-heatmap-base">${escapeHtml(industryBenchmarkLabel(base))}</span></th>`;
@@ -7716,7 +7716,24 @@ function renderIndustryHeatmap(rows) {
         ? ` (medians over so few trials are volatile &mdash; the default floor is ${d.min_cell})` : '';
     html += `<p class="industry-footnote">Each colored cell is the sponsor's median within-trial percent ${escapeHtml(metric)} minus ${benchDesc}, in percentage points, clamped at &plusmn;15. Cells with ${rangeDesc} show their n uncoloured${smallNote}.</p>`;
     host.innerHTML = html;
+    industrySyncHeatmapScrollNote();
 }
+
+// The caption's "scrolls sideways" sentence is true only when the table
+// actually overflows its wrap, which depends on the column count and the
+// viewport: 127 columns overflow at any width, one column never does. So it
+// is measured after render rather than assumed, and re-measured on resize.
+function industrySyncHeatmapScrollNote() {
+    const wrap = document.querySelector('#industry-view-heatmap .industry-heatmap-wrap');
+    const note = wrap && wrap.querySelector('.industry-heatmap-scrollnote');
+    if (!note) return;
+    note.hidden = wrap.scrollWidth <= wrap.clientWidth;
+}
+let industryScrollNoteTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(industryScrollNoteTimer);
+    industryScrollNoteTimer = setTimeout(industrySyncHeatmapScrollNote, 150);
+});
 
 // Trims a label to the room available, with an ellipsis, so a long sponsor
 // name cannot run off the right edge of the canvas.
