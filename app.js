@@ -7475,7 +7475,6 @@ const SG_FILTER_IDS = ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg
 // or by a reader who cannot separate the hues. The legend swatch uses the
 // same pattern, since Chart.js paints it with the dataset's background.
 const SG_STATE_TEXTURES = { reported: 'solid', explicit_unknown_only: 'diagonal', uninformative: 'dots', not_reported: 'grid', parse_error: 'grid' };
-const SG_TEXTURE_WORDS = { solid: 'solid', diagonal: 'diagonal stripes', dots: 'dots', grid: 'a grid' };
 
 function sgTexture(canvas, color, kind) {
     if (!kind || kind === 'solid') return color;
