@@ -31,7 +31,7 @@ const code = block.replace(/\/\*[\s\S]*?\*\//g, '').split('\n').map((l) => l.rep
 
 function harness(opts = {}) {
     const els = {};
-    const el = (id) => (els[id] ||= { id, innerHTML: '', textContent: '', classList: { toggle() {} }, value: 'all', disabled: false, style: {} });
+    const el = (id) => (els[id] ||= { id, innerHTML: '', textContent: '', classList: { toggle() {} }, value: 'all', disabled: false, style: {}, title: '', removeAttribute() { this.title = ''; } });
     const context = vm.createContext({
         console, JSON, Number, String, Object, Array, Map, Set, Math, URLSearchParams,
         location: { search: opts.search || '', hash: opts.hash || '' },
@@ -337,4 +337,107 @@ test('a bucket no trial in the selection published renders as absent, never as a
     const fromSummary = h.run("sgAggregateFromSummary({ totals: { female: 10, male: 5 }, outcomes: {}, statusCounts: {} })");
     assert.equal(fromSummary.totalsPresent.female, true);
     assert.equal(fromSummary.totalsPresent.explicit_unknown, false);
+});
+
+test('a copied link keeps the beta on: the rebuilt share hash carries sg=v2', () => {
+    // updateShareUrl() replaces the whole hash, which is where the routing
+    // stubs leave the flag, so it has to put the flag back.
+    const start = app.indexOf('function updateShareUrl()');
+    assert.ok(start >= 0, 'app.js lost updateShareUrl');
+    const fn = app.slice(start, app.indexOf('\nfunction ', start + 10));
+    assert.ok(fn.includes("p.set('sg', 'v2')"), 'the rebuilt hash drops the beta flag');
+    assert.ok(fn.includes('SG_V2 && !sgInSearch'), 'the flag is added even when location.search already carries it');
+    assert.ok(fn.indexOf("p.set('sg', 'v2')") < fn.indexOf('history.replaceState'), 'the flag is added after the hash is written');
+});
+
+test('the beta comparison leaves an unpublished figure absent instead of zero', () => {
+    const h = harness();
+    // a summary that publishes nothing but the two sex totals
+    const rows = h.run(`sgBetaRows({ cards: {}, sexDistribution: { female: 10 }, genderDistribution: {},
+        sexGender: { totals: { female: 7 }, outcomes: {}, excludedFromComposition: {} } })`);
+    assert.equal(rows.sex[0][1], 10);
+    assert.equal(rows.sex[0][2], 7);
+    assert.equal(rows.sex[1][1], null, 'an unpublished old total became a zero');
+    assert.equal(rows.sex[1][2], null, 'an unpublished parser-v2 total became a zero');
+    assert.equal(rows.gender[2][1], null, 'the three old gender tiles summed to zero when none was published');
+    assert.equal(rows.excluded.trials, null);
+    assert.equal(rows.denominatorTrials, null);
+    const html = h.run(`sgBetaHtml(${JSON.stringify(rows)}, 'the latest pull')`);
+    assert.ok(!/>0</.test(html), 'the comparison table rendered an absent figure as 0');
+    assert.match(html, /over — trials with reported sex/);
+    // and a published zero is still a zero
+    const zero = h.run(`sgBetaRows({ cards: {}, sexDistribution: { male: 0 }, genderDistribution: {},
+        sexGender: { totals: { male: 0 }, outcomes: {}, excludedFromComposition: {} } })`);
+    assert.equal(zero.sex[1][1], 0);
+    assert.equal(zero.sex[1][2], 0);
+});
+
+test('the methods text follows the snapshot, and a fallback says whose numbers it is', async () => {
+    const urls = [];
+    const h = harness({ search: '?sg=v2', fetch: async (u) => { urls.push(u); return { ok: false, status: 404 }; } });
+    h.run("sgSnapshotKey = '2026-08-02';");
+    await h.runRaw('sgLoadMethods()');
+    assert.ok(urls.some((u) => u.startsWith('snapshots/2026-08-02/sex_gender/methods.json')),
+        `the snapshot's own methods were not tried: ${urls.join(', ')}`);
+    assert.ok(urls.some((u) => u.startsWith('data/sex_gender/methods.json')), 'the latest text was not tried as a fallback');
+    assert.match(h.els['sg-methods'].innerHTML, /No methods text/);
+    // the fallback notice names the mismatch rather than passing the latest off as the archive's
+    const notice = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'new-rules' } }, { parser_rules_version: 'old-rules' })`);
+    assert.match(notice, /Not this snapshot's text/);
+    assert.match(notice, /old-rules/);
+    assert.match(notice, /new-rules/);
+    // no notice when the text is the snapshot's own
+    assert.equal(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: false, methods: {} }, null)`), '');
+});
+
+test('the v2 filters are disabled where no filter can bite', () => {
+    const h = harness({ search: '?sg=v2' });
+    h.run('sgAvailable = true; sgTable = new Map(); dashboardSummary = null; sgApplyMode();');
+    for (const id of ['sg-status', 'sg-reported-sex', 'sg-participant-count', 'sg-glb']) {
+        assert.equal(h.els[id].disabled, false, `${id} should be live on the full desktop dataset`);
+    }
+    // aggregate-summary mode: renderDashboard() never calls getFilteredData()
+    h.run("dashboardSummary = { sexGender: {} }; sgApplyMode();");
+    for (const id of ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count']) {
+        assert.equal(h.els[id].disabled, true, `${id} is inert in summary mode and must be disabled`);
+        assert.match(h.els[id].title, /filters cannot apply/);
+    }
+    // and gender_labeled_binary_only still needs the CSV join
+    h.run('dashboardSummary = null; sgTable = null; sgApplyMode();');
+    assert.equal(h.els['sg-glb'].disabled, true);
+    assert.equal(h.els['sg-status'].disabled, false);
+});
+
+test('the legacy Sex and Gender charts are skipped, not hidden, while parser v2 owns the tab', () => {
+    // Building them costs eight Chart.js instances on the mobile summary path
+    // and four on every desktop filter render, all inside containers
+    // sgApplyMode() has already hidden. Every call site must sit behind an
+    // sgActive() branch, whichever way round it is written.
+    const legacy = ['renderSexReportedParticipants', 'renderSexFullDistribution', 'renderSexDistribution', 'renderSexTrends',
+                    'renderGenderReportedParticipants', 'renderGenderFullDistribution', 'renderGenderDistribution', 'renderGenderTrends'];
+    let sites = 0;
+    for (const call of legacy) {
+        for (const arg of ['(stub)', '(filtered)']) {
+            let i = app.indexOf(call + arg);
+            while (i > 0) {
+                if (app.slice(i - 9, i) === 'function ') { i = app.indexOf(call + arg, i + 1); continue; }  // the definition, not a call
+                sites++;
+                const before = app.slice(Math.max(0, i - 700), i);
+                assert.ok(before.includes('sgActive()'),
+                    `${call}${arg} is built with no sgActive() guard, so parser v2 pays for a chart nobody sees`);
+                i = app.indexOf(call + arg, i + 1);
+            }
+        }
+    }
+    assert.ok(sites >= 12, `expected the legacy renderers at the mobile, desktop and tab-click call sites, found ${sites}`);
+});
+
+test('the Sex tab leads with the composition, then the reporting quality that qualifies it', () => {
+    const sex = html.slice(html.indexOf('<div id="sg-sex-v2"'), html.indexOf('<div class="sg-legacy">'));
+    const pf = sex.indexOf('id="sg-pf-chart"');
+    const donut = sex.indexOf('id="sg-sex-donut"');
+    const quality = sex.indexOf('id="sg-quality-chart"');
+    const tiles = sex.indexOf('id="sg-sex-tiles"');
+    assert.ok(tiles < pf, 'the tiles lead');
+    assert.ok(pf < quality && donut < quality, 'percent female and the sex breakdown belong above the reporting status');
 });

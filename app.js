@@ -1236,6 +1236,12 @@ function updateShareUrl() {
         const el = document.getElementById(id);
         if (el && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
     });
+    // ?sg=v2 can arrive in the hash rather than the query — the routing stubs
+    // put it there — and this rewrites the whole hash. Carry the flag, or a
+    // copied link opens the legacy view in any browser that never stored it.
+    let sgInSearch = false;
+    try { sgInSearch = new URLSearchParams(location.search || '').has('sg'); } catch (e) { sgInSearch = false; }
+    if (SG_V2 && !sgInSearch) p.set('sg', 'v2');
     const q = p.toString();
     history.replaceState(null, '', '#' + tabId + (q ? '?' + q : ''));
 }
@@ -2180,14 +2186,18 @@ function renderDashboard() {
         renderEthnicitySubcategories(stub);
         renderEthnicityReportedParticipants(stub);
         renderEthnicityFullDistribution(stub);
-        renderSexReportedParticipants(stub);
-        renderSexFullDistribution(stub);
-        renderSexDistribution(stub);
-        renderSexTrends(stub);
-        renderGenderReportedParticipants(stub);
-        renderGenderFullDistribution(stub);
-        renderGenderDistribution(stub);
-        renderGenderTrends(stub);
+        // ?sg=v2 replaces both of these tabs, so building the legacy charts
+        // here would be eight Chart.js instances constructed only to be hidden.
+        if (!sgActive()) {
+            renderSexReportedParticipants(stub);
+            renderSexFullDistribution(stub);
+            renderSexDistribution(stub);
+            renderSexTrends(stub);
+            renderGenderReportedParticipants(stub);
+            renderGenderFullDistribution(stub);
+            renderGenderDistribution(stub);
+            renderGenderTrends(stub);
+        }
         sgAfterRender(stub);
 
         requestAnimationFrame(() => hideDashboardSpinner());
@@ -2237,15 +2247,21 @@ function renderDashboard() {
         renderEthnicityReportedParticipants(filtered);
         renderEthnicityFullDistribution(filtered);
     } else if (activeTab === 'sex') {
-        renderSexReportedParticipants(filtered);
-        renderSexFullDistribution(filtered);
-        renderSexDistribution(filtered);
-        renderSexTrends(filtered);
+        // Skipped, not hidden, while parser v2 owns the tab: these four would
+        // be rebuilt on every filter render over the full dataset.
+        if (!sgActive()) {
+            renderSexReportedParticipants(filtered);
+            renderSexFullDistribution(filtered);
+            renderSexDistribution(filtered);
+            renderSexTrends(filtered);
+        }
     } else if (activeTab === 'gender') {
-        renderGenderReportedParticipants(filtered);
-        renderGenderFullDistribution(filtered);
-        renderGenderDistribution(filtered);
-        renderGenderTrends(filtered);
+        if (!sgActive()) {
+            renderGenderReportedParticipants(filtered);
+            renderGenderFullDistribution(filtered);
+            renderGenderDistribution(filtered);
+            renderGenderTrends(filtered);
+        }
     } else if (activeTab === 'geography') {
         renderGeographyDashboard();
     } else if (activeTab === 'fda-oversight') {
@@ -7437,6 +7453,7 @@ const SG_LABEL_TRAILS = [
     { key: 'unknown_labels',        bucket: 'explicit_unknown', summaryKey: 'unknown',      heading: 'Explicit Unknown: source labels' }
 ];
 const SG_PR15_URL = 'https://github.com/michaeldgreenphd/civicsample-engine/pull/15';
+const SG_FILTER_IDS = ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count'];
 
 // Where a parameter can be. The routing stubs bounce /sex/?sg=v2 to
 // /#sex?sg=v2, which moves the query into the hash — the same place
@@ -7472,7 +7489,7 @@ const SG_V2 = sgReadFlag();
 let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (desktop only)
 let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
 let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
-let sgMethods = null;      // methods.json, once fetched
+const sgMethodsCache = new Map();   // snapshot key -> { methods, fromLatest } | null
 let sgSnapshotKey = 'latest';       // 'latest' | date: the snapshot the tabs are showing
 const sgBetaSummaries = new Map();  // snapshot key -> dashboard-summary.json | null (fetch failed)
 const sgCache = new Map(); // 'latest' | date -> { meta, table }
@@ -7858,9 +7875,22 @@ function sgApplyMode() {
     // tab is not rendered, so one banner would be invisible on the other tab.
     const retired = SG_V2 && !sgAvailable;
     document.querySelectorAll('.sg-retired-banner').forEach(el => el.classList.toggle('sg-hidden', !retired));
-    // gender_labeled_binary_only is a CSV column: the filter needs the join.
-    const glb = document.getElementById('sg-glb');
-    if (glb) glb.disabled = !(on && sgTable);
+    // A filter can only bite where renderDashboard() calls getFilteredData().
+    // It does not in aggregate-summary mode — mobile, and the desktop monthly
+    // archives that ship dashboard-summary.json without the per-study parts —
+    // so the controls are disabled there rather than left inert. And
+    // gender_labeled_binary_only is a CSV column: that one needs the join.
+    const summaryMode = !!dashboardSummary;
+    SG_FILTER_IDS.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const needsJoin = (id === 'sg-glb') && !sgTable;
+        el.disabled = !on || summaryMode || needsJoin;
+        const why = summaryMode
+            ? 'This view renders pre-computed aggregates of the whole snapshot, so filters cannot apply.'
+            : (needsJoin ? 'Needs sex_gender_parsed.csv.gz, which this snapshot does not publish.' : '');
+        if (why) el.title = why; else el.removeAttribute('title');
+    });
     document.querySelectorAll('.sg-provenance').forEach(el => { el.textContent = on ? sgProvenanceText() : ''; });
 }
 
@@ -8158,20 +8188,47 @@ function sgShowBreakdown(nctId, field) {
 }
 
 // ── Methods page ─────────────────────────────────────────────────────────
+// The methods text carries the snapshot's own date, reporting-state counts
+// and parser version, so it is loaded for the snapshot on screen. Archived
+// snapshots do not currently publish one; rather than let the latest pull's
+// numbers stand in silently, the fallback is labelled as what it is.
 async function sgLoadMethods() {
     const box = document.getElementById('sg-methods');
     if (!box) return;
-    if (!sgMethods) {
-        try {
-            const resp = await fetch(`data/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
-            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-            sgMethods = await resp.json();
-        } catch (e) {
-            box.innerHTML = `<p class="note">The methods text (data/sex_gender/methods.json) is not published yet: ${escapeHtml(e.message)}.</p>`;
-            return;
+    const key = sgSnapshotKey;
+    if (!sgMethodsCache.has(key)) {
+        const tries = (key === 'latest') ? [['data', false]] : [[sgBase(key), false], ['data', true]];
+        let entry = null;
+        for (const [base, fromLatest] of tries) {
+            try {
+                const resp = await fetch(`${base}/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
+                if (!resp.ok) continue;
+                entry = { methods: await resp.json(), fromLatest };
+                break;
+            } catch (e) { /* try the next location */ }
         }
+        sgMethodsCache.set(key, entry);
     }
-    box.innerHTML = sgMethodsHtml(sgMethods, sgMeta);
+    if (key !== sgSnapshotKey) return;      // the snapshot changed mid-fetch
+    const entry = sgMethodsCache.get(key);
+    if (!entry) {
+        box.innerHTML = `<p class="note">No methods text (<code>sex_gender/methods.json</code>) is published for ${escapeHtml(key === 'latest' ? 'this pull' : 'the ' + key + ' snapshot')}.</p>`;
+        return;
+    }
+    box.innerHTML = sgMethodsNotice(key, entry, sgMeta) + sgMethodsHtml(entry.methods, sgMeta);
+}
+
+// Says whose numbers the text below is, when they are not this snapshot's.
+function sgMethodsNotice(key, entry, meta) {
+    if (!entry.fromLatest) return '';
+    const archived = meta && meta.parser_rules_version;
+    const latest = entry.methods && entry.methods.parser_rules_version;
+    const mismatch = archived && latest && archived !== latest;
+    return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot did not archive its own methods, so what follows is the latest pull's: its snapshot date, reporting-state counts and fidelity figures describe that pull, not this archive.` +
+        (mismatch
+            ? ` The rules also differ: this archive was parsed with <code>${escapeHtml(archived)}</code> and the text below describes <code>${escapeHtml(latest)}</code>.`
+            : (archived ? ` This archive was parsed with <code>${escapeHtml(archived)}</code>, the same rules the text below describes.` : '')) +
+        `</p>`;
 }
 
 function sgMethodsHtml(m, meta) {
@@ -8210,7 +8267,11 @@ function sgBetaRows(summary) {
     if (!summary || !summary.sexGender) return null;
     const sg = summary.sexGender, sd = summary.sexDistribution || {}, gd = summary.genderDistribution || {}, cards = summary.cards || {};
     const t = sg.totals || {}, o = sg.outcomes || {}, ex = sg.excludedFromComposition || {};
-    const n = (v) => Number(v || 0);
+    // Absence is not zero here either: a figure the summary does not publish
+    // stays null and renders as an em dash, the way the tiles do. Only a
+    // published value becomes a number.
+    const n = (v) => { if (v == null || v === '') return null; const x = Number(v); return Number.isFinite(x) ? x : null; };
+    const sum = (...vs) => vs.every(v => n(v) == null) ? null : vs.reduce((a, v) => a + (n(v) || 0), 0);
     return {
         sex: [
             ['Female', n(sd.female), n(t.female)],
@@ -8220,14 +8281,14 @@ function sgBetaRows(summary) {
         gender: [
             ['Woman (old) → counted as sex (new Female)', n(gd.woman), null],
             ['Man (old) → counted as sex (new Male)', n(gd.man), null],
-            ['Non-binary + Transgender + Other (old) → Gender diverse (new)', n(gd.nonbinary) + n(gd.transgender) + n(gd.other), n(t.gender_diverse)],
+            ['Non-binary + Transgender + Other (old) → Gender diverse (new)', sum(gd.nonbinary, gd.transgender, gd.other), n(t.gender_diverse)],
             ['(no old tile) → Cis/trans-qualified (new)', null, n(t.ambiguous)],
             ['Unknown or Not Reported (old) → Explicit Unknown (new, shared with Sex)', n(gd.unknown), n(t.explicit_unknown)]
         ],
         trials: [
             ['Trials reporting sex', n(cards.sexCount), n(o.reported_sex)],
             ['Trials reporting gender', n(cards.genderCount), n(o.reported_gender)],
-            ['Gender-titled tables with only Female/Male, counted as sex', null, o.gender_labeled_binary_only == null ? null : n(o.gender_labeled_binary_only)]
+            ['Gender-titled tables with only Female/Male, counted as sex', null, n(o.gender_labeled_binary_only)]
         ],
         excluded: { trials: n(ex.trials), female: n(ex.female), male: n(ex.male) },
         denominatorTrials: n(sg.denominatorTrials),
@@ -8242,11 +8303,12 @@ function sgBetaHtml(rows, label) {
     const c = (v) => v == null ? '<span class="text-muted">—</span>' : Math.round(Number(v)).toLocaleString();
     const table = (title, rs) => `<h5>${title}</h5><table class="breakdown-table sg-beta-table"><thead><tr><th>Tile</th><th>Old engine</th><th>Parser v2</th></tr></thead><tbody>` +
         rs.map(([l, a, b]) => `<tr><td>${escapeHtml(l)}</td><td>${c(a)}</td><td>${c(b)}</td></tr>`).join('') + `</tbody></table>`;
+    const f = (v) => v == null ? '—' : Math.round(Number(v)).toLocaleString();
     return `<p class="note">Old tiles versus parser v2${where}${rows.extracted ? `, extracted ${escapeHtml(rows.extracted)}` : ''}.</p>` +
         table('Sex tab (participants)', rows.sex) + table('Gender tab (participants)', rows.gender) + table('Trials', rows.trials) +
-        `<p class="note">New participant totals are over ${rows.denominatorTrials.toLocaleString()} trials with reported sex and a participant-count table. ` +
-        `Excluded from composition (reported_sex AND NOT is_participant_count): ${rows.excluded.trials.toLocaleString()} trials, ` +
-        `${Math.round(rows.excluded.female).toLocaleString()} female / ${Math.round(rows.excluded.male).toLocaleString()} male units. ` +
+        `<p class="note">New participant totals are over ${f(rows.denominatorTrials)} trials with reported sex and a participant-count table. ` +
+        `Excluded from composition (reported_sex AND NOT is_participant_count): ${f(rows.excluded.trials)} trials, ` +
+        `${f(rows.excluded.female)} female / ${f(rows.excluded.male)} male units. ` +
         `The old Unknown tile also carried an inferred enrollment remainder; that line is not in the published summary and is measured in ` +
         `<a href="${SG_PR15_URL}" target="_blank" rel="noopener">the engine pull request that introduced parser v2</a>. ` +
         `Parser rules: <code>${escapeHtml(rows.rules)}</code>. This panel is removed at cutover.</p>`;

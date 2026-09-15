@@ -473,6 +473,19 @@
                 <div class="stats-grid" id="sg-sex-tiles"></div>
                 <div class="chart-row">
                     <div class="chart-container">
+                        <h3>Percent female over time (two series)</h3>
+                        <p class="note" id="sg-pf-subtitle"></p>
+                        <canvas id="sg-pf-chart"></canvas>
+                        <p class="chart-footnote" id="sg-pf-footnote"></p>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Sex composition (parser v2)</h3>
+                        <p class="note">Female, Male and Explicit Unknown participants over the same denominator set as the tiles.</p>
+                        <canvas id="sg-sex-donut"></canvas>
+                    </div>
+                </div>
+                <div class="chart-row">
+                    <div class="chart-container">
                         <h3>Reporting status (parser v2)</h3>
                         <p class="note">Four states from the parser's <code>sex_report_status</code>, per trial in the current selection. Not Reported (Missing) is a state of its own and is never derived from enrollment arithmetic; a zero shows as a zero bar.</p>
                         <canvas id="sg-quality-chart"></canvas>
@@ -484,19 +497,6 @@
                         <h3>Reporting status by results-posted year</h3>
                         <p class="note">Trials per year, stacked by state; the same four states, so a year with no Not Reported trials shows none.</p>
                         <canvas id="sg-quality-year-chart"></canvas>
-                    </div>
-                </div>
-                <div class="chart-row">
-                    <div class="chart-container">
-                        <h3>Percent female over time (two series)</h3>
-                        <p class="note" id="sg-pf-subtitle"></p>
-                        <canvas id="sg-pf-chart"></canvas>
-                        <p class="chart-footnote" id="sg-pf-footnote"></p>
-                    </div>
-                    <div class="chart-container">
-                        <h3>Sex composition (parser v2)</h3>
-                        <p class="note">Female, Male and Explicit Unknown participants over the same denominator set as the tiles.</p>
-                        <canvas id="sg-sex-donut"></canvas>
                     </div>
                 </div>
                 <details id="sg-beta-panel" class="sg-beta" ontoggle="if (this.open) sgRenderBetaPanel()">
