@@ -8011,8 +8011,16 @@ function sgApplyMode() {
     document.querySelectorAll('.sg-v2-filter').forEach(el => el.classList.toggle('sg-hidden', !on));
     // The banner lives in both tab sections: a section that is not the active
     // tab is not rendered, so one banner would be invisible on the other tab.
-    const retired = SG_V2 && !sgAvailable;
-    document.querySelectorAll('.sg-retired-banner').forEach(el => el.classList.toggle('sg-hidden', !retired));
+    // Two reasons the v2 tabs cannot show: the snapshot has no parser-v2 table
+    // (a confirmed 404, the retired rule) or the table could not be fetched
+    // just now. Both fall back to the legacy blocks, but only the first may
+    // say the snapshot predates the parser; the second says so and offers a
+    // retry. A summary-mode snapshot with a sexGender block never reaches here.
+    const state = (SG_V2 && !sgAvailable) ? (sgMetaAbsent ? 'retired' : 'unavailable') : null;
+    document.querySelectorAll('.sg-retired-banner').forEach(el => {
+        el.classList.toggle('sg-hidden', !state);
+        if (state) el.innerHTML = sgBannerHtml(state);
+    });
     // A filter can only bite where renderDashboard() calls getFilteredData().
     // It does not in aggregate-summary mode — mobile, and the desktop monthly
     // archives that ship dashboard-summary.json without the per-study parts —
@@ -8039,6 +8047,29 @@ function sgApplyMode() {
     if (changed && typeof updateShareUrl === 'function') updateShareUrl();
     document.querySelectorAll('.sg-provenance').forEach(el => { el.textContent = on ? sgProvenanceText() : ''; });
 }
+
+// The banner over the legacy blocks: what is known about why parser v2 is
+// not showing, and nothing more than is known.
+function sgBannerHtml(state) {
+    if (state === 'retired') {
+        return '<strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.';
+    }
+    return '<strong>Parser v2 unavailable.</strong> The parser-v2 sex/gender table for this snapshot could not be fetched just now, so the Sex and Gender tabs show the legacy extraction meanwhile. This says nothing about whether the snapshot was parsed. ' +
+        '<button type="button" class="sg-badge-btn" onclick="return sgRetry()">Retry</button>';
+}
+
+// Re-fetches the current snapshot's parser-v2 artifacts; nothing about a
+// failed fetch is cached, so this is a fresh attempt.
+async function sgRetry() {
+    try {
+        await sgLoad(sgSnapshotKey === 'latest' ? undefined : sgSnapshotKey);
+        renderDashboard();
+        if (typeof labelChartsForA11y === 'function') labelChartsForA11y();
+        if (typeof updateShareUrl === 'function') updateShareUrl();
+    } catch (e) { console.warn('sg=v2: retry:', e.message); }
+    return false;
+}
+window.sgRetry = sgRetry;
 
 // ── Sex tab ──────────────────────────────────────────────────────────────
 function sgRenderSexTab(filtered) {

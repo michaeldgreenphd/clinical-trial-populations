@@ -991,3 +991,24 @@ test('a query-style archive link still opens the archive after the query is rewr
     const hooks = block.slice(block.indexOf('function sgRouteHooks()'), block.indexOf('// Which v2 tab renderers'));
     assert.ok(hooks.includes('sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH)'), 'the hooks read the live query, which the rewrite has already stripped');
 });
+
+test('the retired-rule banner is reserved for a confirmed absence; a failed fetch says so and offers a retry', () => {
+    const h = harness({ search: '?sg=v2' });
+    // the two texts differ in what they claim
+    const retired = h.run("sgBannerHtml('retired')");
+    const unavailable = h.run("sgBannerHtml('unavailable')");
+    assert.match(retired, /Retired rule/);
+    assert.match(retired, /no parser-v2 sex\/gender table/);
+    assert.ok(!/Retired rule/.test(unavailable), 'a failed fetch was labelled as the retired rule');
+    assert.match(unavailable, /could not be fetched just now/);
+    assert.match(unavailable, /says nothing about whether the snapshot was parsed/);
+    assert.match(unavailable, /sgRetry\(\)/);
+    // and the mode picks by the confirmed-absence flag, not by availability alone
+    const apply = block.slice(block.indexOf('function sgApplyMode()'), block.indexOf('// ── Sex tab'));
+    assert.ok(apply.includes("(sgMetaAbsent ? 'retired' : 'unavailable')"), 'any missing table enters retired mode');
+    assert.ok(apply.includes('el.innerHTML = sgBannerHtml(state)'), 'the banner text is fixed in the markup, so it cannot say which case it is');
+    // the retry re-fetches the snapshot on screen and re-renders
+    const retry = block.slice(block.indexOf('async function sgRetry()'), block.indexOf('window.sgRetry'));
+    assert.ok(retry.includes("sgLoad(sgSnapshotKey === 'latest' ? undefined : sgSnapshotKey)"));
+    assert.ok(retry.indexOf('sgLoad(') < retry.indexOf('renderDashboard()'));
+});
