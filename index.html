@@ -465,7 +465,7 @@
         <section id="sex" class="tab-content">
             <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
                  absent); the legacy blocks below render under this banner. -->
-            <div id="sg-retired-banner" class="sg-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
+            <div id="sg-retired-banner" class="sg-banner sg-retired-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
 
             <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on -->
             <div id="sg-sex-v2" class="sg-v2 sg-hidden">
@@ -539,6 +539,12 @@
 
         <!-- Gender Tab -->
         <section id="gender" class="tab-content">
+            <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
+                 absent); the legacy blocks below render under this banner. The
+                 Sex section carries the same notice: only the active tab's
+                 section is rendered, so each tab needs its own. -->
+            <div id="sg-retired-banner-gender" class="sg-banner sg-retired-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
+
             <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on.
                  Five buckets, never a tile named after one source label. -->
             <div id="sg-gender-v2" class="sg-v2 sg-hidden">

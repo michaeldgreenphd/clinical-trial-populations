@@ -5078,3 +5078,6 @@ footer p {
 .sg-beta summary { cursor: pointer; font-weight: 600; }
 .sg-beta h5, .sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
 .sg-footer { margin-top: 0.5rem; }
+
+/* A bucket nothing in the selection published: an em dash, not a zero. */
+.sg-tile .stat-value.sg-absent { color: var(--text-secondary); font-size: calc(var(--fs-display) * 0.6); }

@@ -7438,11 +7438,29 @@ const SG_LABEL_TRAILS = [
 ];
 const SG_PR15_URL = 'https://github.com/michaeldgreenphd/civicsample-engine/pull/15';
 
+// Where a parameter can be. The routing stubs bounce /sex/?sg=v2 to
+// /#sex?sg=v2, which moves the query into the hash — the same place
+// applyShareParams() reads its filters from — so a reader that looks only at
+// location.search misses the flag on every path-style deep link. Read both,
+// location.search first. Returns a Map, so .get() works the same way.
+function sgQueryParams(hash) {
+    const out = new Map();
+    const add = (q) => {
+        try { new URLSearchParams(q || '').forEach((v, k) => { if (!out.has(k)) out.set(k, v); }); } catch (e) { /* unparseable */ }
+    };
+    let loc = null;
+    try { loc = (typeof location !== 'undefined') ? location : null; } catch (e) { loc = null; }
+    add(loc ? loc.search : '');
+    const h = (hash != null) ? hash : (loc ? (loc.hash || '') : '');
+    add(String(h).split('?').slice(1).join('?'));
+    return out;
+}
+
 // The flag: ?sg=v2 turns the beta on and remembers it; ?sg=v1 turns it off.
 const SG_STORAGE_KEY = 'civicsample.sg';
 function sgReadFlag() {
     let q = null;
-    try { q = new URLSearchParams(typeof location !== 'undefined' ? (location.search || '') : '').get('sg'); } catch (e) { q = null; }
+    try { q = sgQueryParams().get('sg') || null; } catch (e) { q = null; }
     try {
         if (q === 'v2' || q === 'v1') { localStorage.setItem(SG_STORAGE_KEY, q); return q === 'v2'; }
         return localStorage.getItem(SG_STORAGE_KEY) === 'v2';
@@ -7455,16 +7473,18 @@ let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (deskto
 let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
 let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
 let sgMethods = null;      // methods.json, once fetched
-let sgBetaSummary = null;  // dashboard-summary.json fetched for the beta panel on desktop
+let sgSnapshotKey = 'latest';       // 'latest' | date: the snapshot the tabs are showing
+const sgBetaSummaries = new Map();  // snapshot key -> dashboard-summary.json | null (fetch failed)
 const sgCache = new Map(); // 'latest' | date -> { meta, table }
 
 function sgActive() { return SG_V2 && sgAvailable; }
 
 // ── The published files ─────────────────────────────────────────────────
 const SG_CSV_KEEP = ['nct_id', 'reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
-                     'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
+                     'percent_female', 'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
 const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched']);
 const SG_CSV_ARRAY = new Set(['gender_diverse_labels', 'ambiguous_labels', 'unknown_labels']);
+const SG_CSV_NUM = new Set(['percent_female']);
 
 function sgCsvValue(col, v) {
     if (SG_CSV_ARRAY.has(col)) {
@@ -7473,6 +7493,11 @@ function sgCsvValue(col, v) {
         try { const a = JSON.parse(v); return Array.isArray(a) ? a : [String(a)]; } catch (e) { return [v]; }
     }
     if (SG_CSV_BOOL.has(col)) return v === '' ? null : v.toLowerCase() === 'true';
+    if (SG_CSV_NUM.has(col)) {
+        if (v === '') return null;
+        const n = Number(v);
+        return Number.isFinite(n) ? n : null;
+    }
     return v === '' ? null : v;
 }
 
@@ -7551,8 +7576,13 @@ async function sgLoad(date) {
         }
         sgCache.set(key, { meta: sgMeta, table: sgTable });
     }
+    sgSnapshotKey = key;
     sgAvailable = !!sgMeta || !!(dashboardSummary && dashboardSummary.sexGender);
     if (sgAvailable) sgLoadMethods();
+    // The beta panel compares the tiles "for this snapshot": if it is open when
+    // the snapshot changes, it has to be rebuilt from the new snapshot's summary.
+    const beta = document.getElementById('sg-beta-panel');
+    if (beta && beta.open) sgRenderBetaPanel();
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────
@@ -7575,10 +7605,18 @@ function sgReportedAny(row) {
 // README D5: the percent-female denominator set.
 function sgInDenominator(row) { return row.reported_sex === true && row.is_participant_count === true; }
 
-// Computed here, never read from a file, on both surfaces. Single-sex trials
-// count (0 or 100); gender-diverse and cis/trans-qualified never enter.
+// The engine publishes percent_female on exactly the denominator set, in
+// sex_gender_parsed.csv.gz (joined in on desktop) and in
+// recentStudies[].sex_gender (mobile). Read the published estimand rather
+// than re-deriving it here: a later parser revision that changes the
+// eligibility or the formula must move the dashboard with it. The derivation
+// below is the fallback for a row whose file omits the column; it is the
+// formula the engine used, and on the 2026-09-15 pull the two agree for every
+// row (max difference 1.4e-14, and the column is non-null on exactly the
+// 79,107 denominator trials).
 function sgPercentFemale(row) {
     if (!sgInDenominator(row)) return null;
+    if (row.percent_female != null && Number.isFinite(Number(row.percent_female))) return Number(row.percent_female);
     const f = Number(row.n_female) || 0, m = Number(row.n_male) || 0;
     if (f + m <= 0) return null;
     return 100 * f / (f + m);
@@ -7592,11 +7630,26 @@ function sgEmptyAggregate() {
         outcomes: { reported_sex: 0, reported_gender: 0, reported_both: 0, reported_any: 0, gender_labeled_binary_only: 0 },
         glbKnown: true,
         totals: { female: 0, male: 0, gender_diverse: 0, ambiguous: 0, explicit_unknown: 0 },
+        // Whether any trial in the selection actually published each bucket.
+        // A bucket nothing published is absent, not a zero (AGENTS.md).
+        totalsPresent: { female: false, male: false, gender_diverse: false, ambiguous: false, explicit_unknown: false },
         denominatorTrials: 0,
         excluded: { trials: 0, female: 0, male: 0 },
         uninformativeReasons: {},
         declaredNotCollected: 0
     };
+}
+
+// "Absence is not zero": a null category is one the registrant did not post,
+// and must neither add to a total nor manufacture one. A bucket is shown as a
+// count only once some trial in the selection published that column; until
+// then it renders as absent, which is not the same as a reported zero.
+function sgAddBucket(agg, key, value) {
+    if (value == null || value === '') return;
+    const n = Number(value);
+    if (!Number.isFinite(n)) return;
+    agg.totals[key] += n;
+    agg.totalsPresent[key] = true;
 }
 
 // Desktop: over the filtered study records. Every number is a count or a
@@ -7617,11 +7670,11 @@ function sgAggregate(studies) {
         else if (r.gender_labeled_binary_only == null) agg.glbKnown = false;
         if (sgInDenominator(r)) {
             agg.denominatorTrials++;
-            agg.totals.female += Number(r.n_female) || 0;
-            agg.totals.male += Number(r.n_male) || 0;
-            agg.totals.gender_diverse += Number(r.n_gender_diverse) || 0;
-            agg.totals.ambiguous += Number(r.n_ambiguous_gender) || 0;
-            agg.totals.explicit_unknown += Number(r.n_unknown) || 0;
+            sgAddBucket(agg, 'female', r.n_female);
+            sgAddBucket(agg, 'male', r.n_male);
+            sgAddBucket(agg, 'gender_diverse', r.n_gender_diverse);
+            sgAddBucket(agg, 'ambiguous', r.n_ambiguous_gender);
+            sgAddBucket(agg, 'explicit_unknown', r.n_unknown);
         } else if (r.reported_sex === true && r.is_participant_count === false) {
             agg.excluded.trials++;
             agg.excluded.female += Number(r.n_female) || 0;
@@ -7647,7 +7700,11 @@ function sgAggregateFromSummary(sg) {
     if (o.gender_labeled_binary_only == null) agg.glbKnown = false;
     else agg.outcomes.gender_labeled_binary_only = Number(o.gender_labeled_binary_only);
     const t = sg.totals || {};
-    Object.keys(agg.totals).forEach(k => { agg.totals[k] = Number(t[k] || 0); });
+    Object.keys(agg.totals).forEach(k => {
+        if (t[k] == null) return;          // the engine published no such bucket: absent, not zero
+        agg.totals[k] = Number(t[k]) || 0;
+        agg.totalsPresent[k] = true;
+    });
     agg.denominatorTrials = Number(sg.denominatorTrials || 0);
     const ex = sg.excludedFromComposition || {};
     agg.excluded = { trials: Number(ex.trials || 0), female: Number(ex.female || 0), male: Number(ex.male || 0) };
@@ -7689,16 +7746,22 @@ function sgSubLabelsHtml(agg, perYearAvailable) {
 // The tiles. Gender: all five buckets; Sex: three. Values are participants
 // over the engine's current denominator set; every tile says so.
 function sgTiles(agg, keys) {
+    const present = agg.totalsPresent || {};
     return SG_BUCKETS.filter(b => keys.includes(b.key)).map(b => ({
-        key: b.key, label: b.label, color: b.color, value: Number(agg.totals[b.key] || 0), note: SG_DENOMINATOR_NOTE
+        key: b.key, label: b.label, color: b.color, value: Number(agg.totals[b.key] || 0),
+        present: present[b.key] !== false, note: SG_DENOMINATOR_NOTE
     }));
 }
 
 function sgTileHtml(tile, extraSub) {
-    return `<div class="stat-card sg-tile" data-bucket="${tile.key}">` +
+    const absent = tile.present === false;
+    const note = absent
+        ? 'No trial in the current selection posted this category, so there is no count to show. That is not a reported zero.'
+        : tile.note;
+    return `<div class="stat-card sg-tile" data-bucket="${tile.key}"${absent ? ' data-absent="true"' : ''}>` +
         `<h3><span class="sg-swatch" style="background:${tile.color}"></span>${escapeHtml(tile.label)}</h3>` +
-        `<p class="stat-value">${Math.round(tile.value).toLocaleString()}</p>` +
-        `<p class="stat-sub">${escapeHtml(tile.note)}${extraSub || ''}</p></div>`;
+        `<p class="stat-value${absent ? ' sg-absent' : ''}">${absent ? '&mdash;' : Math.round(tile.value).toLocaleString()}</p>` +
+        `<p class="stat-sub">${escapeHtml(note)}${extraSub || ''}</p></div>`;
 }
 
 // Percent-female series. Desktop: per study, per results-posted year,
@@ -7791,8 +7854,10 @@ function sgApplyMode() {
     document.querySelectorAll('.sg-legacy').forEach(el => el.classList.toggle('sg-hidden', on));
     document.querySelectorAll('.sg-v2').forEach(el => el.classList.toggle('sg-hidden', !on));
     document.querySelectorAll('.sg-v2-filter').forEach(el => el.classList.toggle('sg-hidden', !on));
-    const banner = document.getElementById('sg-retired-banner');
-    if (banner) banner.classList.toggle('sg-hidden', !(SG_V2 && !sgAvailable));
+    // The banner lives in both tab sections: a section that is not the active
+    // tab is not rendered, so one banner would be invisible on the other tab.
+    const retired = SG_V2 && !sgAvailable;
+    document.querySelectorAll('.sg-retired-banner').forEach(el => el.classList.toggle('sg-hidden', !retired));
     // gender_labeled_binary_only is a CSV column: the filter needs the join.
     const glb = document.getElementById('sg-glb');
     if (glb) glb.disabled = !(on && sgTable);
@@ -7813,7 +7878,9 @@ function sgRenderSexTab(filtered) {
     sgRenderQuality(agg, filtered);
     sgRenderPercentFemale(filtered);
     sgRenderSexDonut(agg);
-    sgRenderBetaPanel();
+    // Only when open: the panel fetches a whole dashboard-summary.json.
+    const beta = document.getElementById('sg-beta-panel');
+    if (beta && beta.open) sgRenderBetaPanel();
 }
 
 function sgRenderQuality(agg, filtered) {
@@ -7953,7 +8020,7 @@ function sgRenderPercentFemale(filtered) {
     });
     // Screenshot hook for the report: ?sghover=YYYY opens series (b)'s tooltip.
     let hover = null;
-    try { hover = new URLSearchParams(location.search || '').get('sghover'); } catch (e) { hover = null; }
+    try { hover = sgQueryParams().get('sghover'); } catch (e) { hover = null; }
     if (hover) {
         const idx = pts.labels.indexOf(hover);
         if (idx >= 0) {
@@ -7973,7 +8040,8 @@ function sgRenderSexDonut(agg) {
     const ctx = document.getElementById('sg-sex-donut');
     if (!ctx) return;
     const totals = {}, colors = {};
-    sgTiles(agg, SG_SEX_TILE_KEYS).forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+    sgTiles(agg, SG_SEX_TILE_KEYS).filter(t => t.present !== false)
+        .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
     if (charts.sgSexDonut) charts.sgSexDonut.destroy();
     charts.sgSexDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
 }
@@ -7999,7 +8067,8 @@ function sgRenderGenderTab(filtered) {
     const ctx = document.getElementById('sg-gender-donut');
     if (ctx) {
         const totals = {}, colors = {};
-        sgTiles(agg, SG_BUCKETS.map(b => b.key)).forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+        sgTiles(agg, SG_BUCKETS.map(b => b.key)).filter(t => t.present !== false)
+            .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
         if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
         charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
     }
@@ -8162,16 +8231,19 @@ function sgBetaRows(summary) {
         ],
         excluded: { trials: n(ex.trials), female: n(ex.female), male: n(ex.male) },
         denominatorTrials: n(sg.denominatorTrials),
+        extracted: String(summary.extracted_at || '').slice(0, 10),
         rules: sg.parser_rules_version || ''
     };
 }
 
-function sgBetaHtml(rows) {
+function sgBetaHtml(rows, label) {
     if (!rows) return '<p class="note">This snapshot has no sexGender block in dashboard-summary.json.</p>';
+    const where = label ? ` for ${label}` : '';
     const c = (v) => v == null ? '<span class="text-muted">—</span>' : Math.round(Number(v)).toLocaleString();
     const table = (title, rs) => `<h5>${title}</h5><table class="breakdown-table sg-beta-table"><thead><tr><th>Tile</th><th>Old engine</th><th>Parser v2</th></tr></thead><tbody>` +
         rs.map(([l, a, b]) => `<tr><td>${escapeHtml(l)}</td><td>${c(a)}</td><td>${c(b)}</td></tr>`).join('') + `</tbody></table>`;
-    return table('Sex tab (participants)', rows.sex) + table('Gender tab (participants)', rows.gender) + table('Trials', rows.trials) +
+    return `<p class="note">Old tiles versus parser v2${where}${rows.extracted ? `, extracted ${escapeHtml(rows.extracted)}` : ''}.</p>` +
+        table('Sex tab (participants)', rows.sex) + table('Gender tab (participants)', rows.gender) + table('Trials', rows.trials) +
         `<p class="note">New participant totals are over ${rows.denominatorTrials.toLocaleString()} trials with reported sex and a participant-count table. ` +
         `Excluded from composition (reported_sex AND NOT is_participant_count): ${rows.excluded.trials.toLocaleString()} trials, ` +
         `${Math.round(rows.excluded.female).toLocaleString()} female / ${Math.round(rows.excluded.male).toLocaleString()} male units. ` +
@@ -8180,25 +8252,34 @@ function sgBetaHtml(rows) {
         `Parser rules: <code>${escapeHtml(rows.rules)}</code>. This panel is removed at cutover.</p>`;
 }
 
+// The panel compares the old tiles with the new ones for the snapshot on
+// screen, so it reads that snapshot's dashboard-summary.json — not the latest
+// one, and not whichever one an earlier view happened to cache.
 async function sgRenderBetaPanel() {
     const body = document.getElementById('sg-beta-body');
     if (!body) return;
+    const key = sgSnapshotKey;
+    const label = (key === 'latest') ? 'the latest pull' : `the ${key} snapshot`;
     let summary = dashboardSummary;
     if (!summary) {
-        if (!sgBetaSummary) {
-            body.innerHTML = '<p class="note">Loading dashboard-summary.json…</p>';
+        if (sgBetaSummaries.has(key)) {
+            summary = sgBetaSummaries.get(key);
+        } else {
+            body.innerHTML = `<p class="note">Loading the dashboard summary for ${escapeHtml(label)}…</p>`;
             try {
-                const resp = await fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
+                const resp = await fetch(`${sgBase(key)}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
                 if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                sgBetaSummary = await resp.json();
+                summary = await resp.json();
             } catch (e) {
-                body.innerHTML = `<p class="note">dashboard-summary.json unavailable: ${escapeHtml(e.message)}</p>`;
-                return;
+                summary = null;
+                body.innerHTML = `<p class="note">No dashboard-summary.json for ${escapeHtml(label)}: ${escapeHtml(e.message)}. Without it there is nothing to compare the new tiles against.</p>`;
             }
+            sgBetaSummaries.set(key, summary);
+            if (!summary) return;
         }
-        summary = sgBetaSummary;
+        if (key !== sgSnapshotKey) return;   // the snapshot changed while this was in flight
     }
-    body.innerHTML = sgBetaHtml(sgBetaRows(summary));
+    body.innerHTML = sgBetaHtml(sgBetaRows(summary), label);
 }
 
 // Deep links into the beta: #faq?m=<section> opens the methods anchor;
@@ -8209,10 +8290,8 @@ async function sgRenderBetaPanel() {
 const SG_INITIAL_HASH = (() => { try { return location.hash || ''; } catch (e) { return ''; } })();
 
 function sgRouteHooks() {
-    let params = null;
-    try { params = new URLSearchParams(location.search || ''); } catch (e) { return; }
-    const hashQuery = SG_INITIAL_HASH.split('?')[1] || '';
-    const m = new URLSearchParams(hashQuery).get('m');
+    const params = sgQueryParams(SG_INITIAL_HASH);
+    const m = params.get('m');
     if (m) sgOpenMethods(m);
     if (params.get('sgbeta') === '1') {
         const det = document.getElementById('sg-beta-panel');

@@ -34,14 +34,15 @@ function harness(opts = {}) {
     const el = (id) => (els[id] ||= { id, innerHTML: '', textContent: '', classList: { toggle() {} }, value: 'all', disabled: false, style: {} });
     const context = vm.createContext({
         console, JSON, Number, String, Object, Array, Map, Set, Math, URLSearchParams,
-        location: { search: opts.search || '', hash: '' },
+        location: { search: opts.search || '', hash: opts.hash || '' },
         localStorage: { _s: {}, getItem(k) { return this._s[k] ?? null; }, setItem(k, v) { this._s[k] = String(v); } },
         window: {}, setTimeout: () => 0,
         document: { getElementById: el, querySelector: () => null, querySelectorAll: () => [], body: { classList: { toggle() {} } } },
         escapeHtml: (t) => String(t).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'),
         CHART_COLORS: { c1: '#0F7A4F', c2: '#C2477E', c3: '#2E6FB7', c4: '#C77A0A', c5: '#7A4FCF', notReported: '#8A968F' },
         CHART_ASPECT_RATIO: undefined, CHART_LEGEND_POSITION: 'right', isMobileDevice: false,
-        DATA_CACHE_VERSION: 'test', hasDecompressionStream: false, ensurePako: async () => {}, fetch: async () => ({ ok: false, status: 404 }),
+        DATA_CACHE_VERSION: 'test', hasDecompressionStream: false, ensurePako: async () => {},
+        fetch: opts.fetch || (async () => ({ ok: false, status: 404 })),
         charts: {}, dashboardSummary: null, data: [], Chart: function () { return { destroy() {} }; },
         ChartDataLabels: {}, donutConfig: () => ({})
     });
@@ -52,7 +53,8 @@ function harness(opts = {}) {
         const v = vm.runInContext(src, context);
         return (v !== null && typeof v === 'object') ? JSON.parse(JSON.stringify(v)) : v;
     };
-    return { els, run };
+    const runRaw = (src) => vm.runInContext(src, context);
+    return { els, run, runRaw };
 }
 
 const row = (over) => Object.assign({
@@ -232,7 +234,7 @@ test('share links carry the v2 filters, the methods deep link survives the hash 
     // the tab router rewrites location.hash on the first render, so the
     // #faq?m=<section> hook must read the hash the page opened with
     assert.ok(block.includes('const SG_INITIAL_HASH'), 'the initial hash is not captured');
-    assert.ok(block.includes("SG_INITIAL_HASH.split('?')[1]"), 'sgRouteHooks reads location.hash after the router rewrote it');
+    assert.ok(block.includes('sgQueryParams(SG_INITIAL_HASH)'), 'sgRouteHooks reads location.hash after the router rewrote it');
     // one registrant posts fractional counts, so the published sums carry a
     // fraction; a participant total is shown as a whole number
     const h = harness({ search: '?sg=v2' });
@@ -247,4 +249,92 @@ test('share links carry the v2 filters, the methods deep link survives the hash 
     assert.match(beta, /51,775,993/);
     assert.match(beta, /804,167 female \/ 666,274 male units/);
     assert.ok(!/\d\.\d/.test(beta.replace(/parsers\.R@[^<]*/, '')), 'the beta panel shows a fractional participant count');
+});
+
+test('the flag survives the routing stubs, which move the query into the hash', () => {
+    // /sex/?sg=v2 is bounced by the stub to /#sex?sg=v2: location.search is
+    // then empty and the only copy of the flag is in the hash query.
+    assert.equal(harness({ search: '', hash: '#sex?sg=v2' }).run('SG_V2'), true);
+    assert.equal(harness({ search: '', hash: '#sex?ys=2015&sg=v2' }).run('SG_V2'), true);
+    assert.equal(harness({ search: '', hash: '#sex?sg=v1' }).run('SG_V2'), false);
+    assert.equal(harness({ search: '', hash: '#sex' }).run('SG_V2'), false);
+    // location.search still wins when both carry it
+    assert.equal(harness({ search: '?sg=v1', hash: '#sex?sg=v2' }).run('SG_V2'), false);
+    // and the deep-link hooks read the same merged params
+    const h = harness({ search: '', hash: '#sex?sg=v2&sgbeta=1' });
+    assert.equal(h.run("sgQueryParams('#sex?sg=v2&sgbeta=1').get('sgbeta')"), '1');
+});
+
+test('the retired-rule banner is in both tab sections, since only the active section renders', () => {
+    assert.equal((html.match(/class="sg-banner sg-retired-banner sg-hidden"/g) || []).length, 2,
+        'the Sex and Gender sections must each carry the retired-rule banner');
+    const sex = html.slice(html.indexOf('<section id="sex"'), html.indexOf('<section id="gender"'));
+    const gender = html.slice(html.indexOf('<section id="gender"'), html.indexOf('<section id="studies"'));
+    assert.ok(sex.includes('sg-retired-banner'), 'the Sex section lost its banner');
+    assert.ok(gender.includes('sg-retired-banner'), 'the Gender section has no banner, so the notice is invisible there');
+    // and the toggle is by class, so both move together
+    assert.ok(block.includes("querySelectorAll('.sg-retired-banner')"), 'the banner is toggled by id, so the second one never shows');
+});
+
+test('the beta panel reads the summary of the snapshot on screen, not the latest one', async () => {
+    const urls = [];
+    const h = harness({ search: '?sg=v2', fetch: async (u) => { urls.push(u); return { ok: false, status: 404 }; } });
+    h.run("sgSnapshotKey = '2026-08-02';");
+    await h.runRaw('sgRenderBetaPanel()');
+    assert.ok(urls.some((u) => u.startsWith('snapshots/2026-08-02/dashboard-summary.json')),
+        `the panel fetched ${urls.join(', ') || 'nothing'} instead of the selected snapshot's summary`);
+    assert.match(h.els['sg-beta-body'].innerHTML, /2026-08-02 snapshot/);
+    // switching snapshots re-fetches rather than reusing the first one's cache
+    urls.length = 0;
+    h.run("sgSnapshotKey = 'latest';");
+    await h.runRaw('sgRenderBetaPanel()');
+    assert.ok(urls.some((u) => u.startsWith('data/dashboard-summary.json')),
+        `the panel fetched ${urls.join(', ') || 'nothing'} for the latest pull`);
+    // the rendered panel names the snapshot it is reporting on
+    const summary = { extracted_at: '2026-09-15T00:09:44Z', cards: {}, sexDistribution: {}, genderDistribution: {},
+        sexGender: { totals: {}, outcomes: {}, excludedFromComposition: {}, denominatorTrials: 79107, parser_rules_version: 'r' } };
+    const panel = h.run(`sgBetaHtml(sgBetaRows(${JSON.stringify(summary)}), 'the 2026-09-15 snapshot')`);
+    assert.match(panel, /for the 2026-09-15 snapshot/);
+    assert.match(panel, /extracted 2026-09-15/);
+});
+
+test("percent female is the engine's published estimand, derived only where the file omits it", () => {
+    const h = harness();
+    // the published column wins over anything recomputed here
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ n_female: 40, n_male: 60, percent_female: 37.5 }))})`), 37.5);
+    // a row whose file does not carry the column falls back to the engine's formula
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ n_female: 40, n_male: 60 }))})`), 40);
+    // outside the denominator set there is no percent female, published or not
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ is_participant_count: false, percent_female: 99 }))})`), null);
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ reported_sex: false, percent_female: 99 }))})`), null);
+    // and the column is joined in from the CSV as a number, with a blank left absent
+    assert.ok(h.run("SG_CSV_KEEP.includes('percent_female')"), 'the CSV join drops the published percent_female');
+    const parsed = h.run("[...sgParseCsv('nct_id,percent_female\\nNCT1,52.5\\nNCT2,\\n', SG_CSV_KEEP).entries()]");
+    assert.equal(parsed[0][1].percent_female, 52.5);
+    assert.equal(parsed[1][1].percent_female, null);
+});
+
+test('a bucket no trial in the selection published renders as absent, never as a zero', () => {
+    const h = harness();
+    h.run('sgTable = null;');
+    const study = (id, over) => ({ nct_id: id, results_date: '2020-01-01', sex_gender: row(over) });
+    // nothing here posts an Unknown category: the tile has no count to show
+    const agg = h.run(`sgAggregate(${JSON.stringify([study('A', { n_female: 10, n_male: 5 })])})`);
+    assert.equal(agg.totals.explicit_unknown, 0);
+    assert.equal(agg.totalsPresent.explicit_unknown, false);
+    assert.equal(agg.totalsPresent.female, true);
+    const tile = h.run(`sgTiles(${JSON.stringify(agg)}, SG_SEX_TILE_KEYS)`).find((t) => t.key === 'explicit_unknown');
+    const absentHtml = h.run(`sgTileHtml(${JSON.stringify(tile)}, '')`);
+    assert.match(absentHtml, /&mdash;/);
+    assert.match(absentHtml, /not a reported zero/);
+    assert.ok(!/>0</.test(absentHtml), 'an absent category rendered as 0, which overstates coverage');
+    // an explicitly reported zero is still a zero
+    const zero = h.run(`sgAggregate(${JSON.stringify([study('B', { n_unknown: 0 })])})`);
+    assert.equal(zero.totalsPresent.explicit_unknown, true);
+    const zeroTile = h.run(`sgTiles(${JSON.stringify(zero)}, SG_SEX_TILE_KEYS)`).find((t) => t.key === 'explicit_unknown');
+    assert.match(h.run(`sgTileHtml(${JSON.stringify(zeroTile)}, '')`), />0</);
+    // the engine's published totals are aggregates: a key it omits is absent too
+    const fromSummary = h.run("sgAggregateFromSummary({ totals: { female: 10, male: 5 }, outcomes: {}, statusCounts: {} })");
+    assert.equal(fromSummary.totalsPresent.female, true);
+    assert.equal(fromSummary.totalsPresent.explicit_unknown, false);
 });
