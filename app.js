@@ -7470,6 +7470,43 @@ const SG_LABEL_TRAILS = [
 const SG_PR15_URL = 'https://github.com/michaeldgreenphd/civicsample-engine/pull/15';
 const SG_FILTER_IDS = ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count'];
 
+// Colour is never the only carrier of meaning: the stacked states each get a
+// texture too, so a segment can be matched to its legend entry in greyscale
+// or by a reader who cannot separate the hues. The legend swatch uses the
+// same pattern, since Chart.js paints it with the dataset's background.
+const SG_STATE_TEXTURES = { reported: 'solid', explicit_unknown_only: 'diagonal', uninformative: 'dots', not_reported: 'grid', parse_error: 'grid' };
+const SG_TEXTURE_WORDS = { solid: 'solid', diagonal: 'diagonal stripes', dots: 'dots', grid: 'a grid' };
+
+function sgTexture(canvas, color, kind) {
+    if (!kind || kind === 'solid') return color;
+    try {
+        const target = canvas && canvas.getContext && canvas.getContext('2d');
+        const tile = document.createElement('canvas');
+        tile.width = tile.height = 8;
+        const g = tile.getContext('2d');
+        if (!target || !g) return color;
+        g.fillStyle = color;
+        g.fillRect(0, 0, 8, 8);
+        g.strokeStyle = 'rgba(255,255,255,0.9)';
+        g.fillStyle = 'rgba(255,255,255,0.9)';
+        g.lineWidth = 1.5;
+        if (kind === 'diagonal') {
+            g.beginPath();
+            g.moveTo(-2, 6); g.lineTo(6, -2);
+            g.moveTo(2, 10); g.lineTo(10, 2);
+            g.stroke();
+        } else if (kind === 'dots') {
+            g.beginPath(); g.arc(4, 4, 1.7, 0, Math.PI * 2); g.fill();
+        } else if (kind === 'grid') {
+            g.beginPath();
+            g.moveTo(0, 4); g.lineTo(8, 4);
+            g.moveTo(4, 0); g.lineTo(4, 8);
+            g.stroke();
+        }
+        return target.createPattern(tile, 'repeat') || color;
+    } catch (e) { return color; }   // a context-less environment keeps the colour
+}
+
 // Where a parameter can be. The routing stubs bounce /sex/?sg=v2 to
 // /#sex?sg=v2, which moves the query into the hash — the same place
 // applyShareParams() reads its filters from — so a reader that looks only at
@@ -8042,7 +8079,8 @@ function sgRenderQualityByYear(filtered) {
             labels,
             datasets: SG_VISIBLE_STATES.map(st => ({
                 label: SG_STATE_LABELS[st], data: labels.map(y => years[y][st]),
-                backgroundColor: SG_STATE_COLORS[st], borderWidth: 0
+                backgroundColor: sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st]),
+                borderColor: '#ffffff', borderWidth: 0.5
             }))
         },
         options: {
@@ -8239,6 +8277,11 @@ function sgDemographicCell(study, field) {
         if (r.reported_sex === true) return `<button class="demo-badge" ${open} title="Reported; click for the parser’s buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
         if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
         if (present !== true) return sgNoTableCell('sex', present === false);
+        // A sex table exists and the trial's overall state is "reported", but
+        // it did not report sex: its gender table carries the reporting. Four
+        // such rows ship in the 2026-09-15 table. sgStatusBadge() has no badge
+        // for "reported", so without this the cell was an empty button.
+        if (st === 'reported') return `<span class="sg-cell-muted" title="A sex-titled table was posted but carries no Female, Male or Unknown count; this trial's reporting is its gender table">—</span>`;
         return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
     }
     if (r.reported_gender === true) return `<button class="demo-badge" ${open} title="Reports gender; click for the buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
@@ -8345,7 +8388,23 @@ async function sgLoadMethods() {
             : `<p class="note">The methods text could not be fetched just now. Reselecting this snapshot retries it.</p>`;
         return;
     }
-    box.innerHTML = sgMethodsNotice(key, entry, sgMeta) + sgMethodsHtml(entry.methods, sgMeta);
+    const meta = sgEffectiveMeta();
+    box.innerHTML = sgMethodsNotice(key, entry, meta) + sgMethodsHtml(entry.methods, meta);
+}
+
+// The parsed-table meta, or what stands in for it. A monthly archive keeps
+// its parser data in dashboard-summary.json with no separate meta file, and
+// that block is the evidence the snapshot was parsed and with which rules.
+function sgEffectiveMeta() {
+    if (sgMeta) return sgMeta;
+    const sg = dashboardSummary && dashboardSummary.sexGender;
+    if (!sg) return null;
+    return {
+        parser_rules_version: sg.parser_rules_version || '',
+        parser_module_version: sg.parser_module_version || '',
+        status_counts: { status: sg.statusCounts || {} },
+        from_summary: true
+    };
 }
 
 // Says whose numbers the text below is, when they are not this snapshot's.

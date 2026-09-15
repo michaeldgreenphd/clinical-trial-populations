@@ -758,3 +758,54 @@ test('the archive methods fallback is shown but not cached when the archive requ
     assert.ok(fn.includes('own.absent'), 'the fallback is taken without establishing that the archive has no file');
     assert.ok(fn.includes('if (!failed) sgMethodsCache.set(key, entry)'), 'a failed archive request is cached');
 });
+
+test('a gender-only trial with a sex table gets a named Sex cell, not a blank button', () => {
+    // Four rows ship with reported_sex false, reported_gender true, a sex
+    // table present and the overall state "reported"; sgStatusBadge() has no
+    // badge for "reported", so the cell used to be an empty button.
+    const h = harness();
+    h.run('sgTable = null;');
+    const over = { reported_sex: false, reported_gender: true, has_sex_table: true, has_gender_table: true,
+                   sex_report_status: 'reported', n_female: null, n_male: null, n_gender_diverse: 37 };
+    const cell = h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}, 'sex')`);
+    assert.ok(!/<button[^>]*>\s*<\/button>/.test(cell), 'the Sex cell is an empty button');
+    assert.match(cell, /—/);
+    assert.match(cell, /carries no Female, Male or Unknown count/);
+    // and the Gender column still reports
+    assert.match(h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}, 'gender')`), /demo-badge-check/);
+});
+
+test('a summary-only archive is not called retired: its own summary says it was parsed', () => {
+    const h = harness();
+    h.run("sgMeta = null; dashboardSummary = { sexGender: { parser_rules_version: 'archive-rules', statusCounts: { parse_error: 2 } } };");
+    const meta = h.run('sgEffectiveMeta()');
+    assert.equal(meta.parser_rules_version, 'archive-rules');
+    assert.equal(meta.status_counts.status.parse_error, 2);
+    assert.equal(meta.from_summary, true);
+    // so the notice compares rules instead of claiming the snapshot predates v2
+    const notice = h.run(`sgMethodsNotice('2026-04-26', { fromLatest: true, methods: { parser_rules_version: 'latest-rules' } }, sgEffectiveMeta())`);
+    assert.ok(!/predates parser v2/.test(notice), 'a parsed archive was labelled as predating the parser');
+    assert.match(notice, /archive-rules/);
+    assert.match(notice, /latest-rules/);
+    // with neither a meta file nor a summary block, it does predate v2
+    h.run('dashboardSummary = null;');
+    assert.equal(h.run('sgEffectiveMeta()'), null);
+    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, sgEffectiveMeta())`), /predates parser v2/);
+});
+
+test('the stacked states carry a texture as well as a colour', () => {
+    const h = harness();
+    // every visible state has one, and they are all different
+    const textures = h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])');
+    assert.equal(textures.length, 4);
+    assert.equal(new Set(textures).size, 4, 'two states share a texture, so colour is still the only thing separating them');
+    // the chart asks for them
+    const render = block.slice(block.indexOf('function sgRenderQualityByYear'), block.indexOf('function sgRenderPercentFemale'));
+    assert.ok(render.includes('sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st])'), 'the stacked bars are painted with flat colour');
+    // and a context-less environment degrades to the colour rather than throwing
+    assert.equal(h.run("sgTexture(null, '#0F7A4F', 'dots')"), '#0F7A4F');
+    assert.equal(h.run("sgTexture(null, '#0F7A4F', 'solid')"), '#0F7A4F');
+    // the note tells the reader what the textures mean
+    const note = html.slice(html.indexOf('Reporting status by results-posted year'));
+    assert.match(note.slice(0, 700), /Reported is solid, Explicit Unknown is diagonal stripes, Uninformative is dots/);
+});
