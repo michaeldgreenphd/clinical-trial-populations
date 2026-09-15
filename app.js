@@ -2009,7 +2009,8 @@ function getFilteredData() {
 // beta is off or every control is at "Any").
 function sgReadFilters() {
     if (typeof sgActive !== 'function' || !sgActive()) return null;
-    const status = document.getElementById('sg-status')?.value || 'all';
+    const statusEl = document.getElementById('sg-status');
+    const status = (statusEl && !statusEl.disabled && statusEl.value) || 'all';
     const bools = [];
     for (const [id, field] of [['sg-reported-sex', 'reported_sex'], ['sg-reported-gender', 'reported_gender'],
                                ['sg-reported-both', 'reported_both'], ['sg-glb', 'gender_labeled_binary_only'],
@@ -2212,6 +2213,13 @@ function renderDashboard() {
     }
 
     // ── Desktop path: full per-study aggregation ──
+    // ?sg=v2 first: the mode decides which v2 controls are live, and
+    // getFilteredData() skips a disabled one. Leaving a pre-v2 or aggregate
+    // snapshot with a v2 filter set, the controls were still disabled from the
+    // archive when the data was filtered and were re-enabled afterwards, so
+    // the charts came back unfiltered while the chips claimed otherwise. It
+    // also unhides the v2 blocks before any chart is built into them.
+    sgApplyMode();
     const filtered = getFilteredData();
 
     // Update stats
@@ -2237,9 +2245,6 @@ function renderDashboard() {
     renderReportingTrends(filtered);
 
     // Determine which tab is currently active and render its charts
-    // ?sg=v2: show the right blocks before the charts are created (a chart
-    // built inside a hidden block keeps its zero size when the block opens).
-    sgApplyMode();
     const activeTab = document.querySelector('.tab.active')?.dataset.tab;
     if (activeTab === 'race') {
         renderRaceDistribution(filtered);

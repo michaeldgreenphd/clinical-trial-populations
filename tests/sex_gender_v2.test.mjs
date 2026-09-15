@@ -672,3 +672,22 @@ test('dismissing a filter chip rewrites the share URL', () => {
     const fn = app.slice(app.indexOf('function removeFilter('), app.indexOf('window.removeFilter'));
     assert.ok(fn.includes('updateShareUrl()'), 'the chip is dismissed but the address still carries the filter');
 });
+
+test('the mode is applied before the data is filtered, not after', () => {
+    // Leaving a pre-v2 or aggregate archive with a v2 filter still set: the
+    // controls were disabled from the archive when getFilteredData() ran, so
+    // the filter was skipped, and sgApplyMode() then re-enabled them and
+    // restored the chips without a re-render.
+    const start = app.indexOf('function renderDashboard()');
+    const render = app.slice(start, app.indexOf('\nfunction ', start + 10));
+    const desktop = render.slice(render.indexOf('Desktop path'));
+    // the call, not the prose about it
+    assert.ok(desktop.includes('const filtered = getFilteredData()'), 'the desktop path no longer filters here');
+    assert.ok(desktop.indexOf('sgApplyMode();') < desktop.indexOf('const filtered = getFilteredData()'),
+        'the v2 controls are enabled after the data is filtered, so a remembered filter is silently dropped');
+    // and a disabled control does not filter, whatever value it still holds
+    // (sgReadFilters lives beside getFilteredData, outside the v2 block)
+    const readFilters = app.slice(app.indexOf('function sgReadFilters()'), app.indexOf('let sgV2Filters'));
+    assert.ok(readFilters.includes('!statusEl.disabled'), 'a disabled status select still filters');
+    assert.ok(readFilters.includes('!el.disabled'), 'a disabled boolean select still filters');
+});
