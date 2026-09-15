@@ -400,6 +400,11 @@ test('a copied link keeps whichever mode it was written with', () => {
     const remembered = harness({ search: '?sg=v2', hash: '' });
     remembered.run("location.search = '';");
     assert.equal(remembered.run('sgShareFlag()'), 'v2');
+    // and a remembered opt-out travels the same way, or a reader who remembers
+    // v2 would open the sender's legacy view as the beta
+    const optedOut = harness({ search: '?sg=v1', hash: '' });
+    optedOut.run("location.search = '';");
+    assert.equal(optedOut.run('sgShareFlag()'), 'v1', 'a remembered v1 is dropped from the link');
     assert.equal(harness({ search: '', hash: '#sex' }).run('sgShareFlag()'), null);
 });
 
@@ -821,9 +826,11 @@ test('the stacked states carry a texture as well as a colour', () => {
     const textures = h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])');
     assert.equal(textures.length, 4);
     assert.equal(new Set(textures).size, 4, 'two states share a texture, so colour is still the only thing separating them');
-    // the chart asks for them
+    // both status charts ask for them, so a state looks the same in each
     const render = block.slice(block.indexOf('function sgRenderQualityByYear'), block.indexOf('function sgRenderPercentFemale'));
     assert.ok(render.includes('sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st])'), 'the stacked bars are painted with flat colour');
+    const horizontal = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
+    assert.ok(horizontal.includes('sgTexture(ctx, r.color, SG_STATE_TEXTURES[r.key])'), 'the horizontal bars use a different encoding from the stacked ones');
     // and a context-less environment degrades to the colour rather than throwing
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'dots')"), '#0F7A4F');
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'solid')"), '#0F7A4F');

@@ -7551,6 +7551,12 @@ function sgShareFlag() {
     try { if (new URLSearchParams(location.search || '').has('sg')) return null; } catch (e) { /* no search */ }
     const fromHash = sgQueryParams(SG_INITIAL_HASH).get('sg');
     if (fromHash === 'v1' || fromHash === 'v2') return fromHash;
+    // Nothing in the URL: the sender's mode is whatever they remembered, and
+    // a remembered opt-out has to travel as much as a remembered opt-in, or a
+    // reader who remembers v2 opens the sender's legacy view as the beta.
+    let stored = null;
+    try { stored = localStorage.getItem(SG_STORAGE_KEY); } catch (e) { stored = null; }
+    if (stored === 'v1' || stored === 'v2') return stored;
     return SG_V2 ? 'v2' : null;
 }
 
@@ -8028,7 +8034,9 @@ function sgRenderQuality(agg, filtered) {
             type: 'bar',
             data: {
                 labels: rows.map(r => r.label),
-                datasets: [{ label: 'Trials', data: rows.map(r => r.count), backgroundColor: rows.map(r => r.color), borderWidth: 0, minBarLength: 2 }]
+                // The same texture per state as the stacked chart beside it, so a
+                // state looks the same in both.
+                datasets: [{ label: 'Trials', data: rows.map(r => r.count), backgroundColor: rows.map(r => sgTexture(ctx, r.color, SG_STATE_TEXTURES[r.key])), borderWidth: 0, minBarLength: 2 }]
             },
             options: {
                 indexAxis: 'y',
