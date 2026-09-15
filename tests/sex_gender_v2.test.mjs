@@ -58,12 +58,21 @@ function harness(opts = {}) {
     return { els, run, runRaw };
 }
 
-const row = (over) => Object.assign({
+const rowDefaults = {
     sex_report_status: 'reported', reported_sex: true, reported_gender: false, reported_both: false,
     n_female: 40, n_male: 50, n_unknown: null, n_gender_diverse: null, n_ambiguous_gender: null,
     is_participant_count: true, uninformative_reason: null, declared_not_collected: false,
+    has_sex_table: true, has_gender_table: true,
     enrollment_minus_parsed: 10, parser_rules_version: 'test-rules'
-}, over);
+};
+const row = (over) => {
+    const r = Object.assign({}, rowDefaults, over);
+    if (!over || !('percent_female' in over)) {
+        const f = Number(r.n_female) || 0, m = Number(r.n_male) || 0;
+        r.percent_female = (r.reported_sex === true && r.is_participant_count === true && f + m > 0) ? 100 * f / (f + m) : null;
+    }
+    return r;
+};
 
 test('the four quality states render in fixed order, and a zero state is a zero row, not a missing one', () => {
     const h = harness();
@@ -299,20 +308,45 @@ test('the beta panel reads the summary of the snapshot on screen, not the latest
     assert.match(panel, /extracted 2026-09-15/);
 });
 
-test("percent female is the engine's published estimand, derived only where the file omits it", () => {
+test("percent female is the engine's published estimand, and is never recomputed here", () => {
     const h = harness();
-    // the published column wins over anything recomputed here
+    // the published column is the answer
     assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ n_female: 40, n_male: 60, percent_female: 37.5 }))})`), 37.5);
-    // a row whose file does not carry the column falls back to the engine's formula
-    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ n_female: 40, n_male: 60 }))})`), 40);
-    // outside the denominator set there is no percent female, published or not
-    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ is_participant_count: false, percent_female: 99 }))})`), null);
-    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(row({ reported_sex: false, percent_female: 99 }))})`), null);
-    // and the column is joined in from the CSV as a number, with a blank left absent
+    // a row inside the denominator whose file omits the column has no percent
+    // female at all: the formula is not reapplied in the presentation layer
+    const noCol = row({ n_female: 40, n_male: 60, percent_female: null });
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(noCol)})`), null);
+    assert.equal(h.run(`sgPercentFemaleMissing(${JSON.stringify(noCol)})`), true);
+    assert.ok(!/100 \* f \/ \(f \+ m\)/.test(code.slice(code.indexOf('function sgPercentFemale'), code.indexOf('function sgEmptyAggregate'))),
+        'the client-side formula is back in the percent-female path');
+    // outside the denominator set there is nothing missing and nothing to show
+    const outside = row({ is_participant_count: false, percent_female: 99 });
+    assert.equal(h.run(`sgPercentFemale(${JSON.stringify(outside)})`), null);
+    assert.equal(h.run(`sgPercentFemaleMissing(${JSON.stringify(outside)})`), false);
+    // and the column is joined in from the CSV as a number, with a blank absent
     assert.ok(h.run("SG_CSV_KEEP.includes('percent_female')"), 'the CSV join drops the published percent_female');
     const parsed = h.run("[...sgParseCsv('nct_id,percent_female\\nNCT1,52.5\\nNCT2,\\n', SG_CSV_KEEP).entries()]");
     assert.equal(parsed[0][1].percent_female, 52.5);
     assert.equal(parsed[1][1].percent_female, null);
+});
+
+test('a year series withholds the within-trial mean rather than averaging a subset', () => {
+    const h = harness();
+    h.run('sgTable = null;');
+    const studies = [
+        { nct_id: 'A', results_date: '2020-01-01', sex_gender: row({}) },
+        { nct_id: 'B', results_date: '2020-02-01', sex_gender: row({ n_female: 10, n_male: 10, percent_female: null }) }
+    ];
+    const pts = h.run(`sgSeriesPoints(sgYearSeries(${JSON.stringify(studies)}))`);
+    assert.equal(pts.missing, 1, 'the row without a published figure was skipped instead of counted');
+    assert.equal(pts.eligible, 2);
+    // the participant-weighted series is a sum of published counts and stands
+    assert.ok(Math.abs(pts.b[0] - 100 * 50 / 110) < 1e-9);
+    // and the renderer withholds series (a) and names what is missing
+    const render = block.slice(block.indexOf('function sgRenderPercentFemale'), block.indexOf('function sgRenderSexDonut'));
+    assert.ok(render.includes('pts.missing > 0'), 'the mean is drawn even when a trial in the denominator has no published figure');
+    assert.ok(render.includes('aMissing ? pts.labels.map(() => null) : pts.a'), 'the withheld series still plots its points');
+    assert.match(render, /unavailable for this selection/);
 });
 
 test('a bucket no trial in the selection published renders as absent, never as a zero', () => {
@@ -469,7 +503,7 @@ test('the methods section is reloaded for a snapshot with no parser-v2 artifacts
     // Otherwise the previous snapshot's text stays in the FAQ, presenting the
     // latest pull's dates, counts and rules as if they described this one.
     const loadFn = block.slice(block.indexOf('async function sgLoad('), block.indexOf('// ── Rows'));
-    assert.ok(loadFn.includes('if (SG_V2) sgLoadMethods();'), 'the methods text is only refreshed when v2 artifacts exist');
+    assert.ok(/if \(SG_V2\) sgMethodsPending = sgLoadMethods\(\)/.test(loadFn), 'the methods text is only refreshed when v2 artifacts exist');
     const h = harness();
     const notice = h.run("sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'r' } }, null)");
     assert.match(notice, /predates parser v2/);
@@ -492,4 +526,79 @@ test('every v2 table scrolls inside its own container at 390px', () => {
     assert.equal((beta.match(/<div class="sg-table-scroll">/g) || []).length, 3, 'each beta comparison table needs its own scroller');
     assert.ok(styles.includes('.sg-table-scroll'), 'styles.css has no rule for the scroll container');
     assert.match(styles.slice(styles.indexOf('.sg-table-scroll')), /overflow-x: auto/);
+});
+
+test("a column answers from its own table, never from the other dimension's state", () => {
+    // sex_report_status covers both tables. On the 2026-09-15 pull 576 trials
+    // have an uninformative sex table and no gender table, and 207 carry a
+    // state with no sex table at all; the badge belongs in one column only.
+    const h = harness();
+    h.run('sgTable = null;');
+    const cell = (over, field) => h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}, '${field}')`);
+
+    const noGender = { sex_report_status: 'uninformative', reported_sex: false, reported_gender: false, has_sex_table: true, has_gender_table: false };
+    assert.match(cell(noGender, 'sex'), /Uninformative/);
+    assert.ok(!/Uninformative/.test(cell(noGender, 'gender')), "the gender column borrowed the sex table's state");
+    assert.match(cell(noGender, 'gender'), /No gender-titled baseline measure/);
+
+    const noSex = { sex_report_status: 'uninformative', reported_sex: false, reported_gender: false, has_sex_table: false, has_gender_table: true };
+    assert.match(cell(noSex, 'gender'), /Uninformative/);
+    assert.ok(!/Uninformative/.test(cell(noSex, 'sex')), "the sex column borrowed the gender table's state");
+    assert.match(cell(noSex, 'sex'), /No sex-titled baseline measure/);
+
+    // where the flags are not joined in, the cell says so rather than guessing
+    const unknown = { sex_report_status: 'uninformative', reported_sex: false, reported_gender: false, has_sex_table: null, has_gender_table: null };
+    for (const f of ['sex', 'gender']) {
+        assert.ok(!/Uninformative/.test(cell(unknown, f)), `${f} asserted a state without knowing which table it describes`);
+        assert.match(cell(unknown, f), /not shipped to this view/);
+    }
+    assert.ok(h.run("SG_CSV_KEEP.includes('has_sex_table') && SG_CSV_KEEP.includes('has_gender_table')"));
+    const parsed = h.run("[...sgParseCsv('nct_id,has_gender_table\\nNCT1,False\\nNCT2,True\\n', SG_CSV_KEEP).entries()]");
+    assert.equal(parsed[0][1].has_gender_table, false);
+    assert.equal(parsed[1][1].has_gender_table, true);
+});
+
+test('a methods request that failed is retried; a 404 is remembered', async () => {
+    let calls = 0;
+    const h = harness({ search: '?sg=v2', fetch: async () => { calls++; throw new Error('offline'); } });
+    await h.runRaw('sgLoadMethods()');
+    assert.equal(h.run("sgMethodsCache.has('latest')"), false, 'a dropped request was cached as "no methods published"');
+    assert.match(h.els['sg-methods'].innerHTML, /could not be fetched/);
+    const after = calls;
+    await h.runRaw('sgLoadMethods()');
+    assert.ok(calls > after, 'the methods text was never retried');
+    const h404 = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
+    await h404.runRaw('sgLoadMethods()');
+    assert.equal(h404.run("sgMethodsCache.has('latest')"), true, 'a definitive 404 should not be re-fetched every time');
+    assert.match(h404.els['sg-methods'].innerHTML, /No methods text/);
+});
+
+test('a methods deep link waits for the text instead of scrolling to the section top', () => {
+    assert.ok(block.includes('sgMethodsPending'), 'the in-flight methods load is not tracked');
+    const open = block.slice(block.indexOf('function sgOpenMethods('), block.indexOf('window.sgOpenMethods'));
+    assert.ok(open.includes('sgMethodsPending.then(scroll, scroll)'), 'the deep link resolves its anchor before the text arrives');
+    assert.ok(open.indexOf('const scroll = ()') < open.indexOf('sgMethodsPending.then'), 'the scroll is not deferred');
+});
+
+test('a rolled-back snapshot switch restores the parser state with the study data', () => {
+    const handler = app.slice(app.indexOf("select.addEventListener('change'"), app.indexOf('// Provenance: the extraction date'));
+    const cat = handler.slice(handler.indexOf('} catch (err)'));
+    assert.ok(cat.includes('loadData(previousValue'), 'the rollback lost its data reload');
+    assert.ok(cat.includes('sgLoad(previousValue'), 'the rollback leaves the parser on the snapshot that failed');
+    assert.ok(cat.indexOf('sgLoad(previousValue') < cat.indexOf('renderDashboard()'), 'the parser state is restored after the re-render');
+});
+
+test('the share URL follows a filter change and a reset, not only a tab click', () => {
+    const init = app.slice(app.indexOf('function initFilters()'), app.indexOf('function resetFilters'));
+    assert.ok(init.includes('updateShareUrl()'), 'changing a filter leaves the address bar on the previous selection');
+    const reset = app.slice(app.indexOf('function resetFilters'), app.indexOf('function updateActiveFilters'));
+    assert.ok(reset.includes('updateShareUrl()'), 'resetting the filters leaves the address bar filtered');
+});
+
+test('a filter that stops applying stops claiming', () => {
+    const apply = block.slice(block.indexOf('function sgApplyMode()'), block.indexOf('// ── Sex tab'));
+    assert.ok(apply.includes('updateActiveFilters()'), 'the active-filter chips are not refreshed when the mode changes');
+    assert.ok(apply.includes('if (changed'), 'the chips are rebuilt on every render rather than on a change');
+    const chips = app.slice(app.indexOf('const sgLabels = {'), app.indexOf('container.innerHTML = filters.map'));
+    assert.ok(chips.includes('!el.disabled'), 'a disabled v2 filter still renders a chip');
 });

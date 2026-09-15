@@ -1175,6 +1175,11 @@ async function initHistorySelector() {
             select.value = previousValue;
             if (previousValue !== chosen) {
                 try { await loadData(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
+                // ?sg=v2: sgLoad() already moved to the snapshot that failed,
+                // so the parser state has to roll back with the study data or
+                // the restored data renders under the wrong snapshot's banner,
+                // methods and join.
+                try { await sgLoad(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
                 renderDashboard();
             }
         } finally {
@@ -1467,6 +1472,7 @@ function initFilters() {
                 }
                 renderDashboard();
                 updateActiveFilters();
+                updateShareUrl();   // the address bar is the share link; keep it current
             });
         }
     });
@@ -1661,6 +1667,7 @@ function resetFilters() {
 
     renderDashboard();
     updateActiveFilters();
+    updateShareUrl();
 }
 
 function updateActiveFilters() {
@@ -7489,7 +7496,8 @@ const SG_V2 = sgReadFlag();
 let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (desktop only)
 let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
 let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
-const sgMethodsCache = new Map();   // snapshot key -> { methods, fromLatest } | null
+const sgMethodsCache = new Map();   // snapshot key -> { methods, fromLatest } | null (confirmed absent)
+let sgMethodsPending = null;        // the in-flight sgLoadMethods(), for deep links
 let sgSnapshotKey = 'latest';       // 'latest' | date: the snapshot the tabs are showing
 const sgBetaSummaries = new Map();  // snapshot key -> dashboard-summary.json | null (fetch failed)
 const sgCache = new Map(); // 'latest' | date -> { meta, table }
@@ -7498,8 +7506,10 @@ function sgActive() { return SG_V2 && sgAvailable; }
 
 // ── The published files ─────────────────────────────────────────────────
 const SG_CSV_KEEP = ['nct_id', 'reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
-                     'percent_female', 'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
-const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched']);
+                     'percent_female', 'has_sex_table', 'has_gender_table',
+                     'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
+const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
+                             'has_sex_table', 'has_gender_table']);
 const SG_CSV_ARRAY = new Set(['gender_diverse_labels', 'ambiguous_labels', 'unknown_labels']);
 const SG_CSV_NUM = new Set(['percent_female']);
 
@@ -7609,7 +7619,8 @@ async function sgLoad(date) {
     // Loaded even when this snapshot has no parser-v2 artifacts: otherwise the
     // previous snapshot's methods stay in the FAQ, presenting the latest
     // pull's dates, counts and rules as if they described what is on screen.
-    if (SG_V2) sgLoadMethods();
+    // The promise is kept so a #faq?m=<section> deep link can wait for it.
+    if (SG_V2) sgMethodsPending = sgLoadMethods().catch(e => console.warn('sg=v2: methods:', e.message));
     // The beta panel compares the tiles "for this snapshot": if it is open when
     // the snapshot changes, it has to be rebuilt from the new snapshot's summary.
     const beta = document.getElementById('sg-beta-panel');
@@ -7638,19 +7649,21 @@ function sgInDenominator(row) { return row.reported_sex === true && row.is_parti
 
 // The engine publishes percent_female on exactly the denominator set, in
 // sex_gender_parsed.csv.gz (joined in on desktop) and in
-// recentStudies[].sex_gender (mobile). Read the published estimand rather
-// than re-deriving it here: a later parser revision that changes the
-// eligibility or the formula must move the dashboard with it. The derivation
-// below is the fallback for a row whose file omits the column; it is the
-// formula the engine used, and on the 2026-09-15 pull the two agree exactly
-// (maximum difference 0 over all 79,107 rows of the denominator set, which is
-// also exactly the set the column is published for).
+// recentStudies[].sex_gender (mobile). It is read, never recomputed: a later
+// parser revision that changes the eligibility or the formula has to move the
+// dashboard with it. Where the published column is missing — a snapshot whose
+// parsed table did not load — there is no percent female for that row, and the
+// series says so rather than substituting arithmetic of its own.
 function sgPercentFemale(row) {
     if (!sgInDenominator(row)) return null;
-    if (row.percent_female != null && Number.isFinite(Number(row.percent_female))) return Number(row.percent_female);
-    const f = Number(row.n_female) || 0, m = Number(row.n_male) || 0;
-    if (f + m <= 0) return null;
-    return 100 * f / (f + m);
+    const v = Number(row.percent_female);
+    return (row.percent_female != null && Number.isFinite(v)) ? v : null;
+}
+
+// Distinguishes "this trial is outside the denominator set, so it has no
+// percent female" from "it is inside, but the published figure is missing".
+function sgPercentFemaleMissing(row) {
+    return sgInDenominator(row) && sgPercentFemale(row) == null;
 }
 
 // ── Aggregates (pure) ────────────────────────────────────────────────────
@@ -7802,13 +7815,19 @@ function sgYearSeries(studies) {
     for (const s of studies) {
         const r = sgRow(s);
         if (!r) continue;
-        const pf = sgPercentFemale(r);
-        if (pf == null) continue;
         const y = (s.results_date || '').slice(0, 4);
         if (!y) continue;
-        const d = years[y] || (years[y] = { pfSum: 0, n: 0, f: 0, fm: 0, largest: null });
+        const pf = sgPercentFemale(r);
+        const missing = sgPercentFemaleMissing(r);
+        if (pf == null && !missing) continue;          // outside the denominator set
         const f = Number(r.n_female) || 0, m = Number(r.n_male) || 0;
-        d.pfSum += pf; d.n++; d.f += f; d.fm += f + m;
+        if (pf == null && f + m <= 0) continue;
+        const d = years[y] || (years[y] = { pfSum: 0, n: 0, f: 0, fm: 0, missing: 0, largest: null });
+        // A mean over the rows that happen to carry the column would be a
+        // different estimand, so a missing figure is counted, never skipped.
+        if (missing) d.missing++;
+        else { d.pfSum += pf; d.n++; }
+        d.f += f; d.fm += f + m;
         if (!d.largest || f + m > d.largest.fm) d.largest = { nct_id: s.nct_id, fm: f + m };
     }
     return years;
@@ -7828,8 +7847,11 @@ function sgYearSeriesFromSummary(byYear) {
 
 function sgSeriesPoints(years) {
     const labels = Object.keys(years).sort();
+    const missing = labels.reduce((a, y) => a + Number(years[y].missing || 0), 0);
+    const eligible = labels.reduce((a, y) => a + Number(years[y].n || 0), 0) + missing;
     return {
         labels,
+        missing, eligible,
         a: labels.map(y => years[y].n > 0 ? years[y].pfSum / years[y].n : null),
         b: labels.map(y => years[y].fm > 0 ? 100 * years[y].f / years[y].fm : null),
         n: labels.map(y => years[y].n),
@@ -7895,16 +7917,22 @@ function sgApplyMode() {
     // so the controls are disabled there rather than left inert. And
     // gender_labeled_binary_only is a CSV column: that one needs the join.
     const summaryMode = !!dashboardSummary;
+    let changed = false;
     SG_FILTER_IDS.forEach(id => {
         const el = document.getElementById(id);
         if (!el) return;
         const needsJoin = (id === 'sg-glb') && !sgTable;
-        el.disabled = !on || summaryMode || needsJoin;
+        const disabled = !on || summaryMode || needsJoin;
+        if (el.disabled !== disabled) changed = true;
+        el.disabled = disabled;
         const why = summaryMode
             ? 'This view renders pre-computed aggregates of the whole snapshot, so filters cannot apply.'
             : (needsJoin ? 'Needs sex_gender_parsed.csv.gz, which this snapshot does not publish.' : '');
         if (why) el.title = why; else el.removeAttribute('title');
     });
+    // A control that just stopped applying must stop claiming: its chip still
+    // said "Reported gender: yes" over an unfiltered snapshot otherwise.
+    if (changed && typeof updateActiveFilters === 'function') updateActiveFilters();
     document.querySelectorAll('.sg-provenance').forEach(el => { el.textContent = on ? sgProvenanceText() : ''; });
 }
 
@@ -8017,17 +8045,25 @@ function sgRenderPercentFemale(filtered) {
     const rules = sgRulesVersion();
     const sub = document.getElementById('sg-pf-subtitle');
     if (sub) sub.textContent = sgProvenanceText() + '. Both series use the same trials: reported sex with a participant-count table and at least one Female or Male participant; gender-diverse and cis/trans-qualified participants are outside both denominators.';
+    // Series (a) is the engine's published per-trial percent_female averaged
+    // within a year. If any trial in the denominator is missing that figure —
+    // the parsed table did not load — the mean would be over a subset, which
+    // is a different estimand, so the series is withheld and named as missing.
+    const aMissing = !mobile && pts.missing > 0;
     const foot = document.getElementById('sg-pf-footnote');
-    if (foot) foot.textContent = mobile
+    if (foot) foot.textContent = (aMissing
+        ? `Mean of within-trial % female is unavailable for this selection: ${pts.missing.toLocaleString()} of ${pts.eligible.toLocaleString()} trials in the denominator do not carry the engine's published percent female, because sex_gender_parsed.csv.gz did not load. It is read, never recomputed here. `
+        : '') + (mobile
         ? 'Participant-weighted (dashed): a single large trial can move a year. Hover detail on desktop names that trial.'
-        : 'Participant-weighted (dashed): hover a point to see the single largest trial in that year and its share of the year’s Female + Male participants. Dashed 2017 marker: FDAAA Final Rule effective.';
+        : 'Participant-weighted (dashed): hover a point to see the single largest trial in that year and its share of the year’s Female + Male participants. Dashed 2017 marker: FDAAA Final Rule effective.');
     if (charts.sgPf) charts.sgPf.destroy();
     charts.sgPf = new Chart(ctx, {
         type: 'line',
         data: {
             labels: pts.labels,
             datasets: [
-                { label: 'Mean of within-trial % female (each trial counts once)', data: pts.a,
+                { label: aMissing ? 'Mean of within-trial % female (unavailable: not published for every trial here)' : 'Mean of within-trial % female (each trial counts once)',
+                  data: aMissing ? pts.labels.map(() => null) : pts.a,
                   borderColor: CHART_COLORS.c2, backgroundColor: CHART_COLORS.c2 + '20', tension: 0.3, borderWidth: 2.5, pointRadius: 3 },
                 { label: 'Participant-weighted % female (sum female / sum female + male)', data: pts.b,
                   borderColor: CHART_COLORS.c5, backgroundColor: CHART_COLORS.c5 + '20', tension: 0.3, borderWidth: 1.5,
@@ -8147,14 +8183,35 @@ function sgStatusBadge(status, reason) {
     return '';
 }
 
+// sex_report_status is one state for the trial, covering both tables. Putting
+// it in a single dimension's column asserts something the state does not say:
+// on the 2026-09-15 pull, 576 trials have an uninformative sex table and no
+// gender table, and 207 carry a state with no sex table at all. has_sex_table
+// and has_gender_table are published, so the column is answered from the
+// table it is about; where they are not joined in, the cell says it cannot
+// tell rather than borrowing the other dimension's state.
+function sgTablePresence(row, field) {
+    const v = field === 'sex' ? row.has_sex_table : row.has_gender_table;
+    return (v === true || v === false) ? v : null;
+}
+
+function sgNoTableCell(field, known) {
+    const what = field === 'sex' ? 'sex' : 'gender';
+    return known
+        ? `<span class="sg-cell-muted" title="No ${what}-titled baseline measure; the trial's reporting state is about its other table">—</span>`
+        : `<span class="sg-cell-muted" title="Which table this trial's reporting state describes is not shipped to this view">—</span>`;
+}
+
 function sgDemographicCell(study, field) {
     const r = sgRow(study);
     if (!r) return '<span class="demo-disabled" title="No parser row">✗</span>';
     const st = r.sex_report_status;
     const open = `onclick="showBreakdown('${study.nct_id}', '${field}')"`;
+    const present = sgTablePresence(r, field);
     if (field === 'sex') {
         if (sgReportedAny(r)) return `<button class="demo-badge" ${open} title="Reported; click for the parser’s buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
         if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
+        if (present !== true) return sgNoTableCell('sex', present === false);
         return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
     }
     if (r.reported_gender === true) return `<button class="demo-badge" ${open} title="Reports gender; click for the buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
@@ -8163,6 +8220,7 @@ function sgDemographicCell(study, field) {
         return `<span class="sg-cell-muted" title="${glb ? 'Gender-titled table with only Female/Male: counted as sex' : 'Sex reported; no gender-diverse or cis/trans-qualified category'}">${glb ? 'F/M only' : '—'}</span>`;
     }
     if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
+    if (present !== true) return sgNoTableCell('gender', present === false);
     return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
 }
 
@@ -8193,7 +8251,8 @@ function sgShowBreakdown(nctId, field) {
         html += `<p class="note">Source labels need the parsed table, which did not load.</p>`;
     }
     html += `<p class="modal-note">Parser rules: ${escapeHtml(r.parser_rules_version || sgRulesVersion() || '—')}. ` +
-        `Percent female for this trial: ${sgPercentFemale(r) == null ? 'not in the denominator set' : sgPercentFemale(r).toFixed(1) + '%'}. ` +
+        `Percent female for this trial: ${sgPercentFemale(r) != null ? sgPercentFemale(r).toFixed(1) + '%'
+            : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
         `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
         `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
     const overlay = document.getElementById('breakdown-overlay');
@@ -8212,21 +8271,24 @@ async function sgLoadMethods() {
     const key = sgSnapshotKey;
     if (!sgMethodsCache.has(key)) {
         const tries = (key === 'latest') ? [['data', false]] : [[sgBase(key), false], ['data', true]];
-        let entry = null;
+        let entry = null, failed = false;
         for (const [base, fromLatest] of tries) {
             try {
                 const resp = await fetch(`${base}/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
-                if (!resp.ok) continue;
-                entry = { methods: await resp.json(), fromLatest };
-                break;
-            } catch (e) { /* try the next location */ }
+                if (resp.ok) { entry = { methods: await resp.json(), fromLatest }; break; }
+                if (resp.status !== 404 && resp.status !== 403) failed = true;   // no answer, not an absence
+            } catch (e) { failed = true; }
         }
-        sgMethodsCache.set(key, entry);
+        // Only a confirmed absence is remembered: a dropped request must not
+        // report "no methods published" for the rest of the session.
+        if (entry || !failed) sgMethodsCache.set(key, entry);
     }
     if (key !== sgSnapshotKey) return;      // the snapshot changed mid-fetch
     const entry = sgMethodsCache.get(key);
     if (!entry) {
-        box.innerHTML = `<p class="note">No methods text (<code>sex_gender/methods.json</code>) is published for ${escapeHtml(key === 'latest' ? 'this pull' : 'the ' + key + ' snapshot')}.</p>`;
+        box.innerHTML = sgMethodsCache.has(key)
+            ? `<p class="note">No methods text (<code>sex_gender/methods.json</code>) is published for ${escapeHtml(key === 'latest' ? 'this pull' : 'the ' + key + ' snapshot')}.</p>`
+            : `<p class="note">The methods text could not be fetched just now. Reselecting this snapshot retries it.</p>`;
         return;
     }
     box.innerHTML = sgMethodsNotice(key, entry, sgMeta) + sgMethodsHtml(entry.methods, sgMeta);
@@ -8276,8 +8338,14 @@ function sgOpenMethods(anchor) {
     if (faq && !faq.classList.contains('active')) faq.click();
     const det = document.getElementById('methods-sex-gender');
     if (det) det.open = true;
-    const target = document.getElementById(anchor ? `methods-sg-${anchor}` : 'methods-sex-gender') || det;
-    if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    // The headings arrive from a fetch. A deep link can land first, so wait for
+    // the text rather than falling back to the top of the section.
+    const scroll = () => {
+        const target = document.getElementById(anchor ? `methods-sg-${anchor}` : 'methods-sex-gender') || det;
+        if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    };
+    if (sgMethodsPending && typeof sgMethodsPending.then === 'function') sgMethodsPending.then(scroll, scroll);
+    else scroll();
     return false;
 }
 window.sgOpenMethods = sgOpenMethods;
