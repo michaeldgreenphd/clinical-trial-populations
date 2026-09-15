@@ -107,15 +107,24 @@ test('each state renders its own badge or cross in the Studies table cell; state
     assert.match(cell({ gender_labeled_binary_only: true }, 'gender'), /F\/M only/);
 });
 
-test('the per-trial pip uses reported_any, derived as status == reported where the column is absent', () => {
+test('each pip answers for its own dimension: reported_sex for Sex, reported_gender for Gender', () => {
     const h = harness();
-    h.run('sgTable = null; sgAvailable = true;');
+    h.run('sgTable = null;');
     const dim = (over, field) => h.run(`sgDimensionReported(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}, '${field}')`);
+    // a gender-only trial: 51 rows in the shipped table report gender with
+    // reported_sex false, and reported_any is true for all of them
+    const genderOnly = { reported_sex: false, reported_gender: true, reported_any: true };
+    assert.equal(dim(genderOnly, 'sex'), false, 'a gender-only trial lit the Sex pip');
+    assert.equal(dim(genderOnly, 'gender'), true);
+    // an ordinary sex-reporting trial
     assert.equal(dim({}, 'sex'), true);
-    assert.equal(dim({ sex_report_status: 'explicit_unknown_only', reported_sex: false }, 'sex'), false);
-    assert.equal(dim({ reported_any: false, sex_report_status: 'reported' }, 'sex'), false);   // the CSV column wins when present
-    assert.equal(dim({ reported_gender: true }, 'gender'), true);
     assert.equal(dim({}, 'gender'), false);
+    // both fields are in the lean row, so the pip needs no derivation anywhere
+    const lean = h.run(`Object.keys(${JSON.stringify(row({}))})`);
+    assert.ok(lean.includes('reported_sex') && lean.includes('reported_gender'));
+    // and the Sex column cell agrees with the Sex pip
+    const cell = h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(genderOnly) })}, 'sex')`);
+    assert.ok(!/demo-badge-check/.test(cell), 'the Sex column checked a trial that did not report sex');
 });
 
 test('aggregates: totals over reported_sex AND is_participant_count; the excluded set is reported_sex AND NOT is_participant_count', () => {
@@ -374,15 +383,20 @@ test('a bucket no trial in the selection published renders as absent, never as a
     assert.equal(fromSummary.totalsPresent.explicit_unknown, false);
 });
 
-test('a copied link keeps the beta on: the rebuilt share hash carries sg=v2', () => {
-    // updateShareUrl() replaces the whole hash, which is where the routing
-    // stubs leave the flag, so it has to put the flag back.
-    const start = app.indexOf('function updateShareUrl()');
-    assert.ok(start >= 0, 'app.js lost updateShareUrl');
-    const fn = app.slice(start, app.indexOf('\nfunction ', start + 10));
-    assert.ok(fn.includes("p.set('sg', 'v2')"), 'the rebuilt hash drops the beta flag');
-    assert.ok(fn.includes('SG_V2 && !sgInSearch'), 'the flag is added even when location.search already carries it');
-    assert.ok(fn.indexOf("p.set('sg', 'v2')") < fn.indexOf('history.replaceState'), 'the flag is added after the hash is written');
+test('a copied link keeps whichever mode it was written with', () => {
+    const fn = app.slice(app.indexOf('function updateShareUrl()'), app.indexOf('\nfunction ', app.indexOf('function updateShareUrl()') + 10));
+    assert.ok(fn.includes("p.set('sg', sgFlag)"), 'the rebuilt hash drops the beta flag');
+    assert.ok(fn.indexOf("p.set('sg', sgFlag)") < fn.indexOf('history.replaceState'), 'the flag is added after the hash is written');
+    // an explicit opt-out survives as readily as an opt-in
+    assert.equal(harness({ search: '', hash: '#sex?sg=v1' }).run('sgShareFlag()'), 'v1');
+    assert.equal(harness({ search: '', hash: '#sex?sg=v2' }).run('sgShareFlag()'), 'v2');
+    // the flag in the query survives replaceState on its own, so nothing is written
+    assert.equal(harness({ search: '?sg=v2', hash: '#sex' }).run('sgShareFlag()'), null);
+    // a remembered choice with nothing in the URL is written so a copy keeps it
+    const remembered = harness({ search: '?sg=v2', hash: '' });
+    remembered.run("location.search = '';");
+    assert.equal(remembered.run('sgShareFlag()'), 'v2');
+    assert.equal(harness({ search: '', hash: '#sex' }).run('sgShareFlag()'), null);
 });
 
 test('the beta comparison leaves an unpublished figure absent instead of zero', () => {
@@ -601,4 +615,60 @@ test('a filter that stops applying stops claiming', () => {
     assert.ok(apply.includes('if (changed'), 'the chips are rebuilt on every render rather than on a change');
     const chips = app.slice(app.indexOf('const sgLabels = {'), app.indexOf('container.innerHTML = filters.map'));
     assert.ok(chips.includes('!el.disabled'), 'a disabled v2 filter still renders a chip');
+});
+
+test('no share is computed from values that are not participant counts', () => {
+    const h = harness();
+    h.run('sgTable = null; data = [];');
+    const show = (over) => {
+        h.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}];`);
+        h.run("sgShowBreakdown('NCT1', 'sex')");
+        return h.els['breakdown-overlay'].innerHTML;
+    };
+    // a participant-count row divides its buckets as usual
+    const counted = show({ n_female: 40, n_male: 60 });
+    assert.match(counted, /Participants/);
+    assert.match(counted, /40\.0%/);
+    // a row whose values are eyes, percentages or means does not
+    const units = show({ is_participant_count: false, n_female: 40, n_male: 60, param_type: 'COUNT_OF_UNITS', unit_of_measure: 'Eyes' });
+    assert.match(units, /Published value/);
+    assert.ok(!/40\.0%/.test(units), 'a share was computed from values that are not participants');
+    assert.match(units, /COUNT_OF_UNITS · Eyes/);
+    assert.match(units, /no share is computed from them/);
+    assert.ok(h.run("SG_CSV_KEEP.includes('param_type') && SG_CSV_KEEP.includes('unit_of_measure')"));
+});
+
+test('a drill-down with no source labels says whether they were shipped', () => {
+    const h = harness();
+    h.run('sgTable = null; dashboardSummary = { sexGender: {} };');
+    h.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row({}) })}];`);
+    h.run("sgShowBreakdown('NCT1', 'sex')");
+    assert.match(h.els['breakdown-overlay'].innerHTML, /not shipped to this view/);
+    // on desktop with the join, an empty trail means the trial really had none
+    const d = harness();
+    d.run('dashboardSummary = null; sgTable = new Map();');
+    d.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row({}) })}];`);
+    d.run("sgShowBreakdown('NCT1', 'sex')");
+    assert.ok(!/not shipped to this view/.test(d.els['breakdown-overlay'].innerHTML));
+    assert.ok(!/did not load/.test(d.els['breakdown-overlay'].innerHTML));
+});
+
+test('a failed beta-summary fetch is retried; a 404 is remembered', async () => {
+    let calls = 0;
+    const h = harness({ search: '?sg=v2', fetch: async () => { calls++; throw new Error('offline'); } });
+    await h.runRaw('sgRenderBetaPanel()');
+    assert.equal(h.run("sgBetaSummaries.has('latest')"), false, 'a dropped request was cached as "no summary published"');
+    assert.match(h.els['sg-beta-body'].innerHTML, /could not be fetched/);
+    const after = calls;
+    await h.runRaw('sgRenderBetaPanel()');
+    assert.ok(calls > after, 'the panel never retried');
+    const h404 = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
+    await h404.runRaw('sgRenderBetaPanel()');
+    assert.equal(h404.run("sgBetaSummaries.has('latest')"), true, 'a definitive 404 should not be re-fetched every time');
+    assert.match(h404.els['sg-beta-body'].innerHTML, /No dashboard-summary\.json/);
+});
+
+test('dismissing a filter chip rewrites the share URL', () => {
+    const fn = app.slice(app.indexOf('function removeFilter('), app.indexOf('window.removeFilter'));
+    assert.ok(fn.includes('updateShareUrl()'), 'the chip is dismissed but the address still carries the filter');
 });

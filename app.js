@@ -1241,12 +1241,11 @@ function updateShareUrl() {
         const el = document.getElementById(id);
         if (el && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
     });
-    // ?sg=v2 can arrive in the hash rather than the query — the routing stubs
-    // put it there — and this rewrites the whole hash. Carry the flag, or a
-    // copied link opens the legacy view in any browser that never stored it.
-    let sgInSearch = false;
-    try { sgInSearch = new URLSearchParams(location.search || '').has('sg'); } catch (e) { sgInSearch = false; }
-    if (SG_V2 && !sgInSearch) p.set('sg', 'v2');
+    // The flag can arrive in the hash rather than the query — the routing
+    // stubs put it there — and this rewrites the whole hash. Carry it, or a
+    // copied link opens the wrong view in a browser with its own stored choice.
+    const sgFlag = (typeof sgShareFlag === 'function') ? sgShareFlag() : null;
+    if (sgFlag) p.set('sg', sgFlag);
     const q = p.toString();
     history.replaceState(null, '', '#' + tabId + (q ? '?' + q : ''));
 }
@@ -1819,6 +1818,7 @@ function removeFilter(button, event) {
         tag._resetFn();
         renderDashboard();
         updateActiveFilters();
+        updateShareUrl();   // the chip is gone; the address must not still carry it
     }
 }
 
@@ -2876,8 +2876,8 @@ function studyHasGeography(study) {
 
 function studyReportsDimension(study, field) {
     if (field === 'geography') return studyHasGeography(study);
-    // ?sg=v2: the Sex pip is reported_any (the parser's "reported" state) and
-    // the Gender pip is the category-based reported_gender.
+    // ?sg=v2: each pip is the parser's own per-dimension flag, reported_sex
+    // and the category-based reported_gender.
     if ((field === 'sex' || field === 'gender') && sgActive()) return sgDimensionReported(study, field);
     return !!study[field]?.reported;
 }
@@ -7492,6 +7492,18 @@ function sgReadFlag() {
 }
 const SG_V2 = sgReadFlag();
 
+// What the rebuilt share hash should carry. An explicit ?sg=v1 opt-out has to
+// survive a copied link as much as ?sg=v2 does: without it, a reader whose
+// storage holds v2 opens the beta from a link whose author had turned it off.
+// Nothing is written when location.search already carries the flag, because
+// replacing only the fragment keeps the query.
+function sgShareFlag() {
+    try { if (new URLSearchParams(location.search || '').has('sg')) return null; } catch (e) { /* no search */ }
+    const fromHash = sgQueryParams(SG_INITIAL_HASH).get('sg');
+    if (fromHash === 'v1' || fromHash === 'v2') return fromHash;
+    return SG_V2 ? 'v2' : null;
+}
+
 // State for the loaded snapshot.
 let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (desktop only)
 let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
@@ -7506,7 +7518,7 @@ function sgActive() { return SG_V2 && sgAvailable; }
 
 // ── The published files ─────────────────────────────────────────────────
 const SG_CSV_KEEP = ['nct_id', 'reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
-                     'percent_female', 'has_sex_table', 'has_gender_table',
+                     'percent_female', 'has_sex_table', 'has_gender_table', 'param_type', 'unit_of_measure',
                      'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
 const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
                              'has_sex_table', 'has_gender_table']);
@@ -8170,10 +8182,15 @@ function sgRenderGenderTab(filtered) {
 }
 
 // ── Studies table: pips, cells, breakdown ────────────────────────────────
+// Each pip answers for its own dimension from the parser's own field.
+// reported_any is "reported sex OR gender", so it lights the Sex pip for a
+// trial that posted only a gender-diverse category: 51 such rows ship in the
+// 2026-09-15 table, and they light the Gender pip as well. reported_sex and
+// reported_gender are both in the lean row, so this needs no derivation.
 function sgDimensionReported(study, field) {
     const r = sgRow(study);
     if (!r) return false;
-    return field === 'sex' ? sgReportedAny(r) : r.reported_gender === true;
+    return field === 'sex' ? r.reported_sex === true : r.reported_gender === true;
 }
 
 function sgStatusBadge(status, reason) {
@@ -8209,7 +8226,7 @@ function sgDemographicCell(study, field) {
     const open = `onclick="showBreakdown('${study.nct_id}', '${field}')"`;
     const present = sgTablePresence(r, field);
     if (field === 'sex') {
-        if (sgReportedAny(r)) return `<button class="demo-badge" ${open} title="Reported; click for the parser’s buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
+        if (r.reported_sex === true) return `<button class="demo-badge" ${open} title="Reported; click for the parser’s buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
         if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
         if (present !== true) return sgNoTableCell('sex', present === false);
         return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
@@ -8234,20 +8251,30 @@ function sgShowBreakdown(nctId, field) {
     ];
     const total = rows.reduce((a, [, v]) => a + (Number(v) || 0), 0);
     const cell = (v) => v == null ? '<span class="text-muted">—</span>' : Number(v).toLocaleString();
+    const isCount = r.is_participant_count !== false;
+    const unit = [r.param_type, r.unit_of_measure].filter(Boolean).join(' · ');
     let html = `<div class="breakdown-modal"><h4>Sex/gender (parser v2) – ${escapeHtml(nctId)}</h4>` +
         `<p class="modal-subtitle">Status: <strong>${escapeHtml(SG_STATE_LABELS[r.sex_report_status] || r.sex_report_status || '—')}</strong>` +
         (r.uninformative_reason ? ` (${escapeHtml(SG_REASON_LABELS[r.uninformative_reason] || r.uninformative_reason)})` : '') +
         (r.declared_not_collected ? ' &middot; declared not collected' : '') +
         (r.is_participant_count === false ? ' &middot; not a participant count (excluded from composition)' : '') +
-        `</p><table class="breakdown-table"><thead><tr><th>Bucket</th><th>Count</th><th>Share of parsed</th></tr></thead><tbody>` +
-        rows.map(([l, v]) => `<tr><td>${l}</td><td>${cell(v)}</td><td>${(v != null && total > 0) ? (100 * Number(v) / total).toFixed(1) + '%' : '—'}</td></tr>`).join('') +
-        `</tbody></table>`;
+        `</p><table class="breakdown-table"><thead><tr><th>Bucket</th><th>${isCount ? 'Participants' : 'Published value'}</th><th>Share of parsed</th></tr></thead><tbody>` +
+        rows.map(([l, v]) => `<tr><td>${l}</td><td>${cell(v)}</td><td>${(isCount && v != null && total > 0) ? (100 * Number(v) / total).toFixed(1) + '%' : '—'}</td></tr>`).join('') +
+        `</tbody></table>` +
+        // The values on a non-participant row can be percentages, means or
+        // counts of units such as eyes. Dividing them would manufacture a
+        // composition the trial never reported, so no share is computed.
+        (isCount ? '' : `<p class="note">These are not participant counts${unit ? ` (${escapeHtml(unit)})` : ''}, so no share is computed from them: the published values may be percentages, means, or counts of units such as eyes. This trial is outside the composition and percent-female figures.</p>`);
     const trails = SG_LABEL_TRAILS.filter(t => Array.isArray(r[t.key]) && r[t.key].length);
     if (trails.length) {
         html += `<h5 class="quarantine-header">Source labels</h5><table class="breakdown-table"><tbody>` +
             trails.map(t => `<tr><td>${escapeHtml(SG_BUCKETS.find(b => b.key === t.bucket).label)}</td><td>${r[t.key].map(escapeHtml).join(', ')}</td></tr>`).join('') +
             `</tbody></table>`;
-    } else if (!sgTable && !dashboardSummary) {
+    } else if (dashboardSummary) {
+        // The compact rows carry no label arrays at all, so an empty drill-down
+        // here means "not shipped", never "this trial had no labels".
+        html += `<p class="note">Source labels are not shipped to this view. They are on the desktop site, which reads the parsed table.</p>`;
+    } else if (!sgTable) {
         html += `<p class="note">Source labels need the parsed table, which did not load.</p>`;
     }
     html += `<p class="modal-note">Parser rules: ${escapeHtml(r.parser_rules_version || sgRulesVersion() || '—')}. ` +
@@ -8419,7 +8446,7 @@ async function sgRenderBetaPanel() {
     if (!summary) {
         if (sgBetaSummaries.has(key)) {
             summary = sgBetaSummaries.get(key);
-            if (!summary) {                    // the fetch failed earlier; say so rather than implying the file is there
+            if (!summary) {                    // a remembered absence, never a failure
                 body.innerHTML = `<p class="note">No dashboard-summary.json for ${escapeHtml(label)}. Without it there is nothing to compare the new tiles against.</p>`;
                 return;
             }
@@ -8427,13 +8454,24 @@ async function sgRenderBetaPanel() {
             body.innerHTML = `<p class="note">Loading the dashboard summary for ${escapeHtml(label)}…</p>`;
             try {
                 const resp = await fetch(`${sgBase(key)}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
-                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                if (!resp.ok) {
+                    const err = new Error(`HTTP ${resp.status}`);
+                    err.absent = (resp.status === 404 || resp.status === 403);
+                    throw err;
+                }
                 summary = await resp.json();
             } catch (e) {
                 summary = null;
-                body.innerHTML = `<p class="note">No dashboard-summary.json for ${escapeHtml(label)}: ${escapeHtml(e.message)}. Without it there is nothing to compare the new tiles against.</p>`;
+                // Only a confirmed absence is remembered; a dropped request
+                // leaves the panel able to recover on the next open.
+                if (e && e.absent) {
+                    sgBetaSummaries.set(key, null);
+                    body.innerHTML = `<p class="note">No dashboard-summary.json for ${escapeHtml(label)}. Without it there is nothing to compare the new tiles against.</p>`;
+                } else {
+                    body.innerHTML = `<p class="note">The dashboard summary for ${escapeHtml(label)} could not be fetched just now: ${escapeHtml(e.message)}. Closing and reopening this panel retries it.</p>`;
+                }
             }
-            sgBetaSummaries.set(key, summary);
+            if (summary) sgBetaSummaries.set(key, summary);
             if (!summary) return;
         }
         if (key !== sgSnapshotKey) return;   // the snapshot changed while this was in flight
