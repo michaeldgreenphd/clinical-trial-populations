@@ -1395,6 +1395,7 @@
                 <details class="faq-section">
                     <summary><h4>How is the "Not Reported (Missing)" category calculated?</h4></summary>
                     <div class="faq-answer">
+                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the retired rule.</strong> Race and Ethnicity still use it. With the <code>?sg=v2</code> beta on, the Sex and Gender tabs follow the parser instead: <a href="#faq" onclick="return sgOpenMethods('states')">see the parser v2 methods</a>.</p>
                         <p class="note">In the "Full Distribution with Data Quality" charts, the light "Not Reported (Missing)" layer is calculated as:</p>
                         <p><code>Not Reported = Total Enrollment - Sum(All Reported Categories)</code></p>
                         <p class="note">"Explicitly Unknown" is different: it is a category sponsors actively reported (see "What is the difference between 'Not Reported' and 'Explicit Unknown'?" below). Together the layers sum to 100% of enrollment, providing a complete picture of data completeness. In rare years where reported counts exceed registered enrollment &mdash; a registry data-quality quirk &mdash; the larger of the two is used as the denominator so percentages never exceed 100%.</p>
@@ -1439,6 +1440,7 @@
                 <details class="faq-section">
                     <summary><h4>How are Sex and Gender defined on this dashboard?</h4></summary>
                     <div class="faq-answer">
+                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the retired rule.</strong> Race and Ethnicity still use it. With the <code>?sg=v2</code> beta on, the Sex and Gender tabs follow the parser instead: <a href="#faq" onclick="return sgOpenMethods('gender_rule')">see the parser v2 methods</a>.</p>
                         <p class="note">They are extracted separately and never cross-mapped. <strong>Sex</strong> refers to biological sex as reported in a trial's baseline characteristics, standardized to Female, Male, and Unknown or Not Reported. <strong>Gender</strong> refers to gender identity, standardized to Woman, Man, Non-binary, Transgender, Other, and Unknown or Not Reported &mdash; and is only parsed from baseline tables explicitly labeled as gender.</p>
                         <p class="note" style="margin-top: 0.5rem;">Because the pipeline keeps these strictly decoupled (a "Female" label is never counted as "Woman", and vice versa), the Gender tab reflects only trials that genuinely collected gender identity &mdash; which remains rare in the registry.</p>
                     </div>

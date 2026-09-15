@@ -1239,7 +1239,10 @@ function updateShareUrl() {
     const p = new URLSearchParams();
     SHARE_FILTERS.forEach(([id, key]) => {
         const el = document.getElementById(id);
-        if (el && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
+        // A disabled control is not applied, so it must not travel in the URL:
+        // reopening that link once the control is live would apply a filter the
+        // screen it was copied from never had.
+        if (el && !el.disabled && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
     });
     // The flag can arrive in the hash rather than the query — the routing
     // stubs put it there — and this rewrites the whole hash. Carry it, or a
@@ -7523,12 +7526,12 @@ function sgActive() { return SG_V2 && sgAvailable; }
 
 // ── The published files ─────────────────────────────────────────────────
 const SG_CSV_KEEP = ['nct_id', 'reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
-                     'percent_female', 'has_sex_table', 'has_gender_table', 'param_type', 'unit_of_measure',
+                     'percent_female', 'has_sex_table', 'has_gender_table', 'param_type', 'unit_of_measure', 'n_total_parsed',
                      'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
 const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
                              'has_sex_table', 'has_gender_table']);
 const SG_CSV_ARRAY = new Set(['gender_diverse_labels', 'ambiguous_labels', 'unknown_labels']);
-const SG_CSV_NUM = new Set(['percent_female']);
+const SG_CSV_NUM = new Set(['percent_female', 'n_total_parsed']);
 
 function sgCsvValue(col, v) {
     if (SG_CSV_ARRAY.has(col)) {
@@ -7950,6 +7953,8 @@ function sgApplyMode() {
     // A control that just stopped applying must stop claiming: its chip still
     // said "Reported gender: yes" over an unfiltered snapshot otherwise.
     if (changed && typeof updateActiveFilters === 'function') updateActiveFilters();
+    // The URL carries only the controls that are live, so it resyncs with them.
+    if (changed && typeof updateShareUrl === 'function') updateShareUrl();
     document.querySelectorAll('.sg-provenance').forEach(el => { el.textContent = on ? sgProvenanceText() : ''; });
 }
 
@@ -8254,7 +8259,12 @@ function sgShowBreakdown(nctId, field) {
         ['Female', r.n_female], ['Male', r.n_male], ['Gender diverse', r.n_gender_diverse],
         ['Cis/trans-qualified', r.n_ambiguous_gender], ['Explicit Unknown', r.n_unknown]
     ];
-    const total = rows.reduce((a, [, v]) => a + (Number(v) || 0), 0);
+    // The engine publishes the parsed total; summing the five shown buckets
+    // here would be a denominator of this page's own devising, and would drift
+    // the moment the parser adds a bucket. Where the column is not shipped —
+    // the compact rows on mobile — the shares are withheld instead.
+    const totalRaw = Number(r.n_total_parsed);
+    const total = (r.n_total_parsed != null && Number.isFinite(totalRaw)) ? totalRaw : null;
     const cell = (v) => v == null ? '<span class="text-muted">—</span>' : Number(v).toLocaleString();
     const isCount = r.is_participant_count !== false;
     const unit = [r.param_type, r.unit_of_measure].filter(Boolean).join(' · ');
@@ -8266,6 +8276,7 @@ function sgShowBreakdown(nctId, field) {
         `</p><table class="breakdown-table"><thead><tr><th>Bucket</th><th>${isCount ? 'Participants' : 'Published value'}</th><th>Share of parsed</th></tr></thead><tbody>` +
         rows.map(([l, v]) => `<tr><td>${l}</td><td>${cell(v)}</td><td>${(isCount && v != null && total > 0) ? (100 * Number(v) / total).toFixed(1) + '%' : '—'}</td></tr>`).join('') +
         `</tbody></table>` +
+        (isCount && total == null ? `<p class="note">Shares need the parser's published total for this trial (<code>n_total_parsed</code>), which is not shipped to this view.</p>` : '') +
         // The values on a non-participant row can be percentages, means or
         // counts of units such as eyes. Dividing them would manufacture a
         // composition the trial never reported, so no share is computed.
@@ -8302,18 +8313,29 @@ async function sgLoadMethods() {
     if (!box) return;
     const key = sgSnapshotKey;
     if (!sgMethodsCache.has(key)) {
-        const tries = (key === 'latest') ? [['data', false]] : [[sgBase(key), false], ['data', true]];
-        let entry = null, failed = false;
-        for (const [base, fromLatest] of tries) {
+        const get = async (base, fromLatest) => {
             try {
                 const resp = await fetch(`${base}/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
-                if (resp.ok) { entry = { methods: await resp.json(), fromLatest }; break; }
-                if (resp.status !== 404 && resp.status !== 403) failed = true;   // no answer, not an absence
-            } catch (e) { failed = true; }
+                if (resp.ok) return { entry: { methods: await resp.json(), fromLatest } };
+                return { absent: resp.status === 404 || resp.status === 403 };
+            } catch (e) { return { absent: false }; }
+        };
+        const own = await get(sgBase(key), false);
+        let entry = own.entry || null;
+        // The archive's own text is the only thing that can speak for it. Fall
+        // back to the latest only once the archive's file is known to be
+        // absent; a request that merely failed leaves the answer open, so the
+        // fallback is shown but never cached and the next visit retries.
+        let failed = !own.entry && !own.absent;
+        if (!entry && key !== 'latest' && own.absent) {
+            const latest = await get('data', true);
+            entry = latest.entry || null;
+            if (!latest.entry && !latest.absent) failed = true;
+        } else if (!entry && key !== 'latest') {
+            const latest = await get('data', true);
+            entry = latest.entry || null;        // shown, not cached: see `failed` above
         }
-        // Only a confirmed absence is remembered: a dropped request must not
-        // report "no methods published" for the rest of the session.
-        if (entry || !failed) sgMethodsCache.set(key, entry);
+        if (!failed) sgMethodsCache.set(key, entry);
     }
     if (key !== sgSnapshotKey) return;      // the snapshot changed mid-fetch
     const entry = sgMethodsCache.get(key);
@@ -8396,7 +8418,6 @@ function sgBetaRows(summary) {
     // stays null and renders as an em dash, the way the tiles do. Only a
     // published value becomes a number.
     const n = (v) => { if (v == null || v === '') return null; const x = Number(v); return Number.isFinite(x) ? x : null; };
-    const sum = (...vs) => vs.every(v => n(v) == null) ? null : vs.reduce((a, v) => a + (n(v) || 0), 0);
     return {
         sex: [
             ['Female', n(sd.female), n(t.female)],
@@ -8406,7 +8427,14 @@ function sgBetaRows(summary) {
         gender: [
             ['Woman (old) → counted as sex (new Female)', n(gd.woman), null],
             ['Man (old) → counted as sex (new Male)', n(gd.man), null],
-            ['Non-binary + Transgender + Other (old) → Gender diverse (new)', sum(gd.nonbinary, gd.transgender, gd.other), n(t.gender_diverse)],
+            // The old engine published these three separately and never
+            // published their sum, so they are shown as they were published:
+            // adding them here would define a statistic this page has no
+            // business defining. The v2 bucket they map to is its own row.
+            ['Non-binary (old) → Gender diverse (new)', n(gd.nonbinary), null],
+            ['Transgender (old) → Gender diverse (new)', n(gd.transgender), null],
+            ['Other (old) → Gender diverse (new)', n(gd.other), null],
+            ['Gender diverse (new): the three old categories above', null, n(t.gender_diverse)],
             ['(no old tile) → Cis/trans-qualified (new)', null, n(t.ambiguous)],
             ['Unknown or Not Reported (old) → Explicit Unknown (new, shared with Sex)', n(gd.unknown), n(t.explicit_unknown)]
         ],

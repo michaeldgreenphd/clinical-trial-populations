@@ -71,6 +71,10 @@ const row = (over) => {
         const f = Number(r.n_female) || 0, m = Number(r.n_male) || 0;
         r.percent_female = (r.reported_sex === true && r.is_participant_count === true && f + m > 0) ? 100 * f / (f + m) : null;
     }
+    if (!over || !('n_total_parsed' in over)) {
+        r.n_total_parsed = ['n_female', 'n_male', 'n_gender_diverse', 'n_ambiguous_gender', 'n_unknown']
+            .reduce((a, k) => a + (Number(r[k]) || 0), 0) || null;
+    }
     return r;
 };
 
@@ -643,14 +647,14 @@ test('a drill-down with no source labels says whether they were shipped', () => 
     h.run('sgTable = null; dashboardSummary = { sexGender: {} };');
     h.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row({}) })}];`);
     h.run("sgShowBreakdown('NCT1', 'sex')");
-    assert.match(h.els['breakdown-overlay'].innerHTML, /not shipped to this view/);
+    assert.match(h.els['breakdown-overlay'].innerHTML, /Source labels are not shipped/);
     // on desktop with the join, an empty trail means the trial really had none
     const d = harness();
     d.run('dashboardSummary = null; sgTable = new Map();');
     d.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row({}) })}];`);
     d.run("sgShowBreakdown('NCT1', 'sex')");
-    assert.ok(!/not shipped to this view/.test(d.els['breakdown-overlay'].innerHTML));
-    assert.ok(!/did not load/.test(d.els['breakdown-overlay'].innerHTML));
+    assert.ok(!/Source labels are not shipped/.test(d.els['breakdown-overlay'].innerHTML));
+    assert.ok(!/Source labels need the parsed table/.test(d.els['breakdown-overlay'].innerHTML));
 });
 
 test('a failed beta-summary fetch is retried; a 404 is remembered', async () => {
@@ -690,4 +694,67 @@ test('the mode is applied before the data is filtered, not after', () => {
     const readFilters = app.slice(app.indexOf('function sgReadFilters()'), app.indexOf('let sgV2Filters'));
     assert.ok(readFilters.includes('!statusEl.disabled'), 'a disabled status select still filters');
     assert.ok(readFilters.includes('!el.disabled'), 'a disabled boolean select still filters');
+});
+
+test('the modal divides by the engine\'s published total, not by a sum of the rows', () => {
+    const h = harness();
+    h.run('sgTable = null; dashboardSummary = null; data = [];');
+    const show = (over) => {
+        h.run(`data = [${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}];`);
+        h.run("sgShowBreakdown('NCT1', 'sex')");
+        return h.els['breakdown-overlay'].innerHTML;
+    };
+    // published total larger than the five shown buckets: the share follows it
+    const published = show({ n_female: 40, n_male: 60, n_total_parsed: 200 });
+    const table = (h) => h.slice(h.indexOf('Share of parsed'), h.indexOf('</table>'));
+    assert.match(table(published), /20\.0%/, 'the share was computed from the rows rather than the published total');
+    assert.ok(!/40\.0%/.test(table(published)), 'the share still divides by the sum of the shown rows');
+    // no published total in this view: no share, and the modal says why
+    const noTotal = show({ n_female: 40, n_male: 60, n_total_parsed: null });
+    assert.ok(!/%/.test(table(noTotal)), 'a share was invented with no published total');
+    assert.match(noTotal, /n_total_parsed/);
+    assert.ok(h.run("SG_CSV_KEEP.includes('n_total_parsed')"));
+});
+
+test('the beta panel shows the three published legacy categories, not their sum', () => {
+    const h = harness();
+    const rows = h.run(`sgBetaRows({ cards: {}, sexDistribution: {}, genderDistribution: { nonbinary: 3498, transgender: 1371, other: 589 },
+        sexGender: { totals: { gender_diverse: 20220 }, outcomes: {}, excludedFromComposition: {} } })`);
+    const labels = rows.gender.map((r) => r[0]);
+    assert.ok(labels.some((l) => /^Non-binary \(old\)/.test(l)));
+    assert.ok(labels.some((l) => /^Transgender \(old\)/.test(l)));
+    assert.ok(labels.some((l) => /^Other \(old\)/.test(l)));
+    const olds = rows.gender.filter((r) => /\(old\) → Gender diverse/.test(r[0])).map((r) => r[1]);
+    assert.deepEqual(olds, [3498, 1371, 589], 'the three published categories are not shown as published');
+    assert.ok(!olds.includes(3498 + 1371 + 589), 'the page is still summing them into a statistic of its own');
+    // the new bucket stands on its own row
+    const gd = rows.gender.find((r) => /^Gender diverse \(new\)/.test(r[0]));
+    assert.equal(gd[1], null);
+    assert.equal(gd[2], 20220);
+    assert.ok(!block.includes('const sum = (...vs)'), 'the summing helper is still in the block');
+});
+
+test('a legacy FAQ answer that contradicts parser v2 says so while the beta is on', () => {
+    // These entries describe the retired rule, which Race and Ethnicity still
+    // use, so they are labelled rather than hidden.
+    assert.equal((html.match(/sg-faq-retired/g) || []).length, 2);
+    const notReported = html.slice(html.indexOf('How is the "Not Reported (Missing)" category calculated?'));
+    assert.ok(notReported.slice(0, 900).includes('sg-faq-retired'), 'the enrollment-residual answer is unlabelled under v2');
+    const defined = html.slice(html.indexOf('How are Sex and Gender defined on this dashboard?'));
+    assert.ok(defined.slice(0, 900).includes('sg-faq-retired'), 'the strict-separation answer is unlabelled under v2');
+    // shown only with the beta on, through the same class the tabs use
+    assert.ok(/class="note sg-v2 sg-hidden sg-faq-retired"/.test(html));
+});
+
+test('a disabled control is not serialized into the share URL', () => {
+    const fn = app.slice(app.indexOf('function updateShareUrl()'), app.indexOf('\nfunction ', app.indexOf('function updateShareUrl()') + 10));
+    assert.ok(fn.includes('!el.disabled'), 'a disabled filter still travels in the URL');
+    const apply = block.slice(block.indexOf('function sgApplyMode()'), block.indexOf('// ── Sex tab'));
+    assert.ok(apply.includes('updateShareUrl()'), 'the URL is not resynced when a control becomes live again');
+});
+
+test('the archive methods fallback is shown but not cached when the archive request merely failed', () => {
+    const fn = block.slice(block.indexOf('async function sgLoadMethods'), block.indexOf('function sgMethodsNotice'));
+    assert.ok(fn.includes('own.absent'), 'the fallback is taken without establishing that the archive has no file');
+    assert.ok(fn.includes('if (!failed) sgMethodsCache.set(key, entry)'), 'a failed archive request is cached');
 });
