@@ -8223,12 +8223,18 @@ function sgMethodsNotice(key, entry, meta) {
     if (!entry.fromLatest) return '';
     const archived = meta && meta.parser_rules_version;
     const latest = entry.methods && entry.methods.parser_rules_version;
-    const mismatch = archived && latest && archived !== latest;
+    // Only claim the rules match when both versions are known and equal;
+    // with one of them missing, name what is known and claim nothing.
+    let rules = '';
+    if (archived && latest && archived !== latest) {
+        rules = ` The rules also differ: this archive was parsed with <code>${escapeHtml(archived)}</code> and the text below describes <code>${escapeHtml(latest)}</code>.`;
+    } else if (archived && latest) {
+        rules = ` Both were parsed with <code>${escapeHtml(archived)}</code>, so the rules the text describes are this archive's.`;
+    } else if (archived) {
+        rules = ` This archive was parsed with <code>${escapeHtml(archived)}</code>; the text below does not say which rules it describes.`;
+    }
     return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot did not archive its own methods, so what follows is the latest pull's: its snapshot date, reporting-state counts and fidelity figures describe that pull, not this archive.` +
-        (mismatch
-            ? ` The rules also differ: this archive was parsed with <code>${escapeHtml(archived)}</code> and the text below describes <code>${escapeHtml(latest)}</code>.`
-            : (archived ? ` This archive was parsed with <code>${escapeHtml(archived)}</code>, the same rules the text below describes.` : '')) +
-        `</p>`;
+        rules + `</p>`;
 }
 
 function sgMethodsHtml(m, meta) {

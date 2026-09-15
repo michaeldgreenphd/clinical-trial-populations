@@ -388,6 +388,12 @@ test('the methods text follows the snapshot, and a fallback says whose numbers i
     assert.match(notice, /new-rules/);
     // no notice when the text is the snapshot's own
     assert.equal(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: false, methods: {} }, null)`), '');
+    // matching versions may be called matching; a half-known pair may not
+    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'same' } }, { parser_rules_version: 'same' })`),
+        /Both were parsed with/);
+    const halfKnown = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, { parser_rules_version: 'old-rules' })`);
+    assert.match(halfKnown, /does not say which rules it describes/);
+    assert.ok(!/same rules/.test(halfKnown), 'claimed the rules match with only one version known');
 });
 
 test('the v2 filters are disabled where no filter can bite', () => {
