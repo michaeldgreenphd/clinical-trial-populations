@@ -8264,6 +8264,10 @@ async function sgRenderBetaPanel() {
     if (!summary) {
         if (sgBetaSummaries.has(key)) {
             summary = sgBetaSummaries.get(key);
+            if (!summary) {                    // the fetch failed earlier; say so rather than implying the file is there
+                body.innerHTML = `<p class="note">No dashboard-summary.json for ${escapeHtml(label)}. Without it there is nothing to compare the new tiles against.</p>`;
+                return;
+            }
         } else {
             body.innerHTML = `<p class="note">Loading the dashboard summary for ${escapeHtml(label)}…</p>`;
             try {
