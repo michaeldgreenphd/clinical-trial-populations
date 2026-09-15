@@ -782,6 +782,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         updateLoadingProgress(10, 'Downloading clinical trial data...');
         await loadData();
+        // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
+        await sgLoad();
         updateLoadingProgress(78, 'Initializing filters and controls...');
         initTabs();
         if (!dashboardSummary) {
@@ -811,6 +813,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // hash once the first render is up, then start writing share URLs.
         shareUrlReady = true;
         applyRouteFromHash();
+        sgRouteHooks();
         labelChartsForA11y();
 
         // Hide loading overlay after everything is initialized and rendered
@@ -1092,6 +1095,7 @@ async function loadDataAndRender(date) {
 
     try {
         await loadData(date);
+        await sgLoad(date === 'latest' ? undefined : date);
         if (data && data.length > 0) {
             populateConditionsDropdown();
             populateCountriesDropdown();
@@ -1151,6 +1155,7 @@ async function initHistorySelector() {
 
         try {
             await loadData(chosen);
+            await sgLoad(chosen === 'latest' ? undefined : chosen);
 
             if (!data || data.length === 0) throw new Error('No data returned');
 
@@ -1209,7 +1214,10 @@ const SHARE_FILTERS = [
     ['year-start', 'ys'], ['year-end', 'ye'], ['study-type', 'st'],
     ['sponsor-class', 'sp'], ['primary-purpose', 'pu'],
     ['condition-primary', 'pri'], ['condition-secondary', 'sec'],
-    ['fda-status', 'fda']
+    ['fda-status', 'fda'],
+    // Parser v2 (sg=v2) filters; inert unless the flag is on.
+    ['sg-status', 'sgs'], ['sg-reported-sex', 'sgrs'], ['sg-reported-gender', 'sgrg'],
+    ['sg-reported-both', 'sgrb'], ['sg-glb', 'sgglb'], ['sg-participant-count', 'sgpc']
 ];
 
 function shareFilterDefault(el) {
@@ -1317,17 +1325,25 @@ function initTabs() {
             // Re-render charts when their tab becomes visible
             // (Chart.js renders at 0x0 on hidden canvases)
             const filtered = data.length > 0 ? getFilteredData() : [];
-            if (tab.dataset.tab === 'sex' && filtered.length > 0) {
-                renderSexReportedParticipants(filtered);
-                renderSexFullDistribution(filtered);
-                renderSexDistribution(filtered);
-                renderSexTrends(filtered);
+            // ?sg=v2: the parser-v2 tabs render unconditionally (a zero-result
+            // filter shows zeros); the legacy renderers run only off the flag.
+            if (tab.dataset.tab === 'sex') {
+                if (sgActive()) sgRenderSexTab(filtered);
+                else if (filtered.length > 0) {
+                    renderSexReportedParticipants(filtered);
+                    renderSexFullDistribution(filtered);
+                    renderSexDistribution(filtered);
+                    renderSexTrends(filtered);
+                }
             }
-            if (tab.dataset.tab === 'gender' && filtered.length > 0) {
-                renderGenderReportedParticipants(filtered);
-                renderGenderFullDistribution(filtered);
-                renderGenderDistribution(filtered);
-                renderGenderTrends(filtered);
+            if (tab.dataset.tab === 'gender') {
+                if (sgActive()) sgRenderGenderTab(filtered);
+                else if (filtered.length > 0) {
+                    renderGenderReportedParticipants(filtered);
+                    renderGenderFullDistribution(filtered);
+                    renderGenderDistribution(filtered);
+                    renderGenderTrends(filtered);
+                }
             }
             if (tab.dataset.tab === 'race' && filtered.length > 0) {
                 renderRaceDistribution(filtered);
@@ -1431,7 +1447,9 @@ function initFilters() {
         'year-start', 'year-end', 'study-type', 'phase', 'sponsor-class',
         'intervention-model', 'masking', 'primary-purpose',
         'enrollment-type', 'healthy-volunteers', 'population-age', 'condition', 'condition-primary', 'condition-secondary', 'country',
-        'fda-status'
+        'fda-status',
+        // ?sg=v2 (parser v2) filters; hidden unless the beta is on
+        'sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count'
     ];
     filterIds.forEach(id => {
         const element = document.getElementById(id);
@@ -1630,6 +1648,10 @@ function resetFilters() {
     if (fdaStatusSelect) fdaStatusSelect.value = 'all';
     const aiCheckbox = document.getElementById('ai-study-filter');
     if (aiCheckbox) aiCheckbox.checked = false;
+    ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = 'all';
+    });
 
     renderDashboard();
     updateActiveFilters();
@@ -1746,6 +1768,22 @@ function updateActiveFilters() {
             document.getElementById('ai-study-filter').checked = false;
         }});
     }
+
+    // ?sg=v2 filters
+    const sgLabels = {
+        'sg-status': (v) => `Sex/gender status: ${SG_STATE_LABELS[v] || v}`,
+        'sg-reported-sex': (v) => `Reported sex: ${v === 'true' ? 'yes' : 'no'}`,
+        'sg-reported-gender': (v) => `Reported gender: ${v === 'true' ? 'yes' : 'no'}`,
+        'sg-reported-both': (v) => `Reported both: ${v === 'true' ? 'yes' : 'no'}`,
+        'sg-glb': (v) => `Gender-titled, Female/Male only: ${v === 'true' ? 'yes' : 'no'}`,
+        'sg-participant-count': (v) => `Participant-count table: ${v === 'true' ? 'yes' : 'no'}`
+    };
+    Object.entries(sgLabels).forEach(([id, label]) => {
+        const el = document.getElementById(id);
+        if (el && !el.disabled && el.value && el.value !== 'all') {
+            filters.push({ label: label(el.value), reset: () => { document.getElementById(id).value = 'all'; } });
+        }
+    });
 
     container.innerHTML = filters.map(f => `
         <span class="filter-tag">
@@ -1869,6 +1907,7 @@ function getFilteredData() {
     const countryFilter = document.getElementById('country')?.value || 'all';
     const aiOnly = document.getElementById('ai-study-filter')?.checked || false;
     const fdaStatus = document.getElementById('fda-status')?.value || 'all';
+    sgV2Filters = sgReadFilters();
 
     return data.filter(study => {
         if (aiOnly && !isAIStudy(study)) return false;
@@ -1938,9 +1977,37 @@ function getFilteredData() {
                 study.is_unapproved_device === true || (dr == null && dv == null))) return false;
         }
 
+        // ?sg=v2: the parser-v2 filters compose with everything above. They
+        // read the lean row (and the CSV join for gender_labeled_binary_only).
+        if (sgV2Filters) {
+            const r = sgRow(study);
+            if (sgV2Filters.status !== 'all' && (!r || r.sex_report_status !== sgV2Filters.status)) return false;
+            for (const [field, want] of sgV2Filters.bools) {
+                const have = r ? r[field] : null;
+                if (have !== want) return false;
+            }
+        }
+
         return true;
     });
 }
+
+// The six ?sg=v2 filter controls, read once per filter pass (null when the
+// beta is off or every control is at "Any").
+function sgReadFilters() {
+    if (typeof sgActive !== 'function' || !sgActive()) return null;
+    const status = document.getElementById('sg-status')?.value || 'all';
+    const bools = [];
+    for (const [id, field] of [['sg-reported-sex', 'reported_sex'], ['sg-reported-gender', 'reported_gender'],
+                               ['sg-reported-both', 'reported_both'], ['sg-glb', 'gender_labeled_binary_only'],
+                               ['sg-participant-count', 'is_participant_count']]) {
+        const el = document.getElementById(id);
+        if (el && !el.disabled && (el.value === 'true' || el.value === 'false')) bools.push([field, el.value === 'true']);
+    }
+    if (status === 'all' && !bools.length) return null;
+    return { status, bools };
+}
+let sgV2Filters = null;
 
 function showDashboardSpinner() {
     const el = document.getElementById('dashboard-loading');
@@ -2121,6 +2188,7 @@ function renderDashboard() {
         renderGenderFullDistribution(stub);
         renderGenderDistribution(stub);
         renderGenderTrends(stub);
+        sgAfterRender(stub);
 
         requestAnimationFrame(() => hideDashboardSpinner());
         return;
@@ -2152,6 +2220,9 @@ function renderDashboard() {
     renderReportingTrends(filtered);
 
     // Determine which tab is currently active and render its charts
+    // ?sg=v2: show the right blocks before the charts are created (a chart
+    // built inside a hidden block keeps its zero size when the block opens).
+    sgApplyMode();
     const activeTab = document.querySelector('.tab.active')?.dataset.tab;
     if (activeTab === 'race') {
         renderRaceDistribution(filtered);
@@ -2180,6 +2251,9 @@ function renderDashboard() {
     } else if (activeTab === 'fda-oversight') {
         renderFdaOversight(filtered);
     }
+    // ?sg=v2: swaps the Sex/Gender tabs to the parser-v2 blocks and renders
+    // whichever of them is active (with zeros on a zero-result filter).
+    sgAfterRender(filtered);
 
     // Update table if visible
     const studiesTab = document.querySelector('.tab[data-tab="studies"]');
@@ -2779,6 +2853,9 @@ function studyHasGeography(study) {
 
 function studyReportsDimension(study, field) {
     if (field === 'geography') return studyHasGeography(study);
+    // ?sg=v2: the Sex pip is reported_any (the parser's "reported" state) and
+    // the Gender pip is the category-based reported_gender.
+    if ((field === 'sex' || field === 'gender') && sgActive()) return sgDimensionReported(study, field);
     return !!study[field]?.reported;
 }
 
@@ -2844,6 +2921,8 @@ function initColumnPicker() {
 }
 
 function renderDemographicCell(study, field) {
+    // ?sg=v2: Sex and Gender cells carry the parser's state badges (N6).
+    if ((field === 'sex' || field === 'gender') && sgActive()) return sgDemographicCell(study, field);
     const fieldData = study[field];
     if (!fieldData?.reported) {
         return '<span class="demo-disabled" title="No data reported">✗</span>';
@@ -2927,6 +3006,8 @@ async function showGeographyBreakdown(nctId) {
 }
 
 function showBreakdown(nctId, categoryName) {
+    // ?sg=v2: the parser's five buckets and source labels for Sex and Gender.
+    if ((categoryName === 'sex' || categoryName === 'gender') && sgActive()) return sgShowBreakdown(nctId, categoryName);
     const study = data.find(s => s.nct_id === nctId);
     if (!study) return;
 
@@ -7299,6 +7380,882 @@ window.showLitExtractionDetails = showLitExtractionDetails;
 // Neither path initializes the view until the shared Beta password has
 // validated for the session.
 // ═══════════════════════════════════════════════════════════════════════════
+
+// ── Sex/gender parser v2 (sg=v2) ─────────────────────────────────────────
+// Everything the ?sg=v2 beta adds lives between this marker and the
+// "end sg=v2" marker, so tests/sex_gender_v2.test.mjs can evaluate the block
+// on its own. It reads only published files:
+//   - the lean `sex_gender` row inside each study record in the parts,
+//   - data/sex_gender_parsed.csv.gz on desktop, joined by nct_id (the full
+//     record: reported_any, gender_labeled_binary_only, the label trails),
+//   - data/sex_gender_parsed_meta.json (snapshot date, rules version, states),
+//   - the `sexGender` block of dashboard-summary.json (mobile, the beta panel),
+//   - data/sex_gender/methods.json (the methods page).
+// Rules it never breaks: the four visible states are never merged, nothing
+// is derived from enrollment arithmetic, the enrollment gap the engine stores
+// is shown nowhere as a participant group, and no tile is named after a
+// single source label. percent female is computed here from n_female and
+// n_male, never read from a file.
+const SG_V2_STATES = ['reported', 'explicit_unknown_only', 'uninformative', 'not_reported', 'parse_error'];
+const SG_VISIBLE_STATES = ['reported', 'explicit_unknown_only', 'uninformative', 'not_reported'];
+const SG_STATE_LABELS = {
+    reported: 'Reported',
+    explicit_unknown_only: 'Explicit Unknown',
+    uninformative: 'Uninformative',
+    not_reported: 'Not Reported (Missing)',
+    parse_error: 'Parse error'
+};
+const SG_STATE_COLORS = {
+    reported: CHART_COLORS.c1,
+    explicit_unknown_only: CHART_COLORS.c5,
+    uninformative: CHART_COLORS.c4,
+    not_reported: CHART_COLORS.notReported,
+    parse_error: '#b91c1c'
+};
+const SG_REASON_LABELS = {
+    no_measurements: 'empty template, no measurements posted',
+    all_values_na: 'every value posted as NA',
+    all_values_zero: 'every value posted as zero',
+    no_mapped_labels: 'no recognizable category label',
+    other: 'other'
+};
+// The five buckets. Female and Male keep the sex hues; the two gender buckets
+// and Explicit Unknown are their own colours. No tile is named after a single
+// source label (Transgender, Non-binary): those appear on drill-down only.
+const SG_BUCKETS = [
+    { key: 'female',          label: 'Female',              color: CHART_COLORS.c2 },
+    { key: 'male',            label: 'Male',                color: CHART_COLORS.c3 },
+    { key: 'gender_diverse',  label: 'Gender diverse',      color: CHART_COLORS.c4 },
+    { key: 'ambiguous',       label: 'Cis/trans-qualified', color: CHART_COLORS.c1 },
+    { key: 'explicit_unknown', label: 'Explicit Unknown',   color: CHART_COLORS.notReported }
+];
+const SG_SEX_TILE_KEYS = ['female', 'male', 'explicit_unknown'];
+const SG_DENOMINATOR_NOTE = 'participants, over trials with reported sex and a participant-count table (reported_sex AND is_participant_count)';
+const SG_LABEL_TRAILS = [
+    { key: 'gender_diverse_labels', bucket: 'gender_diverse', summaryKey: 'gender_diverse', heading: 'Gender diverse: source labels' },
+    { key: 'ambiguous_labels',      bucket: 'ambiguous',      summaryKey: 'ambiguous',      heading: 'Cis/trans-qualified: source labels' },
+    { key: 'unknown_labels',        bucket: 'explicit_unknown', summaryKey: 'unknown',      heading: 'Explicit Unknown: source labels' }
+];
+const SG_PR15_URL = 'https://github.com/michaeldgreenphd/civicsample-engine/pull/15';
+
+// The flag: ?sg=v2 turns the beta on and remembers it; ?sg=v1 turns it off.
+const SG_STORAGE_KEY = 'civicsample.sg';
+function sgReadFlag() {
+    let q = null;
+    try { q = new URLSearchParams(typeof location !== 'undefined' ? (location.search || '') : '').get('sg'); } catch (e) { q = null; }
+    try {
+        if (q === 'v2' || q === 'v1') { localStorage.setItem(SG_STORAGE_KEY, q); return q === 'v2'; }
+        return localStorage.getItem(SG_STORAGE_KEY) === 'v2';
+    } catch (e) { return q === 'v2'; }
+}
+const SG_V2 = sgReadFlag();
+
+// State for the loaded snapshot.
+let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (desktop only)
+let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
+let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
+let sgMethods = null;      // methods.json, once fetched
+let sgBetaSummary = null;  // dashboard-summary.json fetched for the beta panel on desktop
+const sgCache = new Map(); // 'latest' | date -> { meta, table }
+
+function sgActive() { return SG_V2 && sgAvailable; }
+
+// ── The published files ─────────────────────────────────────────────────
+const SG_CSV_KEEP = ['nct_id', 'reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched',
+                     'gender_diverse_labels', 'ambiguous_labels', 'unknown_labels'];
+const SG_CSV_BOOL = new Set(['reported_any', 'gender_labeled_binary_only', 'flag_percentage_units', 'refetched']);
+const SG_CSV_ARRAY = new Set(['gender_diverse_labels', 'ambiguous_labels', 'unknown_labels']);
+
+function sgCsvValue(col, v) {
+    if (SG_CSV_ARRAY.has(col)) {
+        // The label trails are JSON arrays. Never split on "; ": real labels contain it.
+        if (!v) return [];
+        try { const a = JSON.parse(v); return Array.isArray(a) ? a : [String(a)]; } catch (e) { return [v]; }
+    }
+    if (SG_CSV_BOOL.has(col)) return v === '' ? null : v.toLowerCase() === 'true';
+    return v === '' ? null : v;
+}
+
+// RFC 4180: a quoted field may hold commas, newlines and doubled quotes.
+// Returns a Map keyed by nct_id holding only the columns in `keep`.
+function sgParseCsv(text, keep) {
+    const out = new Map();
+    let headers = null, keepIdx = null, nctIdx = -1;
+    let field = '', record = [], inQuotes = false;
+    const flush = () => {
+        record.push(field); field = '';
+        if (!headers) {
+            headers = record;
+            keepIdx = keep.map(k => headers.indexOf(k));
+            nctIdx = headers.indexOf('nct_id');
+        } else if (record.length === headers.length && nctIdx >= 0 && record[nctIdx]) {
+            const row = {};
+            keep.forEach((k, j) => { const i = keepIdx[j]; if (i >= 0) row[k] = sgCsvValue(k, record[i]); });
+            out.set(record[nctIdx], row);
+        }
+        record = [];
+    };
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (inQuotes) {
+            if (ch === '"') {
+                if (text[i + 1] === '"') { field += '"'; i++; } else inQuotes = false;
+            } else field += ch;
+        } else if (ch === '"') {
+            inQuotes = true;
+        } else if (ch === ',') {
+            record.push(field); field = '';
+        } else if (ch === '\n' || ch === '\r') {
+            if (ch === '\r' && text[i + 1] === '\n') i++;
+            flush();
+        } else field += ch;
+    }
+    if (field !== '' || record.length) flush();
+    return out;
+}
+
+async function sgFetchGzText(url) {
+    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
+    if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+    if (hasDecompressionStream) {
+        const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
+        return await new Response(stream).text();
+    }
+    await ensurePako();
+    return pako.inflate(new Uint8Array(await response.arrayBuffer()), { to: 'string' });
+}
+
+function sgBase(date) { return (!date || date === 'latest') ? 'data' : `snapshots/${date}`; }
+
+// Load the v2 artifacts for the snapshot loadData() just loaded. A snapshot
+// that predates parser v2 has none; the tabs then show the retired rule.
+async function sgLoad(date) {
+    sgTable = null; sgMeta = null; sgAvailable = false;
+    if (!SG_V2) return;
+    const key = date || 'latest';
+    if (sgCache.has(key)) {
+        const c = sgCache.get(key);
+        sgMeta = c.meta; sgTable = c.table;
+    } else {
+        try {
+            const resp = await fetch(`${sgBase(date)}/sex_gender_parsed_meta.json?v=${DATA_CACHE_VERSION}`);
+            if (resp.ok) sgMeta = await resp.json();
+            else console.warn(`sg=v2: no sex_gender_parsed_meta.json for ${key} (HTTP ${resp.status})`);
+        } catch (e) { console.warn('sg=v2: meta unavailable:', e.message); }
+        if (sgMeta && !dashboardSummary) {
+            try {
+                const text = await sgFetchGzText(`${sgBase(date)}/sex_gender_parsed.csv.gz`);
+                sgTable = sgParseCsv(text, SG_CSV_KEEP);
+                console.log(`sg=v2: joined ${sgTable.size} rows from sex_gender_parsed.csv.gz`);
+            } catch (e) { console.warn('sg=v2: CSV join unavailable, lean rows only:', e.message); }
+        }
+        sgCache.set(key, { meta: sgMeta, table: sgTable });
+    }
+    sgAvailable = !!sgMeta || !!(dashboardSummary && dashboardSummary.sexGender);
+    if (sgAvailable) sgLoadMethods();
+}
+
+// ── Rows ─────────────────────────────────────────────────────────────────
+// The study record carries the lean row; on desktop the CSV row is joined in.
+function sgRow(study) {
+    const lean = study && study.sex_gender;
+    if (!lean) return null;
+    const extra = (sgTable && study.nct_id) ? sgTable.get(study.nct_id) : null;
+    return extra ? Object.assign({}, lean, extra) : lean;
+}
+
+// reported_any is a CSV column; the lean and compact rows do not carry it.
+// The parser defines it as sex_report_status == "reported", which is used
+// where the column is absent (mobile).
+function sgReportedAny(row) {
+    if (row.reported_any === true || row.reported_any === false) return row.reported_any;
+    return row.sex_report_status === 'reported';
+}
+
+// README D5: the percent-female denominator set.
+function sgInDenominator(row) { return row.reported_sex === true && row.is_participant_count === true; }
+
+// Computed here, never read from a file, on both surfaces. Single-sex trials
+// count (0 or 100); gender-diverse and cis/trans-qualified never enter.
+function sgPercentFemale(row) {
+    if (!sgInDenominator(row)) return null;
+    const f = Number(row.n_female) || 0, m = Number(row.n_male) || 0;
+    if (f + m <= 0) return null;
+    return 100 * f / (f + m);
+}
+
+// ── Aggregates (pure) ────────────────────────────────────────────────────
+function sgEmptyAggregate() {
+    return {
+        n: 0,
+        statusCounts: Object.fromEntries(SG_V2_STATES.map(s => [s, 0])),
+        outcomes: { reported_sex: 0, reported_gender: 0, reported_both: 0, reported_any: 0, gender_labeled_binary_only: 0 },
+        glbKnown: true,
+        totals: { female: 0, male: 0, gender_diverse: 0, ambiguous: 0, explicit_unknown: 0 },
+        denominatorTrials: 0,
+        excluded: { trials: 0, female: 0, male: 0 },
+        uninformativeReasons: {},
+        declaredNotCollected: 0
+    };
+}
+
+// Desktop: over the filtered study records. Every number is a count or a
+// sum of a parser column; nothing is inferred from enrollment.
+function sgAggregate(studies) {
+    const agg = sgEmptyAggregate();
+    for (const s of studies) {
+        const r = sgRow(s);
+        if (!r) continue;
+        agg.n++;
+        const st = r.sex_report_status;
+        if (st in agg.statusCounts) agg.statusCounts[st]++;
+        if (r.reported_sex === true) agg.outcomes.reported_sex++;
+        if (r.reported_gender === true) agg.outcomes.reported_gender++;
+        if (r.reported_both === true) agg.outcomes.reported_both++;
+        if (sgReportedAny(r)) agg.outcomes.reported_any++;
+        if (r.gender_labeled_binary_only === true) agg.outcomes.gender_labeled_binary_only++;
+        else if (r.gender_labeled_binary_only == null) agg.glbKnown = false;
+        if (sgInDenominator(r)) {
+            agg.denominatorTrials++;
+            agg.totals.female += Number(r.n_female) || 0;
+            agg.totals.male += Number(r.n_male) || 0;
+            agg.totals.gender_diverse += Number(r.n_gender_diverse) || 0;
+            agg.totals.ambiguous += Number(r.n_ambiguous_gender) || 0;
+            agg.totals.explicit_unknown += Number(r.n_unknown) || 0;
+        } else if (r.reported_sex === true && r.is_participant_count === false) {
+            agg.excluded.trials++;
+            agg.excluded.female += Number(r.n_female) || 0;
+            agg.excluded.male += Number(r.n_male) || 0;
+        }
+        if (st === 'uninformative') {
+            const k = r.uninformative_reason || 'other';
+            agg.uninformativeReasons[k] = (agg.uninformativeReasons[k] || 0) + 1;
+        }
+        if (r.declared_not_collected === true) agg.declaredNotCollected++;
+    }
+    return agg;
+}
+
+// Mobile and the beta panel: the engine's sexGender block, same shape.
+function sgAggregateFromSummary(sg) {
+    const agg = sgEmptyAggregate();
+    if (!sg) return agg;
+    SG_V2_STATES.forEach(s => { agg.statusCounts[s] = Number((sg.statusCounts || {})[s] || 0); });
+    agg.n = Object.values(agg.statusCounts).reduce((a, b) => a + b, 0);
+    const o = sg.outcomes || {};
+    ['reported_sex', 'reported_gender', 'reported_both', 'reported_any'].forEach(k => { agg.outcomes[k] = Number(o[k] || 0); });
+    if (o.gender_labeled_binary_only == null) agg.glbKnown = false;
+    else agg.outcomes.gender_labeled_binary_only = Number(o.gender_labeled_binary_only);
+    const t = sg.totals || {};
+    Object.keys(agg.totals).forEach(k => { agg.totals[k] = Number(t[k] || 0); });
+    agg.denominatorTrials = Number(sg.denominatorTrials || 0);
+    const ex = sg.excludedFromComposition || {};
+    agg.excluded = { trials: Number(ex.trials || 0), female: Number(ex.female || 0), male: Number(ex.male || 0) };
+    agg.uninformativeReasons = Object.assign({}, sg.uninformativeReasons || {});
+    agg.declaredNotCollected = Number(sg.declaredNotCollected || 0);
+    return agg;
+}
+
+// The four visible states, in a fixed order, zero rows included: a filter
+// (or the current pull, where Not Reported is 0) shows "0", never a missing row.
+function sgQualityRows(statusCounts) {
+    return SG_VISIBLE_STATES.map(k => ({
+        key: k, label: SG_STATE_LABELS[k], count: Number((statusCounts || {})[k] || 0), color: SG_STATE_COLORS[k]
+    }));
+}
+
+function sgQualityTableHtml(rows) {
+    const total = rows.reduce((a, r) => a + r.count, 0);
+    const pct = (c) => total > 0 ? (100 * c / total).toFixed(1) + '%' : '—';
+    return `<table class="breakdown-table sg-quality-table"><thead><tr><th>State</th><th>Trials</th><th>Share</th></tr></thead><tbody>` +
+        rows.map(r => `<tr data-state="${r.key}"><th scope="row"><span class="sg-swatch" style="background:${r.color}"></span>${escapeHtml(r.label)}</th>` +
+            `<td>${r.count.toLocaleString()}</td><td>${pct(r.count)}</td></tr>`).join('') +
+        `</tbody></table>`;
+}
+
+// Uninformative sub-labels and the declared-not-collected badge.
+function sgSubLabelsHtml(agg, perYearAvailable) {
+    const reasons = Object.entries(agg.uninformativeReasons || {}).sort((a, b) => b[1] - a[1]);
+    const items = reasons.map(([k, n]) =>
+        `<li><span class="sg-sub-key">${escapeHtml(SG_REASON_LABELS[k] || k)}</span> <span class="sg-sub-n">${Number(n).toLocaleString()}</span></li>`);
+    const declared = agg.declaredNotCollected > 0
+        ? `<span class="sg-badge sg-badge-declared" title="A free-text note on the measure says sex or gender was not collected">declared not collected: ${agg.declaredNotCollected.toLocaleString()}</span>`
+        : '';
+    const scope = perYearAvailable ? '' : ' <span class="text-muted">(sub-labels are for the whole snapshot on this device)</span>';
+    if (!items.length && !declared) return `<p class="note">Uninformative sub-labels: none in this selection.${scope}</p>`;
+    return `<p class="note sg-sub-title">Uninformative, by reason${scope}</p><ul class="sg-sub-list">${items.join('')}</ul>${declared}`;
+}
+
+// The tiles. Gender: all five buckets; Sex: three. Values are participants
+// over the engine's current denominator set; every tile says so.
+function sgTiles(agg, keys) {
+    return SG_BUCKETS.filter(b => keys.includes(b.key)).map(b => ({
+        key: b.key, label: b.label, color: b.color, value: Number(agg.totals[b.key] || 0), note: SG_DENOMINATOR_NOTE
+    }));
+}
+
+function sgTileHtml(tile, extraSub) {
+    return `<div class="stat-card sg-tile" data-bucket="${tile.key}">` +
+        `<h3><span class="sg-swatch" style="background:${tile.color}"></span>${escapeHtml(tile.label)}</h3>` +
+        `<p class="stat-value">${Math.round(tile.value).toLocaleString()}</p>` +
+        `<p class="stat-sub">${escapeHtml(tile.note)}${extraSub || ''}</p></div>`;
+}
+
+// Percent-female series. Desktop: per study, per results-posted year,
+// keeping the largest trial for series (b)'s hover.
+function sgYearSeries(studies) {
+    const years = {};
+    for (const s of studies) {
+        const r = sgRow(s);
+        if (!r) continue;
+        const pf = sgPercentFemale(r);
+        if (pf == null) continue;
+        const y = (s.results_date || '').slice(0, 4);
+        if (!y) continue;
+        const d = years[y] || (years[y] = { pfSum: 0, n: 0, f: 0, fm: 0, largest: null });
+        const f = Number(r.n_female) || 0, m = Number(r.n_male) || 0;
+        d.pfSum += pf; d.n++; d.f += f; d.fm += f + m;
+        if (!d.largest || f + m > d.largest.fm) d.largest = { nct_id: s.nct_id, fm: f + m };
+    }
+    return years;
+}
+
+// Mobile: the engine's per-year sums (the same formula, summed in the
+// engine because the per-study rows are not shipped to phones).
+function sgYearSeriesFromSummary(byYear) {
+    const years = {};
+    Object.entries(byYear || {}).forEach(([y, v]) => {
+        if (!v || !v.sg_pf_count) return;
+        years[y] = { pfSum: Number(v.sg_pf_sum || 0), n: Number(v.sg_pf_count || 0), f: Number(v.sg_f_sum || 0), fm: Number(v.sg_fm_sum || 0),
+                     largest: v.largest_trial ? { nct_id: v.largest_trial.nct_id, share: v.largest_trial.share } : null };
+    });
+    return years;
+}
+
+function sgSeriesPoints(years) {
+    const labels = Object.keys(years).sort();
+    return {
+        labels,
+        a: labels.map(y => years[y].n > 0 ? years[y].pfSum / years[y].n : null),
+        b: labels.map(y => years[y].fm > 0 ? 100 * years[y].f / years[y].fm : null),
+        n: labels.map(y => years[y].n),
+        largest: labels.map(y => {
+            const d = years[y];
+            if (!d.largest) return null;
+            const share = d.largest.share != null ? Number(d.largest.share) : (d.fm > 0 ? d.largest.fm / d.fm : null);
+            return { nct_id: d.largest.nct_id, share };
+        })
+    };
+}
+
+// Source-label counts for drill-down. Desktop: from the joined rows; mobile:
+// the engine's top lists.
+function sgLabelCounts(studies, key) {
+    const counts = new Map();
+    for (const s of studies) {
+        const r = sgRow(s);
+        const arr = r && r[key];
+        if (!Array.isArray(arr)) continue;
+        for (const l of arr) if (l) counts.set(l, (counts.get(l) || 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+}
+
+function sgLabelTableHtml(pairs, distinct) {
+    if (!pairs.length) return '<p class="note">No source labels in this selection.</p>';
+    const shown = pairs.slice(0, 60);
+    return `<p class="note">${distinct.toLocaleString()} distinct label${distinct === 1 ? '' : 's'}; top ${shown.length} by trials.</p>` +
+        `<table class="breakdown-table sg-label-table"><thead><tr><th>Source label</th><th>Trials</th></tr></thead><tbody>` +
+        shown.map(([l, n]) => `<tr><td>${escapeHtml(l)}</td><td>${Number(n).toLocaleString()}</td></tr>`).join('') +
+        `</tbody></table>`;
+}
+
+// ── Provenance line ──────────────────────────────────────────────────────
+function sgRulesVersion() {
+    if (sgMeta && sgMeta.parser_rules_version) return sgMeta.parser_rules_version;
+    if (dashboardSummary && dashboardSummary.sexGender) return dashboardSummary.sexGender.parser_rules_version || '';
+    return '';
+}
+function sgSnapshotDate() {
+    if (sgMeta && sgMeta.snapshot_date) return sgMeta.snapshot_date;
+    return window.__dataExtractedAt || '';
+}
+function sgProvenanceText() {
+    return `Parser v2 (paper rules), snapshot ${sgSnapshotDate() || '—'}, rules ${sgRulesVersion() || '—'}`;
+}
+
+// ── Mode: which blocks show ──────────────────────────────────────────────
+function sgApplyMode() {
+    const on = sgActive();
+    document.body.classList.toggle('sg-v2', on);
+    document.querySelectorAll('.sg-legacy').forEach(el => el.classList.toggle('sg-hidden', on));
+    document.querySelectorAll('.sg-v2').forEach(el => el.classList.toggle('sg-hidden', !on));
+    document.querySelectorAll('.sg-v2-filter').forEach(el => el.classList.toggle('sg-hidden', !on));
+    const banner = document.getElementById('sg-retired-banner');
+    if (banner) banner.classList.toggle('sg-hidden', !(SG_V2 && !sgAvailable));
+    // gender_labeled_binary_only is a CSV column: the filter needs the join.
+    const glb = document.getElementById('sg-glb');
+    if (glb) glb.disabled = !(on && sgTable);
+    document.querySelectorAll('.sg-provenance').forEach(el => { el.textContent = on ? sgProvenanceText() : ''; });
+}
+
+// ── Sex tab ──────────────────────────────────────────────────────────────
+function sgRenderSexTab(filtered) {
+    if (!sgActive()) return;
+    const agg = dashboardSummary ? sgAggregateFromSummary(dashboardSummary.sexGender) : sgAggregate(filtered);
+    const tiles = document.getElementById('sg-sex-tiles');
+    if (tiles) {
+        tiles.innerHTML = sgTiles(agg, SG_SEX_TILE_KEYS).map(t => sgTileHtml(t,
+            t.key === 'explicit_unknown'
+                ? `<br><span class="sg-tile-note">Registrant-reported Unknown categories only. <a href="#faq" onclick="return sgOpenMethods('unknown_tile')">See methods for what changed.</a></span>`
+                : '')).join('');
+    }
+    sgRenderQuality(agg, filtered);
+    sgRenderPercentFemale(filtered);
+    sgRenderSexDonut(agg);
+    sgRenderBetaPanel();
+}
+
+function sgRenderQuality(agg, filtered) {
+    const rows = sgQualityRows(agg.statusCounts);
+    const ctx = document.getElementById('sg-quality-chart');
+    if (ctx) {
+        if (charts.sgQuality) charts.sgQuality.destroy();
+        charts.sgQuality = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: rows.map(r => r.label),
+                datasets: [{ label: 'Trials', data: rows.map(r => r.count), backgroundColor: rows.map(r => r.color), borderWidth: 0, minBarLength: 2 }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true, maintainAspectRatio: true, aspectRatio: isMobileDevice ? 1.2 : 2.2,
+                scales: { x: { beginAtZero: true, title: { display: true, text: 'Trials' } }, y: { ticks: { autoSkip: false } } },
+                plugins: {
+                    legend: { display: false },
+                    datalabels: { anchor: 'end', align: 'end', color: '#212529', font: { size: 11, weight: '600' },
+                                  formatter: (v) => Number(v).toLocaleString() },
+                    tooltip: { callbacks: { label: (c) => ` ${c.parsed.x.toLocaleString()} trials` } }
+                },
+                layout: { padding: { right: 56 } }
+            },
+            plugins: [ChartDataLabels]
+        });
+    }
+    const table = document.getElementById('sg-quality-table');
+    if (table) table.innerHTML = sgQualityTableHtml(rows);
+    const sub = document.getElementById('sg-quality-sub');
+    if (sub) sub.innerHTML = sgSubLabelsHtml(agg, !dashboardSummary);
+    sgRenderQualityByYear(filtered);
+}
+
+// Trials per results-posted year, stacked by state.
+function sgStatusByYear(filtered) {
+    const years = {};
+    const add = (y, st, n) => {
+        if (!y || !SG_VISIBLE_STATES.includes(st)) return;
+        const d = years[y] || (years[y] = Object.fromEntries(SG_VISIBLE_STATES.map(s => [s, 0])));
+        d[st] += n;
+    };
+    if (dashboardSummary && dashboardSummary.sexGender) {
+        Object.entries(dashboardSummary.sexGender.byYear || {}).forEach(([y, v]) =>
+            SG_VISIBLE_STATES.forEach(st => add(y, st, Number(v[`status_${st}`] || 0))));
+    } else {
+        for (const s of filtered) {
+            const r = sgRow(s);
+            if (r) add((s.results_date || '').slice(0, 4), r.sex_report_status, 1);
+        }
+    }
+    return years;
+}
+
+function sgRenderQualityByYear(filtered) {
+    const ctx = document.getElementById('sg-quality-year-chart');
+    if (!ctx) return;
+    const years = sgStatusByYear(filtered);
+    const labels = Object.keys(years).sort();
+    if (charts.sgQualityYear) charts.sgQualityYear.destroy();
+    charts.sgQualityYear = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: SG_VISIBLE_STATES.map(st => ({
+                label: SG_STATE_LABELS[st], data: labels.map(y => years[y][st]),
+                backgroundColor: SG_STATE_COLORS[st], borderWidth: 0
+            }))
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true, aspectRatio: CHART_ASPECT_RATIO,
+            scales: { x: { stacked: true, title: { display: true, text: 'Results-posted year' } },
+                      y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Trials' } } },
+            plugins: {
+                legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, padding: 12 } },
+                tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString()} trials` } }
+            },
+            interaction: { mode: 'index', intersect: false }
+        }
+    });
+}
+
+function sgRenderPercentFemale(filtered) {
+    const ctx = document.getElementById('sg-pf-chart');
+    if (!ctx) return;
+    const mobile = !!dashboardSummary;
+    const years = mobile ? sgYearSeriesFromSummary((dashboardSummary.sexGender || {}).byYear) : sgYearSeries(filtered);
+    const pts = sgSeriesPoints(years);
+    const rules = sgRulesVersion();
+    const sub = document.getElementById('sg-pf-subtitle');
+    if (sub) sub.textContent = sgProvenanceText() + '. Both series use the same trials: reported sex with a participant-count table and at least one Female or Male participant; gender-diverse and cis/trans-qualified participants are outside both denominators.';
+    const foot = document.getElementById('sg-pf-footnote');
+    if (foot) foot.textContent = mobile
+        ? 'Participant-weighted (dashed): a single large trial can move a year. Hover detail on desktop names that trial.'
+        : 'Participant-weighted (dashed): hover a point to see the single largest trial in that year and its share of the year’s Female + Male participants. Dashed 2017 marker: FDAAA Final Rule effective.';
+    if (charts.sgPf) charts.sgPf.destroy();
+    charts.sgPf = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: pts.labels,
+            datasets: [
+                { label: 'Mean of within-trial % female (each trial counts once)', data: pts.a,
+                  borderColor: CHART_COLORS.c2, backgroundColor: CHART_COLORS.c2 + '20', tension: 0.3, borderWidth: 2.5, pointRadius: 3 },
+                { label: 'Participant-weighted % female (sum female / sum female + male)', data: pts.b,
+                  borderColor: CHART_COLORS.c5, backgroundColor: CHART_COLORS.c5 + '20', tension: 0.3, borderWidth: 1.5,
+                  borderDash: [5, 4], pointRadius: 3, pointStyle: 'triangle' }
+            ]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: true, aspectRatio: CHART_ASPECT_RATIO,
+            scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '% female' } },
+                      x: { title: { display: true, text: 'Results-posted year' } } },
+            plugins: {
+                legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12 } },
+                eventLines: [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+                tooltip: {
+                    callbacks: {
+                        label: (c) => {
+                            const v = c.parsed.y;
+                            if (v == null) return ` ${c.dataset.label}: —`;
+                            if (c.datasetIndex === 0) return ` Mean of within-trial shares: ${v.toFixed(1)}% (${pts.n[c.dataIndex].toLocaleString()} trials)`;
+                            return ` Participant-weighted: ${v.toFixed(1)}%`;
+                        },
+                        afterLabel: (c) => {
+                            if (c.datasetIndex !== 1) return '';
+                            const l = pts.largest[c.dataIndex];
+                            if (!l) return ' Largest trial: not shipped in this view';
+                            return ` Largest trial ${l.nct_id}: ${l.share != null ? (100 * l.share).toFixed(1) + '%' : '—'} of this year’s Female + Male participants`;
+                        },
+                        footer: () => rules ? `parser rules: ${rules}` : ''
+                    }
+                }
+            },
+            interaction: { mode: 'nearest', intersect: false }
+        }
+    });
+    // Screenshot hook for the report: ?sghover=YYYY opens series (b)'s tooltip.
+    let hover = null;
+    try { hover = new URLSearchParams(location.search || '').get('sghover'); } catch (e) { hover = null; }
+    if (hover) {
+        const idx = pts.labels.indexOf(hover);
+        if (idx >= 0) {
+            const chart = charts.sgPf;
+            setTimeout(() => {
+                try {
+                    const el = chart.getDatasetMeta(1).data[idx];
+                    chart.tooltip.setActiveElements([{ datasetIndex: 1, index: idx }], { x: el.x, y: el.y });
+                    chart.update();
+                } catch (e) { /* hook only */ }
+            }, 300);
+        }
+    }
+}
+
+function sgRenderSexDonut(agg) {
+    const ctx = document.getElementById('sg-sex-donut');
+    if (!ctx) return;
+    const totals = {}, colors = {};
+    sgTiles(agg, SG_SEX_TILE_KEYS).forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+    if (charts.sgSexDonut) charts.sgSexDonut.destroy();
+    charts.sgSexDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
+}
+
+// ── Gender tab ───────────────────────────────────────────────────────────
+function sgGlbSentence(agg) {
+    if (!agg.glbKnown) return '';
+    return `Gender-titled tables with only Female/Male, counted as sex: ${agg.outcomes.gender_labeled_binary_only.toLocaleString()}.`;
+}
+
+function sgRenderGenderTab(filtered) {
+    if (!sgActive()) return;
+    const agg = dashboardSummary ? sgAggregateFromSummary(dashboardSummary.sexGender) : sgAggregate(filtered);
+    const tiles = document.getElementById('sg-gender-tiles');
+    if (tiles) tiles.innerHTML = sgTiles(agg, SG_BUCKETS.map(b => b.key)).map(t => sgTileHtml(t, '')).join('');
+    const counts = document.getElementById('sg-gender-counts');
+    if (counts) {
+        const glb = sgGlbSentence(agg);
+        counts.innerHTML = `<strong>Trials reporting gender:</strong> ${agg.outcomes.reported_gender.toLocaleString()} ` +
+            `<span class="text-muted">(a gender-diverse or cis/trans-qualified category with a non-zero count)</span>` +
+            (glb ? ` &middot; <strong>${escapeHtml(glb)}</strong>` : '');
+    }
+    const ctx = document.getElementById('sg-gender-donut');
+    if (ctx) {
+        const totals = {}, colors = {};
+        sgTiles(agg, SG_BUCKETS.map(b => b.key)).forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+        if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
+        charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
+    }
+    const labelsBox = document.getElementById('sg-gender-labels');
+    if (labelsBox) {
+        labelsBox.innerHTML = SG_LABEL_TRAILS.map(t => {
+            let pairs, distinct;
+            if (dashboardSummary) {
+                const l = ((dashboardSummary.sexGender || {}).labels || {})[t.summaryKey] || { distinct: 0, top: [] };
+                pairs = (l.top || []).map(x => [x[0], x[1]]); distinct = Number(l.distinct || 0);
+            } else if (sgTable) {
+                pairs = sgLabelCounts(filtered, t.key); distinct = pairs.length;
+            } else {
+                return `<details class="sg-labels"><summary>${escapeHtml(t.heading)}</summary><p class="note">Source labels need the parsed table (data/sex_gender_parsed.csv.gz), which did not load.</p></details>`;
+            }
+            return `<details class="sg-labels"><summary>${escapeHtml(t.heading)}</summary>${sgLabelTableHtml(pairs, distinct)}</details>`;
+        }).join('');
+    }
+}
+
+// ── Studies table: pips, cells, breakdown ────────────────────────────────
+function sgDimensionReported(study, field) {
+    const r = sgRow(study);
+    if (!r) return false;
+    return field === 'sex' ? sgReportedAny(r) : r.reported_gender === true;
+}
+
+function sgStatusBadge(status, reason) {
+    if (status === 'explicit_unknown_only') return `<span class="explicit-unknown-badge" title="The registrant posted only an Unknown category with a count">Explicit Unknown</span>`;
+    if (status === 'uninformative') return `<span class="sg-badge sg-badge-uninformative" title="A sex or gender table was posted but carries no usable count${reason ? ': ' + escapeHtml(SG_REASON_LABELS[reason] || reason) : ''}">Uninformative</span>`;
+    if (status === 'parse_error') return `<span class="sg-badge sg-badge-parse-error" title="The record could not be read">Parse error</span>`;
+    return '';
+}
+
+function sgDemographicCell(study, field) {
+    const r = sgRow(study);
+    if (!r) return '<span class="demo-disabled" title="No parser row">✗</span>';
+    const st = r.sex_report_status;
+    const open = `onclick="showBreakdown('${study.nct_id}', '${field}')"`;
+    if (field === 'sex') {
+        if (sgReportedAny(r)) return `<button class="demo-badge" ${open} title="Reported; click for the parser’s buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
+        if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
+        return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
+    }
+    if (r.reported_gender === true) return `<button class="demo-badge" ${open} title="Reports gender; click for the buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
+    if (st === 'reported') {
+        const glb = r.gender_labeled_binary_only === true;
+        return `<span class="sg-cell-muted" title="${glb ? 'Gender-titled table with only Female/Male: counted as sex' : 'Sex reported; no gender-diverse or cis/trans-qualified category'}">${glb ? 'F/M only' : '—'}</span>`;
+    }
+    if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
+    return `<button class="sg-badge-btn" ${open}>${sgStatusBadge(st, r.uninformative_reason)}</button>`;
+}
+
+function sgShowBreakdown(nctId, field) {
+    const study = data.find(s => s.nct_id === nctId);
+    const r = study && sgRow(study);
+    if (!r) return;
+    const rows = [
+        ['Female', r.n_female], ['Male', r.n_male], ['Gender diverse', r.n_gender_diverse],
+        ['Cis/trans-qualified', r.n_ambiguous_gender], ['Explicit Unknown', r.n_unknown]
+    ];
+    const total = rows.reduce((a, [, v]) => a + (Number(v) || 0), 0);
+    const cell = (v) => v == null ? '<span class="text-muted">—</span>' : Number(v).toLocaleString();
+    let html = `<div class="breakdown-modal"><h4>Sex/gender (parser v2) – ${escapeHtml(nctId)}</h4>` +
+        `<p class="modal-subtitle">Status: <strong>${escapeHtml(SG_STATE_LABELS[r.sex_report_status] || r.sex_report_status || '—')}</strong>` +
+        (r.uninformative_reason ? ` (${escapeHtml(SG_REASON_LABELS[r.uninformative_reason] || r.uninformative_reason)})` : '') +
+        (r.declared_not_collected ? ' &middot; declared not collected' : '') +
+        (r.is_participant_count === false ? ' &middot; not a participant count (excluded from composition)' : '') +
+        `</p><table class="breakdown-table"><thead><tr><th>Bucket</th><th>Count</th><th>Share of parsed</th></tr></thead><tbody>` +
+        rows.map(([l, v]) => `<tr><td>${l}</td><td>${cell(v)}</td><td>${(v != null && total > 0) ? (100 * Number(v) / total).toFixed(1) + '%' : '—'}</td></tr>`).join('') +
+        `</tbody></table>`;
+    const trails = SG_LABEL_TRAILS.filter(t => Array.isArray(r[t.key]) && r[t.key].length);
+    if (trails.length) {
+        html += `<h5 class="quarantine-header">Source labels</h5><table class="breakdown-table"><tbody>` +
+            trails.map(t => `<tr><td>${escapeHtml(SG_BUCKETS.find(b => b.key === t.bucket).label)}</td><td>${r[t.key].map(escapeHtml).join(', ')}</td></tr>`).join('') +
+            `</tbody></table>`;
+    } else if (!sgTable && !dashboardSummary) {
+        html += `<p class="note">Source labels need the parsed table, which did not load.</p>`;
+    }
+    html += `<p class="modal-note">Parser rules: ${escapeHtml(r.parser_rules_version || sgRulesVersion() || '—')}. ` +
+        `Percent female for this trial: ${sgPercentFemale(r) == null ? 'not in the denominator set' : sgPercentFemale(r).toFixed(1) + '%'}. ` +
+        `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
+        `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
+    const overlay = document.getElementById('breakdown-overlay');
+    overlay.innerHTML = html;
+    overlay.style.display = 'flex';
+}
+
+// ── Methods page ─────────────────────────────────────────────────────────
+async function sgLoadMethods() {
+    const box = document.getElementById('sg-methods');
+    if (!box) return;
+    if (!sgMethods) {
+        try {
+            const resp = await fetch(`data/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            sgMethods = await resp.json();
+        } catch (e) {
+            box.innerHTML = `<p class="note">The methods text (data/sex_gender/methods.json) is not published yet: ${escapeHtml(e.message)}.</p>`;
+            return;
+        }
+    }
+    box.innerHTML = sgMethodsHtml(sgMethods, sgMeta);
+}
+
+function sgMethodsHtml(m, meta) {
+    const pe = meta && meta.status_counts && meta.status_counts.status ? Number(meta.status_counts.status.parse_error || 0) : null;
+    const f = m.fidelity || {};
+    let html = `<p class="note sg-provenance-line"><strong>Parser rules version:</strong> <code>${escapeHtml(m.parser_rules_version || '')}</code> ` +
+        `(module ${escapeHtml(m.parser_module_version || '')}); snapshot ${escapeHtml(m.snapshot_date || '')}; text generated ${escapeHtml((m.generated_at || '').slice(0, 10))}.` +
+        (pe != null ? ` Parse errors on this snapshot: ${pe.toLocaleString()} (this state is counted here only).` : '') + `</p>`;
+    (m.sections || []).forEach(s => {
+        html += `<h5 id="methods-sg-${escapeHtml(s.id)}" class="sg-methods-h">${escapeHtml(s.heading)}</h5><p class="note">${escapeHtml(s.text)}</p>`;
+    });
+    if (f.status_exact) {
+        html += `<p class="note"><strong>Fidelity ceiling:</strong> ${Number(f.status_exact).toLocaleString()} of ${Number(f.status_total).toLocaleString()} trials (${escapeHtml(f.status_pct || '')}) status agreement with the manual ground truth on the ${escapeHtml(f.extract_date || '')} extract.</p>`;
+    }
+    return html;
+}
+
+function sgOpenMethods(anchor) {
+    const faq = document.querySelector('.tab[data-tab="faq"]');
+    if (faq && !faq.classList.contains('active')) faq.click();
+    const det = document.getElementById('methods-sex-gender');
+    if (det) det.open = true;
+    const target = document.getElementById(anchor ? `methods-sg-${anchor}` : 'methods-sex-gender') || det;
+    if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    return false;
+}
+window.sgOpenMethods = sgOpenMethods;
+
+// ── Beta side-by-side panel (removed at cutover) ─────────────────────────
+// Old tiles versus new tiles for the current snapshot, from
+// dashboard-summary.json: the legacy sexDistribution / genderDistribution /
+// cards against the sexGender block. The legacy Unknown tile included an
+// inferred remainder; that split is not in the summary, so the line is
+// omitted and the PR that measured it is linked.
+function sgBetaRows(summary) {
+    if (!summary || !summary.sexGender) return null;
+    const sg = summary.sexGender, sd = summary.sexDistribution || {}, gd = summary.genderDistribution || {}, cards = summary.cards || {};
+    const t = sg.totals || {}, o = sg.outcomes || {}, ex = sg.excludedFromComposition || {};
+    const n = (v) => Number(v || 0);
+    return {
+        sex: [
+            ['Female', n(sd.female), n(t.female)],
+            ['Male', n(sd.male), n(t.male)],
+            ['Unknown tile (old: Unknown or Not Reported) → Explicit Unknown (new)', n(sd.unknown), n(t.explicit_unknown)]
+        ],
+        gender: [
+            ['Woman (old) → counted as sex (new Female)', n(gd.woman), null],
+            ['Man (old) → counted as sex (new Male)', n(gd.man), null],
+            ['Non-binary + Transgender + Other (old) → Gender diverse (new)', n(gd.nonbinary) + n(gd.transgender) + n(gd.other), n(t.gender_diverse)],
+            ['(no old tile) → Cis/trans-qualified (new)', null, n(t.ambiguous)],
+            ['Unknown or Not Reported (old) → Explicit Unknown (new, shared with Sex)', n(gd.unknown), n(t.explicit_unknown)]
+        ],
+        trials: [
+            ['Trials reporting sex', n(cards.sexCount), n(o.reported_sex)],
+            ['Trials reporting gender', n(cards.genderCount), n(o.reported_gender)],
+            ['Gender-titled tables with only Female/Male, counted as sex', null, o.gender_labeled_binary_only == null ? null : n(o.gender_labeled_binary_only)]
+        ],
+        excluded: { trials: n(ex.trials), female: n(ex.female), male: n(ex.male) },
+        denominatorTrials: n(sg.denominatorTrials),
+        rules: sg.parser_rules_version || ''
+    };
+}
+
+function sgBetaHtml(rows) {
+    if (!rows) return '<p class="note">This snapshot has no sexGender block in dashboard-summary.json.</p>';
+    const c = (v) => v == null ? '<span class="text-muted">—</span>' : Math.round(Number(v)).toLocaleString();
+    const table = (title, rs) => `<h5>${title}</h5><table class="breakdown-table sg-beta-table"><thead><tr><th>Tile</th><th>Old engine</th><th>Parser v2</th></tr></thead><tbody>` +
+        rs.map(([l, a, b]) => `<tr><td>${escapeHtml(l)}</td><td>${c(a)}</td><td>${c(b)}</td></tr>`).join('') + `</tbody></table>`;
+    return table('Sex tab (participants)', rows.sex) + table('Gender tab (participants)', rows.gender) + table('Trials', rows.trials) +
+        `<p class="note">New participant totals are over ${rows.denominatorTrials.toLocaleString()} trials with reported sex and a participant-count table. ` +
+        `Excluded from composition (reported_sex AND NOT is_participant_count): ${rows.excluded.trials.toLocaleString()} trials, ` +
+        `${Math.round(rows.excluded.female).toLocaleString()} female / ${Math.round(rows.excluded.male).toLocaleString()} male units. ` +
+        `The old Unknown tile also carried an inferred enrollment remainder; that line is not in the published summary and is measured in ` +
+        `<a href="${SG_PR15_URL}" target="_blank" rel="noopener">the engine pull request that introduced parser v2</a>. ` +
+        `Parser rules: <code>${escapeHtml(rows.rules)}</code>. This panel is removed at cutover.</p>`;
+}
+
+async function sgRenderBetaPanel() {
+    const body = document.getElementById('sg-beta-body');
+    if (!body) return;
+    let summary = dashboardSummary;
+    if (!summary) {
+        if (!sgBetaSummary) {
+            body.innerHTML = '<p class="note">Loading dashboard-summary.json…</p>';
+            try {
+                const resp = await fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
+                if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                sgBetaSummary = await resp.json();
+            } catch (e) {
+                body.innerHTML = `<p class="note">dashboard-summary.json unavailable: ${escapeHtml(e.message)}</p>`;
+                return;
+            }
+        }
+        summary = sgBetaSummary;
+    }
+    body.innerHTML = sgBetaHtml(sgBetaRows(summary));
+}
+
+// Deep links into the beta: #faq?m=<section> opens the methods anchor;
+// ?sgbeta=1 opens the side-by-side panel; ?sgfilters=1 expands the filters.
+// The hash the page opened with. The tab router rewrites the hash to its
+// share form (#tab?filters) on the first render, which drops the ?m= anchor,
+// so the deep-link hooks read this copy rather than location.hash.
+const SG_INITIAL_HASH = (() => { try { return location.hash || ''; } catch (e) { return ''; } })();
+
+function sgRouteHooks() {
+    let params = null;
+    try { params = new URLSearchParams(location.search || ''); } catch (e) { return; }
+    const hashQuery = SG_INITIAL_HASH.split('?')[1] || '';
+    const m = new URLSearchParams(hashQuery).get('m');
+    if (m) sgOpenMethods(m);
+    if (params.get('sgbeta') === '1') {
+        const det = document.getElementById('sg-beta-panel');
+        if (det && !det.open) det.open = true;
+    }
+    if (params.get('sgfilters') === '1') {
+        const panel = document.getElementById('filters');
+        const sum = document.getElementById('filter-summary-toggle');
+        if (panel && panel.hidden && sum) sum.click();
+        const btn = document.getElementById('toggle-more-filters');
+        const exp = document.getElementById('expanded-filters');
+        if (btn && exp && exp.style.display === 'none') btn.click();
+    }
+    // ?sgcols=1: show the Sex and Gender columns of the Studies table.
+    if (params.get('sgcols') === '1' && typeof applyStudyColumns === 'function') {
+        const on = loadStudyColumns();
+        on.add('sex'); on.add('gender');
+        applyStudyColumns(on);
+    }
+    // ?sgsnapshot=YYYY-MM-DD: open that archived snapshot. The history
+    // selector fills after the first render, so wait for its option.
+    const snap = params.get('sgsnapshot');
+    if (snap && /^\d{4}-\d{2}-\d{2}$/.test(snap)) {
+        let tries = 0;
+        const timer = setInterval(() => {
+            const sel = document.getElementById('history-date');
+            const has = !!sel && Array.from(sel.options).some(o => o.value === snap);
+            if (has) { sel.value = snap; sel.dispatchEvent(new Event('change')); }
+            if (has || ++tries > 40) clearInterval(timer);
+        }, 250);
+    }
+}
+
+// Which v2 tab renderers to run after a dashboard render.
+function sgAfterRender(filtered) {
+    sgApplyMode();
+    if (!sgActive()) return;
+    const active = document.querySelector('.tab.active');
+    const tab = active ? active.dataset.tab : '';
+    if (tab === 'sex') sgRenderSexTab(filtered);
+    if (tab === 'gender') sgRenderGenderTab(filtered);
+}
+// ── end sg=v2 ────────────────────────────────────────────────────────────
 
 const INDUSTRY_PINK = '#C26C8E';   // above baseline / more women (sex tier)
 const INDUSTRY_BLUE = '#4A7BA6';   // below baseline / fewer women (sex tier)

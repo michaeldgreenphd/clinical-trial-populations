@@ -5010,3 +5010,71 @@ footer p {
 }
 
 .column-option:hover { background: var(--tint); }
+
+/* ── Sex/gender parser v2 (?sg=v2 beta) ─────────────────────────────────
+   The v2 blocks and the legacy blocks swap by class, never by the hidden
+   attribute: .chart-row sets display:grid, which would outrank [hidden]. */
+.sg-hidden { display: none !important; }
+
+.sg-banner {
+    border: 1px solid var(--border-color);
+    border-left: 4px solid #C77A0A;
+    border-radius: var(--radius-md);
+    padding: 0.75rem 1rem;
+    margin: 0 0 1.25rem;
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+}
+
+.sg-provenance {
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+    margin: 0 0 1rem;
+    overflow-wrap: anywhere;
+}
+
+.sg-swatch {
+    display: inline-block;
+    width: 0.65em;
+    height: 0.65em;
+    border-radius: 2px;
+    margin-right: 0.45em;
+    vertical-align: baseline;
+}
+
+.sg-tile .stat-value { font-size: calc(var(--fs-display) * 0.85); }
+.sg-tile-note { display: inline-block; margin-top: 0.35rem; color: var(--text-primary); }
+
+.sg-sub { margin-top: 0.75rem; }
+.sg-sub-title { margin-bottom: 0.25rem; }
+.sg-sub-list { list-style: none; padding: 0; margin: 0 0 0.5rem; font-size: var(--fs-small); }
+.sg-sub-list li { display: flex; justify-content: space-between; gap: 1rem; padding: 0.15rem 0; border-bottom: 1px dotted var(--border-color); max-width: 40ch; }
+.sg-sub-n { font-variant-numeric: tabular-nums; }
+
+.sg-badge {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: var(--fs-small);
+    font-weight: 500;
+}
+.sg-badge-uninformative { background: #fff7ed; border-color: #fdba74; color: #9a3412; }
+.sg-badge-parse-error { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+.sg-badge-declared { background: #f0fdf4; border-color: #86efac; color: #166534; }
+.sg-badge-btn { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+.sg-cell-muted { color: var(--text-secondary); font-size: var(--fs-small); }
+
+.sg-quality-table th[scope="row"] { text-align: left; font-weight: 500; }
+.sg-quality-table td, .sg-label-table td, .sg-beta-table td { font-variant-numeric: tabular-nums; }
+.sg-labels { margin: 0.5rem 0; }
+.sg-labels summary { cursor: pointer; font-weight: 500; }
+.sg-label-table { max-width: 60ch; }
+
+.sg-beta { border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin: 1rem 0; }
+.sg-beta summary { cursor: pointer; font-weight: 600; }
+.sg-beta h5, .sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
+.sg-footer { margin-top: 0.5rem; }

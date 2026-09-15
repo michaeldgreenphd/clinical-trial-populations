@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20260908-conditions">
+    <link rel="stylesheet" href="styles.css?v=20260915-sgv2">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -314,6 +314,42 @@
                         </label>
                     </div>
                 </div>
+
+                <!-- ?sg=v2 (parser v2) filters. Shown only while the beta is on;
+                     they compose with every filter above in getFilteredData(). -->
+                <div class="filter-row sg-v2-filter sg-hidden">
+                    <div class="filter-group">
+                        <label for="sg-status">Sex/gender status (parser v2):</label>
+                        <select id="sg-status">
+                            <option value="all">All states</option>
+                            <option value="reported">Reported</option>
+                            <option value="explicit_unknown_only">Explicit Unknown</option>
+                            <option value="uninformative">Uninformative</option>
+                            <option value="not_reported">Not Reported (Missing)</option>
+                            <option value="parse_error">Parse error</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sg-reported-sex">Reported sex:</label>
+                        <select id="sg-reported-sex"><option value="all">Any</option><option value="true">Yes</option><option value="false">No</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sg-reported-gender">Reported gender:</label>
+                        <select id="sg-reported-gender"><option value="all">Any</option><option value="true">Yes</option><option value="false">No</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sg-reported-both">Reported both:</label>
+                        <select id="sg-reported-both"><option value="all">Any</option><option value="true">Yes</option><option value="false">No</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sg-glb">Gender-titled, Female/Male only:</label>
+                        <select id="sg-glb"><option value="all">Any</option><option value="true">Yes</option><option value="false">No</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sg-participant-count">Participant-count table:</label>
+                        <select id="sg-participant-count"><option value="all">Any</option><option value="true">Yes</option><option value="false">No</option></select>
+                    </div>
+                </div>
             </div>
 
             <div class="filter-row">
@@ -427,6 +463,50 @@
 
         <!-- Sex Tab -->
         <section id="sex" class="tab-content">
+            <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
+                 absent); the legacy blocks below render under this banner. -->
+            <div id="sg-retired-banner" class="sg-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
+
+            <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on -->
+            <div id="sg-sex-v2" class="sg-v2 sg-hidden">
+                <p class="sg-provenance" id="sg-sex-provenance"></p>
+                <div class="stats-grid" id="sg-sex-tiles"></div>
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h3>Reporting status (parser v2)</h3>
+                        <p class="note">Four states from the parser's <code>sex_report_status</code>, per trial in the current selection. Not Reported (Missing) is a state of its own and is never derived from enrollment arithmetic; a zero shows as a zero bar.</p>
+                        <canvas id="sg-quality-chart"></canvas>
+                        <div id="sg-quality-table" class="sg-sub"></div>
+                        <div id="sg-quality-sub" class="sg-sub"></div>
+                        <p class="chart-footnote"><a href="#faq" onclick="return sgOpenMethods('states')">Methods: the five states, what changed, and the fidelity ceiling</a></p>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Reporting status by results-posted year</h3>
+                        <p class="note">Trials per year, stacked by state; the same four states, so a year with no Not Reported trials shows none.</p>
+                        <canvas id="sg-quality-year-chart"></canvas>
+                    </div>
+                </div>
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h3>Percent female over time (two series)</h3>
+                        <p class="note" id="sg-pf-subtitle"></p>
+                        <canvas id="sg-pf-chart"></canvas>
+                        <p class="chart-footnote" id="sg-pf-footnote"></p>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Sex composition (parser v2)</h3>
+                        <p class="note">Female, Male and Explicit Unknown participants over the same denominator set as the tiles.</p>
+                        <canvas id="sg-sex-donut"></canvas>
+                    </div>
+                </div>
+                <details id="sg-beta-panel" class="sg-beta" ontoggle="if (this.open) sgRenderBetaPanel()">
+                    <summary>Beta: old tiles versus new tiles for this snapshot</summary>
+                    <div id="sg-beta-body"><p class="note">Open to load.</p></div>
+                </details>
+                <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('source')">Sex and gender methods (parser v2, paper rules)</a></p>
+            </div>
+
+            <div class="sg-legacy">
             <div class="methodology-disclaimer">
                 <p><strong>Disclaimer:</strong> This is currently an unstructured approach to wrangling this data, presented for demonstration purposes. We are refining this approach and expect to have a preprint detailing our methodology available by June 2026.</p>
             </div>
@@ -454,10 +534,33 @@
                 <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
             </div>
+            </div>
         </section>
 
         <!-- Gender Tab -->
         <section id="gender" class="tab-content">
+            <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on.
+                 Five buckets, never a tile named after one source label. -->
+            <div id="sg-gender-v2" class="sg-v2 sg-hidden">
+                <p class="sg-provenance" id="sg-gender-provenance"></p>
+                <div class="stats-grid" id="sg-gender-tiles"></div>
+                <p class="note" id="sg-gender-counts"></p>
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h3>Gender buckets (parser v2)</h3>
+                        <p class="note">Participants in the five buckets over trials with reported sex and a participant-count table. A trial reports gender only if it posted a gender-diverse or cis/trans-qualified category with a non-zero count; a "Gender" table holding only Female/Male (or Woman/Man) is sex data and is counted as sex.</p>
+                        <canvas id="sg-gender-donut"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Source labels behind the buckets</h3>
+                        <p class="note">The registry labels the parser mapped into each bucket, with the number of trials carrying each. Transgender and Non-binary appear here as labels, not as tiles.</p>
+                        <div id="sg-gender-labels"></div>
+                    </div>
+                </div>
+                <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('gender_rule')">Sex and gender methods (parser v2, paper rules)</a></p>
+            </div>
+
+            <div class="sg-legacy">
             <div class="methodology-disclaimer">
                 <p><strong>Disclaimer:</strong> This is currently an unstructured approach to wrangling this data, presented for demonstration purposes. We are refining this approach and expect to have a preprint detailing our methodology available by June 2026.</p>
             </div>
@@ -485,6 +588,7 @@
                     <canvas id="gender-trends-chart"></canvas>
                 <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
                 </div>
+            </div>
             </div>
         </section>
 
@@ -1334,6 +1438,15 @@
                     </div>
                 </details>
 
+                <!-- ?sg=v2: the parser-v2 methods, rendered from data/sex_gender/methods.json
+                     (the engine writes the text; this page only shows it). -->
+                <details class="faq-section" id="methods-sex-gender">
+                    <summary><h4>Sex and gender under parser v2 (paper rules): methods</h4></summary>
+                    <div class="faq-answer" id="sg-methods">
+                        <p class="note">This section fills from <code>data/sex_gender/methods.json</code> when the <code>?sg=v2</code> beta is on.</p>
+                    </div>
+                </details>
+
                 <details class="faq-section">
                     <summary><h4>How is time to report calculated?</h4></summary>
                     <div class="faq-answer">
@@ -1511,6 +1624,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20260908-conditions"></script>
+    <script defer src="app.js?v=20260915-sgv2"></script>
 </body>
 </html>
