@@ -869,3 +869,31 @@ test('an unavailable F/M-only flag is not read as a negative', () => {
     assert.match(unknown, /not shipped to this view/);
     assert.ok(!/no gender-diverse or cis\/trans-qualified category/.test(unknown), 'an unknown flag was rendered as a negative');
 });
+
+test('the address names the archived snapshot on screen', () => {
+    // The stubs move ?sgsnapshot= into the hash and the first rewrite dropped
+    // it, so a copied or reloaded address opened Latest over an archive.
+    const fn = app.slice(app.indexOf('function updateShareUrl()'), app.indexOf('\nfunction ', app.indexOf('function updateShareUrl()') + 10));
+    assert.ok(fn.includes("p.set('sgsnapshot', snap.value)"), 'the rebuilt hash does not name the archive on screen');
+    assert.ok(fn.includes("snap.value !== 'latest'"), 'Latest is written into the address as if it were an archive');
+    assert.ok(fn.indexOf("p.set('sgsnapshot'") < fn.indexOf('history.replaceState'));
+    // and the address is rewritten when the snapshot changes, in both directions
+    const handler = app.slice(app.indexOf("select.addEventListener('change'"), app.indexOf('// Provenance: the extraction date'));
+    const success = handler.slice(0, handler.indexOf('} catch (err)'));
+    const rollback = handler.slice(handler.indexOf('} catch (err)'));
+    assert.ok(success.includes('updateShareUrl()'), 'a snapshot switch leaves the address on the previous snapshot');
+    assert.ok(rollback.includes('updateShareUrl()'), 'a rolled-back switch leaves the address on the snapshot that failed');
+});
+
+test('the chart text alternatives are relabelled after a snapshot change', () => {
+    // The provenance note under the parser-v2 charts names the snapshot and
+    // is copied into each canvas's aria-label; a switch that leaves the Sex
+    // tab open re-rendered the note but not the label.
+    const handler = app.slice(app.indexOf("select.addEventListener('change'"), app.indexOf('// Provenance: the extraction date'));
+    const success = handler.slice(0, handler.indexOf('} catch (err)'));
+    const rollback = handler.slice(handler.indexOf('} catch (err)'));
+    for (const [name, part] of [['success', success], ['rollback', rollback]]) {
+        assert.ok(part.includes('labelChartsForA11y()'), `the ${name} path leaves the canvases labelled with the previous snapshot`);
+        assert.ok(part.indexOf('renderDashboard()') < part.indexOf('labelChartsForA11y()'), `the ${name} path relabels before it re-renders`);
+    }
+});

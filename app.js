@@ -1164,6 +1164,10 @@ async function initHistorySelector() {
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
             renderDashboard();
+            // The provenance note under the parser-v2 charts names the snapshot,
+            // and the canvases carry that note as their text alternative.
+            labelChartsForA11y();
+            updateShareUrl();
 
             select.dataset.lastValue = chosen;
             const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
@@ -1181,6 +1185,8 @@ async function initHistorySelector() {
                 // methods and join.
                 try { await sgLoad(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
                 renderDashboard();
+                labelChartsForA11y();
+                updateShareUrl();
             }
         } finally {
             hideSnapshotLoading();
@@ -1249,6 +1255,11 @@ function updateShareUrl() {
     // copied link opens the wrong view in a browser with its own stored choice.
     const sgFlag = (typeof sgShareFlag === 'function') ? sgShareFlag() : null;
     if (sgFlag) p.set('sg', sgFlag);
+    // An archived snapshot is part of the view: the selector's current value
+    // is written, so a copied or reloaded address opens the same archive
+    // rather than Latest.
+    const snap = document.getElementById('history-date');
+    if (snap && snap.value && snap.value !== 'latest') p.set('sgsnapshot', snap.value);
     const q = p.toString();
     history.replaceState(null, '', '#' + tabId + (q ? '?' + q : ''));
 }
