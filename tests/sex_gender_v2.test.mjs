@@ -159,7 +159,7 @@ test('aggregates: totals over reported_sex AND is_participant_count; the exclude
     const pts = h.run(`sgSeriesPoints(${JSON.stringify(years)})`);
     assert.deepEqual(pts.labels, ['2020', '2021']);
     assert.ok(Math.abs(pts.a[0] - 100 * 40 / 90) < 1e-9 && Math.abs(pts.b[0] - 100 * 40 / 90) < 1e-9);
-    assert.deepEqual(pts.largest[1], { nct_id: 'D', share: 1 });      // C is not a participant count: outside both series
+    assert.equal(pts.largest[1], null, 'the desktop path ranked the rows and named a largest trial of its own');
 });
 
 test('the summary block yields the same shape for mobile, and the beta panel labels the exclusion as reported_sex AND NOT is_participant_count', () => {
@@ -528,6 +528,7 @@ test('the methods section is reloaded for a snapshot with no parser-v2 artifacts
     const loadFn = block.slice(block.indexOf('async function sgLoad('), block.indexOf('// ── Rows'));
     assert.ok(/if \(SG_V2\) sgMethodsPending = sgLoadMethods\(\)/.test(loadFn), 'the methods text is only refreshed when v2 artifacts exist');
     const h = harness();
+    h.run('sgMetaAbsent = true;');   // a confirmed 404, the only thing that supports the claim
     const notice = h.run("sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'r' } }, null)");
     assert.match(notice, /predates parser v2/);
     assert.match(notice, /rules that were never applied to this snapshot/);
@@ -771,7 +772,7 @@ test('a fallback that loaded is rendered even though it is not cached', async ()
     assert.ok(seen.some((u) => u.startsWith('snapshots/2026-08-02/')), "the archive's own text was not tried first");
     assert.ok(seen.some((u) => u.startsWith('data/')), 'the latest fallback was not tried');
     const out = h.els['sg-methods'].innerHTML;
-    assert.ok(!/could not be fetched/.test(out), 'a fallback that loaded was discarded and the failure message shown instead');
+    assert.ok(!/The methods text could not be fetched/.test(out), 'a fallback that loaded was discarded and the failure message shown instead');
     assert.match(out, /Not this snapshot's text/);
     assert.match(out, /Where the numbers come from/);
     // and it stays out of the cache, so the archive's own file is retried
@@ -814,8 +815,8 @@ test('a summary-only archive is not called retired: its own summary says it was 
     assert.ok(!/predates parser v2/.test(notice), 'a parsed archive was labelled as predating the parser');
     assert.match(notice, /archive-rules/);
     assert.match(notice, /latest-rules/);
-    // with neither a meta file nor a summary block, it does predate v2
-    h.run('dashboardSummary = null;');
+    // with neither a meta file nor a summary block, and the meta confirmed absent, it does predate v2
+    h.run('dashboardSummary = null; sgMetaAbsent = true;');
     assert.equal(h.run('sgEffectiveMeta()'), null);
     assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, sgEffectiveMeta())`), /predates parser v2/);
 });
@@ -896,4 +897,97 @@ test('the chart text alternatives are relabelled after a snapshot change', () =>
         assert.ok(part.includes('labelChartsForA11y()'), `the ${name} path leaves the canvases labelled with the previous snapshot`);
         assert.ok(part.indexOf('renderDashboard()') < part.indexOf('labelChartsForA11y()'), `the ${name} path relabels before it re-renders`);
     }
+});
+
+test("the largest-trial annotation is the engine's, never ranked or shared here", () => {
+    const h = harness();
+    // the summary path carries the published annotation as published
+    const fromSummary = h.run(`sgSeriesPoints(sgYearSeriesFromSummary({ '2013': { sg_pf_sum: 100, sg_pf_count: 2, sg_f_sum: 70, sg_fm_sum: 100, largest_trial: { nct_id: 'NCT01077817', share: 0.288 } },
+                                                                      '2014': { sg_pf_sum: 100, sg_pf_count: 2, sg_f_sum: 50, sg_fm_sum: 100 } }))`);
+    assert.deepEqual(fromSummary.largest[0], { nct_id: 'NCT01077817', share: 0.288 });
+    assert.equal(fromSummary.largest[1], null, 'a year the engine did not annotate was annotated here');
+    // and the desktop path computes none, whatever the rows say
+    h.run('sgTable = null;');
+    const desktop = h.run(`sgSeriesPoints(sgYearSeries(${JSON.stringify([
+        { nct_id: 'BIG', results_date: '2020-01-01', sex_gender: row({ n_female: 900, n_male: 100 }) },
+        { nct_id: 'SMALL', results_date: '2020-01-01', sex_gender: row({ n_female: 1, n_male: 1 }) }])}))`);
+    assert.equal(desktop.largest[0], null);
+    assert.ok(!/d\.largest\.fm \/ d\.fm/.test(code), 'the client-side share derivation is back');
+    assert.ok(!/f \+ m > d\.largest\.fm/.test(code), 'the client-side ranking is back');
+    // the series itself still stands, as a sum of published counts
+    assert.ok(Math.abs(desktop.b[0] - 100 * 901 / 1002) < 1e-9);
+});
+
+test('a stale sgsnapshot in the query is rewritten with the hash', () => {
+    const fn = app.slice(app.indexOf('function updateShareUrl()'), app.indexOf('\nfunction ', app.indexOf('function updateShareUrl()') + 10));
+    assert.ok(fn.includes("sp.delete('sgsnapshot')"), 'the query keeps the archive the page opened with, and the readers prefer the query');
+    assert.ok(fn.includes('location.pathname + search + '), 'the rewrite replaces only the fragment, so the query survives untouched');
+});
+
+test('an unsettled archive request is not called a confirmed absence', async () => {
+    const methods = { parser_rules_version: 'latest-rules', sections: [] };
+    const h = harness({ search: '?sg=v2', fetch: async (u) => {
+        if (u.startsWith('snapshots/')) throw new Error('flaky');
+        return { ok: true, status: 200, json: async () => methods };
+    } });
+    h.run("sgSnapshotKey = '2026-08-02'; sgMeta = null; sgMetaAbsent = false;");
+    await h.runRaw('sgLoadMethods()');
+    const out = h.els['sg-methods'].innerHTML;
+    assert.ok(!/did not archive its own methods/.test(out), 'a request that merely failed was reported as a confirmed absence');
+    assert.ok(!/predates parser v2/.test(out), 'an unfetched meta was reported as the snapshot predating the parser');
+    assert.match(out, /could not be fetched just now/);
+    // a confirmed absence still says so
+    const settled = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, { parser_rules_version: 'r' })`);
+    assert.match(settled, /did not archive its own methods/);
+    h.run('sgMetaAbsent = true;');
+    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, null)`), /predates parser v2/);
+    // and sgLoad records which kind of missing meta it saw
+    const gone = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
+    await gone.runRaw("sgLoad('2026-05-31')");
+    assert.equal(gone.run('sgMetaAbsent'), true);
+    const down = harness({ search: '?sg=v2', fetch: async () => { throw new Error('offline'); } });
+    await down.runRaw("sgLoad('2026-05-31')");
+    assert.equal(down.run('sgMetaAbsent'), false, 'a dropped meta request was recorded as a confirmed absence');
+});
+
+test('the reporting shares are over every selected trial, parse errors included', () => {
+    const h = harness();
+    const rows = 'sgQualityRows({ reported: 3, explicit_unknown_only: 0, uninformative: 0, not_reported: 0, parse_error: 1 })';
+    const withErrors = h.run(`sgQualityTableHtml(${rows}, { reported: 3, explicit_unknown_only: 0, uninformative: 0, not_reported: 0, parse_error: 1 })`);
+    assert.match(withErrors, /Share of selection/);
+    assert.match(withErrors, /75\.0%/, 'the share left the unparsed trial out of the denominator');
+    assert.ok(!/100\.0%/.test(withErrors), 'Reported reached 100% while a selected trial was never parsed');
+    assert.match(withErrors, /1 trial in this selection could not be parsed/);
+    assert.ok(!/<tr data-state="parse_error"/.test(withErrors), 'parse errors are listed here rather than on the methods page');
+    const clean = h.run(`sgQualityTableHtml(${rows.replace('parse_error: 1', 'parse_error: 0')}, { reported: 3, parse_error: 0 })`);
+    assert.match(clean, /100\.0%/);
+    assert.ok(!/could not be parsed/.test(clean));
+    // the renderer passes the full status counts through
+    assert.ok(block.includes('sgQualityTableHtml(rows, agg.statusCounts)'));
+});
+
+test('a late failure from a snapshot no longer on screen leaves the panel alone', async () => {
+    let reject;
+    const pending = new Promise((_, r) => { reject = r; });
+    const h = harness({ search: '?sg=v2', fetch: () => pending });
+    h.run("sgSnapshotKey = '2026-04-26';");
+    const first = h.runRaw('sgRenderBetaPanel()');          // waiting on the old snapshot's fetch
+    h.run("sgSnapshotKey = 'latest';");
+    h.els['sg-beta-body'].innerHTML = 'RENDERED FOR LATEST';
+    reject(new Error('late failure'));
+    await first;
+    assert.equal(h.els['sg-beta-body'].innerHTML, 'RENDERED FOR LATEST', "the old snapshot's failure overwrote the panel");
+    assert.equal(h.run("sgBetaSummaries.has('2026-04-26')"), false);
+});
+
+test('a query-style archive link still opens the archive after the query is rewritten', () => {
+    // The first tab render rewrites the query without sgsnapshot, and the
+    // deep-link hooks run after it, so they must read the query the page
+    // opened with rather than the live one.
+    const h = harness({ search: '?sg=v2&sgsnapshot=2026-08-02', hash: '#sex' });
+    h.run("location.search = '?sg=v2';");                 // what the rewrite leaves behind
+    assert.equal(h.run("sgQueryParams('#sex').get('sgsnapshot')"), undefined, 'the live query still carries it, so this test proves nothing');
+    assert.equal(h.run("sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH).get('sgsnapshot')"), '2026-08-02');
+    const hooks = block.slice(block.indexOf('function sgRouteHooks()'), block.indexOf('// Which v2 tab renderers'));
+    assert.ok(hooks.includes('sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH)'), 'the hooks read the live query, which the rewrite has already stripped');
 });

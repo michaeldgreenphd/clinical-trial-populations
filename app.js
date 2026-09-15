@@ -1261,7 +1261,17 @@ function updateShareUrl() {
     const snap = document.getElementById('history-date');
     if (snap && snap.value && snap.value !== 'latest') p.set('sgsnapshot', snap.value);
     const q = p.toString();
-    history.replaceState(null, '', '#' + tabId + (q ? '?' + q : ''));
+    // The query may still carry the sgsnapshot the page opened with, and the
+    // readers give the query precedence, so a reload would reopen that archive
+    // over whatever the selector now shows. The query is rewritten without it.
+    let search = '';
+    try {
+        const sp = new URLSearchParams(location.search || '');
+        sp.delete('sgsnapshot');
+        const str = sp.toString();
+        search = str ? '?' + str : '';
+    } catch (e) { search = location.search || ''; }
+    history.replaceState(null, '', location.pathname + search + '#' + tabId + (q ? '?' + q : ''));
 }
 
 function applyShareParams(query) {
@@ -7528,14 +7538,14 @@ function sgTexture(canvas, color, kind) {
 // applyShareParams() reads its filters from — so a reader that looks only at
 // location.search misses the flag on every path-style deep link. Read both,
 // location.search first. Returns a Map, so .get() works the same way.
-function sgQueryParams(hash) {
+function sgQueryParams(hash, search) {
     const out = new Map();
     const add = (q) => {
         try { new URLSearchParams(q || '').forEach((v, k) => { if (!out.has(k)) out.set(k, v); }); } catch (e) { /* unparseable */ }
     };
     let loc = null;
     try { loc = (typeof location !== 'undefined') ? location : null; } catch (e) { loc = null; }
-    add(loc ? loc.search : '');
+    add(search != null ? search : (loc ? loc.search : ''));
     const h = (hash != null) ? hash : (loc ? (loc.hash || '') : '');
     add(String(h).split('?').slice(1).join('?'));
     return out;
@@ -7578,6 +7588,7 @@ let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
 const sgMethodsCache = new Map();   // snapshot key -> { methods, fromLatest } | null (confirmed absent)
 let sgMethodsPending = null;        // the in-flight sgLoadMethods(), for deep links
 let sgSnapshotKey = 'latest';       // 'latest' | date: the snapshot the tabs are showing
+let sgMetaAbsent = false;           // the parsed-table meta was confirmed absent (404), not merely unfetched
 const sgBetaSummaries = new Map();  // snapshot key -> dashboard-summary.json | null (fetch failed)
 const sgCache = new Map(); // 'latest' | date -> { meta, table }
 
@@ -7661,12 +7672,13 @@ function sgBase(date) { return (!date || date === 'latest') ? 'data' : `snapshot
 // Load the v2 artifacts for the snapshot loadData() just loaded. A snapshot
 // that predates parser v2 has none; the tabs then show the retired rule.
 async function sgLoad(date) {
-    sgTable = null; sgMeta = null; sgAvailable = false;
+    sgTable = null; sgMeta = null; sgAvailable = false; sgMetaAbsent = false;
     if (!SG_V2) return;
     const key = date || 'latest';
     if (sgCache.has(key)) {
         const c = sgCache.get(key);
         sgMeta = c.meta; sgTable = c.table;
+        sgMetaAbsent = !c.meta;               // only a confirmed absence is ever cached without a meta
     } else {
         // "Absent" and "could not be fetched" are different answers, and only
         // the first one may be cached: caching a dropped connection would pin
@@ -7691,6 +7703,7 @@ async function sgLoad(date) {
                 console.log(`sg=v2: joined ${sgTable.size} rows from sex_gender_parsed.csv.gz`);
             } catch (e) { failed = true; console.warn('sg=v2: CSV join unavailable, lean rows only:', e.message); }
         }
+        sgMetaAbsent = absent;
         if (!failed && (absent || sgMeta)) sgCache.set(key, { meta: sgMeta, table: sgTable });
     }
     sgSnapshotKey = key;
@@ -7844,13 +7857,22 @@ function sgQualityRows(statusCounts) {
     }));
 }
 
-function sgQualityTableHtml(rows) {
-    const total = rows.reduce((a, r) => a + r.count, 0);
+function sgQualityTableHtml(rows, statusCounts) {
+    // The denominator is every trial in the selection, including the
+    // parse-error state this table does not list: leaving those out would
+    // let the four shares reach 100% while some selected trials were never
+    // parsed. Parse errors are counted on the methods page, not here.
+    const counts = statusCounts || null;
+    const total = counts
+        ? SG_V2_STATES.reduce((a, k) => a + Number(counts[k] || 0), 0)
+        : rows.reduce((a, r) => a + r.count, 0);
+    const errors = counts ? Number(counts.parse_error || 0) : 0;
     const pct = (c) => total > 0 ? (100 * c / total).toFixed(1) + '%' : '—';
-    return `<div class="sg-table-scroll"><table class="breakdown-table sg-quality-table"><thead><tr><th>State</th><th>Trials</th><th>Share</th></tr></thead><tbody>` +
+    return `<div class="sg-table-scroll"><table class="breakdown-table sg-quality-table"><thead><tr><th>State</th><th>Trials</th><th>Share of selection</th></tr></thead><tbody>` +
         rows.map(r => `<tr data-state="${r.key}"><th scope="row"><span class="sg-swatch" style="background:${r.color}"></span>${escapeHtml(r.label)}</th>` +
             `<td>${r.count.toLocaleString()}</td><td>${pct(r.count)}</td></tr>`).join('') +
-        `</tbody></table></div>`;
+        `</tbody></table></div>` +
+        (errors > 0 ? `<p class="note">${errors.toLocaleString()} ${errors === 1 ? 'trial' : 'trials'} in this selection could not be parsed. They are in the denominator above and are counted on the methods page, not listed here.</p>` : '');
 }
 
 // Uninformative sub-labels and the declared-not-collected badge.
@@ -7901,13 +7923,15 @@ function sgYearSeries(studies) {
         if (pf == null && !missing) continue;          // outside the denominator set
         const f = Number(r.n_female) || 0, m = Number(r.n_male) || 0;
         if (pf == null && f + m <= 0) continue;
-        const d = years[y] || (years[y] = { pfSum: 0, n: 0, f: 0, fm: 0, missing: 0, largest: null });
+        const d = years[y] || (years[y] = { pfSum: 0, n: 0, f: 0, fm: 0, missing: 0 });
         // A mean over the rows that happen to carry the column would be a
         // different estimand, so a missing figure is counted, never skipped.
         if (missing) d.missing++;
         else { d.pfSum += pf; d.n++; }
         d.f += f; d.fm += f + m;
-        if (!d.largest || f + m > d.largest.fm) d.largest = { nct_id: s.nct_id, fm: f + m };
+        // No largest-trial annotation here: ranking the rows and taking one
+        // row's share would be a statistic of this page's own. The engine
+        // publishes it per year for the full dataset, and only that is shown.
     }
     return years;
 }
@@ -7936,9 +7960,8 @@ function sgSeriesPoints(years) {
         n: labels.map(y => years[y].n),
         largest: labels.map(y => {
             const d = years[y];
-            if (!d.largest) return null;
-            const share = d.largest.share != null ? Number(d.largest.share) : (d.fm > 0 ? d.largest.fm / d.fm : null);
-            return { nct_id: d.largest.nct_id, share };
+            if (!d.largest || d.largest.share == null || !Number.isFinite(Number(d.largest.share))) return null;
+            return { nct_id: d.largest.nct_id, share: Number(d.largest.share) };   // published, not computed
         })
     };
 }
@@ -8065,7 +8088,7 @@ function sgRenderQuality(agg, filtered) {
         });
     }
     const table = document.getElementById('sg-quality-table');
-    if (table) table.innerHTML = sgQualityTableHtml(rows);
+    if (table) table.innerHTML = sgQualityTableHtml(rows, agg.statusCounts);
     const sub = document.getElementById('sg-quality-sub');
     if (sub) sub.innerHTML = sgSubLabelsHtml(agg, !dashboardSummary);
     sgRenderQualityByYear(filtered);
@@ -8138,8 +8161,8 @@ function sgRenderPercentFemale(filtered) {
     if (foot) foot.textContent = (aMissing
         ? `Mean of within-trial % female is unavailable for this selection: ${pts.missing.toLocaleString()} of ${pts.eligible.toLocaleString()} trials in the denominator do not carry the engine's published percent female, because sex_gender_parsed.csv.gz did not load. It is read, never recomputed here. `
         : '') + (mobile
-        ? 'Participant-weighted (dashed): a single large trial can move a year. Hover detail on desktop names that trial.'
-        : 'Participant-weighted (dashed): hover a point to see the single largest trial in that year and its share of the year’s Female + Male participants. Dashed 2017 marker: FDAAA Final Rule effective.');
+        ? 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is named only where the engine publishes it.'
+        : 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is an engine-published annotation for the full dataset; it is not computed here for a selection. Dashed 2017 marker: FDAAA Final Rule effective.');
     if (charts.sgPf) charts.sgPf.destroy();
     charts.sgPf = new Chart(ctx, {
         type: 'line',
@@ -8172,8 +8195,10 @@ function sgRenderPercentFemale(filtered) {
                         afterLabel: (c) => {
                             if (c.datasetIndex !== 1) return '';
                             const l = pts.largest[c.dataIndex];
-                            if (!l) return ' Largest trial: not shipped in this view';
-                            return ` Largest trial ${l.nct_id}: ${l.share != null ? (100 * l.share).toFixed(1) + '%' : '—'} of this year’s Female + Male participants`;
+                            if (!l) return mobile
+                                ? ' Largest trial: not published by the engine for this year'
+                                : ' Largest trial: an engine-published annotation for the full dataset, not computed for a selection';
+                            return ` Largest trial ${l.nct_id}: ${(100 * l.share).toFixed(1)}% of this year’s Female + Male participants`;
                         },
                         footer: () => rules ? `parser rules: ${rules}` : ''
                     }
@@ -8409,7 +8434,9 @@ async function sgLoadMethods() {
             if (!latest.entry && !latest.absent) failed = true;
         } else if (!entry && key !== 'latest') {
             const latest = await get('data', true);
-            entry = latest.entry || null;        // shown, not cached: see `failed` above
+            // Shown, not cached (see `failed`), and marked unsettled so the
+            // notice does not claim the archive never published its own.
+            entry = latest.entry ? Object.assign({}, latest.entry, { unsettled: true }) : null;
         }
         // Cached only when the answer is settled; `entry` is still rendered
         // when the archive's own request merely failed, so a usable fallback
@@ -8445,10 +8472,18 @@ function sgEffectiveMeta() {
 // Says whose numbers the text below is, when they are not this snapshot's.
 function sgMethodsNotice(key, entry, meta) {
     if (!entry.fromLatest) return '';
-    // No parsed table at all: this snapshot predates the parser, so the text
-    // describes rules that were never applied to what is on screen.
+    // Whether the archive's own text exists is settled only by a 404; a
+    // request that merely failed is said to have failed, not to be absent.
+    const lead = entry.unsettled
+        ? `<strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot's own methods text could not be fetched just now, so what follows is the latest pull's; reselecting the snapshot retries it.`
+        : `<strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot did not archive its own methods, so what follows is the latest pull's:`;
+    // No parsed table at all. That it predates the parser is a claim only a
+    // confirmed absence can support; an unfetched meta is said to be unfetched.
     if (!meta) {
-        return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot predates parser v2: it has no parsed sex/gender table and no methods of its own, and its Sex and Gender tabs show the retired extraction. What follows describes the latest pull, under rules that were never applied to this snapshot.</p>`;
+        if (sgMetaAbsent) {
+            return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot predates parser v2: it has no parsed sex/gender table and no methods of its own, and its Sex and Gender tabs show the retired extraction. What follows describes the latest pull, under rules that were never applied to this snapshot.</p>`;
+        }
+        return `<p class="note sg-banner">${lead} Whether this snapshot was parsed could not be established either: its parsed-table meta could not be fetched just now.</p>`;
     }
     const archived = meta && meta.parser_rules_version;
     const latest = entry.methods && entry.methods.parser_rules_version;
@@ -8462,7 +8497,7 @@ function sgMethodsNotice(key, entry, meta) {
     } else if (archived) {
         rules = ` This archive was parsed with <code>${escapeHtml(archived)}</code>; the text below does not say which rules it describes.`;
     }
-    return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot did not archive its own methods, so what follows is the latest pull's: its snapshot date, reporting-state counts and fidelity figures describe that pull, not this archive.` +
+    return `<p class="note sg-banner">${lead} Its snapshot date, reporting-state counts and fidelity figures describe that pull, not this archive.` +
         rules + `</p>`;
 }
 
@@ -8589,6 +8624,7 @@ async function sgRenderBetaPanel() {
                 summary = await resp.json();
             } catch (e) {
                 summary = null;
+                if (key !== sgSnapshotKey) return;   // a late failure for a snapshot no longer on screen
                 // Only a confirmed absence is remembered; a dropped request
                 // leaves the panel able to recover on the next open.
                 if (e && e.absent) {
@@ -8612,9 +8648,12 @@ async function sgRenderBetaPanel() {
 // share form (#tab?filters) on the first render, which drops the ?m= anchor,
 // so the deep-link hooks read this copy rather than location.hash.
 const SG_INITIAL_HASH = (() => { try { return location.hash || ''; } catch (e) { return ''; } })();
+// And the query it opened with: the share-URL rewrite drops sgsnapshot from
+// the query on the first tab render, which is before the hooks run.
+const SG_INITIAL_SEARCH = (() => { try { return location.search || ''; } catch (e) { return ''; } })();
 
 function sgRouteHooks() {
-    const params = sgQueryParams(SG_INITIAL_HASH);
+    const params = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH);
     const m = params.get('m');
     if (m) sgOpenMethods(m);
     if (params.get('sgbeta') === '1') {
