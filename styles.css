@@ -5081,3 +5081,10 @@ footer p {
 
 /* A bucket nothing in the selection published: an em dash, not a zero. */
 .sg-tile .stat-value.sg-absent { color: var(--text-secondary); font-size: calc(var(--fs-display) * 0.6); }
+
+/* The v2 tables sit in panels that clip (`overflow: hidden`), and the global
+   breakdown-table rules floor the first two columns at 150px each. At 390px
+   that leaves the last column a few pixels short, so each table scrolls
+   inside its own container rather than losing a column or moving the page. */
+.sg-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
+.sg-table-scroll > table { margin-bottom: 0; }

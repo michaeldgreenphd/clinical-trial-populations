@@ -17,6 +17,7 @@ import vm from 'node:vm';
 
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const styles = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 
 const START = '// ── Sex/gender parser v2 (sg=v2)';
 const END = '// ── end sg=v2';
@@ -446,4 +447,49 @@ test('the Sex tab leads with the composition, then the reporting quality that qu
     const tiles = sex.indexOf('id="sg-sex-tiles"');
     assert.ok(tiles < pf, 'the tiles lead');
     assert.ok(pf < quality && donut < quality, 'percent female and the sex breakdown belong above the reporting status');
+});
+
+test('a failed artifact request is retried; a 404 is remembered', async () => {
+    let calls = 0;
+    const h = harness({ search: '?sg=v2', fetch: async () => { calls++; throw new Error('network down'); } });
+    await h.runRaw("sgLoad('2026-08-02')");
+    const afterFailure = calls;
+    assert.ok(afterFailure > 0, 'nothing was fetched');
+    assert.equal(h.run("sgCache.has('2026-08-02')"), false, 'a dropped connection was cached as "this snapshot has no parser v2"');
+    await h.runRaw("sgLoad('2026-08-02')");
+    assert.ok(calls > afterFailure, 'the snapshot was never retried after the failure');
+    // a 404 is a real answer and is remembered
+    const h404 = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
+    await h404.runRaw("sgLoad('2026-05-31')");
+    assert.equal(h404.run("sgCache.has('2026-05-31')"), true, 'a definitive 404 should not be re-fetched on every switch');
+    assert.equal(h404.run('sgAvailable'), false);
+});
+
+test('the methods section is reloaded for a snapshot with no parser-v2 artifacts', () => {
+    // Otherwise the previous snapshot's text stays in the FAQ, presenting the
+    // latest pull's dates, counts and rules as if they described this one.
+    const loadFn = block.slice(block.indexOf('async function sgLoad('), block.indexOf('// ── Rows'));
+    assert.ok(loadFn.includes('if (SG_V2) sgLoadMethods();'), 'the methods text is only refreshed when v2 artifacts exist');
+    const h = harness();
+    const notice = h.run("sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'r' } }, null)");
+    assert.match(notice, /predates parser v2/);
+    assert.match(notice, /rules that were never applied to this snapshot/);
+});
+
+test('every v2 table scrolls inside its own container at 390px', () => {
+    // The panels clip (overflow: hidden) and the global breakdown-table rules
+    // floor the first two columns at 150px, so a table a few pixels too wide
+    // loses a column instead of scrolling. Measured at 390px: the quality
+    // table fits at 99.0% and overflows at 100.0%; the beta tables overflow.
+    const h = harness();
+    const quality = h.run('sgQualityTableHtml(sgQualityRows({ reported: 0, explicit_unknown_only: 61, uninformative: 0, not_reported: 0 }))');
+    assert.match(quality, /^<div class="sg-table-scroll"><table/);
+    assert.match(quality, /100\.0%/);
+    const labels = h.run("sgLabelTableHtml([['Non-binary', 83]], 252)");
+    assert.match(labels, /<div class="sg-table-scroll"><table/);
+    const beta = h.run(`sgBetaHtml(sgBetaRows({ cards: {}, sexDistribution: { female: 1 }, genderDistribution: {},
+        sexGender: { totals: { female: 1 }, outcomes: {}, excludedFromComposition: {}, denominatorTrials: 1 } }), 'the latest pull')`);
+    assert.equal((beta.match(/<div class="sg-table-scroll">/g) || []).length, 3, 'each beta comparison table needs its own scroller');
+    assert.ok(styles.includes('.sg-table-scroll'), 'styles.css has no rule for the scroll container');
+    assert.match(styles.slice(styles.indexOf('.sg-table-scroll')), /overflow-x: auto/);
 });

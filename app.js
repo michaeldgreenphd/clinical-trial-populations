@@ -7579,23 +7579,37 @@ async function sgLoad(date) {
         const c = sgCache.get(key);
         sgMeta = c.meta; sgTable = c.table;
     } else {
+        // "Absent" and "could not be fetched" are different answers, and only
+        // the first one may be cached: caching a dropped connection would pin
+        // the snapshot to the retired-rule banner until a full page reload.
+        let absent = false, failed = false;
         try {
             const resp = await fetch(`${sgBase(date)}/sex_gender_parsed_meta.json?v=${DATA_CACHE_VERSION}`);
             if (resp.ok) sgMeta = await resp.json();
-            else console.warn(`sg=v2: no sex_gender_parsed_meta.json for ${key} (HTTP ${resp.status})`);
-        } catch (e) { console.warn('sg=v2: meta unavailable:', e.message); }
-        if (sgMeta && !dashboardSummary) {
+            else if (resp.status === 404 || resp.status === 403) {
+                absent = true;
+                console.warn(`sg=v2: no sex_gender_parsed_meta.json for ${key} (HTTP ${resp.status})`);
+            } else {
+                failed = true;
+                console.warn(`sg=v2: meta request for ${key} failed (HTTP ${resp.status}); will retry`);
+            }
+        } catch (e) { failed = true; console.warn('sg=v2: meta unavailable, will retry:', e.message); }
+        const needsCsv = !!sgMeta && !dashboardSummary;
+        if (needsCsv) {
             try {
                 const text = await sgFetchGzText(`${sgBase(date)}/sex_gender_parsed.csv.gz`);
                 sgTable = sgParseCsv(text, SG_CSV_KEEP);
                 console.log(`sg=v2: joined ${sgTable.size} rows from sex_gender_parsed.csv.gz`);
-            } catch (e) { console.warn('sg=v2: CSV join unavailable, lean rows only:', e.message); }
+            } catch (e) { failed = true; console.warn('sg=v2: CSV join unavailable, lean rows only:', e.message); }
         }
-        sgCache.set(key, { meta: sgMeta, table: sgTable });
+        if (!failed && (absent || sgMeta)) sgCache.set(key, { meta: sgMeta, table: sgTable });
     }
     sgSnapshotKey = key;
     sgAvailable = !!sgMeta || !!(dashboardSummary && dashboardSummary.sexGender);
-    if (sgAvailable) sgLoadMethods();
+    // Loaded even when this snapshot has no parser-v2 artifacts: otherwise the
+    // previous snapshot's methods stay in the FAQ, presenting the latest
+    // pull's dates, counts and rules as if they described what is on screen.
+    if (SG_V2) sgLoadMethods();
     // The beta panel compares the tiles "for this snapshot": if it is open when
     // the snapshot changes, it has to be rebuilt from the new snapshot's summary.
     const beta = document.getElementById('sg-beta-panel');
@@ -7741,10 +7755,10 @@ function sgQualityRows(statusCounts) {
 function sgQualityTableHtml(rows) {
     const total = rows.reduce((a, r) => a + r.count, 0);
     const pct = (c) => total > 0 ? (100 * c / total).toFixed(1) + '%' : '—';
-    return `<table class="breakdown-table sg-quality-table"><thead><tr><th>State</th><th>Trials</th><th>Share</th></tr></thead><tbody>` +
+    return `<div class="sg-table-scroll"><table class="breakdown-table sg-quality-table"><thead><tr><th>State</th><th>Trials</th><th>Share</th></tr></thead><tbody>` +
         rows.map(r => `<tr data-state="${r.key}"><th scope="row"><span class="sg-swatch" style="background:${r.color}"></span>${escapeHtml(r.label)}</th>` +
             `<td>${r.count.toLocaleString()}</td><td>${pct(r.count)}</td></tr>`).join('') +
-        `</tbody></table>`;
+        `</tbody></table></div>`;
 }
 
 // Uninformative sub-labels and the declared-not-collected badge.
@@ -7845,9 +7859,9 @@ function sgLabelTableHtml(pairs, distinct) {
     if (!pairs.length) return '<p class="note">No source labels in this selection.</p>';
     const shown = pairs.slice(0, 60);
     return `<p class="note">${distinct.toLocaleString()} distinct label${distinct === 1 ? '' : 's'}; top ${shown.length} by trials.</p>` +
-        `<table class="breakdown-table sg-label-table"><thead><tr><th>Source label</th><th>Trials</th></tr></thead><tbody>` +
+        `<div class="sg-table-scroll"><table class="breakdown-table sg-label-table"><thead><tr><th>Source label</th><th>Trials</th></tr></thead><tbody>` +
         shown.map(([l, n]) => `<tr><td>${escapeHtml(l)}</td><td>${Number(n).toLocaleString()}</td></tr>`).join('') +
-        `</tbody></table>`;
+        `</tbody></table></div>`;
 }
 
 // ── Provenance line ──────────────────────────────────────────────────────
@@ -8221,6 +8235,11 @@ async function sgLoadMethods() {
 // Says whose numbers the text below is, when they are not this snapshot's.
 function sgMethodsNotice(key, entry, meta) {
     if (!entry.fromLatest) return '';
+    // No parsed table at all: this snapshot predates the parser, so the text
+    // describes rules that were never applied to what is on screen.
+    if (!meta) {
+        return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot predates parser v2: it has no parsed sex/gender table and no methods of its own, and its Sex and Gender tabs show the retired extraction. What follows describes the latest pull, under rules that were never applied to this snapshot.</p>`;
+    }
     const archived = meta && meta.parser_rules_version;
     const latest = entry.methods && entry.methods.parser_rules_version;
     // Only claim the rules match when both versions are known and equal;
@@ -8307,8 +8326,8 @@ function sgBetaHtml(rows, label) {
     if (!rows) return '<p class="note">This snapshot has no sexGender block in dashboard-summary.json.</p>';
     const where = label ? ` for ${label}` : '';
     const c = (v) => v == null ? '<span class="text-muted">—</span>' : Math.round(Number(v)).toLocaleString();
-    const table = (title, rs) => `<h5>${title}</h5><table class="breakdown-table sg-beta-table"><thead><tr><th>Tile</th><th>Old engine</th><th>Parser v2</th></tr></thead><tbody>` +
-        rs.map(([l, a, b]) => `<tr><td>${escapeHtml(l)}</td><td>${c(a)}</td><td>${c(b)}</td></tr>`).join('') + `</tbody></table>`;
+    const table = (title, rs) => `<h5>${title}</h5><div class="sg-table-scroll"><table class="breakdown-table sg-beta-table"><thead><tr><th>Tile</th><th>Old engine</th><th>Parser v2</th></tr></thead><tbody>` +
+        rs.map(([l, a, b]) => `<tr><td>${escapeHtml(l)}</td><td>${c(a)}</td><td>${c(b)}</td></tr>`).join('') + `</tbody></table></div>`;
     const f = (v) => v == null ? '—' : Math.round(Number(v)).toLocaleString();
     return `<p class="note">Old tiles versus parser v2${where}${rows.extracted ? `, extracted ${escapeHtml(rows.extracted)}` : ''}.</p>` +
         table('Sex tab (participants)', rows.sex) + table('Gender tab (participants)', rows.gender) + table('Trials', rows.trials) +
