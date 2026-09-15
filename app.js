@@ -7475,6 +7475,7 @@ const SG_FILTER_IDS = ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg
 // or by a reader who cannot separate the hues. The legend swatch uses the
 // same pattern, since Chart.js paints it with the dataset's background.
 const SG_STATE_TEXTURES = { reported: 'solid', explicit_unknown_only: 'diagonal', uninformative: 'dots', not_reported: 'grid', parse_error: 'grid' };
+const SG_BUCKET_TEXTURES = { female: 'solid', male: 'diagonal', gender_diverse: 'dots', ambiguous: 'grid', explicit_unknown: 'horizontal' };
 
 function sgTexture(canvas, color, kind) {
     if (!kind || kind === 'solid') return color;
@@ -7500,6 +7501,11 @@ function sgTexture(canvas, color, kind) {
             g.beginPath();
             g.moveTo(0, 4); g.lineTo(8, 4);
             g.moveTo(4, 0); g.lineTo(4, 8);
+            g.stroke();
+        } else if (kind === 'horizontal') {
+            g.beginPath();
+            g.moveTo(0, 2); g.lineTo(8, 2);
+            g.moveTo(0, 6); g.lineTo(8, 6);
             g.stroke();
         }
         return target.createPattern(tile, 'repeat') || color;
@@ -8180,7 +8186,7 @@ function sgRenderSexDonut(agg) {
     if (!ctx) return;
     const totals = {}, colors = {};
     sgTiles(agg, SG_SEX_TILE_KEYS).filter(t => t.present !== false)
-        .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+        .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key]); });
     if (charts.sgSexDonut) charts.sgSexDonut.destroy();
     charts.sgSexDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
 }
@@ -8207,7 +8213,7 @@ function sgRenderGenderTab(filtered) {
     if (ctx) {
         const totals = {}, colors = {};
         sgTiles(agg, SG_BUCKETS.map(b => b.key)).filter(t => t.present !== false)
-            .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = t.color; });
+            .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key]); });
         if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
         charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
     }
@@ -8285,8 +8291,13 @@ function sgDemographicCell(study, field) {
     }
     if (r.reported_gender === true) return `<button class="demo-badge" ${open} title="Reports gender; click for the buckets"><span class="demo-badge-check"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 6L9 17L4 12" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg></span></button>`;
     if (st === 'reported') {
-        const glb = r.gender_labeled_binary_only === true;
-        return `<span class="sg-cell-muted" title="${glb ? 'Gender-titled table with only Female/Male: counted as sex' : 'Sex reported; no gender-diverse or cis/trans-qualified category'}">${glb ? 'F/M only' : '—'}</span>`;
+        // gender_labeled_binary_only is a CSV column the lean rows do not
+        // carry. Unavailable is not false: reading it as false would drop the
+        // "F/M only" label from all 2,955 such trials whenever the join fails.
+        const glb = r.gender_labeled_binary_only;
+        if (glb === true) return `<span class="sg-cell-muted" title="Gender-titled table with only Female/Male: counted as sex">F/M only</span>`;
+        if (glb === false) return `<span class="sg-cell-muted" title="Sex reported; no gender-diverse or cis/trans-qualified category">—</span>`;
+        return `<span class="sg-cell-muted" title="Whether this trial's sex data came from a gender-titled table is not shipped to this view">—</span>`;
     }
     if (st === 'not_reported') return '<span class="demo-disabled" title="No sex- or gender-titled baseline measure">✗</span>';
     if (present !== true) return sgNoTableCell('gender', present === false);
@@ -8354,7 +8365,11 @@ async function sgLoadMethods() {
     const box = document.getElementById('sg-methods');
     if (!box) return;
     const key = sgSnapshotKey;
-    if (!sgMethodsCache.has(key)) {
+    let entry = null;
+    let cached = sgMethodsCache.has(key);
+    if (cached) {
+        entry = sgMethodsCache.get(key);
+    } else {
         const get = async (base, fromLatest) => {
             try {
                 const resp = await fetch(`${base}/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
@@ -8363,7 +8378,7 @@ async function sgLoadMethods() {
             } catch (e) { return { absent: false }; }
         };
         const own = await get(sgBase(key), false);
-        let entry = own.entry || null;
+        entry = own.entry || null;
         // The archive's own text is the only thing that can speak for it. Fall
         // back to the latest only once the archive's file is known to be
         // absent; a request that merely failed leaves the answer open, so the
@@ -8377,12 +8392,14 @@ async function sgLoadMethods() {
             const latest = await get('data', true);
             entry = latest.entry || null;        // shown, not cached: see `failed` above
         }
-        if (!failed) sgMethodsCache.set(key, entry);
+        // Cached only when the answer is settled; `entry` is still rendered
+        // when the archive's own request merely failed, so a usable fallback
+        // is shown now and the archive is retried on the next visit.
+        if (!failed) { sgMethodsCache.set(key, entry); cached = true; }
     }
     if (key !== sgSnapshotKey) return;      // the snapshot changed mid-fetch
-    const entry = sgMethodsCache.get(key);
     if (!entry) {
-        box.innerHTML = sgMethodsCache.has(key)
+        box.innerHTML = cached
             ? `<p class="note">No methods text (<code>sex_gender/methods.json</code>) is published for ${escapeHtml(key === 'latest' ? 'this pull' : 'the ' + key + ' snapshot')}.</p>`
             : `<p class="note">The methods text could not be fetched just now. Reselecting this snapshot retries it.</p>`;
         return;

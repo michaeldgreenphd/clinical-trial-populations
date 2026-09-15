@@ -753,10 +753,32 @@ test('a disabled control is not serialized into the share URL', () => {
     assert.ok(apply.includes('updateShareUrl()'), 'the URL is not resynced when a control becomes live again');
 });
 
-test('the archive methods fallback is shown but not cached when the archive request merely failed', () => {
-    const fn = block.slice(block.indexOf('async function sgLoadMethods'), block.indexOf('function sgMethodsNotice'));
-    assert.ok(fn.includes('own.absent'), 'the fallback is taken without establishing that the archive has no file');
-    assert.ok(fn.includes('if (!failed) sgMethodsCache.set(key, entry)'), 'a failed archive request is cached');
+test('a fallback that loaded is rendered even though it is not cached', async () => {
+    const seen = [];
+    const methods = { parser_rules_version: 'latest-rules', sections: [{ id: 'source', heading: 'Where the numbers come from', text: 'x' }] };
+    const h = harness({ search: '?sg=v2', fetch: async (u) => {
+        seen.push(u);
+        if (u.startsWith('snapshots/')) throw new Error('flaky');     // the archive gives no answer
+        return { ok: true, status: 200, json: async () => methods };  // the latest loads
+    } });
+    h.run("sgSnapshotKey = '2026-08-02';");
+    await h.runRaw('sgLoadMethods()');
+    assert.ok(seen.some((u) => u.startsWith('snapshots/2026-08-02/')), "the archive's own text was not tried first");
+    assert.ok(seen.some((u) => u.startsWith('data/')), 'the latest fallback was not tried');
+    const out = h.els['sg-methods'].innerHTML;
+    assert.ok(!/could not be fetched/.test(out), 'a fallback that loaded was discarded and the failure message shown instead');
+    assert.match(out, /Not this snapshot's text/);
+    assert.match(out, /Where the numbers come from/);
+    // and it stays out of the cache, so the archive's own file is retried
+    assert.equal(h.run("sgMethodsCache.has('2026-08-02')"), false, 'an unsettled answer was cached');
+    const before = seen.length;
+    await h.runRaw('sgLoadMethods()');
+    assert.ok(seen.length > before, 'the archive was never retried');
+    // when nothing loads at all, the failure message is the right one
+    const dead = harness({ search: '?sg=v2', fetch: async () => { throw new Error('offline'); } });
+    dead.run("sgSnapshotKey = '2026-08-02';");
+    await dead.runRaw('sgLoadMethods()');
+    assert.match(dead.els['sg-methods'].innerHTML, /could not be fetched/);
 });
 
 test('a gender-only trial with a sex table gets a named Sex cell, not a blank button', () => {
@@ -808,4 +830,35 @@ test('the stacked states carry a texture as well as a colour', () => {
     // the note tells the reader what the textures mean
     const note = html.slice(html.indexOf('Reporting status by results-posted year'));
     assert.match(note.slice(0, 700), /Reported is solid, Explicit Unknown is diagonal stripes, Uninformative is dots/);
+});
+
+test('the doughnut arcs carry a texture as well as a colour', () => {
+    // donutConfig() turns arc labels off on mobile, so without a texture the
+    // legend swatch is the only thing identifying an arc.
+    const h = harness();
+    const textures = h.run('SG_BUCKETS.map(b => SG_BUCKET_TEXTURES[b.key])');
+    assert.equal(textures.length, 5);
+    assert.equal(new Set(textures).size, 5, 'two buckets share a texture, so colour is still the only thing separating them');
+    for (const fn of ['sgRenderSexDonut', 'sgRenderGenderTab']) {
+        const src = block.slice(block.indexOf(`function ${fn}`), block.indexOf(`function ${fn}`) + 1400);
+        assert.ok(src.includes('sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key])'), `${fn} paints its arcs with flat colour`);
+    }
+    // the fifth texture is real, and a context-less environment keeps the colour
+    assert.equal(h.run("sgTexture(null, '#C2477E', 'horizontal')"), '#C2477E');
+    // and the note tells the reader the mapping
+    assert.ok(html.includes('Female is solid, Male is diagonal stripes, Gender diverse is dots'));
+});
+
+test('an unavailable F/M-only flag is not read as a negative', () => {
+    // The lean rows carry no gender_labeled_binary_only, so === true would
+    // drop the label from all 2,955 such trials whenever the join fails.
+    const h = harness();
+    h.run('sgTable = null;');
+    const cell = (glb) => h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row({ gender_labeled_binary_only: glb }) })}, 'gender')`);
+    assert.match(cell(true), /F\/M only/);
+    assert.match(cell(false), /no gender-diverse or cis\/trans-qualified category/);
+    const unknown = cell(null);
+    assert.ok(!/F\/M only/.test(unknown), 'an unknown flag was rendered as a positive');
+    assert.match(unknown, /not shipped to this view/);
+    assert.ok(!/no gender-diverse or cis\/trans-qualified category/.test(unknown), 'an unknown flag was rendered as a negative');
 });
