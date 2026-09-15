@@ -7582,7 +7582,7 @@ async function sgLoad(date) {
     // The beta panel compares the tiles "for this snapshot": if it is open when
     // the snapshot changes, it has to be rebuilt from the new snapshot's summary.
     const beta = document.getElementById('sg-beta-panel');
-    if (beta && beta.open) sgRenderBetaPanel();
+    if (beta && beta.open) sgRenderBetaPanel().catch(e => console.warn('sg=v2: beta panel:', e.message));
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────
@@ -7611,9 +7611,9 @@ function sgInDenominator(row) { return row.reported_sex === true && row.is_parti
 // than re-deriving it here: a later parser revision that changes the
 // eligibility or the formula must move the dashboard with it. The derivation
 // below is the fallback for a row whose file omits the column; it is the
-// formula the engine used, and on the 2026-09-15 pull the two agree for every
-// row (max difference 1.4e-14, and the column is non-null on exactly the
-// 79,107 denominator trials).
+// formula the engine used, and on the 2026-09-15 pull the two agree exactly
+// (maximum difference 0 over all 79,107 rows of the denominator set, which is
+// also exactly the set the column is published for).
 function sgPercentFemale(row) {
     if (!sgInDenominator(row)) return null;
     if (row.percent_female != null && Number.isFinite(Number(row.percent_female))) return Number(row.percent_female);
@@ -7880,7 +7880,7 @@ function sgRenderSexTab(filtered) {
     sgRenderSexDonut(agg);
     // Only when open: the panel fetches a whole dashboard-summary.json.
     const beta = document.getElementById('sg-beta-panel');
-    if (beta && beta.open) sgRenderBetaPanel();
+    if (beta && beta.open) sgRenderBetaPanel().catch(e => console.warn('sg=v2: beta panel:', e.message));
 }
 
 function sgRenderQuality(agg, filtered) {
