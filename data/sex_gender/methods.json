@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-20T11:20:46.140198+00:00",
-  "pipeline_commit": "bb11d3af70744148fb6f67da7ba70de592a45f34",
-  "source_extracted_at": "2026-09-20T11:05:33.506018+00:00",
-  "snapshot_date": "2026-09-20",
+  "generated_at": "2026-09-27T12:05:14.258717+00:00",
+  "pipeline_commit": "12b9b652ad5fdf3b05653b30ecf47297ae87a479",
+  "source_extracted_at": "2026-09-27T11:49:53.609081+00:00",
+  "snapshot_date": "2026-09-27",
   "parser_rules_version": "parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14",
   "parser_module_version": "1.1.0",
   "fidelity": {
@@ -25,7 +25,7 @@
     {
       "id": "not_reported_measured",
       "heading": "How many trials have no sex or gender table",
-      "text": "On the 2026-09-20 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry."
+      "text": "On the 2026-09-27 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry."
     },
     {
       "id": "gender_rule",
@@ -75,7 +75,7 @@
     {
       "id": "version",
       "heading": "Version",
-      "text": "Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 79,321, explicit_unknown_only 66, uninformative 720, not_reported 0, parse_error 0."
+      "text": "Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 79,423, explicit_unknown_only 66, uninformative 721, not_reported 0, parse_error 0."
     }
   ]
 }
