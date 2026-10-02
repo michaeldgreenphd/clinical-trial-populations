@@ -886,8 +886,27 @@ async function fetchAndDecompress(url) {
     return json;
 }
 
-// Lazy-load detail data (study_sites full records, secondary_outcomes, references, etc.)
-// Called on-demand when a user opens a study detail modal.
+// Detail data for the study modals: full study_sites, secondary_outcomes,
+// outcome and design descriptions.
+//
+// The part files carry every one of those fields, so a dataset loaded from
+// parts (latest, and the full snapshots) needs nothing more. The two
+// data/details files are a frozen 2026-03-05 extract; merged over a full
+// record they would replace its current sites and outcomes with March ones.
+// Only the summary-only archives (desktop with dashboardSummary set) still
+// read them, because their recentStudies rows carry no sites or outcomes.
+let detailLoad = null;  // { target, promise } for the details fetch in flight
+
+// A dataset gets a fresh detail cache in the same synchronous step that puts
+// its data and dashboardSummary on screen (loadData). A details fetch started
+// before then belongs to the dataset still showing, and fills that dataset's
+// cache; it can never land in, or mark loaded, the one that replaces it.
+function resetDetailState() {
+    detailCache = {};
+    detailsLoaded = false;
+    studiesTabReady = false;
+}
+
 async function loadDetailData() {
     if (detailsLoaded) return;
     // Details aren't published for mobile; fetching would crash low-memory
@@ -897,17 +916,32 @@ async function loadDetailData() {
         detailsLoaded = true;
         return;
     }
-    try {
-        const [d1, d2] = await Promise.all([
-            fetchAndDecompress('data/details.part1.json.gz'),
-            fetchAndDecompress('data/details.part2.json.gz')
-        ]);
-        Object.assign(detailCache, d1.data, d2.data);
+    if (!dashboardSummary) {
         detailsLoaded = true;
-        console.log(`✓ Loaded detail data for ${Object.keys(detailCache).length} studies`);
-    } catch (e) {
-        console.warn('Could not load detail data:', e.message);
+        return;
     }
+    // One fetch per dataset: repeated clicks share it, and a result that
+    // arrives after the user switched datasets fills the cache it was
+    // started for, never the one now on screen.
+    if (detailLoad && detailLoad.target === detailCache) return detailLoad.promise;
+    const target = detailCache;
+    const promise = (async () => {
+        try {
+            const [d1, d2] = await Promise.all([
+                fetchAndDecompress('data/details.part1.json.gz'),
+                fetchAndDecompress('data/details.part2.json.gz')
+            ]);
+            Object.assign(target, d1.data, d2.data);
+            if (detailCache === target) detailsLoaded = true;
+            console.log(`✓ Loaded detail data for ${Object.keys(target).length} studies`);
+        } catch (e) {
+            console.warn('Could not load detail data:', e.message);
+        } finally {
+            if (detailLoad && detailLoad.promise === promise) detailLoad = null;
+        }
+    })();
+    detailLoad = { target, promise };
+    return promise;
 }
 
 // Number of data file parts per snapshot
@@ -974,18 +1008,11 @@ async function loadData(date) {
         // Aggregate-archive snapshots restore their summary; full snapshots
         // clear any summary left by a previously viewed aggregate archive.
         if (!isMobileDevice) dashboardSummary = cached.summary || null;
-        detailCache = {};
-        detailsLoaded = false;
-        studiesTabReady = false;
+        resetDetailState();
         document.getElementById('last-updated').textContent = cached.dateLabel;
         if (cached.extractedAt) setDataPulledDate(cached.extractedAt);
         return;
     }
-
-    // Reset detail cache when loading new data
-    detailCache = {};
-    detailsLoaded = false;
-    studiesTabReady = false;
 
     const strategies = getUrlStrategies(date);
     let lastError = null;
@@ -1012,6 +1039,7 @@ async function loadData(date) {
 
             updateLoadingProgress(72, 'Merging dataset...');
             data = parts.flatMap(p => p.data);
+            resetDetailState();
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
             // Debug: Log exact keys of first study for data mapping verification
@@ -1067,6 +1095,7 @@ async function loadData(date) {
                 const summary = await resp.json();
                 dashboardSummary = summary;
                 data = summary.recentStudies || [];
+                resetDetailState();
                 const dateLabel = `${new Date(summary.extracted_at).toLocaleDateString()} (${date} archive · aggregate view)`;
                 document.getElementById('last-updated').textContent = dateLabel;
                 setDataPulledDate(summary.extracted_at);
@@ -2310,8 +2339,14 @@ function renderDashboard() {
     // Update table if visible
     const studiesTab = document.querySelector('.tab[data-tab="studies"]');
     if (studiesTab?.classList.contains('active')) {
-        currentPage = 0;
-        renderStudiesTable();
+        if (studiesTabReady) {
+            currentPage = 0;
+            renderStudiesTable();
+        } else {
+            // A new dataset: let it decide whether the tab waits on details,
+            // rather than leaving the previous dataset's wait on screen.
+            prepareStudiesTab();
+        }
     }
 
     // Use requestAnimationFrame to hide spinner after paint
@@ -2532,8 +2567,13 @@ async function prepareStudiesTab() {
     if (loadingScreen) loadingScreen.style.display = '';
     if (readyContent) readyContent.style.display = 'none';
 
-    // Preload detail data so expand clicks are instant
+    // Summary-only archives preload their detail data so expand clicks are
+    // instant; a dataset loaded from parts returns at once (loadDetailData).
+    // After a switch to another dataset during the wait, the call made for
+    // that dataset owns the tab.
+    const rows = data;
     await loadDetailData();
+    if (data !== rows) return;
 
     studiesTabReady = true;
 
@@ -3032,11 +3072,15 @@ function renderGeographyCell(study) {
 }
 
 async function showGeographyBreakdown(nctId) {
-    const study = data.find(s => s.nct_id === nctId);
+    const rows = data;
+    const study = rows.find(s => s.nct_id === nctId);
     if (!study) return;
 
-    // Lazy-load detail data for full site info
+    // Lazy-load detail data for full site info. A switch to another dataset
+    // during the wait leaves this study's details behind, so don't open it
+    // over the new view with its sites missing.
     await loadDetailData();
+    if (data !== rows) return;
     const detail = detailCache[nctId] || {};
     const fullStudy = Object.assign({}, study, detail);
 
@@ -3358,13 +3402,17 @@ function renderPublicationsDetail(study) {
 }
 
 async function showStudyDetails(nctId) {
-    const study = data.find(s => s.nct_id === nctId);
+    const rows = data;
+    const study = rows.find(s => s.nct_id === nctId);
     if (!study) return;
 
     const overlay = document.getElementById('study-details-overlay');
 
-    // Lazy-load detail data and merge into study for this modal render
+    // Lazy-load detail data and merge into study for this modal render. A
+    // switch to another dataset during the wait leaves this study's details
+    // behind, so don't open it over the new view with its sections empty.
     await loadDetailData();
+    if (data !== rows) return;
     const detail = detailCache[nctId] || {};
     const fullStudy = Object.assign({}, study, detail);
 

@@ -59,10 +59,12 @@ npm ci && npm test
   in `app.js`. It is a curtain, not security — the passwords are visible in
   this public repo, so everything here, data included, should be treated as
   public. Replacing or removing the gate is an open item.
-- **`data/details.part1.json.gz` / `part2` are frozen.** The study-detail
-  modal serves them as-is; their generator was retired before the repo
-  split, so their contents predate the weekly data. Reviving regeneration
-  is queued in the engine repo.
+- **`data/details.part1.json.gz` / `part2` are frozen** at 2026-03-05; their
+  generator was retired before the repo split. Only the summary-only
+  archives (snapshots holding just `dashboard-summary.json`) still read
+  them, on desktop, for the study modal. The latest view and the full snapshots render the
+  modal from their own part files and never fetch them. Per-archive detail
+  files from the engine will replace them, after which they can be removed.
 
 ## History
 
