@@ -14,6 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
+import { gunzipSync } from 'node:zlib';
 
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -47,7 +48,9 @@ function harness(opts = {}) {
         charts: {}, dashboardSummary: null, data: [], Chart: function () { return { destroy() {} }; },
         ChartDataLabels: {}, donutConfig: () => ({})
     });
-    vm.runInContext(block, context);
+    // keyedFetch and fetchChecked are tests/data_cache_key.test.mjs's; here
+    // they only add the key, through the stub fetch.
+    vm.runInContext("async function keyedFetch(path, init) { return fetch(`${path}?v=${DATA_CACHE_VERSION}`, init); }\nasync function fetchChecked(path) { return keyedFetch(path); }\n" + block, context);
     // Values cross the vm realm boundary as plain JSON, so deepEqual compares
     // structure rather than realm-specific prototypes.
     const run = (src) => {
@@ -1011,4 +1014,50 @@ test('the retired-rule banner is reserved for a confirmed absence; a failed fetc
     const retry = block.slice(block.indexOf('async function sgRetry()'), block.indexOf('window.sgRetry'));
     assert.ok(retry.includes("sgLoad(sgSnapshotKey === 'latest' ? undefined : sgSnapshotKey)"));
     assert.ok(retry.indexOf('sgLoad(') < retry.indexOf('renderDashboard()'));
+});
+
+// The joined table must be the run its meta describes (sgTableMatchesMeta):
+// during a deploy the server can answer last week's CSV beside this week's
+// meta, and joining them would show last week's parse on this week's trials.
+const CSV_META = { n_rows: 2, snapshot_date: '2026-10-04', source_extracted_at: '2026-10-04T11:02:41+00:00' };
+const sgCsv = (date, n = 2) => 'nct_id,snapshot_date,reported_any\n'
+    + Array.from({ length: n }, (_, i) => `NCT0000000${i + 1},${date},TRUE`).join('\n') + '\n';
+async function loadWithCsv(texts) {
+    const h = harness({ search: '?sg=v2', fetch: async (u) => (u.startsWith('data/sex_gender_parsed_meta.json')
+        ? { ok: true, status: 200, json: async () => CSV_META } : { ok: false, status: 404 }) });
+    h.runRaw(`var __csv = []; var __texts = ${JSON.stringify(texts)};
+        sgFetchGzText = async (url, init) => { __csv.push([url, (init && init.cache) || 'default']); return __texts[Math.min(__csv.length - 1, __texts.length - 1)]; };`);
+    await h.runRaw('sgLoad()');
+    return { csvCalls: h.run('__csv'), size: h.run('sgTable ? sgTable.size : null'), cached: h.run("sgCache.has('latest')") };
+}
+
+test('a table matching its meta is joined after one fetch', async () => {
+    const r = await loadWithCsv([sgCsv('2026-10-04')]);
+    assert.deepEqual(r.csvCalls, [['data/sex_gender_parsed.csv.gz', 'default']]);
+    assert.equal(r.size, 2);
+    assert.equal(r.cached, true);
+});
+
+test('a table from another run than its meta is fetched again past the cache', async () => {
+    for (const stale of [sgCsv('2026-09-27'), sgCsv('2026-10-04', 3)]) {
+        const r = await loadWithCsv([stale, sgCsv('2026-10-04')]);
+        assert.deepEqual(r.csvCalls.map(([, c]) => c), ['default', 'reload']);
+        assert.equal(r.size, 2, 'the fresh table was not joined');
+        assert.equal(r.cached, true);
+    }
+});
+
+test('a table that still does not match is not joined, and not cached', async () => {
+    const r = await loadWithCsv([sgCsv('2026-09-27'), sgCsv('2026-09-27')]);
+    assert.equal(r.size, null, 'last week\'s parse was joined onto this week\'s trials');
+    assert.equal(r.cached, false, 'a mismatch was cached for the session');
+});
+
+test('this week\'s real table matches its meta', () => {
+    const h = harness({});
+    const put = h.runRaw('(name, value) => { globalThis[name] = value; }');
+    put('__text', gunzipSync(readFileSync(new URL('../data/sex_gender_parsed.csv.gz', import.meta.url))).toString('utf8'));
+    put('__meta', JSON.parse(readFileSync(new URL('../data/sex_gender_parsed_meta.json', import.meta.url), 'utf8')));
+    assert.equal(h.runRaw("sgTableMatchesMeta(sgParseCsv(__text, [...SG_CSV_KEEP, 'snapshot_date']), __meta)"), true,
+        'the check would refuse a good week and leave every visitor on lean rows');
 });

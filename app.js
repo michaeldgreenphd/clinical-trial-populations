@@ -994,6 +994,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
         }
+        // Key every data URL by the latest run before any data is fetched
+        // (resolveDataCacheVersion); the condition ontology, which carries
+        // no key, loads alongside. Every data fetch waits for the key too.
+        const keyReady = dataKeyReady();
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
@@ -1005,6 +1009,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!isMobileDevice) {
             await loadConditionOntology();
         }
+        await keyReady;
         updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
         await loadData();
         // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
@@ -1077,10 +1082,154 @@ function ensurePako() {
     return _pakoReady;
 }
 
-// Session-level cache buster: same value for the entire page session so the
-// browser HTTP cache is effective within a session, but a new tab/refresh
-// after deployment gets fresh data.  Changes daily to pick up weekly extractions.
-const DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+// The data cache key: every data URL carries it as ?v=, so a browser keeps
+// a run's files across visits and fetches new ones only when a new run is
+// published. It is the latest run's extracted_at from data/run.json (unique
+// per run, so a same-day re-run gets a new key too); without that file, the
+// newest publish date in history.json; without either, today's date (the
+// old key, which threw the cache away every day).
+let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+// The latest run's extracted_at as data/run.json states it, or null without
+// that file: the latest parts must carry it.
+let LATEST_RUN_STAMP = null;
+
+// A small JSON file fetched once per page and checked with the server each
+// time. Null when the server has none or it cannot be read; a failure is
+// not remembered, so a later caller tries again.
+function smallJsonOnce(url) {
+    let request = null;
+    return () => {
+        if (!request) {
+            request = fetch(url, { cache: 'no-cache' })
+                .then(resp => (resp.ok ? resp.json() : null))
+                .catch(() => null)
+                .then(body => {
+                    if (!body) request = null;
+                    return body;
+                });
+        }
+        return request;
+    };
+}
+// history.json lists the published dates (the archive selector reads it too).
+const fetchHistory = smallJsonOnce('history.json');
+// data/run.json holds the latest run's stamps, written by the engine with
+// the parts: extracted_at and pipeline_commit.
+const fetchRun = smallJsonOnce('data/run.json');
+
+// How long the key waits for data/run.json and history.json. Both are tiny;
+// past this, the key goes on as if the file were missing, so a stalled
+// request cannot hold up the dashboard.
+const SMALL_FILE_WAIT_MS = 5000;
+
+// Set DATA_CACHE_VERSION before any data is fetched. history.json is not
+// waited for once run.json has answered.
+async function resolveDataCacheVersion() {
+    const deadline = new Promise(resolve => setTimeout(() => resolve(null), SMALL_FILE_WAIT_MS));
+    const manifestRequest = fetchHistory();   // started now: the archive selector reuses it
+    const run = await Promise.race([fetchRun(), deadline]);
+    if (run && typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at))) {
+        LATEST_RUN_STAMP = run.extracted_at;
+        DATA_CACHE_VERSION = run.extracted_at.replace(/[^0-9T]/g, '');   // 20260927T1149536090810000
+        return DATA_CACHE_VERSION;
+    }
+    const manifest = await Promise.race([manifestRequest, deadline]);
+    const dates = (manifest && Array.isArray(manifest.dates) ? manifest.dates : [])
+        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort();
+    if (dates.length) DATA_CACHE_VERSION = dates[dates.length - 1];
+    return DATA_CACHE_VERSION;
+}
+
+// The key is resolved once per page, and every data fetch waits for it:
+// startup, and loaders that can run on their own (a #industry deep link).
+let dataKeyRequest = null;
+function dataKeyReady() {
+    if (!dataKeyRequest) dataKeyRequest = resolveDataCacheVersion();
+    return dataKeyRequest;
+}
+
+// Every data file is fetched through here: after the key, with the key as
+// ?v=. Without a run stamp (no data/run.json, or it did not answer in time)
+// the key is a date, which two runs can share, so the browser revalidates
+// its copy with the server (a 304 when unchanged) instead of trusting it.
+async function keyedFetch(path, init) {
+    await dataKeyReady();
+    const options = LATEST_RUN_STAMP ? init : { cache: 'no-cache', ...init };
+    return fetch(`${path}?v=${DATA_CACHE_VERSION}`, options);
+}
+
+// A latest JSON file that names its run (stampOf reads the stamp), checked
+// against the run data/run.json names: a file from another run is fetched
+// once more past the browser cache. If the server still serves an earlier
+// run, that answer stands and the page shows it under its own date, as for
+// the parts; so does the first answer when the second request fails. Snapshot
+// files are not checked. Returns a Response whose body is unread.
+async function fetchChecked(path, stampOf) {
+    const resp = await keyedFetch(path);
+    const expected = path.startsWith('data/') ? LATEST_RUN_STAMP : null;
+    if (!expected || !resp.ok) return resp;
+    let stamp;
+    try {
+        stamp = stampOf(await resp.clone().json());
+    } catch (e) {
+        return resp;   // not JSON: the caller reads it and fails as before
+    }
+    if (stamp === expected) return resp;
+    console.warn(`${path} is from the run of ${stamp}, not ${expected}; fetching it again`);
+    let again, stampAgain;
+    try {
+        again = await keyedFetch(path, { cache: 'reload' });
+        if (!again.ok) throw new Error(`HTTP ${again.status}`);
+        stampAgain = stampOf(await again.clone().json());
+    } catch (e) {
+        console.warn(`Could not fetch ${path} again (${e.message}); showing the first answer under its own date`);
+        return resp;
+    }
+    if (stampAgain !== expected) {
+        console.warn(`The server still serves ${path} from the run of ${stampAgain}, not ${expected}; showing it under its own date`);
+    }
+    return again;
+}
+
+// Parts fetched together must come from one weekly run, and the latest
+// parts from the run data/run.json names. A browser can hold an earlier
+// run's parts under a key a new publish reused, and a server mid-deploy can
+// serve them; merging them would mix two pulls.
+function partsFromDifferentRuns(parts) {
+    return new Set(parts.map(p => p.extracted_at)).size > 1;
+}
+
+// The indexes of the parts not from the run they should be: the expected
+// run when it is known, else the newest run among them.
+function stalePartIndexes(parts, expectedStamp) {
+    const stamps = parts.map(p => String(p.extracted_at));
+    const target = expectedStamp || stamps.filter(s => /^\d{4}-\d{2}-\d{2}T/.test(s)).sort().pop();
+    if (!target) return partsFromDifferentRuns(parts) ? parts.map((_, i) => i) : [];
+    return stamps.flatMap((s, i) => (s === target ? [] : [i]));
+}
+
+// Fetch the stale parts again, through refetch(i). Each stale payload is
+// dropped first, so the tab never holds two datasets at once. Throws if the
+// parts still come from two runs (a publish is mid-deploy). A server still
+// serving one earlier run is shown under that run's own date: refusing it
+// would take the dashboard down for as long as data/run.json and the parts
+// disagree, and the next visit checks again.
+async function refetchStaleParts(parts, expectedStamp, refetch) {
+    const stale = stalePartIndexes(parts, expectedStamp);
+    if (!stale.length) return parts;
+    console.warn(`${stale.length} data part(s) are not from the latest run; fetching them again`);
+    for (const i of stale) parts[i] = null;
+    const fresh = await Promise.all(stale.map(i => refetch(i)));
+    stale.forEach((i, k) => { parts[i] = fresh[k]; });
+    if (partsFromDifferentRuns(parts)) {
+        throw new Error('the data files are from different weekly runs (an update is probably in progress); refresh in a few minutes');
+    }
+    if (expectedStamp && parts[0].extracted_at !== expectedStamp) {
+        console.warn(`The server still serves the run of ${parts[0].extracted_at}, not ${expectedStamp}; showing it under its own date`);
+    }
+    return parts;
+}
 
 // The latest dashboard-summary.json, fetched once per page: the loading
 // screen's figure and the mobile view both read it. Resolves to the parsed
@@ -1089,7 +1238,7 @@ const DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD
 let latestSummaryRequest = null;
 function fetchLatestSummary() {
     if (!latestSummaryRequest) {
-        latestSummaryRequest = fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`)
+        latestSummaryRequest = fetchChecked('data/dashboard-summary.json', s => s.extracted_at)
             .then(resp => (resp.ok ? resp.json() : null))
             .catch(err => {
                 latestSummaryRequest = null;
@@ -1104,9 +1253,9 @@ function fetchLatestSummary() {
 // arrive, for the loading screen. totalBytes is the Content-Length, or null
 // when the server sent none or re-encoded the body in transit (then the
 // length counts different bytes from the ones read here).
-async function fetchAndDecompress(url, onProgress) {
+async function fetchAndDecompress(url, onProgress, init) {
     console.log(`Fetching: ${url}`);
-    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
+    const response = await keyedFetch(url, init);
     console.log(`Response status for ${url}: ${response.status}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
@@ -1298,7 +1447,9 @@ async function loadData(date) {
             const queueProgress = () => {
                 if (!frame) frame = requestAnimationFrame(showProgress);
             };
-            const promises = strategy.urls.map((url, i) => {
+            // No array of the part promises is kept: it would hold the
+            // payloads after a stale part is dropped for its refetch.
+            let parts = await Promise.all(strategy.urls.map((url, i) => {
                 return fetchAndDecompress(url, (got, total) => {
                     loaded[i] = got;
                     totals[i] = total;
@@ -1308,10 +1459,14 @@ async function loadData(date) {
                     queueProgress();
                     return result;
                 });
-            });
-
-            const parts = await Promise.all(promises);
+            }));
             if (frame) cancelAnimationFrame(frame);
+            // A part from another run is fetched again past the browser cache.
+            const expectedStamp = !date || date === 'latest' ? LATEST_RUN_STAMP : null;
+            parts = await refetchStaleParts(parts, expectedStamp, (i) => {
+                updateLoadingProgress(10, 'Reloading trial records');
+                return fetchAndDecompress(strategy.urls[i], null, { cache: 'reload' });
+            });
 
             updateLoadingProgress(72, 'Reading trial records');
             data = parts.flatMap(p => p.data);
@@ -1367,7 +1522,7 @@ async function loadData(date) {
     if (date && date !== 'latest') {
         try {
             updateLoadingProgress(60, 'Loading the archive summary');
-            const resp = await fetch(`snapshots/${date}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
+            const resp = await keyedFetch(`snapshots/${date}/dashboard-summary.json`);
             if (resp.ok) {
                 const summary = await resp.json();
                 dashboardSummary = summary;
@@ -1426,13 +1581,12 @@ async function initHistorySelector() {
     if (!select) return;
 
     try {
-        const resp = await fetch('history.json');
-        if (!resp.ok) {
+        const manifest = await fetchHistory();
+        if (!manifest) {
             // No manifest yet — dropdown stays at "Latest" only
             console.log('history.json not available; archive selector disabled.');
             return;
         }
-        const manifest = await resp.json();
         const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
 
         // Trust the manifest — the GitHub Actions workflow only appends a date
@@ -7987,8 +8141,8 @@ function sgParseCsv(text, keep) {
     return out;
 }
 
-async function sgFetchGzText(url) {
-    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
+async function sgFetchGzText(url, init) {
+    const response = await keyedFetch(url, init);
     if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
     if (hasDecompressionStream) {
         const stream = response.body.pipeThrough(new DecompressionStream('gzip'));
@@ -7999,6 +8153,16 @@ async function sgFetchGzText(url) {
 }
 
 function sgBase(date) { return (!date || date === 'latest') ? 'data' : `snapshots/${date}`; }
+
+// The table must be the run its meta describes. The CSV carries no run stamp,
+// so: as many rows as the meta counts, each with the meta's snapshot date.
+// A meta without n_rows has nothing to compare.
+function sgTableMatchesMeta(table, meta) {
+    if (!meta || typeof meta.n_rows !== 'number') return true;
+    if (table.size !== meta.n_rows) return false;
+    for (const row of table.values()) if (row.snapshot_date !== meta.snapshot_date) return false;
+    return true;
+}
 
 // Load the v2 artifacts for the snapshot loadData() just loaded. A snapshot
 // that predates parser v2 has none; the tabs then show the retired rule.
@@ -8016,7 +8180,7 @@ async function sgLoad(date) {
         // the snapshot to the retired-rule banner until a full page reload.
         let absent = false, failed = false;
         try {
-            const resp = await fetch(`${sgBase(date)}/sex_gender_parsed_meta.json?v=${DATA_CACHE_VERSION}`);
+            const resp = await fetchChecked(`${sgBase(date)}/sex_gender_parsed_meta.json`, m => m.source_extracted_at);
             if (resp.ok) sgMeta = await resp.json();
             else if (resp.status === 404 || resp.status === 403) {
                 absent = true;
@@ -8028,9 +8192,20 @@ async function sgLoad(date) {
         } catch (e) { failed = true; console.warn('sg=v2: meta unavailable, will retry:', e.message); }
         const needsCsv = !!sgMeta && !dashboardSummary;
         if (needsCsv) {
+            // A table from another run than its meta (a deploy in progress)
+            // is fetched once more past the browser cache; if it still does
+            // not match, the rows stay lean and nothing is cached.
+            const url = `${sgBase(date)}/sex_gender_parsed.csv.gz`;
+            const keep = [...SG_CSV_KEEP, 'snapshot_date'];
             try {
-                const text = await sgFetchGzText(`${sgBase(date)}/sex_gender_parsed.csv.gz`);
-                sgTable = sgParseCsv(text, SG_CSV_KEEP);
+                let table = sgParseCsv(await sgFetchGzText(url), keep);
+                if (!sgTableMatchesMeta(table, sgMeta)) {
+                    console.warn(`sg=v2: ${url} has ${table.size} rows, not the run its meta describes; fetching it again`);
+                    table = null;
+                    table = sgParseCsv(await sgFetchGzText(url, { cache: 'reload' }), keep);
+                    if (!sgTableMatchesMeta(table, sgMeta)) throw new Error('the table and its meta are from different runs');
+                }
+                sgTable = table;
                 console.log(`sg=v2: joined ${sgTable.size} rows from sex_gender_parsed.csv.gz`);
             } catch (e) { failed = true; console.warn('sg=v2: CSV join unavailable, lean rows only:', e.message); }
         }
@@ -8778,7 +8953,7 @@ async function sgLoadMethods() {
     } else {
         const get = async (base, fromLatest) => {
             try {
-                const resp = await fetch(`${base}/sex_gender/methods.json?v=${DATA_CACHE_VERSION}`);
+                const resp = await fetchChecked(`${base}/sex_gender/methods.json`, m => m.source_extracted_at);
                 if (resp.ok) return { entry: { methods: await resp.json(), fromLatest } };
                 return { absent: resp.status === 404 || resp.status === 403 };
             } catch (e) { return { absent: false }; }
@@ -8977,7 +9152,7 @@ async function sgRenderBetaPanel() {
         } else {
             body.innerHTML = `<p class="note">Loading the dashboard summary for ${escapeHtml(label)}…</p>`;
             try {
-                const resp = await fetch(`${sgBase(key)}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
+                const resp = await fetchChecked(`${sgBase(key)}/dashboard-summary.json`, s => s.extracted_at);
                 if (!resp.ok) {
                     const err = new Error(`HTTP ${resp.status}`);
                     err.absent = (resp.status === 404 || resp.status === 403);
@@ -10001,7 +10176,7 @@ async function openIndustryView() {
 async function loadIndustryView() {
     if (!industryData) {
         try {
-            const resp = await fetch(`data/industry_sponsors.json?v=${DATA_CACHE_VERSION}`);
+            const resp = await fetchChecked('data/industry_sponsors.json', d => d.source_extracted_at);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             industryData = await resp.json();
             industrySelected = new Set(industryTop10());
