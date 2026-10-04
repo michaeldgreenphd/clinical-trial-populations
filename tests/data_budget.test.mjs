@@ -26,36 +26,50 @@ test('part_count is the number of parts app.js actually fetches', () => {
     // equal part_count, or a browser would silently skip parts the budget
     // says exist. Every partFiles() call passes NUM_PARTS itself: a literal
     // beside it is a second copy that a change to the part count would miss.
+    // A call is matched with or without a space before the bracket and as
+    // partFiles?.(...); a second NUM_PARTS declaration (a shadowing local)
+    // fails too.
     const app = readFileSync(new URL('app.js', root), 'utf8');
     const declared = app.match(/const NUM_PARTS = (\d+);/);
     assert.ok(declared, 'app.js lost NUM_PARTS');
     assert.equal(Number(declared[1]), budget.part_count, 'part_count differs from app.js NUM_PARTS');
+    assert.equal(app.match(/\b(?:const|let|var)\s+NUM_PARTS\b/g).length, 1, 'app.js declares NUM_PARTS more than once');
     assert.match(app, /\bfunction partFiles\(n\)/, 'app.js lost the partFiles(n) definition');
-    const calls = [...app.matchAll(/(?<!\bfunction\s+)\bpartFiles\(\s*([^)]*?)\s*\)/g)].map((m) => m[1]);
+    const calls = [...app.matchAll(/(?<!\bfunction\s+)\bpartFiles\s*(?:\?\.\s*)?\(\s*([^)]*?)\s*\)/g)].map((m) => m[1]);
     assert.ok(calls.length > 0, 'app.js no longer builds its part list with partFiles()');
     assert.deepEqual(calls.filter((arg) => arg !== 'NUM_PARTS'), [],
         'app.js builds a part list from a count other than NUM_PARTS');
 });
 
-test('getUrlStrategies asks for part_count parts, for the latest data and for a snapshot', () => {
+test('getUrlStrategies asks for NUM_PARTS parts, for the latest data and for a snapshot', () => {
     // The fetch path itself, run in a vm: the latest data and a full snapshot
-    // each list parts 1 to part_count, from data/ and snapshots/<date>/.
+    // each list parts 1 to part_count, from data/ and snapshots/<date>/. A
+    // second run with NUM_PARTS changed checks that both lists follow it, so
+    // another copy of the count on the fetch path fails here whatever its
+    // spelling.
     const app = readFileSync(new URL('app.js', root), 'utf8');
     const start = app.indexOf('const NUM_PARTS =');
-    const sig = 'function getUrlStrategies(date)';
-    const at = app.indexOf(sig);
+    const at = app.indexOf('function getUrlStrategies(date)');
     assert.ok(start >= 0 && at > start, 'app.js lost NUM_PARTS or getUrlStrategies');
-    const ctx = vm.createContext({});
-    vm.runInContext(`${app.slice(start, app.indexOf('\n}\n', at) + 2)}\nthis.getUrlStrategies = getUrlStrategies;`, ctx);
-    const files = Array.from({ length: budget.part_count }, (_, i) => `demographics.part${i + 1}.json.gz`);
-    for (const date of [undefined, 'latest']) {
-        const strategies = ctx.getUrlStrategies(date);
-        assert.equal(strategies.length, 1);
-        assert.deepEqual([...strategies[0].urls], files.map((f) => `data/${f}`), `latest (${date}) lists different parts`);
-    }
-    const snapshot = ctx.getUrlStrategies('2026-08-02');
-    assert.equal(snapshot.length, 1);
-    assert.deepEqual([...snapshot[0].urls], files.map((f) => `snapshots/2026-08-02/${f}`), 'a snapshot lists different parts');
+    const source = app.slice(start, app.indexOf('\n}\n', at) + 2);
+    const run = (src, count, label) => {
+        const ctx = vm.createContext({});
+        vm.runInContext(`${src}\nthis.getUrlStrategies = getUrlStrategies;`, ctx);
+        const files = Array.from({ length: count }, (_, i) => `demographics.part${i + 1}.json.gz`);
+        for (const date of [undefined, 'latest']) {
+            const strategies = ctx.getUrlStrategies(date);
+            assert.equal(strategies.length, 1);
+            assert.deepEqual([...strategies[0].urls], files.map((f) => `data/${f}`), `${label}: latest (${date}) lists different parts`);
+        }
+        const snapshot = ctx.getUrlStrategies('2026-08-02');
+        assert.equal(snapshot.length, 1);
+        assert.deepEqual([...snapshot[0].urls], files.map((f) => `snapshots/2026-08-02/${f}`), `${label}: a snapshot lists different parts`);
+    };
+    run(source, budget.part_count, 'as shipped');
+    const probe = budget.part_count + 3;
+    const changed = source.replace(/^const NUM_PARTS = \d+;/, `const NUM_PARTS = ${probe};`);
+    assert.notEqual(changed, source, 'could not change NUM_PARTS for the second run');
+    run(changed, probe, `with NUM_PARTS = ${probe}`);
 });
 
 test('every full snapshot holds exactly the parts app.js asks for', () => {
