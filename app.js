@@ -1366,18 +1366,18 @@ function partFiles(n) {
 // Historical snapshots are stored in snapshots/{date}/ on GitHub Pages (same origin).
 // Mobile uses pre-computed dashboard-summary.json loaded in loadData() — no part files needed.
 function getUrlStrategies(date) {
-    const parts8 = partFiles(8);
+    const parts = partFiles(NUM_PARTS);
 
     if (!date || date === 'latest') {
         return [
-            { name: 'Local', urls: parts8.map(f => `data/${f}`) }
+            { name: 'Local', urls: parts.map(f => `data/${f}`) }
         ];
     }
 
     return [
         {
             name: 'Snapshot',
-            urls: parts8.map(f => `snapshots/${date}/${f}`)
+            urls: parts.map(f => `snapshots/${date}/${f}`)
         }
     ];
 }
