@@ -4,8 +4,8 @@
     "A path is a key ('status'), a key inside an object ('race.reported'), or a key on every item of a list ('study_sites[].country'). The contract asks that the key be present; its value may be null or empty, which is how a record says 'none'.",
     "Classes say what reads the field. core: the dashboard, its filters (including the population filter's age fallback) and share links, over every record at load. studies_tab: the Studies table, its tooltips and the publications and breakdown views. detail: the study and geography-breakdown pop-ups only. A field read in more than one place takes the earliest class.",
     "Today the part files carry all three classes. A later change may move studies_tab and detail fields out of the parts into files fetched when needed; core stays in the parts.",
-    "optional lists paths the site reads when a record carries them but that the records do not carry today (a fallback chain such as a publication's title before its citation). The parts need not have them; a projection that keeps the listed fields keeps these too when they appear.",
-    "item_names maps a list field to the variable names app.js uses for its items (study.references.map(ref => ...), pubLabel(ref)); every member read through one of those names must be a listed field of that list's items.",
+    "optional lists paths the site reads when a record carries them but that the records need not carry: a fallback chain such as a publication's title before its citation, official_title when brief_title is empty, or a raw category's omb_category before its category. The parts need not have them; a projection that keeps the listed fields keeps these too when they appear.",
+    "item_names maps a list, by its full path, to the variable names app.js uses for its items (study.references.map(ref => ...), rawCategories.filter(rc => ...)). Every member read through one of those names must be listed, as a class path or optional, on every list that name serves: one variable read across race, ethnicity, sex and gender items needs each field it reads on all four.",
     "The engine's weekly publish reads this file (and data_budget.json) and refuses to push parts that drop a listed field. tests/study_record_contract.test.mjs keeps it honest against app.js and checks the published parts against it."
   ],
   "classes": {
@@ -122,8 +122,13 @@
     ]
   },
   "optional": [
+    "official_title",
     "references[].title",
-    "references[].journal"
+    "references[].journal",
+    "race.raw_categories[].category",
+    "ethnicity.raw_categories[].category",
+    "sex.raw_categories[].omb_category",
+    "gender.raw_categories[].omb_category"
   ],
   "item_names": {
     "references": [
@@ -132,10 +137,25 @@
     "study_sites": [
       "site"
     ],
-    "raw_categories": [
+    "race.raw_categories": [
       "rc"
     ],
-    "quarantined_labels": [
+    "ethnicity.raw_categories": [
+      "rc"
+    ],
+    "sex.raw_categories": [
+      "rc"
+    ],
+    "gender.raw_categories": [
+      "rc"
+    ],
+    "race.quarantined_labels": [
+      "q"
+    ],
+    "sex.quarantined_labels": [
+      "q"
+    ],
+    "gender.quarantined_labels": [
       "q"
     ],
     "condition_classifications": [
@@ -144,7 +164,6 @@
   },
   "not_record_fields": {
     "_isAI": "computed in app.js (isAIStudy) and cached on the record",
-    "reference_count": "carried only by dashboard-summary.json recentStudies rows (mobile and archives); a fallback when references is absent",
-    "official_title": "read as a fallback when brief_title is empty; the records do not carry it"
+    "reference_count": "carried only by dashboard-summary.json recentStudies rows (mobile and archives); a fallback when references is absent"
   }
 }

@@ -127,28 +127,32 @@ test('the source scan follows nested reads, not only top-level names', () => {
     assert.deepEqual(flagged('x = study._isAI;'), []);
 });
 
-// The fields of a list's items, wherever the list sits in a record:
-// 'raw_categories' -> omb_category, category, confidence, original, flags.
-function itemFields(list) {
-    return new Set(readPaths.map((p) => p.split('.'))
-        .filter((segs) => segs.slice(0, -1).at(-1) === `${list}[]`)
-        .map((segs) => segs.at(-1)));
+// The fields of one list's items, by the list's full path:
+// 'race.raw_categories' -> omb_category, confidence, original, flags (+ optional category).
+function itemFields(listPath) {
+    const prefix = `${listPath}[].`;
+    return new Set(readPaths.filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes('.'))
+        .map((p) => p.slice(prefix.length)));
 }
 
-test('members read through a list item variable are listed fields of that list', () => {
+test('members read through a list item variable are listed on every list it serves', () => {
+    const lists = {};                                   // variable name -> the list paths it serves
+    for (const [listPath, names] of Object.entries(contract.item_names)) {
+        assert.ok(itemFields(listPath).size > 0, `item_names names ${listPath}, which no contract path lists items of`);
+        for (const name of names) (lists[name] ||= []).push(listPath);
+    }
     const unlisted = [];
-    for (const [list, names] of Object.entries(contract.item_names)) {
-        const fields = itemFields(list);
-        assert.ok(fields.size > 0, `item_names names ${list}, which no contract path lists items of`);
-        for (const name of names) {
-            const reads = [...app.matchAll(new RegExp(`\\b${name}\\??\\.([A-Za-z_][A-Za-z0-9_]*)`, 'g'))].map((m) => m[1]);
-            assert.ok(reads.length > 0, `app.js no longer reads ${list} items as ${name}; update item_names`);
-            for (const member of reads) {
-                if (!fields.has(member) && !VALUE_MEMBERS.has(member)) unlisted.push(`${list}[].${member} (read as ${name}.${member})`);
+    for (const [name, listPaths] of Object.entries(lists)) {
+        const reads = [...app.matchAll(new RegExp(`\\b${name}\\??\\.([A-Za-z_][A-Za-z0-9_]*)`, 'g'))].map((m) => m[1]);
+        assert.ok(reads.length > 0, `app.js no longer reads list items as ${name}; update item_names`);
+        for (const member of new Set(reads)) {
+            if (VALUE_MEMBERS.has(member)) continue;
+            for (const listPath of listPaths) {
+                if (!itemFields(listPath).has(member)) unlisted.push(`${listPath}[].${member} (read as ${name}.${member})`);
             }
         }
     }
-    assert.deepEqual([...new Set(unlisted)].sort(), [],
+    assert.deepEqual(unlisted.sort(), [],
         'app.js reads list-item fields the contract does not list; add each to a class, or to optional if records may lack it');
 });
 
@@ -176,7 +180,14 @@ test('every record in every published part carries every contract path', { timeo
         for (const key of ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'data']) assert.ok(key in part, `${file} header lost ${key}`);
         assert.equal(part.part, i, `${file} says it is part ${part.part}`);
         assert.equal(part.total_parts, budget.part_count, `${file}: the part count differs from the one app.js fetches`);
-        first ??= { extracted_at: part.extracted_at, pipeline_commit: part.pipeline_commit };
+        if (!first) {
+            // Part 1's stamps are the baseline the others must match, so they
+            // must be real: the browser shows extracted_at as "Last updated".
+            assert.ok(typeof part.extracted_at === 'string' && !Number.isNaN(Date.parse(part.extracted_at)),
+                `${file}: extracted_at is not a timestamp (${JSON.stringify(part.extracted_at)})`);
+            assert.match(String(part.pipeline_commit ?? ''), /^[0-9a-f]{7,40}$/, `${file}: pipeline_commit is not a commit id`);
+            first = { extracted_at: part.extracted_at, pipeline_commit: part.pipeline_commit };
+        }
         assert.equal(part.extracted_at, first.extracted_at, `${file} comes from another pull than part 1`);
         assert.equal(part.pipeline_commit, first.pipeline_commit, `${file} comes from another engine run than part 1`);
         assert.ok(Array.isArray(part.data) && part.data.length > 0, `${file} has no records`);

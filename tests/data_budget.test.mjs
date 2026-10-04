@@ -36,18 +36,20 @@ test('part_count is the number of parts app.js actually fetches', () => {
     }
 });
 
-test('every full snapshot holds the number of parts app.js asks for', () => {
+test('every full snapshot holds exactly the parts app.js asks for', () => {
     // app.js fetches a snapshot with the same partFiles(n) as the latest data,
     // and the snapshots are frozen sets. A part_count that no longer matches
     // them needs a per-snapshot count in the fetch path first, or "View
     // snapshot" would skip parts or ask for ones that do not exist.
     const dirs = readdirSync(new URL('snapshots/', root), { withFileTypes: true }).filter((d) => d.isDirectory());
+    const expected = Array.from({ length: budget.part_count }, (_, i) => `demographics.part${i + 1}.json.gz`).join(', ');
     const mismatched = [];
     for (const d of dirs) {
-        const n = readdirSync(new URL(`snapshots/${d.name}/`, root)).filter((f) => /^demographics\.part\d+\.json\.gz$/.test(f)).length;
-        if (n > 0 && n !== budget.part_count) mismatched.push(`${d.name} (${n} parts)`);
+        const parts = readdirSync(new URL(`snapshots/${d.name}/`, root)).filter((f) => /^demographics\.part\d+\.json\.gz$/.test(f))
+            .sort((a, b) => Number(a.match(/part(\d+)/)[1]) - Number(b.match(/part(\d+)/)[1]));
+        if (parts.length > 0 && parts.join(', ') !== expected) mismatched.push(`${d.name} (${parts.join(', ')})`);
     }
-    assert.deepEqual(mismatched, [], `snapshots whose part count differs from the ${budget.part_count} app.js fetches`);
+    assert.deepEqual(mismatched, [], `snapshots that do not hold exactly parts 1 to ${budget.part_count}, the parts app.js fetches`);
 });
 
 test('the startup parts stay within the budget', (t) => {
