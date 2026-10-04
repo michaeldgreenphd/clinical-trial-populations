@@ -46,6 +46,8 @@ function gzBody(payload) {
     return { gz, stream };
 }
 
+const KEYED_FETCH_STUB = "async function keyedFetch(path, init) { return fetch(`${path}?v=${DATA_CACHE_VERSION}`, init); }\nasync function fetchChecked(path) { return keyedFetch(path); }\n";
+
 function fetchHarness(headersFor) {
     const payload = { extracted_at: 'x', data: [{ nct_id: 'NCT00000001' }, { nct_id: 'NCT00000002' }] };
     const context = vm.createContext({
@@ -57,7 +59,9 @@ function fetchHarness(headersFor) {
             return new Response(stream, { status: 200, headers: headersFor(gz.length) });
         }
     });
-    vm.runInContext(fetcher, context);
+    // keyedFetch's own behaviour is tests/data_cache_key.test.mjs's; here it
+    // only adds the key.
+    vm.runInContext(KEYED_FETCH_STUB + fetcher, context);
     return (onProgress) => vm.runInContext('fetchAndDecompress', context)('data/demographics.part1.json.gz', onProgress);
 }
 
@@ -298,7 +302,7 @@ test('the summary is fetched once and shared; a failure is not remembered', T, a
             return { ok: true, json: async () => ({ byYear: {} }) };
         }
     });
-    vm.runInContext(`let latestSummaryRequest = null;\n${src}`, ctx);
+    vm.runInContext(`${KEYED_FETCH_STUB}let latestSummaryRequest = null;\n${src}`, ctx);
     const get = () => vm.runInContext('fetchLatestSummary()', ctx);
     await assert.rejects(get());
     fail = false;
@@ -306,13 +310,13 @@ test('the summary is fetched once and shared; a failure is not remembered', T, a
     assert.equal(calls, 2, 'the failure was remembered, or the figure and the mobile view fetched twice');
     assert.equal(a, b);
     const missing = vm.createContext({ DATA_CACHE_VERSION: 'test', fetch: async () => ({ ok: false, status: 404 }) });
-    vm.runInContext(`let latestSummaryRequest = null;\n${src}`, missing);
+    vm.runInContext(`${KEYED_FETCH_STUB}let latestSummaryRequest = null;\n${src}`, missing);
     assert.equal(await vm.runInContext('fetchLatestSummary()', missing), null);
 });
 
 test('the figure is desktop only, and the mobile view reads the shared summary', () => {
     const init = app.slice(app.indexOf("document.addEventListener('DOMContentLoaded', async () => {"));
-    assert.match(init, /if \(isMobileDevice\) renderLoadingFigure\(null\);\s*else keyReady\.then\(\(\) => fetchLatestSummary\(\)\)\.then\(renderLoadingFigure, \(\) => renderLoadingFigure\(null\)\);/);
+    assert.match(init, /if \(isMobileDevice\) renderLoadingFigure\(null\);\s*else fetchLatestSummary\(\)\.then\(renderLoadingFigure, \(\) => renderLoadingFigure\(null\)\);/);
     const load = fnSource('async function loadData(date)');
     assert.match(load, /const summary = await fetchLatestSummary\(\);/);
     assert.doesNotMatch(load, /fetch\(`data\/dashboard-summary\.json/, 'the mobile view fetches the summary a second time');
@@ -365,7 +369,7 @@ test('a snapshot switch runs its meter to the end before the screen hides', () =
             `${name} does not advance the meter in order: load, 78, 90, render, 100, hide`);
     }
     const load = fnSource('async function loadData(date)');
-    assert.match(load, /updateLoadingProgress\(60, 'Loading the archive summary'\);\s*const resp = await fetch\(`snapshots\/\$\{date\}\/dashboard-summary\.json/,
+    assert.match(load, /updateLoadingProgress\(60, 'Loading the archive summary'\);\s*const resp = await keyedFetch\(`snapshots\/\$\{date\}\/dashboard-summary\.json/,
         'a summary-only archive leaves its meter at 0%');
 });
 
