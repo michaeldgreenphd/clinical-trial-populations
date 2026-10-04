@@ -1,0 +1,11 @@
+{
+  "about": [
+    "Size ceilings for the study records the dashboard downloads at startup: data/demographics.part1..N.json.gz.",
+    "part_count is the number of parts app.js fetches (NUM_PARTS). part_gzip_max_bytes is per file (jsDelivr's 20 MiB limit for snapshots served from the GitHub CDN mirror). total_gzip_max_bytes is the sum over the parts.",
+    "The ceilings ratchet down: each engine change that shrinks the parts is followed by a site change lowering them to the new size plus about 15% headroom, so a weekly push cannot quietly grow them back.",
+    "The engine's weekly publish reads this file before pushing; tests/data_budget.test.mjs checks the committed parts against it."
+  ],
+  "part_count": 8,
+  "part_gzip_max_bytes": 20971520,
+  "total_gzip_max_bytes": 160000000
+}
