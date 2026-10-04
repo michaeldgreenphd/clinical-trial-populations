@@ -8488,10 +8488,12 @@ function sgLabelCounts(studies, key) {
 // Ties break by code point, as the engine does for the published top lists
 // that phones and aggregate archives show: generate_mobile_data.py:90
 // (engine adba050), sorted(c.items(), key=lambda kv: (-kv[1], kv[0])), and
-// Python compares strings by code point. So a label table reads the same on
-// desktop as there, in every browser locale. localeCompare folds case and
-// accents, and a plain < compares UTF-16 units, which puts a label outside
-// the BMP before one in U+E000-U+FFFF; Python puts it after.
+// Python compares strings by code point. So, over the same rows (Study Type =
+// All), a label table reads the same on desktop as there, in every browser
+// locale. localeCompare compares letters first and case and accents only
+// after them, lower case first, in an order that depends on the browser's
+// locale; a plain < compares UTF-16 units, which puts a label outside the BMP
+// before one in U+E000-U+FFFF, and Python puts it after.
 function sgCodePointOrder(a, b) {
     for (let i = 0; i < a.length && i < b.length; i++) {
         const x = a.codePointAt(i), y = b.codePointAt(i);

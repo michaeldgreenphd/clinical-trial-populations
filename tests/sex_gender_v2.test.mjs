@@ -246,12 +246,13 @@ test('tied source labels sort by code point, as the engine sorts its published l
     // Python's own order for these five tied labels (sorted() on 3.x):
     // ASCII, then Latin-1, then U+FF4F, then U+1F308. A UTF-16 comparison
     // (JS <) would put the astral label before U+FF4F; localeCompare would
-    // fold case and accents.
+    // compare letters before case and accents. Every input below arrives out
+    // of order, since a sort that leaves ties alone would keep input order.
     const tied = ['\u{1F308} queer', 'ｏther', 'Étranger', 'other', 'Other'];
     assert.deepEqual(order(tied.map((l) => [l, 3])).map(([l]) => l),
         ['Other', 'other', 'Étranger', 'ｏther', '\u{1F308} queer']);
     // a label that is a prefix of another sorts first; count still leads
-    assert.deepEqual(order([['Other', 2], ['Other Gender', 2], ['Z', 4]]),
+    assert.deepEqual(order([['Other Gender', 2], ['Other', 2], ['Z', 4]]),
         [['Z', 4], ['Other', 2], ['Other Gender', 2]]);
 });
 
@@ -264,7 +265,8 @@ test("desktop ranks the published top lists' labels in the published order", () 
         const published = ((summary.sexGender || {}).labels || {})[t.summaryKey];
         assert.ok(published && published.top.length > 0, `${t.summaryKey}: the summary has no published top list`);
         const expected = published.top.map(([l, n]) => [l, n]);
-        put('__studies', sgStudiesWithLabels(t.key, expected));
+        // fed in reverse, so a tie the comparator leaves alone stays reversed
+        put('__studies', sgStudiesWithLabels(t.key, [...expected].reverse()));
         const desktop = h.run(`sgLabelCounts(__studies, '${t.key}')`);
         // the rows the label table renders (sgLabelTableHtml shows 60)
         moved[t.summaryKey] = desktop.slice(0, 60).filter((p, i) => !expected[i] || p[0] !== expected[i][0]).length;
