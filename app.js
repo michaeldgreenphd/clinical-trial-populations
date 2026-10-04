@@ -1089,6 +1089,9 @@ function ensurePako() {
 // newest publish date in history.json; without either, today's date (the
 // old key, which threw the cache away every day).
 let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+// The latest run's extracted_at as data/run.json states it, or null without
+// that file: the latest parts must carry it.
+let LATEST_RUN_STAMP = null;
 
 // A small JSON file fetched once per page and checked with the server each
 // time. Null when the server has none or it cannot be read; a failure is
@@ -1118,6 +1121,7 @@ const fetchRun = smallJsonOnce('data/run.json');
 async function resolveDataCacheVersion() {
     const [manifest, run] = await Promise.all([fetchHistory(), fetchRun()]);
     if (run && typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at))) {
+        LATEST_RUN_STAMP = run.extracted_at;
         DATA_CACHE_VERSION = run.extracted_at.replace(/[^0-9T]/g, '');   // 20260927T1149536090810000
         return DATA_CACHE_VERSION;
     }
@@ -1128,11 +1132,43 @@ async function resolveDataCacheVersion() {
     return DATA_CACHE_VERSION;
 }
 
-// Parts fetched together must come from one weekly run. A browser can hold
-// some parts of last week under a key that a new publish reused, and fetch
-// the rest new; merging them would mix two pulls.
+// Parts fetched together must come from one weekly run, and the latest
+// parts from the run data/run.json names. A browser can hold an earlier
+// run's parts under a key a new publish reused, and a server mid-deploy can
+// serve them; merging them would mix two pulls.
 function partsFromDifferentRuns(parts) {
     return new Set(parts.map(p => p.extracted_at)).size > 1;
+}
+
+// The indexes of the parts not from the run they should be: the expected
+// run when it is known, else the newest run among them.
+function stalePartIndexes(parts, expectedStamp) {
+    const stamps = parts.map(p => String(p.extracted_at));
+    const target = expectedStamp || stamps.filter(s => /^\d{4}-\d{2}-\d{2}T/.test(s)).sort().pop();
+    if (!target) return partsFromDifferentRuns(parts) ? parts.map((_, i) => i) : [];
+    return stamps.flatMap((s, i) => (s === target ? [] : [i]));
+}
+
+// Fetch the stale parts again, through refetch(i). Each stale payload is
+// dropped first, so the tab never holds two datasets at once. Throws if the
+// parts still come from two runs (a publish is mid-deploy). A server still
+// serving one earlier run is shown under that run's own date: refusing it
+// would take the dashboard down for as long as data/run.json and the parts
+// disagree, and the next visit checks again.
+async function refetchStaleParts(parts, expectedStamp, refetch) {
+    const stale = stalePartIndexes(parts, expectedStamp);
+    if (!stale.length) return parts;
+    console.warn(`${stale.length} data part(s) are not from the latest run; fetching them again`);
+    for (const i of stale) parts[i] = null;
+    const fresh = await Promise.all(stale.map(i => refetch(i)));
+    stale.forEach((i, k) => { parts[i] = fresh[k]; });
+    if (partsFromDifferentRuns(parts)) {
+        throw new Error('the data files are from different weekly runs (an update is probably in progress); refresh in a few minutes');
+    }
+    if (expectedStamp && parts[0].extracted_at !== expectedStamp) {
+        console.warn(`The server still serves the run of ${parts[0].extracted_at}, not ${expectedStamp}; showing it under its own date`);
+    }
+    return parts;
 }
 
 // The latest dashboard-summary.json, fetched once per page: the loading
@@ -1351,7 +1387,9 @@ async function loadData(date) {
             const queueProgress = () => {
                 if (!frame) frame = requestAnimationFrame(showProgress);
             };
-            const promises = strategy.urls.map((url, i) => {
+            // No array of the part promises is kept: it would hold the
+            // payloads after a stale part is dropped for its refetch.
+            let parts = await Promise.all(strategy.urls.map((url, i) => {
                 return fetchAndDecompress(url, (got, total) => {
                     loaded[i] = got;
                     totals[i] = total;
@@ -1361,20 +1399,14 @@ async function loadData(date) {
                     queueProgress();
                     return result;
                 });
-            });
-
-            let parts = await Promise.all(promises);
+            }));
             if (frame) cancelAnimationFrame(frame);
-            if (partsFromDifferentRuns(parts)) {
-                // Fetch them again past the browser cache; if the server
-                // itself still serves two runs, a publish is mid-deploy.
-                console.warn('Data parts come from different weekly runs; fetching them again');
+            // A part from another run is fetched again past the browser cache.
+            const expectedStamp = !date || date === 'latest' ? LATEST_RUN_STAMP : null;
+            parts = await refetchStaleParts(parts, expectedStamp, (i) => {
                 updateLoadingProgress(10, 'Reloading trial records');
-                parts = await Promise.all(strategy.urls.map(url => fetchAndDecompress(url, null, { cache: 'reload' })));
-                if (partsFromDifferentRuns(parts)) {
-                    throw new Error('the data files are from different weekly runs (an update is probably in progress); refresh in a few minutes');
-                }
-            }
+                return fetchAndDecompress(strategy.urls[i], null, { cache: 'reload' });
+            });
 
             updateLoadingProgress(72, 'Reading trial records');
             data = parts.flatMap(p => p.data);
