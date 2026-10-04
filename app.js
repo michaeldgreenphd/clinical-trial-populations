@@ -994,17 +994,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
         }
+        // Key every data URL by the newest weekly publish before any data is
+        // fetched (resolveDataCacheVersion); the condition ontology, which
+        // carries no key, loads alongside.
+        const keyReady = resolveDataCacheVersion();
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
         if (isMobileDevice) renderLoadingFigure(null);
-        else fetchLatestSummary().then(renderLoadingFigure, () => renderLoadingFigure(null));
+        else keyReady.then(() => fetchLatestSummary()).then(renderLoadingFigure, () => renderLoadingFigure(null));
         updateLoadingProgress(5, isMobileDevice ? 'Starting up' : 'Loading condition categories');
         // Condition ontology is only needed by the desktop filter dropdown.
         // Mobile doesn't render filters, so skip the fetch to save bandwidth.
         if (!isMobileDevice) {
             await loadConditionOntology();
         }
+        await keyReady;
         updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
         await loadData();
         // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
@@ -1077,10 +1082,43 @@ function ensurePako() {
     return _pakoReady;
 }
 
-// Session-level cache buster: same value for the entire page session so the
-// browser HTTP cache is effective within a session, but a new tab/refresh
-// after deployment gets fresh data.  Changes daily to pick up weekly extractions.
-const DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+// The data cache key: every data URL carries it as ?v=. It is the date of
+// the newest weekly publish in history.json, so a browser keeps a week's
+// files across visits and fetches new ones only when a new week is
+// published. Until history.json answers, or if it cannot be read, it is
+// today's date (the old key, which threw the cache away every day).
+let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+
+// history.json, fetched once per page and checked with the server each time
+// (it is 146 bytes and says when a new week has landed). Null when the
+// server has none or it cannot be read.
+let historyRequest = null;
+function fetchHistory() {
+    if (!historyRequest) {
+        historyRequest = fetch('history.json', { cache: 'no-cache' })
+            .then(resp => (resp.ok ? resp.json() : null))
+            .catch(() => null);
+    }
+    return historyRequest;
+}
+
+// Set DATA_CACHE_VERSION to the newest publish date. Called before any data
+// is fetched.
+async function resolveDataCacheVersion() {
+    const manifest = await fetchHistory();
+    const dates = (manifest && Array.isArray(manifest.dates) ? manifest.dates : [])
+        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort();
+    if (dates.length) DATA_CACHE_VERSION = dates[dates.length - 1];
+    return DATA_CACHE_VERSION;
+}
+
+// Parts fetched together must come from one weekly run. A browser can hold
+// some parts of last week under a key that a new publish reused, and fetch
+// the rest new; merging them would mix two pulls.
+function partsFromDifferentRuns(parts) {
+    return new Set(parts.map(p => p.extracted_at)).size > 1;
+}
 
 // The latest dashboard-summary.json, fetched once per page: the loading
 // screen's figure and the mobile view both read it. Resolves to the parsed
@@ -1104,9 +1142,9 @@ function fetchLatestSummary() {
 // arrive, for the loading screen. totalBytes is the Content-Length, or null
 // when the server sent none or re-encoded the body in transit (then the
 // length counts different bytes from the ones read here).
-async function fetchAndDecompress(url, onProgress) {
+async function fetchAndDecompress(url, onProgress, init) {
     console.log(`Fetching: ${url}`);
-    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
+    const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`, init);
     console.log(`Response status for ${url}: ${response.status}`);
     if (!response.ok) {
         throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
@@ -1310,8 +1348,18 @@ async function loadData(date) {
                 });
             });
 
-            const parts = await Promise.all(promises);
+            let parts = await Promise.all(promises);
             if (frame) cancelAnimationFrame(frame);
+            if (partsFromDifferentRuns(parts)) {
+                // Fetch them again past the browser cache; if the server
+                // itself still serves two runs, a publish is mid-deploy.
+                console.warn('Data parts come from different weekly runs; fetching them again');
+                updateLoadingProgress(10, 'Reloading trial records');
+                parts = await Promise.all(strategy.urls.map(url => fetchAndDecompress(url, null, { cache: 'reload' })));
+                if (partsFromDifferentRuns(parts)) {
+                    throw new Error('the data files are from different weekly runs (an update is probably in progress); refresh in a few minutes');
+                }
+            }
 
             updateLoadingProgress(72, 'Reading trial records');
             data = parts.flatMap(p => p.data);
@@ -1426,13 +1474,12 @@ async function initHistorySelector() {
     if (!select) return;
 
     try {
-        const resp = await fetch('history.json');
-        if (!resp.ok) {
+        const manifest = await fetchHistory();
+        if (!manifest) {
             // No manifest yet — dropdown stays at "Latest" only
             console.log('history.json not available; archive selector disabled.');
             return;
         }
-        const manifest = await resp.json();
         const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
 
         // Trust the manifest — the GitHub Actions workflow only appends a date
