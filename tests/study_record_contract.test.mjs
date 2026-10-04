@@ -14,8 +14,11 @@
  * followed until it reaches a listed field, and a step that is neither a
  * listed field nor a standard method on a value fails (so a new
  * `study.race.new_metric` is caught, not only a new top-level name). The
- * Studies table's sort keys are checked too. Short names such as `s.`, and
- * reads through a local variable (`const r = study.race; r.x`), are left
+ * Studies table's sort keys are checked too. List items are read through
+ * the variable names in the contract's item_names (`ref` for a reference,
+ * `site` for a study site, ...), and every member read through one of those
+ * names must be a listed field of that list's items. Other short names
+ * (`s.`, `o.`, `c.`) and reads through an ad-hoc local variable are left
  * out: app.js uses those names for other things, and a scan over them
  * would fail on noise.
  */
@@ -32,11 +35,13 @@ const budget = JSON.parse(read('tests/data_budget.json'));
 
 const classes = contract.classes;
 const allPaths = Object.values(classes).flat();
-const topLevel = new Set(allPaths.map((p) => p.split(/[.[]/)[0]));
+const optional = contract.optional;
+const readPaths = [...allPaths, ...optional];
+const topLevel = new Set(readPaths.map((p) => p.split(/[.[]/)[0]));
 const notRecord = new Set(Object.keys(contract.not_record_fields));
 
 // Contract paths without their list markers: 'race.raw_categories.omb_category'.
-const leaves = new Set(allPaths.map((p) => p.replaceAll('[]', '')));
+const leaves = new Set(readPaths.map((p) => p.replaceAll('[]', '')));
 const prefixes = new Set([...leaves].flatMap((p) => p.split('.').slice(1).map((_, i, a) => p.split('.').slice(0, i + 1).join('.'))));
 // Methods and properties of the values a record holds (strings, numbers, lists).
 const VALUE_MEMBERS = new Set(['length', 'forEach', 'map', 'filter', 'some', 'every', 'find', 'includes', 'reduce',
@@ -83,7 +88,7 @@ function missing(record, path) {
 
 test('the contract is well formed: each path once, in one class', () => {
     const seen = new Set();
-    for (const p of allPaths) {
+    for (const p of readPaths) {
         assert.match(p, /^[a-z_]+(\[\])?(\.[a-z_]+(\[\])?)*$/, `malformed path: ${p}`);
         assert.ok(!seen.has(p), `path listed twice: ${p}`);
         seen.add(p);
@@ -122,8 +127,33 @@ test('the source scan follows nested reads, not only top-level names', () => {
     assert.deepEqual(flagged('x = study._isAI;'), []);
 });
 
+// The fields of a list's items, wherever the list sits in a record:
+// 'raw_categories' -> omb_category, category, confidence, original, flags.
+function itemFields(list) {
+    return new Set(readPaths.map((p) => p.split('.'))
+        .filter((segs) => segs.slice(0, -1).at(-1) === `${list}[]`)
+        .map((segs) => segs.at(-1)));
+}
+
+test('members read through a list item variable are listed fields of that list', () => {
+    const unlisted = [];
+    for (const [list, names] of Object.entries(contract.item_names)) {
+        const fields = itemFields(list);
+        assert.ok(fields.size > 0, `item_names names ${list}, which no contract path lists items of`);
+        for (const name of names) {
+            const reads = [...app.matchAll(new RegExp(`\\b${name}\\??\\.([A-Za-z_][A-Za-z0-9_]*)`, 'g'))].map((m) => m[1]);
+            assert.ok(reads.length > 0, `app.js no longer reads ${list} items as ${name}; update item_names`);
+            for (const member of reads) {
+                if (!fields.has(member) && !VALUE_MEMBERS.has(member)) unlisted.push(`${list}[].${member} (read as ${name}.${member})`);
+            }
+        }
+    }
+    assert.deepEqual([...new Set(unlisted)].sort(), [],
+        'app.js reads list-item fields the contract does not list; add each to a class, or to optional if records may lack it');
+});
+
 test('the contract lists no field app.js never reads', () => {
-    const unread = [...new Set(allPaths.map((p) => p.split('.').at(-1).replace('[]', '')))]
+    const unread = [...new Set(readPaths.map((p) => p.split('.').at(-1).replace('[]', '')))]
         .filter((name) => !new RegExp(`[.'"\\[]${name}\\b`).test(app));
     assert.deepEqual(unread, [], `listed but never read by app.js: ${unread.join(', ')}`);
 });
@@ -133,7 +163,7 @@ test('every record in every published part carries every contract path', { timeo
     // time, each gunzipped and parsed, then released.
     const failures = [];
     const seen = new Set();
-    let first = null;
+    let first = null;           // part 1's stamps only, not its records
     for (let i = 1; i <= budget.part_count; i++) {
         const file = `data/demographics.part${i}.json.gz`;
         assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} is missing`);
@@ -146,7 +176,7 @@ test('every record in every published part carries every contract path', { timeo
         for (const key of ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'data']) assert.ok(key in part, `${file} header lost ${key}`);
         assert.equal(part.part, i, `${file} says it is part ${part.part}`);
         assert.equal(part.total_parts, budget.part_count, `${file}: the part count differs from the one app.js fetches`);
-        first ??= part;
+        first ??= { extracted_at: part.extracted_at, pipeline_commit: part.pipeline_commit };
         assert.equal(part.extracted_at, first.extracted_at, `${file} comes from another pull than part 1`);
         assert.equal(part.pipeline_commit, first.pipeline_commit, `${file} comes from another engine run than part 1`);
         assert.ok(Array.isArray(part.data) && part.data.length > 0, `${file} has no records`);

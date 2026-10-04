@@ -4,6 +4,8 @@
     "A path is a key ('status'), a key inside an object ('race.reported'), or a key on every item of a list ('study_sites[].country'). The contract asks that the key be present; its value may be null or empty, which is how a record says 'none'.",
     "Classes say what reads the field. core: the dashboard, its filters (including the population filter's age fallback) and share links, over every record at load. studies_tab: the Studies table, its tooltips and the publications and breakdown views. detail: the study and geography-breakdown pop-ups only. A field read in more than one place takes the earliest class.",
     "Today the part files carry all three classes. A later change may move studies_tab and detail fields out of the parts into files fetched when needed; core stays in the parts.",
+    "optional lists paths the site reads when a record carries them but that the records do not carry today (a fallback chain such as a publication's title before its citation). The parts need not have them; a projection that keeps the listed fields keeps these too when they appear.",
+    "item_names maps a list field to the variable names app.js uses for its items (study.references.map(ref => ...), pubLabel(ref)); every member read through one of those names must be a listed field of that list's items.",
     "The engine's weekly publish reads this file (and data_budget.json) and refuses to push parts that drop a listed field. tests/study_record_contract.test.mjs keeps it honest against app.js and checks the published parts against it."
   ],
   "classes": {
@@ -117,6 +119,27 @@
       "collaborators[].name",
       "collaborators[].class",
       "last_update"
+    ]
+  },
+  "optional": [
+    "references[].title",
+    "references[].journal"
+  ],
+  "item_names": {
+    "references": [
+      "ref"
+    ],
+    "study_sites": [
+      "site"
+    ],
+    "raw_categories": [
+      "rc"
+    ],
+    "quarantined_labels": [
+      "q"
+    ],
+    "condition_classifications": [
+      "cls"
     ]
   },
   "not_record_fields": {
