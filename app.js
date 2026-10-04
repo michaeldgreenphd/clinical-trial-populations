@@ -60,16 +60,44 @@ function showSnapshotLoading(label) {
         overlay = document.createElement('div');
         overlay.id = 'snapshot-loading';
         overlay.className = 'snapshot-loading-overlay';
-        overlay.innerHTML = '<div class="loading-spinner"></div><p>Loading snapshot…</p>';
+        overlay.setAttribute('data-load-progress', '');
+        overlay.innerHTML = `<div class="loading-panel">
+                <p class="loading-title"></p>
+                <div class="loading-meter" role="progressbar" aria-label="Loading the snapshot" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                    <div class="loading-progress-bar"></div>
+                </div>
+                <p class="loading-stage">
+                    <span class="loading-status-text" aria-live="polite"></span>
+                    <span class="loading-bytes" aria-hidden="true"></span>
+                </p>
+            </div>`;
         document.body.appendChild(overlay);
     }
-    overlay.querySelector('p').textContent = label || 'Loading snapshot…';
+    overlay.querySelector('.loading-title').textContent = label || 'Loading snapshot…';
+    overlay.querySelector('.loading-progress-bar').style.width = '0%';
+    overlay.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '0');
+    overlay.querySelector('.loading-status-text').textContent = 'Starting';
+    overlay.querySelector('.loading-bytes').textContent = '';
     overlay.style.display = 'flex';
 }
 
 function hideSnapshotLoading() {
     const overlay = document.getElementById('snapshot-loading');
     if (overlay) overlay.style.display = 'none';
+}
+
+// The stages after a snapshot's data has arrived, so its meter runs to the
+// end instead of stopping where the download did. The browser gets one
+// frame to show "Drawing charts" before the render takes the main thread;
+// a hidden tab runs no frames, so a timer ends the wait there.
+async function snapshotStage(percent, statusText) {
+    updateLoadingProgress(percent, statusText);
+    if (percent === 90) {
+        await new Promise(resolve => {
+            requestAnimationFrame(() => resolve());
+            setTimeout(resolve, 50);
+        });
+    }
 }
 
 // Historical snapshots are served from the snapshots/ directory on GitHub Pages (same origin)
@@ -199,12 +227,204 @@ function isAIStudy(study) {
     return study._isAI;
 }
 
-// Update loading progress bar
-function updateLoadingProgress(percent, statusText) {
-    const bar = document.getElementById('loading-progress-bar');
-    const status = document.getElementById('loading-status');
-    if (bar) bar.style.width = percent + '%';
-    if (status) status.textContent = statusText || '';
+// ── Loading screen sample field ──
+// Five rows of dots fill in, in a fixed scattered order, as the data
+// arrives: the share of dots filled is the share of the load done. Built on
+// first use, when the field has a width to fill.
+const loadingSample = (() => {
+    const PITCH = 14;   // 6px dot + 8px gap, as in styles.css
+    const ROWS = 5;
+    let dots = null;
+    let order = null;
+    let shown = 0;
+    function build() {
+        const field = document.getElementById('loading-sample');
+        if (!field || !field.clientWidth) return false;
+        const cols = Math.max(8, Math.floor((field.clientWidth + 8) / PITCH));
+        const n = cols * ROWS;
+        // A seeded shuffle (mulberry32), so the field fills the same
+        // evenly scattered way on every load.
+        order = Array.from({ length: n }, (_, i) => i);
+        let seed = 0x2f6b9e1d;
+        const rand = () => {
+            seed = (seed + 0x6d2b79f5) | 0;
+            let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+        for (let i = n - 1; i > 0; i--) {
+            const j = Math.floor(rand() * (i + 1));
+            [order[i], order[j]] = [order[j], order[i]];
+        }
+        const frag = document.createDocumentFragment();
+        dots = [];
+        for (let i = 0; i < n; i++) {
+            const dot = document.createElement('span');
+            dot.className = 'loading-dot';
+            frag.appendChild(dot);
+            dots.push(dot);
+        }
+        field.appendChild(frag);
+        return true;
+    }
+    return {
+        fill(fraction) {
+            if (!dots && !build()) return;
+            const target = Math.round(Math.max(0, Math.min(1, fraction)) * dots.length);
+            for (; shown < target; shown++) dots[order[shown]].classList.add('is-in');
+        }
+    };
+})();
+
+// ── Loading screen figure ──
+// While the records load, the loading screen draws the site's headline
+// trend from the latest dashboard-summary.json: the share of each year's
+// trials with posted results that report race, and that report race and
+// ethnicity together. Numerator and denominator are both the summary's
+// byYear counts. A year without counts is left out, never drawn as zero.
+function loadingFigureModel(summary) {
+    const byYear = summary && summary.byYear;
+    if (!byYear) return null;
+    const counted = (v) => v && v.total > 0 && Number.isFinite(v.race_reported) && Number.isFinite(v.both_reported);
+    const years = Object.keys(byYear).filter(y => counted(byYear[y])).sort((a, b) => a - b);
+    if (years.length < 2) return null;
+    const share = (key) => years.map(y => (100 * byYear[y][key]) / byYear[y].total);
+    return { years, race: share('race_reported'), both: share('both_reported') };
+}
+
+// Two lines: what the percentages are out of, then how many trials and
+// how current.
+function loadingFigureNote(summary, model) {
+    const second = [];
+    if (Number.isFinite(summary.totalStudies)) second.push(`${summary.totalStudies.toLocaleString()} trials`);
+    const asOf = summary.extracted_at ? new Date(summary.extracted_at) : null;
+    if (asOf && !isNaN(asOf)) {
+        second.push(`data as of ${asOf.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`);
+        const lastYear = model.years[model.years.length - 1];
+        if (String(asOf.getUTCFullYear()) === lastYear) second.push(`${lastYear} to date`);
+    }
+    return ["Percent of each year's trials with posted results, all study types", second.join(' · ')].filter(Boolean);
+}
+
+// A small multiple in the Overview chart's colours: no grid, no legend, a
+// range-frame year axis, the values at each end, the names on the lines,
+// and the 2017 Final Rule marked as the Overview chart marks it.
+function loadingFigureSVG(model, width) {
+    const W = Math.max(240, Math.round(width));
+    const H = 140, L = 34, R = 40, T = 18, B = 22;
+    const n = model.years.length;
+    const last = n - 1;
+    const x = (i) => L + (i * (W - L - R)) / last;
+    const y = (p) => T + (1 - p / 100) * (H - T - B);
+    const pct = (p) => `${Math.round(p)}%`;
+    const f = (v) => v.toFixed(1);
+    // Keep two value labels at least 12px apart.
+    const apart = (a, b) => {
+        const gap = 12 - Math.abs(a - b);
+        if (gap <= 0) return [a, b];
+        return a < b ? [a - gap / 2, b + gap / 2] : [a + gap / 2, b - gap / 2];
+    };
+    // Each name ends at the last point, above the upper line and below the
+    // lower one, clear of every stretch of its line that the text spans
+    // (about 6.6px a character at the label size).
+    const nameY = (vals, name, above) => {
+        const left = x(last) - 2 - name.length * 6.6;
+        const ys = vals.map((p, i) => [x(i), y(p)]).filter(([px], i) => px >= left - (W - L - R) / last || i === last).map(([, py]) => py);
+        return above ? Math.min(...ys) - 7 : Math.max(...ys) + 14;
+    };
+    const series = [
+        { name: 'Race', vals: model.race, color: COLORS.reporting.race },
+        { name: 'Race and ethnicity', vals: model.both, color: COLORS.reporting.both }
+    ];
+    const raceOnTop = model.race[last] >= model.both[last];
+    series[0].nameY = nameY(series[0].vals, series[0].name, raceOnTop);
+    series[1].nameY = nameY(series[1].vals, series[1].name, !raceOnTop);
+    const [startA, startB] = apart(y(series[0].vals[0]), y(series[1].vals[0]));
+    const [endA, endB] = apart(y(series[0].vals[last]), y(series[1].vals[last]));
+    const startY = [startA, startB];
+    const endY = [endA, endB];
+    const label = `Race reported by ${pct(model.race[0])} of trials with results posted in ${model.years[0]} and ${pct(model.race[last])} in ${model.years[last]}; race and ethnicity together by ${pct(model.both[0])} and ${pct(model.both[last])}.`;
+    const axisY = H - B + 6;
+    let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">`;
+    svg += `<line class="lf-axis" x1="${f(x(0))}" x2="${f(x(last))}" y1="${axisY}" y2="${axisY}"/>`;
+    svg += `<text class="lf-text" x="${f(x(0))}" y="${H - 2}">${model.years[0]}</text>`;
+    svg += `<text class="lf-text" x="${f(x(last))}" y="${H - 2}" text-anchor="end">${model.years[last]}</text>`;
+    const ev = model.years.indexOf('2017');
+    if (ev > 0 && ev < last) {
+        svg += `<line class="lf-event" x1="${f(x(ev))}" x2="${f(x(ev))}" y1="${T - 4}" y2="${axisY}"/>`;
+        svg += `<text class="lf-text" x="${f(x(ev))}" y="${H - 2}" text-anchor="middle">2017</text>`;
+        svg += `<text class="lf-text lf-late" x="${f(x(ev) + 4)}" y="${T - 6}">Final Rule</text>`;
+    }
+    series.forEach((s, k) => {
+        const d = s.vals.map((p, i) => `${i ? 'L' : 'M'}${f(x(i))},${f(y(p))}`).join('');
+        svg += `<path class="lf-line" pathLength="1" d="${d}" style="stroke:${s.color}"/>`;
+        svg += `<circle class="lf-late" cx="${f(x(last))}" cy="${f(y(s.vals[last]))}" r="2.5" style="fill:${s.color}"/>`;
+        svg += `<text class="lf-text lf-value lf-late" x="${f(x(0) - 6)}" y="${f(startY[k])}" text-anchor="end" dominant-baseline="middle" style="fill:${s.color}">${pct(s.vals[0])}</text>`;
+        svg += `<text class="lf-text lf-value lf-late" x="${f(x(last) + 6)}" y="${f(endY[k])}" dominant-baseline="middle" style="fill:${s.color}">${pct(s.vals[last])}</text>`;
+        svg += `<text class="lf-name lf-late" x="${f(x(last) - 2)}" y="${f(s.nameY)}" text-anchor="end" style="fill:${s.color}">${s.name}</text>`;
+    });
+    return svg + '</svg>';
+}
+
+function renderLoadingFigure(summary) {
+    const fig = document.getElementById('loading-figure');
+    const plot = document.getElementById('loading-figure-plot');
+    if (!fig || !plot) return;
+    const model = summary ? loadingFigureModel(summary) : null;
+    if (!model || !plot.clientWidth) {
+        fig.hidden = true;
+        return;
+    }
+    plot.innerHTML = loadingFigureSVG(model, plot.clientWidth);
+    const note = document.getElementById('loading-figure-note');
+    if (note) {
+        note.textContent = '';
+        loadingFigureNote(summary, model).forEach(line => {
+            const span = document.createElement('span');
+            span.textContent = line;
+            note.appendChild(span);
+        });
+    }
+    // Two frames, so the lines draw in from their undrawn state.
+    requestAnimationFrame(() => requestAnimationFrame(() => fig.classList.add('is-ready')));
+}
+
+// Megabytes as the loading screen shows them: decimal, whole numbers.
+function formatLoadMB(bytes) {
+    return Math.round(bytes / 1e6).toLocaleString();
+}
+
+// Where a parallel download of near-equal parts stands, for the loading
+// screen. Per part: loaded bytes, its Content-Length (undefined before its
+// headers arrive, null if it sent none), and whether it has finished. The
+// share is the mean of each part's own progress, a part without a length
+// counting as half done once bytes arrive; the bytes line shows the total
+// only once every part has sent its size.
+function describePartsProgress(loaded, totals, finished) {
+    const n = loaded.length;
+    const share = loaded.map((got, i) => finished[i] ? 1
+        : totals[i] > 0 ? Math.min(1, got / totals[i])
+        : totals[i] === null && got > 0 ? 0.5 : 0);
+    const fraction = n ? share.reduce((a, b) => a + b, 0) / n : 0;
+    const got = loaded.reduce((a, b) => a + b, 0);
+    const all = n && totals.every(t => t > 0) ? totals.reduce((a, b) => a + b, 0) : null;
+    return { fraction, text: all ? `${formatLoadMB(got)} of ${formatLoadMB(all)} MB` : `${formatLoadMB(got)} MB` };
+}
+
+// Update every visible loading screen (the startup overlay, the snapshot
+// switcher): the meter, the stage, and the bytes line when there is one.
+function updateLoadingProgress(percent, statusText, bytesText = '') {
+    document.querySelectorAll('[data-load-progress]').forEach(root => {
+        const bar = root.querySelector('.loading-progress-bar');
+        const meter = root.querySelector('[role="progressbar"]');
+        const status = root.querySelector('.loading-status-text');
+        const bytes = root.querySelector('.loading-bytes');
+        if (bar) bar.style.width = percent + '%';
+        if (meter) meter.setAttribute('aria-valuenow', String(Math.round(percent)));
+        if (status && statusText != null && status.textContent !== statusText) status.textContent = statusText;
+        if (bytes) bytes.textContent = bytesText;
+    });
+    loadingSample.fill(percent / 100);
 }
 
 // Hide loading overlay after initial render is complete
@@ -774,17 +994,22 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
         }
-        updateLoadingProgress(5, 'Preparing dashboard...');
+        // The loading screen's figure, from the small summary; it never
+        // holds up the load. Desktop only: the mobile wait is too short
+        // for it to draw (styles.css hides it on narrow screens too).
+        if (isMobileDevice) renderLoadingFigure(null);
+        else fetchLatestSummary().then(renderLoadingFigure, () => renderLoadingFigure(null));
+        updateLoadingProgress(5, isMobileDevice ? 'Starting up' : 'Loading condition categories');
         // Condition ontology is only needed by the desktop filter dropdown.
         // Mobile doesn't render filters, so skip the fetch to save bandwidth.
         if (!isMobileDevice) {
             await loadConditionOntology();
         }
-        updateLoadingProgress(10, 'Downloading clinical trial data...');
+        updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
         await loadData();
         // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
         await sgLoad();
-        updateLoadingProgress(78, 'Initializing filters and controls...');
+        updateLoadingProgress(78, 'Setting up filters');
         initTabs();
         if (!dashboardSummary) {
             // Full desktop mode: initialize filters, table, geography
@@ -805,9 +1030,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         initSubcategoryButtons();
         initFilterSummary();
-        updateLoadingProgress(90, 'Rendering charts...');
+        updateLoadingProgress(90, 'Drawing charts');
         renderDashboard();
-        updateLoadingProgress(100, 'Done');
+        updateLoadingProgress(100, 'Ready');
 
         // Deep links: restore the tab (and desktop filter state) from the
         // hash once the first render is up, then start writing share URLs.
@@ -857,8 +1082,29 @@ function ensurePako() {
 // after deployment gets fresh data.  Changes daily to pick up weekly extractions.
 const DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
+// The latest dashboard-summary.json, fetched once per page: the loading
+// screen's figure and the mobile view both read it. Resolves to the parsed
+// summary, or null when the server has none; a network failure rejects and
+// is not remembered, so a later caller tries again.
+let latestSummaryRequest = null;
+function fetchLatestSummary() {
+    if (!latestSummaryRequest) {
+        latestSummaryRequest = fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`)
+            .then(resp => (resp.ok ? resp.json() : null))
+            .catch(err => {
+                latestSummaryRequest = null;
+                throw err;
+            });
+    }
+    return latestSummaryRequest;
+}
+
 // Decompress a single .json.gz response body and return parsed JSON.
-async function fetchAndDecompress(url) {
+// onProgress(loadedBytes, totalBytes) reports the file's bytes as they
+// arrive, for the loading screen. totalBytes is the Content-Length, or null
+// when the server sent none or re-encoded the body in transit (then the
+// length counts different bytes from the ones read here).
+async function fetchAndDecompress(url, onProgress) {
     console.log(`Fetching: ${url}`);
     const response = await fetch(`${url}?v=${DATA_CACHE_VERSION}`);
     console.log(`Response status for ${url}: ${response.status}`);
@@ -866,17 +1112,32 @@ async function fetchAndDecompress(url) {
         throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
     }
 
+    let body = response.body;
+    if (onProgress && body && typeof TransformStream !== 'undefined') {
+        const length = Number(response.headers.get('content-length'));
+        const total = length > 0 && !response.headers.get('content-encoding') ? length : null;
+        let loaded = 0;
+        onProgress(0, total);
+        body = body.pipeThrough(new TransformStream({
+            transform(chunk, controller) {
+                loaded += chunk.byteLength;
+                onProgress(loaded, total);
+                controller.enqueue(chunk);
+            }
+        }));
+    }
+
     let json;
-    if (hasDecompressionStream) {
+    if (hasDecompressionStream && body) {
         // Fast path: native streaming decompression
-        const decompressedStream = response.body.pipeThrough(new DecompressionStream('gzip'));
+        const decompressedStream = body.pipeThrough(new DecompressionStream('gzip'));
         const decompressedResponse = new Response(decompressedStream);
         json = await decompressedResponse.json();
     } else {
         // Fallback for Safari iOS / older browsers: load pako on demand
         console.log('DecompressionStream not available, using pako fallback');
         await ensurePako();
-        const compressed = new Uint8Array(await response.arrayBuffer());
+        const compressed = new Uint8Array(await (body ? new Response(body) : response).arrayBuffer());
         const decompressed = pako.inflate(compressed, { to: 'string' });
         json = JSON.parse(decompressed);
     }
@@ -979,9 +1240,9 @@ async function loadData(date) {
     if (isMobileDevice && (!date || date === 'latest')) {
         try {
             console.log('📱 Mobile detected — loading pre-computed dashboard summary');
-            const resp = await fetch(`data/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
-            if (resp.ok) {
-                dashboardSummary = await resp.json();
+            const summary = await fetchLatestSummary();
+            if (summary) {
+                dashboardSummary = summary;
                 // Use the compact recent-studies list so the Studies tab renders
                 // with real rows + horizontal scroll. Full 77K dataset + details
                 // files aren't served to mobile (would crash low-memory devices).
@@ -1022,22 +1283,37 @@ async function loadData(date) {
             const numParts = strategy.urls.length;
             console.log(`Trying ${strategy.name} strategy (${numParts} parts)...`);
 
-            // Fetch all parts in parallel, but track individual completions
-            let partsCompleted = 0;
-            const promises = strategy.urls.map((url) => {
-                return fetchAndDecompress(url).then(result => {
-                    partsCompleted++;
-                    updateLoadingProgress(
-                        15 + Math.round((partsCompleted / numParts) * 55),
-                        `Downloaded ${partsCompleted} of ${numParts} data files...`
-                    );
+            // Fetch all parts in parallel, following their bytes on the
+            // loading screen (describePartsProgress). A browser may start
+            // some parts before others. One screen update per frame.
+            const loaded = new Array(numParts).fill(0);
+            const totals = new Array(numParts).fill(undefined);
+            const finished = new Array(numParts).fill(false);
+            let frame = 0;
+            const showProgress = () => {
+                frame = 0;
+                const { fraction, text } = describePartsProgress(loaded, totals, finished);
+                updateLoadingProgress(10 + 60 * fraction, 'Loading trial records', text);
+            };
+            const queueProgress = () => {
+                if (!frame) frame = requestAnimationFrame(showProgress);
+            };
+            const promises = strategy.urls.map((url, i) => {
+                return fetchAndDecompress(url, (got, total) => {
+                    loaded[i] = got;
+                    totals[i] = total;
+                    queueProgress();
+                }).then(result => {
+                    finished[i] = true;
+                    queueProgress();
                     return result;
                 });
             });
 
             const parts = await Promise.all(promises);
+            if (frame) cancelAnimationFrame(frame);
 
-            updateLoadingProgress(72, 'Merging dataset...');
+            updateLoadingProgress(72, 'Reading trial records');
             data = parts.flatMap(p => p.data);
             resetDetailState();
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
@@ -1090,6 +1366,7 @@ async function loadData(date) {
     // studies list in the table.
     if (date && date !== 'latest') {
         try {
+            updateLoadingProgress(60, 'Loading the archive summary');
             const resp = await fetch(`snapshots/${date}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
             if (resp.ok) {
                 const summary = await resp.json();
@@ -1124,13 +1401,16 @@ async function loadDataAndRender(date) {
 
     try {
         await loadData(date);
+        await snapshotStage(78, 'Setting up filters');
         await sgLoad(date === 'latest' ? undefined : date);
         if (data && data.length > 0) {
             populateConditionsDropdown();
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
+            await snapshotStage(90, 'Drawing charts');
             renderDashboard();
         }
+        await snapshotStage(100, 'Ready');
     } catch (err) {
         showToast(`Failed to load ${date || 'latest'} snapshot: ${err.message}`, 'error');
     } finally {
@@ -1184,6 +1464,7 @@ async function initHistorySelector() {
 
         try {
             await loadData(chosen);
+            await snapshotStage(78, 'Setting up filters');
             await sgLoad(chosen === 'latest' ? undefined : chosen);
 
             if (!data || data.length === 0) throw new Error('No data returned');
@@ -1192,12 +1473,14 @@ async function initHistorySelector() {
             populateConditionsDropdown();
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
+            await snapshotStage(90, 'Drawing charts');
             renderDashboard();
             // The provenance note under the parser-v2 charts names the snapshot,
             // and the canvases carry that note as their text alternative.
             labelChartsForA11y();
             updateShareUrl();
 
+            await snapshotStage(100, 'Ready');
             select.dataset.lastValue = chosen;
             const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
             showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${data.length} studies`, 'info', 3000);
