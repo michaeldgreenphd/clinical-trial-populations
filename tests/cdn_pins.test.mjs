@@ -12,9 +12,11 @@
  *   curl -sS https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js \
  *     | openssl dgst -sha384 -binary | openssl base64 -A
  *
- * A well-formed but wrong hash passes this test; the browser is what catches
- * it (the script is blocked and the charts do not draw), so load the page
- * after moving a pin.
+ * A well-formed but wrong hash passes this test. The browser then blocks the
+ * script and the whole dashboard fails to start: the loading screen stays up
+ * with "Error: Chart is not defined. Please refresh the page." Merging to main
+ * deploys at once, so after moving a pin, serve the page and check that it
+ * loads before opening the pull request.
  *
  * Not covered here: the scripts app.js loads lazily (pako, D3, TopoJSON,
  * React, ReactDOM, Babel, Tailwind's Play CDN). They are left to their own
@@ -32,30 +34,38 @@ function attributes(tag) {
   const attrs = {};
   const body = tag.replace(/^<script\b/i, '').replace(/\/?>$/, '');
   for (const m of body.matchAll(/([^\s=/>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g)) {
-    attrs[m[1].toLowerCase()] = m[2] ?? m[3] ?? m[4] ?? '';
+    const name = m[1].toLowerCase();
+    // As in the browser, the first of two same-named attributes wins.
+    if (!Object.hasOwn(attrs, name)) attrs[name] = m[2] ?? m[3] ?? m[4] ?? '';
   }
   return attrs;
 }
 
-// A src with a scheme or a leading "//" is fetched from wherever it names;
-// anything else (geo/…, app.js?v=…) is served from this repository.
-const isExternal = (src) => /^(?:[a-z][a-z0-9+.-]*:)?\/\//i.test(src);
+// Resolve each src as the browser does. The URL parser drops leading and
+// trailing whitespace and reads "\" as "/", so " https://…" and "\\…" name
+// another host just as "https://…" and "//…" do. Whatever lands off the
+// site's own origin is fetched from elsewhere; geo/…, app.js?v=… are served
+// from this repository.
+const SITE = new URL('https://civicsample.com/');
 
-const external = [...html.matchAll(/<script\b[^>]*>/gi)]
+// A quoted attribute value may contain ">", so the tag ends at the first ">"
+// outside quotes, not at the first ">".
+const external = [...html.matchAll(/<script\b(?:[^>"']|"[^"]*"|'[^']*')*>/gi)]
   .map((m) => attributes(m[0]))
-  .filter((a) => a.src !== undefined && isExternal(a.src));
+  .filter((a) => a.src !== undefined)
+  .map((a) => ({ ...a, url: new URL(a.src, SITE) }))
+  .filter((a) => a.url.origin !== SITE.origin);
 
 test('index.html still loads Chart.js and the datalabels plugin from a CDN at start-up', () => {
   // Guards the tests below against passing on an empty list.
-  const srcs = external.map((a) => a.src);
+  const srcs = external.map((a) => a.url.href);
   assert.ok(srcs.some((s) => /\/npm\/chart\.js(?=[@/]|$)/.test(s)), `no Chart.js script tag among ${JSON.stringify(srcs)}`);
   assert.ok(srcs.some((s) => /\/npm\/chartjs-plugin-datalabels(?=[@/]|$)/.test(s)),
     `no chartjs-plugin-datalabels script tag among ${JSON.stringify(srcs)}`);
 });
 
 test('every start-up CDN script is pinned to an exact version and file over https', () => {
-  for (const { src } of external) {
-    const url = new URL(src, 'https://civicsample.com/');
+  for (const { src, url } of external) {
     assert.equal(url.protocol, 'https:', `${src} is not fetched over https`);
     assert.match(url.pathname, /@\d+\.\d+\.\d+\/\S+\.js$/,
       `${src} is not pinned to an exact x.y.z version and a file; a bare package or range URL moves when a new release is published`);
