@@ -39,10 +39,22 @@ test('part_count is the number of parts app.js actually fetches', () => {
 test("the budget's notes name GitHub's hard limit, not a CDN's", () => {
     // The parts are served from GitHub Pages. The budget is a budget; the
     // hard per-file limit is GitHub's 100 MiB push limit, which is where the
-    // engine's weekly gate blocks.
+    // engine's weekly gate blocks on size.
     const about = budget.about.join(' ');
     assert.doesNotMatch(about, /jsDelivr|CDN/i, 'the notes still cite a CDN limit the site does not depend on');
     assert.match(about, /\b100 MiB\b/, "the notes do not name GitHub's 100 MiB per-file push limit");
+});
+
+test("the budget's notes say a wrong part count blocks the engine's push", () => {
+    // Warn-only applies to size. The engine's gate (check_site_contract.py)
+    // fails the push when data/ holds a different set of parts than
+    // part_count, so notes that call every rule here warn-only mislead.
+    const about = budget.about.join(' ');
+    assert.match(about, /part count other than part_count blocks the push/,
+        'the notes do not say that a part count other than part_count blocks the push');
+    for (const sentence of about.split(/(?<=\.)\s+/).filter((s) => /blocks only/.test(s))) {
+        assert.match(sentence, /^For size\b/, `the notes say the gate blocks only at the hard limits without limiting that to size: "${sentence}"`);
+    }
 });
 
 test('every full snapshot holds exactly the parts app.js asks for', () => {
