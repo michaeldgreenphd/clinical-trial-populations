@@ -320,3 +320,77 @@ test('the figure is desktop only, and the mobile view reads the shared summary',
     assert.match(css, /@media \(max-width: 768px\) \{\s*\.loading-figure \{\s*display: none;/);
     assert.match(html, /<figure class="loading-figure" id="loading-figure">/);
 });
+
+// ── The snapshot switcher's screen ──
+
+test('reopening the snapshot screen resets what a screen reader hears', () => {
+    const src = fnSource('function showSnapshotLoading(label)');
+    const parts = {
+        '.loading-title': { textContent: 'Loading 2026-05-31 snapshot…' },
+        '.loading-progress-bar': { style: { width: '72%' } },
+        '[role="progressbar"]': { attrs: { 'aria-valuenow': '72' }, setAttribute(k, v) { this.attrs[k] = v; } },
+        '.loading-status-text': { textContent: 'Reading trial records' },
+        '.loading-bytes': { textContent: '151 of 151 MB' }
+    };
+    const overlay = { style: {}, querySelector: (sel) => parts[sel] };
+    const ctx = vm.createContext({ document: { getElementById: (id) => (id === 'snapshot-loading' ? overlay : null) } });
+    vm.runInContext(src, ctx);
+    vm.runInContext('showSnapshotLoading', ctx)('Loading 2026-06-14 snapshot…');
+    assert.equal(parts['.loading-progress-bar'].style.width, '0%');
+    assert.equal(parts['[role="progressbar"]'].attrs['aria-valuenow'], '0', 'the previous load\'s progress is still announced');
+    assert.equal(parts['.loading-status-text'].textContent, 'Starting');
+    assert.equal(parts['.loading-bytes'].textContent, '');
+    assert.equal(overlay.style.display, 'flex');
+});
+
+test('a snapshot switch runs its meter to the end before the screen hides', () => {
+    const handler = app.slice(app.indexOf("select.addEventListener('change', async () => {"));
+    const bodies = {
+        loadDataAndRender: fnSource('async function loadDataAndRender(date)'),
+        'the snapshot selector': handler.slice(0, handler.indexOf('\n    });\n'))
+    };
+    for (const [name, src] of Object.entries(bodies)) {
+        const at = (needle) => {
+            const i = src.indexOf(needle);
+            assert.ok(i >= 0, `${name} lost ${needle}`);
+            return i;
+        };
+        const load = at('await loadData(');
+        const filters = at("await snapshotStage(78, 'Setting up filters');");
+        const charts = at("await snapshotStage(90, 'Drawing charts');");
+        const render = at('renderDashboard();');
+        const ready = at("await snapshotStage(100, 'Ready');");
+        const hide = at('hideSnapshotLoading();');
+        assert.ok(load < filters && filters < charts && charts < render && render < ready && ready < hide,
+            `${name} does not advance the meter in order: load, 78, 90, render, 100, hide`);
+    }
+    const load = fnSource('async function loadData(date)');
+    assert.match(load, /updateLoadingProgress\(60, 'Loading the archive summary'\);\s*const resp = await fetch\(`snapshots\/\$\{date\}\/dashboard-summary\.json/,
+        'a summary-only archive leaves its meter at 0%');
+});
+
+test('the loading screens scroll in a window too short for them', () => {
+    const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+    const rule = (sel) => {
+        const m = css.match(new RegExp(`\\n${sel.replace('.', '\\.')} \\{([^}]*)\\}`));
+        assert.ok(m, `styles.css lost ${sel}`);
+        return m[1];
+    };
+    assert.match(rule('.loading-overlay'), /overflow-y: auto;/);
+    assert.match(rule('.snapshot-loading-overlay'), /overflow-y: auto;/);
+    assert.doesNotMatch(rule('.loading-overlay'), /justify-content: center/, 'centring with justify-content cuts off the top of an overflowing screen');
+    assert.doesNotMatch(rule('.snapshot-loading-overlay'), /align-items: center/, 'centring with align-items cuts off the top of an overflowing panel');
+});
+
+test('the frame wait before drawing charts also ends in a hidden tab', T, async () => {
+    const src = fnSource('async function snapshotStage(percent, statusText)');
+    const seen = [];
+    const ctx = vm.createContext({
+        updateLoadingProgress: (p, s) => seen.push([p, s]),
+        requestAnimationFrame: () => 0,          // a hidden tab: no frame ever comes
+        setTimeout, Promise
+    });
+    vm.runInContext(src, ctx);
+    await vm.runInContext('snapshotStage', ctx)(90, 'Drawing charts');
+    assert.deepEqual(seen, [[90, 'Drawing charts']]);
+});

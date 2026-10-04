@@ -75,6 +75,7 @@ function showSnapshotLoading(label) {
     }
     overlay.querySelector('.loading-title').textContent = label || 'Loading snapshot…';
     overlay.querySelector('.loading-progress-bar').style.width = '0%';
+    overlay.querySelector('[role="progressbar"]').setAttribute('aria-valuenow', '0');
     overlay.querySelector('.loading-status-text').textContent = 'Starting';
     overlay.querySelector('.loading-bytes').textContent = '';
     overlay.style.display = 'flex';
@@ -83,6 +84,20 @@ function showSnapshotLoading(label) {
 function hideSnapshotLoading() {
     const overlay = document.getElementById('snapshot-loading');
     if (overlay) overlay.style.display = 'none';
+}
+
+// The stages after a snapshot's data has arrived, so its meter runs to the
+// end instead of stopping where the download did. The browser gets one
+// frame to show "Drawing charts" before the render takes the main thread;
+// a hidden tab runs no frames, so a timer ends the wait there.
+async function snapshotStage(percent, statusText) {
+    updateLoadingProgress(percent, statusText);
+    if (percent === 90) {
+        await new Promise(resolve => {
+            requestAnimationFrame(() => resolve());
+            setTimeout(resolve, 50);
+        });
+    }
 }
 
 // Historical snapshots are served from the snapshots/ directory on GitHub Pages (same origin)
@@ -1351,6 +1366,7 @@ async function loadData(date) {
     // studies list in the table.
     if (date && date !== 'latest') {
         try {
+            updateLoadingProgress(60, 'Loading the archive summary');
             const resp = await fetch(`snapshots/${date}/dashboard-summary.json?v=${DATA_CACHE_VERSION}`);
             if (resp.ok) {
                 const summary = await resp.json();
@@ -1385,13 +1401,16 @@ async function loadDataAndRender(date) {
 
     try {
         await loadData(date);
+        await snapshotStage(78, 'Setting up filters');
         await sgLoad(date === 'latest' ? undefined : date);
         if (data && data.length > 0) {
             populateConditionsDropdown();
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
+            await snapshotStage(90, 'Drawing charts');
             renderDashboard();
         }
+        await snapshotStage(100, 'Ready');
     } catch (err) {
         showToast(`Failed to load ${date || 'latest'} snapshot: ${err.message}`, 'error');
     } finally {
@@ -1445,6 +1464,7 @@ async function initHistorySelector() {
 
         try {
             await loadData(chosen);
+            await snapshotStage(78, 'Setting up filters');
             await sgLoad(chosen === 'latest' ? undefined : chosen);
 
             if (!data || data.length === 0) throw new Error('No data returned');
@@ -1453,12 +1473,14 @@ async function initHistorySelector() {
             populateConditionsDropdown();
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
+            await snapshotStage(90, 'Drawing charts');
             renderDashboard();
             // The provenance note under the parser-v2 charts names the snapshot,
             // and the canvases carry that note as their text alternative.
             labelChartsForA11y();
             updateShareUrl();
 
+            await snapshotStage(100, 'Ready');
             select.dataset.lastValue = chosen;
             const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
             showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${data.length} studies`, 'info', 3000);
