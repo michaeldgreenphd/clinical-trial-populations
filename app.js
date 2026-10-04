@@ -1082,30 +1082,45 @@ function ensurePako() {
     return _pakoReady;
 }
 
-// The data cache key: every data URL carries it as ?v=. It is the date of
-// the newest weekly publish in history.json, so a browser keeps a week's
-// files across visits and fetches new ones only when a new week is
-// published. Until history.json answers, or if it cannot be read, it is
-// today's date (the old key, which threw the cache away every day).
+// The data cache key: every data URL carries it as ?v=, so a browser keeps
+// a run's files across visits and fetches new ones only when a new run is
+// published. It is the latest run's extracted_at from data/run.json (unique
+// per run, so a same-day re-run gets a new key too); without that file, the
+// newest publish date in history.json; without either, today's date (the
+// old key, which threw the cache away every day).
 let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 
-// history.json, fetched once per page and checked with the server each time
-// (it is 146 bytes and says when a new week has landed). Null when the
-// server has none or it cannot be read.
-let historyRequest = null;
-function fetchHistory() {
-    if (!historyRequest) {
-        historyRequest = fetch('history.json', { cache: 'no-cache' })
-            .then(resp => (resp.ok ? resp.json() : null))
-            .catch(() => null);
-    }
-    return historyRequest;
+// A small JSON file fetched once per page and checked with the server each
+// time. Null when the server has none or it cannot be read; a failure is
+// not remembered, so a later caller tries again.
+function smallJsonOnce(url) {
+    let request = null;
+    return () => {
+        if (!request) {
+            request = fetch(url, { cache: 'no-cache' })
+                .then(resp => (resp.ok ? resp.json() : null))
+                .catch(() => null)
+                .then(body => {
+                    if (!body) request = null;
+                    return body;
+                });
+        }
+        return request;
+    };
 }
+// history.json lists the published dates (the archive selector reads it too).
+const fetchHistory = smallJsonOnce('history.json');
+// data/run.json holds the latest run's stamps, written by the engine with
+// the parts: extracted_at and pipeline_commit.
+const fetchRun = smallJsonOnce('data/run.json');
 
-// Set DATA_CACHE_VERSION to the newest publish date. Called before any data
-// is fetched.
+// Set DATA_CACHE_VERSION before any data is fetched.
 async function resolveDataCacheVersion() {
-    const manifest = await fetchHistory();
+    const [manifest, run] = await Promise.all([fetchHistory(), fetchRun()]);
+    if (run && typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at))) {
+        DATA_CACHE_VERSION = run.extracted_at.replace(/[^0-9T]/g, '');   // 20260927T1149536090810000
+        return DATA_CACHE_VERSION;
+    }
     const dates = (manifest && Array.isArray(manifest.dates) ? manifest.dates : [])
         .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
         .sort();

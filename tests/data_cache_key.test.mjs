@@ -1,13 +1,14 @@
 /**
  * The data cache key: every data URL carries ?v=DATA_CACHE_VERSION, and
- * that is now the newest weekly publish date from history.json instead of
- * today's date, so a returning browser keeps a week's files instead of
- * downloading all of them again every new day. And the parts merged into
- * one dataset must come from one weekly run.
+ * that is now the latest run's extracted_at from data/run.json (unique per
+ * run), or the newest publish date from history.json, instead of today's
+ * date, so a returning browser keeps a run's files instead of downloading
+ * all of them again every new day. And the parts merged into one dataset
+ * must come from one weekly run.
  *
- * resolveDataCacheVersion, fetchHistory and partsFromDifferentRuns run in a
- * vm with a stub fetch; the startup order and loadData's retry are checked
- * on the source.
+ * resolveDataCacheVersion, the small-file fetchers and
+ * partsFromDifferentRuns run in a vm with a stub fetch; the startup order
+ * and loadData's retry are checked on the source.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,48 +23,81 @@ function fnSource(sig) {
     return app.slice(at, app.indexOf('\n}\n', at) + 2);
 }
 
-const keySrc = 'let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10);\nlet historyRequest = null;\n' +
-    fnSource('function fetchHistory()') + fnSource('async function resolveDataCacheVersion()') +
-    fnSource('function partsFromDifferentRuns(parts)');
+const keyStart = app.indexOf('let DATA_CACHE_VERSION =');
+const keyEnd = app.indexOf('\n}\n', app.indexOf('async function resolveDataCacheVersion()')) + 2;
+assert.ok(keyStart >= 0 && keyEnd > keyStart, 'app.js lost the cache key block');
+const keySrc = app.slice(keyStart, keyEnd) + fnSource('function partsFromDifferentRuns(parts)');
 
+// respond(url) -> a fetch Response stand-in, or throws for a network failure.
 function harness(respond) {
     const calls = [];
     const ctx = vm.createContext({
-        Date, Array,
+        Date, Array, Promise,
         fetch: async (url, init) => {
             calls.push([url, init]);
-            return respond();
+            return respond(url);
         }
     });
     vm.runInContext(keySrc, ctx);
     return { calls, run: (src) => vm.runInContext(src, ctx) };
 }
 const today = new Date().toISOString().slice(0, 10);
-const ok = (body) => () => ({ ok: true, json: async () => body });
+const json = (body) => ({ ok: true, json: async () => body });
+const notFound = { ok: false, status: 404 };
+const HISTORY = { dates: ['2026-02-22', '2026-09-27', 'not-a-date', '2026-08-02', 7] };
+const RUN = { extracted_at: '2026-09-27T11:49:53.609081+00:00', pipeline_commit: '12b9b65' };
+const serve = (files) => (url) => {
+    if (!(url in files)) return notFound;
+    const f = files[url];
+    if (f instanceof Error) throw f;
+    return json(f);
+};
 
-test('the key is the newest publish date in history.json', async () => {
-    const h = harness(ok({ dates: ['2026-02-22', '2026-09-27', 'not-a-date', '2026-08-02', 7] }));
-    assert.equal(await h.run('resolveDataCacheVersion()'), '2026-09-27');
-    assert.equal(h.run('DATA_CACHE_VERSION'), '2026-09-27');
+test('the key is the latest run\'s extracted_at, so a same-day re-run gets a new one', async () => {
+    const h = harness(serve({ 'history.json': HISTORY, 'data/run.json': RUN }));
+    assert.equal(await h.run('resolveDataCacheVersion()'), '20260927T1149536090810000');
+    const rerun = harness(serve({ 'history.json': HISTORY, 'data/run.json': { ...RUN, extracted_at: '2026-09-27T15:02:11.5+00:00' } }));
+    assert.notEqual(await rerun.run('resolveDataCacheVersion()'), '20260927T1149536090810000');
 });
 
-test('history.json is fetched once, and checked with the server each visit', async () => {
-    const h = harness(ok({ dates: ['2026-09-27'] }));
-    await Promise.all([h.run('resolveDataCacheVersion()'), h.run('fetchHistory()'), h.run('fetchHistory()')]);
-    assert.equal(h.calls.length, 1, 'history.json was fetched more than once');
-    assert.equal(h.calls[0][0], 'history.json');
-    assert.equal(h.calls[0][1]?.cache, 'no-cache', 'a cached history.json could hide a new week for its whole max-age');
+test('without data/run.json the key is the newest publish date in history.json', async () => {
+    for (const run of [undefined, { extracted_at: 'last Sunday' }, { pipeline_commit: 'x' }, new Error('offline')]) {
+        const files = { 'history.json': HISTORY };
+        if (run !== undefined) files['data/run.json'] = run;
+        const h = harness(serve(files));
+        assert.equal(await h.run('resolveDataCacheVersion()'), '2026-09-27');
+    }
 });
 
-test('without a readable history.json the key stays today\'s date', async () => {
-    for (const respond of [() => ({ ok: false, status: 404 }), () => { throw new Error('offline'); }, ok({}), ok({ dates: [] }), ok(null)]) {
-        const h = harness(respond);
+test('without either file the key stays today\'s date', async () => {
+    for (const history of [undefined, new Error('offline'), {}, { dates: [] }, null]) {
+        const h = harness(serve(history === undefined ? {} : { 'history.json': history }));
         assert.equal(await h.run('resolveDataCacheVersion()'), today);
     }
 });
 
+test('each small file is fetched once, and checked with the server each visit', async () => {
+    const h = harness(serve({ 'history.json': HISTORY, 'data/run.json': RUN }));
+    await Promise.all([h.run('resolveDataCacheVersion()'), h.run('fetchHistory()'), h.run('fetchHistory()'), h.run('fetchRun()')]);
+    assert.deepEqual(h.calls.map(([u]) => u).sort(), ['data/run.json', 'history.json'], 'a file was fetched more than once');
+    for (const [, init] of h.calls) assert.equal(init?.cache, 'no-cache', 'a cached copy could hide a new run for its whole max-age');
+});
+
+test('a failed fetch is not remembered: the archive selector tries again', async () => {
+    let up = false;
+    const h = harness((url) => {
+        if (!up) throw new Error('offline');
+        return url === 'history.json' ? json(HISTORY) : notFound;
+    });
+    assert.equal(await h.run('fetchHistory()'), null);
+    up = true;
+    const later = await h.run('fetchHistory()');
+    assert.ok(later && Array.isArray(later.dates), 'the startup failure stuck for the rest of the visit');
+    assert.equal(h.calls.filter(([u]) => u === 'history.json').length, 2);
+});
+
 test('parts from two weekly runs are told apart', () => {
-    const h = harness(ok({}));
+    const h = harness(serve({}));
     const parts = (...stamps) => JSON.stringify(stamps.map((s) => ({ extracted_at: s })));
     assert.equal(h.run(`partsFromDifferentRuns(${parts('a', 'a', 'a')})`), false);
     assert.equal(h.run(`partsFromDifferentRuns(${parts('a', 'a', 'b')})`), true);
@@ -84,8 +118,10 @@ test('startup resolves the key before it fetches any data', () => {
 });
 
 test('every reader of history.json shares the one request', () => {
-    const fetches = [...app.matchAll(/fetch\(\s*['"`]history\.json/g)];
-    assert.equal(fetches.length, 1, 'history.json is fetched outside fetchHistory');
+    assert.deepEqual([...app.matchAll(/fetch\(\s*['"`](?:history\.json|data\/run\.json)/g)], [],
+        'history.json or data/run.json is fetched outside the shared fetchers');
+    assert.match(app, /const fetchHistory = smallJsonOnce\('history\.json'\);/);
+    assert.match(app, /const fetchRun = smallJsonOnce\('data\/run\.json'\);/);
     assert.match(fnSource('async function initHistorySelector()'), /await fetchHistory\(\)/);
 });
 
