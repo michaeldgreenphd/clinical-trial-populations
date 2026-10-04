@@ -36,6 +36,15 @@ test('part_count is the number of parts app.js actually fetches', () => {
     }
 });
 
+test("the budget's notes name GitHub's hard limit, not a CDN's", () => {
+    // The parts are served from GitHub Pages. The budget is a budget; the
+    // hard per-file limit is GitHub's 100 MiB push limit, which is where the
+    // engine's weekly gate blocks.
+    const about = budget.about.join(' ');
+    assert.doesNotMatch(about, /jsDelivr|CDN/i, 'the notes still cite a CDN limit the site does not depend on');
+    assert.match(about, /\b100 MiB\b/, "the notes do not name GitHub's 100 MiB per-file push limit");
+});
+
 test('every full snapshot holds exactly the parts app.js asks for', () => {
     // app.js fetches a snapshot with the same partFiles(n) as the latest data,
     // and the snapshots are frozen sets. A part_count that no longer matches

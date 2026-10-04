@@ -1,9 +1,9 @@
 {
   "about": [
     "Size ceilings for the study records the dashboard downloads at startup: data/demographics.part1..N.json.gz.",
-    "part_count is the number of parts app.js fetches (NUM_PARTS). part_gzip_max_bytes is per file (jsDelivr's 20 MiB limit for snapshots served from the GitHub CDN mirror). total_gzip_max_bytes is the sum over the parts.",
+    "part_count is the number of parts app.js fetches (NUM_PARTS). part_gzip_max_bytes is a per-file budget and total_gzip_max_bytes a budget for the sum over the parts; neither is a hosting limit. The parts are served from GitHub Pages, and the hard limits are GitHub's: a file over 100 MiB cannot be pushed, and a Pages site over 1 GB cannot be published.",
     "The ceilings ratchet down: each engine change that shrinks the parts is followed by a site change lowering them to the new size plus about 15% headroom, so a weekly push cannot quietly grow them back.",
-    "The engine's weekly publish reads this file before pushing; tests/data_budget.test.mjs checks the committed parts against it."
+    "The engine's weekly publish (scripts/check_site_contract.py in civicsample-engine) reads this file before pushing. Over budget it warns and still pushes; it blocks only at the hard limits. tests/data_budget.test.mjs checks the committed parts against this file and fails when they are over budget: the alarm on the site side, after the push is live."
   ],
   "part_count": 8,
   "part_gzip_max_bytes": 20971520,
