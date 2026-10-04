@@ -2,7 +2,7 @@
   "about": [
     "Every study-record field the site reads, as paths into one record of data/demographics.partN.json.gz.",
     "A path is a key ('status'), a key inside an object ('race.reported'), or a key on every item of a list ('study_sites[].country'). The contract asks that the key be present; its value may be null or empty, which is how a record says 'none'.",
-    "Classes say what reads the field. core: the dashboard, its filters and share links, over every record at load. studies_tab: the Studies table, its tooltips and the publications and breakdown views. detail: the study and geography-breakdown pop-ups only.",
+    "Classes say what reads the field. core: the dashboard, its filters (including the population filter's age fallback) and share links, over every record at load. studies_tab: the Studies table, its tooltips and the publications and breakdown views. detail: the study and geography-breakdown pop-ups only. A field read in more than one place takes the earliest class.",
     "Today the part files carry all three classes. A later change may move studies_tab and detail fields out of the parts into files fetched when needed; core stays in the parts.",
     "The engine's weekly publish reads this file (and data_budget.json) and refuses to push parts that drop a listed field. tests/study_record_contract.test.mjs keeps it honest against app.js and checks the published parts against it."
   ],
@@ -33,6 +33,8 @@
       "healthy_volunteers",
       "pediatric_status",
       "std_ages",
+      "min_age",
+      "max_age",
       "primary_endpoint",
       "is_fda_regulated_drug",
       "is_fda_regulated_device",
@@ -62,6 +64,8 @@
       "sex_gender.parser_rules_version"
     ],
     "studies_tab": [
+      "status",
+      "why_stopped",
       "references[].pmid",
       "references[].citation",
       "references[].source",
@@ -112,11 +116,7 @@
       "lead_sponsor_name",
       "collaborators[].name",
       "collaborators[].class",
-      "status",
-      "why_stopped",
-      "last_update",
-      "min_age",
-      "max_age"
+      "last_update"
     ]
   },
   "not_record_fields": {

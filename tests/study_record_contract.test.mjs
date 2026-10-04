@@ -7,12 +7,17 @@
  *  - app.js reads no record field the contract leaves out (so a new read
  *    has to be added to the contract, where the engine will see it), and
  *    the contract lists no field app.js never reads;
- *  - the published parts carry every listed path on every record.
+ *  - every published part carries every listed path on every record.
  *
- * The app.js side is a source scan of the names it reads off a record
- * (`study.`, `fullStudy.`, `ctgov.`, including `?.`) and of the Studies
- * table's sort keys. Short names such as `s.` are left out: app.js uses
- * them for other things too, and a scan over them would fail on noise.
+ * The app.js side is a source scan of the member chains it reads off a
+ * record (`study.`, `fullStudy.`, `ctgov.`, including `?.`): each chain is
+ * followed until it reaches a listed field, and a step that is neither a
+ * listed field nor a standard method on a value fails (so a new
+ * `study.race.new_metric` is caught, not only a new top-level name). The
+ * Studies table's sort keys are checked too. Short names such as `s.`, and
+ * reads through a local variable (`const r = study.race; r.x`), are left
+ * out: app.js uses those names for other things, and a scan over them
+ * would fail on noise.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,6 +34,27 @@ const classes = contract.classes;
 const allPaths = Object.values(classes).flat();
 const topLevel = new Set(allPaths.map((p) => p.split(/[.[]/)[0]));
 const notRecord = new Set(Object.keys(contract.not_record_fields));
+
+// Contract paths without their list markers: 'race.raw_categories.omb_category'.
+const leaves = new Set(allPaths.map((p) => p.replaceAll('[]', '')));
+const prefixes = new Set([...leaves].flatMap((p) => p.split('.').slice(1).map((_, i, a) => p.split('.').slice(0, i + 1).join('.'))));
+// Methods and properties of the values a record holds (strings, numbers, lists).
+const VALUE_MEMBERS = new Set(['length', 'forEach', 'map', 'filter', 'some', 'every', 'find', 'includes', 'reduce',
+    'slice', 'join', 'split', 'indexOf', 'sort', 'concat', 'substring', 'toLowerCase', 'toUpperCase', 'trim',
+    'startsWith', 'endsWith', 'replace', 'match', 'toLocaleString', 'toString', 'toFixed']);
+
+// The first step of a chain of member names that the contract does not cover, or null.
+function uncovered(chain) {
+    if (notRecord.has(chain[0])) return null;
+    for (let k = 1; k <= chain.length; k++) {
+        const path = chain.slice(0, k).join('.');
+        if (leaves.has(path)) return null;              // a listed field; what follows works on its value
+        if (prefixes.has(path)) continue;                // an object or list the contract reaches into
+        if (k > 1 && VALUE_MEMBERS.has(chain[k - 1])) return null;
+        return path;
+    }
+    return null;                                         // the chain stops at an object the contract reaches into
+}
 
 // "race.raw_categories[].omb_category" -> [race, raw_categories[], omb_category]
 function segments(path) {
@@ -65,17 +91,35 @@ test('the contract is well formed: each path once, in one class', () => {
     for (const name of notRecord) assert.ok(!topLevel.has(name), `${name} is both a record field and not one`);
 });
 
+function recordReads(source) {
+    const chains = [];
+    for (const m of source.matchAll(/\b(?:study|fullStudy|ctgov)((?:\??\.[A-Za-z_][A-Za-z0-9_]*)+)/g)) {
+        chains.push(m[1].replaceAll('?.', '.').split('.').filter(Boolean));
+    }
+    for (const m of source.matchAll(/\b(?:study|fullStudy|ctgov)\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\]/g)) chains.push([m[1]]);
+    return chains;
+}
+
 test('app.js reads no record field the contract leaves out', () => {
-    const reads = new Set();
-    for (const m of app.matchAll(/\b(?:study|fullStudy|ctgov)\??\.([A-Za-z_][A-Za-z0-9_]*)/g)) reads.add(m[1]);
-    for (const m of app.matchAll(/\b(?:study|fullStudy|ctgov)\[\s*['"]([A-Za-z_][A-Za-z0-9_]*)['"]\s*\]/g)) reads.add(m[1]);
+    const chains = recordReads(app);
     const table = html.slice(html.indexOf('class="studies-table'), html.indexOf('</thead>', html.indexOf('class="studies-table')));
     assert.ok(table.length > 0, 'index.html lost the studies table header');
-    for (const m of table.matchAll(/data-sort="([^"]+)"/g)) reads.add(m[1]);
-    const unlisted = [...reads].filter((f) => !topLevel.has(f) && !notRecord.has(f)).sort();
+    for (const m of table.matchAll(/data-sort="([^"]+)"/g)) chains.push([m[1]]);
+    const unlisted = [...new Set(chains.map(uncovered).filter(Boolean))].sort();
     assert.deepEqual(unlisted, [],
         `app.js reads record fields the contract does not list: ${unlisted.join(', ')}. ` +
         'Add each to tests/record_contract.json under the class that reads it, or to not_record_fields if it is not a record field.');
+});
+
+test('the source scan follows nested reads, not only top-level names', () => {
+    const flagged = (src) => [...new Set(recordReads(src).map(uncovered).filter(Boolean))];
+    assert.deepEqual(flagged('x = study.race.new_metric;'), ['race.new_metric']);
+    assert.deepEqual(flagged('x = study?.sex?.totals?.female;'), [], 'a key inside a listed object is the object\'s business');
+    assert.deepEqual(flagged('n = fullStudy.secondary_outcomes.length; s = study.results_date.substring(0, 4);'), []);
+    assert.deepEqual(flagged('x = ctgov.study_sites.map(f);'), []);
+    assert.deepEqual(flagged('x = study.study_sites.facility_count;'), ['study_sites.facility_count']);
+    assert.deepEqual(flagged("x = study['keywords'];"), ['keywords']);
+    assert.deepEqual(flagged('x = study._isAI;'), []);
 });
 
 test('the contract lists no field app.js never reads', () => {
@@ -84,22 +128,40 @@ test('the contract lists no field app.js never reads', () => {
     assert.deepEqual(unread, [], `listed but never read by app.js: ${unread.join(', ')}`);
 });
 
-test('every record in the published parts carries every contract path', () => {
-    const file = 'data/demographics.part1.json.gz';
-    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} is missing`);
-    const part = JSON.parse(gunzipSync(readFileSync(new URL(`../${file}`, import.meta.url))).toString('utf8'));
-    for (const key of ['extracted_at', 'part', 'total_parts', 'data']) assert.ok(key in part, `the part header lost ${key}`);
-    assert.equal(part.total_parts, budget.part_count, 'the part count differs from the one app.js fetches');
-    assert.ok(Array.isArray(part.data) && part.data.length > 0, 'part 1 has no records');
+test('every record in every published part carries every contract path', { timeout: 120000 }, () => {
+    // The browser downloads every part, so every part is read: one at a
+    // time, each gunzipped and parsed, then released.
     const failures = [];
-    for (const record of part.data) {
-        for (const path of allPaths) {
-            const why = missing(record, path);
-            if (why) failures.push(`${record.nct_id ?? '(no nct_id)'} ${path}: ${why}`);
+    const seen = new Set();
+    let first = null;
+    for (let i = 1; i <= budget.part_count; i++) {
+        const file = `data/demographics.part${i}.json.gz`;
+        assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} is missing`);
+        let part;
+        try {
+            part = JSON.parse(gunzipSync(readFileSync(new URL(`../${file}`, import.meta.url))).toString('utf8'));
+        } catch (e) {
+            assert.fail(`${file} is not gzipped JSON: ${e.message}`);
+        }
+        for (const key of ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'data']) assert.ok(key in part, `${file} header lost ${key}`);
+        assert.equal(part.part, i, `${file} says it is part ${part.part}`);
+        assert.equal(part.total_parts, budget.part_count, `${file}: the part count differs from the one app.js fetches`);
+        first ??= part;
+        assert.equal(part.extracted_at, first.extracted_at, `${file} comes from another pull than part 1`);
+        assert.equal(part.pipeline_commit, first.pipeline_commit, `${file} comes from another engine run than part 1`);
+        assert.ok(Array.isArray(part.data) && part.data.length > 0, `${file} has no records`);
+        for (const record of part.data) {
+            if (seen.has(record.nct_id)) failures.push(`${record.nct_id} appears in more than one record (${file})`);
+            seen.add(record.nct_id);
+            for (const path of allPaths) {
+                const why = missing(record, path);
+                if (why) failures.push(`${file} ${record.nct_id ?? '(no nct_id)'} ${path}: ${why}`);
+            }
+            if (failures.length >= 20) break;
         }
         if (failures.length >= 20) break;
     }
-    assert.deepEqual(failures, [], `published records are missing contract fields:\n${failures.join('\n')}`);
+    assert.deepEqual(failures, [], `published records break the contract:\n${failures.join('\n')}`);
 });
 
 test('the path check itself tells present, empty and absent apart', () => {

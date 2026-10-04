@@ -18,8 +18,22 @@ test('the budget is well formed', () => {
     }
     assert.ok(budget.total_gzip_max_bytes <= budget.part_count * budget.part_gzip_max_bytes,
         'the total ceiling is looser than the per-part ceilings allow');
+});
+
+test('part_count is the number of parts app.js actually fetches', () => {
+    // NUM_PARTS is a declaration; the fetch path calls partFiles(n). Each call
+    // must ask for part_count parts, by literal or through NUM_PARTS, or a
+    // browser would silently skip parts the budget says exist.
     const app = readFileSync(new URL('app.js', root), 'utf8');
-    assert.match(app, new RegExp(`const NUM_PARTS = ${budget.part_count};`), 'part_count differs from app.js NUM_PARTS');
+    const declared = app.match(/const NUM_PARTS = (\d+);/);
+    assert.ok(declared, 'app.js lost NUM_PARTS');
+    assert.equal(Number(declared[1]), budget.part_count, 'part_count differs from app.js NUM_PARTS');
+    const calls = [...app.matchAll(/\bpartFiles\(\s*([^)]*?)\s*\)/g)].map((m) => m[1]).filter((arg) => arg !== 'n');
+    assert.ok(calls.length > 0, 'app.js no longer builds its part list with partFiles()');
+    for (const arg of calls) {
+        const n = arg === 'NUM_PARTS' ? Number(declared[1]) : Number(arg);
+        assert.equal(n, budget.part_count, `app.js fetches partFiles(${arg}), not the ${budget.part_count} parts the budget names`);
+    }
 });
 
 test('the startup parts stay within the budget', (t) => {
