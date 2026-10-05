@@ -1993,7 +1993,7 @@ function drawOverlay(id, html, redraw) {
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
     const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
     overlay.innerHTML = html;
-    if (open && overlay.firstElementChild) overlay.firstElementChild.style.animation = 'none';
+    overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
     if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {

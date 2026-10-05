@@ -1974,6 +1974,12 @@ footer p {
     }
 }
 
+/* A pop-up redrawn in place, as what it waits for lands (app.js
+   drawOverlay), does not slide in again. */
+.modal-overlay.is-redrawn > * {
+    animation: none;
+}
+
 .breakdown-modal {
     background: white;
     padding: 2rem;

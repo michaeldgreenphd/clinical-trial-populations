@@ -789,27 +789,36 @@ test('a pop-up that fills in place does not play its entrance again', T, async (
     // .study-details-modal and .breakdown-modal slide up as they open. A
     // redraw puts new markup in the overlay, and the new box would slide up
     // again from transparent: the whole pop-up blinked as its shard landed.
+    // The overlay carries is-redrawn while it redraws in place, and the
+    // pop-up's own markup stays what the inline view draws.
     const h = harness({ files: split() });
     await h.run('loadData()');
     h.hold();
     h.run(`showStudyDetails('${IDS[0]}')`);
     const overlay = h.el('study-details-overlay');
-    assert.match(overlay.firstElementChild.innerHTML, /^\s*<div class="study-details-modal">/);
-    assert.equal(overlay.firstElementChild.style.animation, undefined, 'the pop-up did not open with its entrance');
+    assert.equal(overlay.classList.contains('is-redrawn'), false, 'the pop-up did not open with its entrance');
     await h.release();
     assert.match(h.overlay(), /Harbor Clinic/);
-    assert.equal(overlay.firstElementChild.style.animation, 'none', 'the filled pop-up played its entrance again');
+    assert.equal(overlay.classList.contains('is-redrawn'), true, 'the filled pop-up played its entrance again');
+    assert.match(h.overlay(), /^\s*<div class="study-details-modal">/, "the redraw changed the pop-up's own markup");
     h.run('closeStudyDetails()');
     h.run(`showStudyDetails('${IDS[0]}')`);
-    assert.equal(overlay.firstElementChild.style.animation, undefined, 'a pop-up opened again lost its entrance');
+    assert.equal(overlay.classList.contains('is-redrawn'), false, 'a pop-up opened again lost its entrance');
     // The same for the breakdown pop-ups.
     const b = harness({ files: split() });
     await b.run('loadData()');
     b.hold();
     b.run(`showGeographyBreakdown('${IDS[0]}')`);
-    assert.equal(b.el('breakdown-overlay').firstElementChild.style.animation, undefined);
+    assert.equal(b.el('breakdown-overlay').classList.contains('is-redrawn'), false);
     await b.release();
-    assert.equal(b.el('breakdown-overlay').firstElementChild.style.animation, 'none');
+    assert.equal(b.el('breakdown-overlay').classList.contains('is-redrawn'), true);
+    // styles.css stops the entrance of whatever an overlay holds while it redraws,
+    // with a selector more specific than the boxes' own (one class each).
+    const rule = cssRules(css).find((r) => r.selectors.includes('.modal-overlay.is-redrawn > *'));
+    assert.ok(rule && rule.decls.animation === 'none', 'styles.css does not stop the entrance of a redrawn pop-up');
+    for (const box of ['.study-details-modal', '.breakdown-modal']) {
+        assert.ok(cssRules(css).some((r) => r.selectors.includes(box) && /slideUp/.test(r.decls.animation || '')), `${box} no longer slides in; update this test`);
+    }
 });
 
 test("the status row's Try again keeps focus in the row while the extras load, then hands it to the table", T, async () => {
