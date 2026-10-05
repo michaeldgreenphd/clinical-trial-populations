@@ -36,8 +36,31 @@ const ENROLLMENT_AXIS_TITLE = isMobileDevice ? '% Enrollment' : '% of Total Enro
 // undefined on desktop = Chart.js keeps its per-type default.
 const CHART_ASPECT_RATIO = isMobileDevice ? 1 : undefined;
 
-// ── Snapshot cache: avoids re-downloading previously loaded snapshots ──
-const snapshotCache = new Map(); // key: date string ('latest' | 'YYYY-MM-DD'), value: { data, dateLabel }
+// ── Snapshot cache: the latest data and the snapshot on screen (decision 8a) ──
+// A full snapshot costs about 0.75-1 GB of browser memory once parsed, so the
+// page keeps only two: the latest data, which most visits go back to, and the
+// snapshot on screen. Four cached snapshots measured 2.96 GiB of a 4 GiB tab.
+const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, reader }
+
+// Drop every cached dataset but the latest and the one on screen, and with
+// it what its reader loaded (the Studies-tab extras and detail shards ride on
+// the entry), plus its ?sg=v2 join table (tens of MB). Run once a switch has
+// rendered, or has fallen back, never when a dataset is stored: the snapshot
+// being left stays cached until the new one is drawn, so a failed switch goes
+// back to it at once, with nothing downloaded again. The entry holding the
+// data actually on screen is kept whatever key it was asked for under (two
+// switches can overlap). The small ?sg=v2 caches (a remembered 404, a meta
+// without a table, the methods and beta summaries) stay: dropping them would
+// only ask for the same small files again.
+function retainSnapshots(onScreen) {
+    const keep = new Set(['latest', onScreen || 'latest']);
+    for (const [key, entry] of [...snapshotCache]) {
+        if (!keep.has(key) && !(entry && entry.data === data)) snapshotCache.delete(key);
+    }
+    for (const [key, entry] of [...sgCache]) {
+        if (!keep.has(key) && entry && entry.table) sgCache.delete(key);
+    }
+}
 
 // ── Toast notifications ──
 function showToast(message, type = 'error', durationMs = 5000) {
@@ -1330,8 +1353,9 @@ async function fetchAndDecompress(url, onProgress, init) {
 // datasetReader is the reader of the dataset on screen. loadData assigns it in
 // the same synchronous step as data and dashboardSummary, and keeps it on the
 // dataset's snapshotCache entry: a revisit reuses what it loaded, and whatever
-// frees the entry frees that too. A fetch fills the reader it was started for;
-// a view it redraws first checks that its dataset is still the one on screen.
+// frees the entry (retainSnapshots) frees that too. A fetch fills the reader
+// it was started for; a view it redraws first checks that its dataset is
+// still the one on screen.
 const LAYOUT_VERSION = 1;                    // tests/record_contract.json layout.version
 const LAYOUT_SHARD_KEY = 'nct_number_mod';   // its detail.key
 // The frozen 2026-03-05 details files hold every row of the 2026-02-22 archive
@@ -2347,7 +2371,8 @@ async function loadData(date) {
 
             // ── Cache this snapshot for instant re-access ──
             // The reader rides on the entry, so the extras it loads are kept
-            // with the dataset and go when the entry goes.
+            // with the dataset and go when the entry goes. Nothing is dropped
+            // here: retainSnapshots runs once the switch has rendered.
             snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, reader: datasetReader });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
@@ -2422,6 +2447,7 @@ async function loadDataAndRender(date) {
             populatePrimaryConditionDropdown();
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
+            retainSnapshots(date || 'latest');
         }
         await snapshotStage(100, 'Ready');
     } catch (err) {
@@ -2496,12 +2522,17 @@ async function initHistorySelector() {
 
             await snapshotStage(100, 'Ready');
             select.dataset.lastValue = chosen;
+            // Only now, with this dataset drawn, does the one it replaced go.
+            retainSnapshots(chosen);
             const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
             showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${data.length} studies`, 'info', 3000);
         } catch (err) {
             console.error('Snapshot switch failed:', err);
             showToast(`Snapshot "${chosen}" unavailable: ${err.message}. Reverting.`, 'error', 5000);
-            // Revert dropdown and reload previous data
+            // The dataset that failed is not kept: loadData may have cached it
+            // (an archive with no study rows) before it was found wanting.
+            if (chosen !== 'latest' && chosen !== previousValue) snapshotCache.delete(chosen);
+            // Revert dropdown and reload previous data (still cached)
             select.value = previousValue;
             if (previousValue !== chosen) {
                 try { await loadData(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
@@ -2515,6 +2546,7 @@ async function initHistorySelector() {
                 labelChartsForA11y();
                 updateShareUrl();
             }
+            retainSnapshots(previousValue);
         } finally {
             hideSnapshotLoading();
         }
