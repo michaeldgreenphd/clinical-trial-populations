@@ -6,9 +6,12 @@
  * desktop default (and the Industry view, which honours the same slider)
  * would have left those studies out without saying so, and a range input
  * cannot even be set past its max. The window's upper end is now the latest
- * results year in the dataset on screen, and an upper thumb at that end
- * applies no bound at all. The Years chip names the range the filters apply
- * after every move of the window.
+ * results year in the dataset on screen, and an upper thumb the reader
+ * leaves at that end applies no bound at all.
+ *
+ * What the reader asked for is kept apart from the thumbs, so a switch to a
+ * dataset whose window ends at or before a chosen year neither drops the
+ * bound nor narrows it, and the Years chip and the share link follow.
  *
  * The year-window helpers, initFilters (for the slider's own listeners),
  * Reset, the chips, the share-link writer and reader, getFilteredData,
@@ -151,12 +154,12 @@ const TRIALS = `{ trials: [[0, 50, 2026, 2024, 0, 0, 0, 1], [0, 50, 2027, 2025, 
 test('a 2027 results date survives the default desktop view', () => {
     const h = harness();
     h.run(`data = ${STUDIES}; syncYearWindow();`);
-    assert.equal(h.els['year-end'].max, '2027', 'the window still ends at the year written into index.html');
-    assert.equal(h.els['year-start'].max, '2027', 'the lower thumb cannot reach the new year');
-    assert.equal(h.els['year-end'].value, '2027', 'the default upper thumb did not move to the new end');
+    assert.equal(h.ye.max, '2027', 'the window still ends at the year written into index.html');
+    assert.equal(h.ys.max, '2027', 'the lower thumb cannot reach the new year');
+    assert.equal(h.ye.value, '2027', 'the default upper thumb did not move to the new end');
     assert.equal(h.els['year-end-label'].textContent, '2027');
     assert.equal(h.els['year-end-tooltip'].style.left, '100%');
-    assert.deepEqual(h.run('getFilteredData().map(s => s.nct_id)'), ['A', 'B']);
+    assert.deepEqual(h.rows(), ['A', 'B']);
 });
 
 test('the Industry view keeps 2027 trials under the same slider', () => {
@@ -171,34 +174,72 @@ test('an upper thumb at the end of a stale window applies no bound; a narrowed o
     // still drops nothing.
     const h = harness();
     h.run(`data = ${STUDIES}; industryData = ${TRIALS};`);
-    assert.equal(h.els['year-end'].max, '2026', 'the stub no longer starts from index.html’s 2026');
-    assert.deepEqual(h.run('getFilteredData().map(s => s.nct_id)'), ['A', 'B']);
+    assert.equal(h.ye.max, '2026', 'the stub no longer starts from index.html’s 2026');
+    assert.deepEqual(h.rows(), ['A', 'B']);
     assert.deepEqual(h.run('industryFilteredRows().map(t => t[2])'), [2026, 2027]);
     // A thumb the reader moved off the end is a real bound.
-    h.run('syncYearWindow();');
-    h.els['year-end'].value = '2026';
-    assert.deepEqual(h.run('getFilteredData().map(s => s.nct_id)'), ['A']);
+    h.run('initFilters();');
+    h.drag(h.ye, 2026);
+    assert.deepEqual(h.rows(), ['A']);
     assert.deepEqual(h.run('industryFilteredRows().map(t => t[2])'), [2026]);
 });
 
-test('a narrowed range is kept across a dataset switch; the default follows the data', () => {
+test('a narrowed range is kept across dataset switches; the default follows the data', () => {
     const h = harness();
-    h.run(`data = ${STUDIES}; syncYearWindow();`);
-    h.els['year-end'].value = '2020';
-    // An aggregate archive whose results end in 2026
-    h.run(`dashboardSummary = { byYear: { '2009': {}, '2026': {} } }; syncYearWindow();`);
-    assert.equal(h.els['year-end'].max, '2026', 'an archive kept the latest data’s window');
-    assert.equal(h.els['year-end'].value, '2020', 'a narrowed range was widened by a switch');
-    // Back at the archive's end, then back to the latest data
-    h.els['year-end'].value = '2026';
-    h.run('dashboardSummary = null; syncYearWindow();');
-    assert.equal(h.els['year-end'].value, '2027', 'a thumb at the archive’s end did not follow the latest data');
-    assert.deepEqual(h.run('getFilteredData().map(s => s.nct_id)'), ['A', 'B']);
-    // A lower thumb past a shorter window's end is pulled back inside it
-    h.els['year-start'].value = '2027';
-    h.run(`dashboardSummary = { byYear: { '2009': {}, '2026': {} } }; syncYearWindow();`);
-    assert.equal(h.els['year-start'].value, '2026');
-    assert.equal(h.els['year-end'].value, '2026');
+    h.run(`data = ${STUDIES}; initFilters();`);
+    h.drag(h.ye, 2020);
+    h.archive(2026);   // an aggregate archive whose results end in 2026
+    assert.equal(h.window(), '2009-2020 of 2009-2026', 'a narrowed range was widened by a switch');
+    h.latest();
+    assert.equal(h.window(), '2009-2020 of 2009-2027');
+    // Reset: the upper end is open again and follows each dataset's end
+    h.run('resetFilters();');
+    h.archive(2026);
+    assert.equal(h.window(), '2009-2026 of 2009-2026');
+    h.latest();
+    assert.equal(h.window(), '2009-2027 of 2009-2027', 'an open upper end did not follow the latest data');
+    assert.deepEqual(h.rows(), ['A', 'B']);
+    // A lower thumb past a shorter window's end is pulled inside it, and
+    // goes back to the reader's year once the data reaches it again
+    h.drag(h.ys, 2027);
+    h.archive(2026);
+    assert.equal(h.window(), '2026-2026 of 2009-2026');
+    h.latest();
+    assert.equal(h.window(), '2027-2027 of 2009-2027', 'the lower thumb lost the reader’s year');
+    assert.deepEqual(h.rows(), ['B']);
+});
+
+test('a deliberate end at an archive’s last year stays a bound, on screen and in the link', () => {
+    // From January 2027 every archive ends in 2026, and "leave out the
+    // partial new year" (an end of 2026) is the likeliest narrowing.
+    const h = harness();
+    h.run(`data = ${STUDIES}; initFilters();`);
+    h.drag(h.ye, 2026);
+    assert.deepEqual(h.rows(), ['A']);
+    assert.deepEqual(h.link(), { ys: null, ye: '2026' });
+    h.archive(2026);
+    assert.equal(h.window(), '2009-2026 of 2009-2026');
+    assert.equal(h.end(), 2026, 'a deliberate 2026 became "no upper limit" where the window ends in 2026');
+    assert.deepEqual(h.link(), { ys: null, ye: '2026' }, 'the share link dropped the bound');
+    h.latest();
+    assert.equal(h.window(), '2009-2026 of 2009-2027', 'the range widened on the way back to Latest');
+    assert.deepEqual(h.rows(), ['A']);
+    assert.deepEqual(h.link(), { ys: null, ye: '2026' });
+    // A window that ends before the bound clamps the thumb, and the bound
+    // comes back with the data
+    h.archive(2024);
+    assert.equal(h.window(), '2009-2024 of 2009-2024');
+    assert.deepEqual(h.link(), { ys: null, ye: '2026' }, 'a link copied here would lose the reader’s 2026');
+    h.latest();
+    assert.equal(h.window(), '2009-2026 of 2009-2027', 'the clamp to 2024 outlived the archive');
+    // The reader dragging the thumb to a window's end is "no upper limit"
+    h.archive(2026);
+    h.drag(h.ye, 2025);
+    h.drag(h.ye, 2026);
+    assert.equal(h.end(), null);
+    h.latest();
+    assert.equal(h.window(), '2009-2027 of 2009-2027');
+    assert.deepEqual(h.rows(), ['A', 'B']);
 });
 
 test('the Years chip names the range the filters apply after every switch', () => {
@@ -206,22 +247,66 @@ test('the Years chip names the range the filters apply after every switch', () =
     h.run(`data = ${STUDIES}; initFilters();`);
     const agrees = (step) => {
         const bounded = h.ys.value !== h.ys.min || h.end() !== null;
-        assert.deepEqual(h.chips(), bounded ? [`Years: ${h.ys.value}-${h.ye.value}`] : [],
-            `the chip disagrees with the filters ${step}`);
+        assert.deepEqual(h.chips(), bounded ? [`Years: ${h.ys.value}-${h.ye.value}`] : [], step);
     };
-    agrees('at start-up');
+    agrees('start-up');
     h.drag(h.ye, 2026);
-    agrees('after narrowing to 2026');
+    assert.deepEqual(h.chips(), ['Years: 2009-2026']);
+    h.archive(2024);
+    assert.deepEqual(h.chips(), ['Years: 2009-2024'], 'the chip kept naming 2026 over a window clamped to 2024');
+    h.latest();
+    assert.deepEqual(h.chips(), ['Years: 2009-2026']);
+    h.removeChip('Years: 2009-2026');
+    assert.deepEqual(h.chips(), []);
+    assert.equal(h.end(), null, 'the chip’s × left the bound in place');
     h.archive(2026);
-    agrees('on an archive ending in 2026');
+    h.latest();
+    assert.equal(h.window(), '2009-2027 of 2009-2027', 'a bound cleared by the chip’s × came back after a switch');
+    h.drag(h.ye, 2026);
+    h.drag(h.ye, 2027);
+    agrees('thumb back at the end');
+    h.drag(h.ys, 2027);
+    assert.deepEqual(h.chips(), ['Years: 2027-2027']);
+    h.archive(2026);
+    assert.deepEqual(h.chips(), ['Years: 2026-2026'], 'a stale “Years: 2027-2027” over a window ending in 2026');
     h.latest();
     agrees('back on Latest');
-    h.drag(h.ys, 2027);
-    agrees('with the lower thumb at 2027');
-    h.archive(2026);
-    agrees('with the lower thumb on the archive');
+    h.run('resetFilters();');
+    assert.deepEqual(h.chips(), []);
+});
+
+test('a shared link keeps its years where the window ends at or before them', () => {
+    // A link copied from an archive ending in 2026, after the reader left
+    // out 2027 on Latest, opens on that archive first.
+    const h = harness();
+    h.latest(STUDIES_2026);
+    h.run('initFilters(); applyShareParams("ye=2026");');
+    assert.equal(h.window(), '2009-2026 of 2009-2026');
+    assert.equal(h.end(), 2026, 'the link’s 2026 end turned into “no upper limit”');
+    assert.deepEqual(h.chips(), ['Years: 2009-2026']);
     h.latest();
-    agrees('back on Latest again');
+    assert.equal(h.window(), '2009-2026 of 2009-2027');
+    assert.deepEqual(h.rows(), ['A']);
+    // A start past this window's end is clamped on screen and kept for the
+    // data that reaches it; a link without ye stays open-ended
+    const g = harness();
+    g.latest(STUDIES_2026);
+    g.run('initFilters(); applyShareParams("ys=2027");');
+    assert.equal(g.window(), '2026-2026 of 2009-2026');
+    assert.equal(g.end(), null);
+    assert.deepEqual(g.link(), { ys: '2027', ye: null });
+    g.latest();
+    assert.equal(g.window(), '2027-2027 of 2009-2027', 'the link’s 2027 start was lost to the clamp');
+    assert.deepEqual(g.rows(), ['B']);
+    assert.deepEqual(g.link(), { ys: '2027', ye: null });
+    // A hand-edited link whose end is before its start keeps the thumbs'
+    // own clamp (2020–2020), before and after a switch
+    const k = harness();
+    k.latest(STUDIES_2026);
+    k.run('initFilters(); applyShareParams("ys=2020&ye=2015");');
+    assert.equal(k.window(), '2020-2020 of 2009-2026');
+    k.latest();
+    assert.equal(k.window(), '2020-2020 of 2009-2027');
 });
 
 test('the phone hint names the summary’s own latest year', () => {
@@ -250,7 +335,9 @@ test('no year logic is written against a fixed final year', () => {
     for (const sig of ['function resetFilters()', 'function updateActiveFilters()', 'function getFilteredData()',
                        'function industryFilteredRows()', 'function disableFiltersForMobile()',
                        'function datasetLatestYear()', 'function paintYearSlider()',
-                       'function syncYearWindow()', 'function yearWindowEnds()']) {
+                       'function noteYearChoice(', 'function noteYearFromLink(', 'function yearWindowRequest()',
+                       'function syncYearWindow()', 'function resetYearWindow()', 'function yearWindowEnds()',
+                       'function shareYearValue(', 'function updateShareUrl()', 'function applyShareParams(']) {
         const code = fnSource(sig).replace(/^\s*\/\/.*$/gm, '');   // comments may name years
         assert.doesNotMatch(code, /\b20(2[6-9]|[3-9]\d)\b|2100/, `${sig} still names a final year`);
     }

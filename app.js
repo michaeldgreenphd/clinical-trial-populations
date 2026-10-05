@@ -1702,9 +1702,17 @@ const SHARE_FILTERS = [
 ];
 
 function shareFilterDefault(el) {
-    if (el.type === 'range') return el.id === 'year-start' ? el.min : el.max;
     const first = el.querySelector('option');
     return first ? first.value : '';
+}
+
+// The Year Range travels as the reader's request (yearWindowRequest), not
+// the thumbs: a bound kept through a window that ends at or before it stays
+// in the link even where the thumb sits at that window's end.
+function shareYearValue(el) {
+    const want = yearWindowRequest();
+    if (el.id === 'year-start') return want.start > parseInt(el.min, 10) ? String(want.start) : null;
+    return want.end === null ? null : String(want.end);
 }
 
 function updateShareUrl() {
@@ -1718,7 +1726,11 @@ function updateShareUrl() {
         // A disabled control is not applied, so it must not travel in the URL:
         // reopening that link once the control is live would apply a filter the
         // screen it was copied from never had.
-        if (el && !el.disabled && el.value && el.value !== shareFilterDefault(el)) p.set(key, el.value);
+        if (el && !el.disabled) {
+            const v = el.type === 'range' ? shareYearValue(el)
+                : (el.value && el.value !== shareFilterDefault(el) ? el.value : null);
+            if (v !== null) p.set(key, v);
+        }
     });
     // The flag can arrive in the hash rather than the query — the routing
     // stubs put it there — and this rewrites the whole hash. Carry it, or a
@@ -1752,6 +1764,7 @@ function applyShareParams(query) {
         if (!el) return;
         el.value = p.get(key);
         el.dispatchEvent(new Event('input', { bubbles: true }));
+        if (el.type === 'range') noteYearFromLink(el, p.get(key));
         el.dispatchEvent(new Event('change', { bubbles: true }));
     });
 }
@@ -1947,9 +1960,18 @@ function disableFiltersForMobile() {
 // The lower end is the first year of results postings (2009). The upper end
 // is the latest results year in the dataset on screen, so a new year's
 // results are never cut off by a year written into the page, and the labels
-// never name a year the data does not reach. An upper thumb at the window's
-// end means "no upper limit": the filters skip the bound there, so a window
-// that has not caught up with the data still drops nothing.
+// never name a year the data does not reach. An upper thumb the reader
+// leaves at the window's end means "no upper limit": the filters skip the
+// bound there, so a window that has not caught up with the data still drops
+// nothing.
+//
+// What the reader asked for is kept apart from the thumbs, on each input as
+// data-chosen: the start year, and the end year or '' for "no upper limit".
+// The thumbs show that request clamped to the window on screen. A switch to
+// a dataset that ends earlier only clamps them, and the request puts them
+// back on the way out, so a deliberate bound never turns into no bound, or
+// a narrower one, because some window happened to end at or before it. The
+// reader's own moves, a shared link and Reset write it; a switch only reads it.
 const YEAR_WINDOW_MIN = 2009;
 
 // The latest results year in the dataset on screen: the summary's byYear
@@ -1985,32 +2007,77 @@ function paintYearSlider() {
     if (el) el.textContent = ye.value;
 }
 
-// Move the window's upper end to the dataset on screen. An upper thumb at
-// the old end (the default) moves with it; a narrowed range is kept, and
-// only clamped if it now reaches past the data. The Years chip names the
-// range, so it is redrawn here: no switch path can leave it naming the old one.
+// Record the request from a thumb the reader (or a shared link) moved.
+function noteYearChoice(el) {
+    if (!el || !el.dataset) return;
+    el.dataset.chosen = (el.id === 'year-end' && el.value === el.max) ? '' : el.value;
+}
+
+// A shared link's year is the request even where this window clamps the
+// thumb: a link carries a year only when the view it was copied from had
+// that bound. An end before the start leaves the thumbs' own clamp standing.
+function noteYearFromLink(el, raw) {
+    const n = parseInt(raw, 10);
+    if (!el || !el.dataset || !Number.isFinite(n)) return;
+    if (el.id === 'year-end' && n < yearWindowRequest().start) return;
+    el.dataset.chosen = String(n);
+}
+
+// The request as numbers: { start, end }, end null for "no upper limit".
+// Until anything is recorded, the thumbs speak for themselves.
+function yearWindowRequest() {
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    const year = (s) => { const n = parseInt(s, 10); return Number.isFinite(n) ? n : null; };
+    const start = year(ys?.dataset?.chosen ?? ys?.value) ?? YEAR_WINDOW_MIN;
+    let end = null;
+    if (ye) {
+        const chosen = ye.dataset?.chosen;
+        end = chosen !== undefined ? year(chosen) : (ye.value === ye.max ? null : year(ye.value));
+    }
+    return { start, end };
+}
+
+// Size the window to the dataset on screen and put the thumbs at the
+// reader's request, clamped to it. The Years chip names that range, so it
+// is redrawn here: no switch path can leave it naming the old one.
 function syncYearWindow() {
     const ys = document.getElementById('year-start');
     const ye = document.getElementById('year-end');
     const latest = datasetLatestYear();
     if (!ys || !ye || !latest) return;
-    const wasAtEnd = parseInt(ye.value, 10) >= parseInt(ye.max, 10);
+    const want = yearWindowRequest();   // before max moves: an unrecorded thumb reads against the old end
     ys.max = ye.max = String(latest);
-    if (wasAtEnd || parseInt(ye.value, 10) > latest) ye.value = String(latest);
-    if (parseInt(ys.value, 10) > parseInt(ye.value, 10)) ys.value = ye.value;
+    const end = want.end === null ? latest : Math.min(want.end, latest);
+    ye.value = String(end);
+    ys.value = String(Math.min(want.start, end));
     paintYearSlider();
     if (typeof updateActiveFilters === 'function') updateActiveFilters();
 }
 
-// The bounds the filters apply: end is Infinity when the upper thumb sits
-// at the window's end. Top-level on purpose: any view that filters by the
-// Year Range reads it, including views drawn before the window is synced.
+// Both thumbs to the window's ends, and the request with them (Reset and
+// the Years chip's ×).
+function resetYearWindow() {
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    if (!ys || !ye) return;
+    ys.value = ys.min;
+    ye.value = ye.max;
+    noteYearChoice(ys);
+    noteYearChoice(ye);
+    paintYearSlider();
+}
+
+// The bounds the filters apply: end is Infinity when the reader asked for
+// no upper limit, else the end thumb (the request clamped to the window).
+// Top-level on purpose: any view that filters by the Year Range reads it,
+// including views drawn before the window is synced.
 function yearWindowEnds() {
     const ys = document.getElementById('year-start');
     const ye = document.getElementById('year-end');
     const start = parseInt(ys?.value, 10) || YEAR_WINDOW_MIN;
-    const openEnded = !ye || ye.value === ye.max;
-    return { start, end: openEnded ? Infinity : parseInt(ye.value, 10) };
+    const { end } = yearWindowRequest();
+    return { start, end: end === null || !ye ? Infinity : parseInt(ye.value, 10) };
 }
 
 function initFilters() {
@@ -2070,6 +2137,7 @@ function initFilters() {
             if (parseInt(e.target.value) > parseInt(yearEndInput.value)) {
                 e.target.value = yearEndInput.value;
             }
+            noteYearChoice(e.target);
             paintYearSlider();
         });
     }
@@ -2079,6 +2147,7 @@ function initFilters() {
             if (parseInt(e.target.value) < parseInt(yearStartInput.value)) {
                 e.target.value = yearStartInput.value;
             }
+            noteYearChoice(e.target);
             paintYearSlider();
         });
     }
@@ -2168,11 +2237,7 @@ function populateCountriesDropdown() {
 }
 
 function resetFilters() {
-    // The full window: both thumbs at its ends, then re-paint
-    const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
-    ys.value = ys.min;
-    ye.value = ye.max;
-    paintYearSlider();
+    resetYearWindow();
     document.getElementById('study-type').value = 'INTERVENTIONAL';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
@@ -2209,13 +2274,10 @@ function updateActiveFilters() {
 
     const filters = [];
 
+    // The chip shows exactly when the filters apply a year bound
     const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
-    if (ys.value !== ys.min || ye.value !== ye.max) {
-        filters.push({ label: `Years: ${ys.value}-${ye.value}`, reset: () => {
-            ys.value = ys.min;
-            ye.value = ye.max;
-            paintYearSlider();
-        }});
+    if (ys.value !== ys.min || yearWindowEnds().end !== Infinity) {
+        filters.push({ label: `Years: ${ys.value}-${ye.value}`, reset: resetYearWindow });
     }
 
     const studyType = document.getElementById('study-type').value;
