@@ -62,7 +62,10 @@ const SOURCES = [
     fnSource('function renderFdaCell(value, tooltipText)'),
     fnSource('function renderDemographicCell(study, field, tab = READY)'),
     fnSource('function studyHasGeography(study)'),
-    fnSource('function renderGeographyCell(study)'),
+    slice('const REPORTED_DIMENSIONS = [', '];'),
+    fnSource('function studyReportsDimension(study, field)'),
+    slice('function renderReportedCell(', '\n}\n'),
+    slice('function renderGeographyCell(', '\n}\n'),
     fnSource('function showGeographyBreakdown(nctId)'),
     fnSource('function showBreakdown(nctId, categoryName)'),
     fnSource('function breakdownHtml(study, categoryName, tab)'),
@@ -88,7 +91,7 @@ let tableRenders = 0;
 const snapshotCache = new Map();
 function getFilteredData() { tableRenders++; return data ? [...data] : []; }
 function initColumnPicker() {}
-function renderReportedCell() { return ''; }
+function sgDimensionReported() { return false; }
 function renderSparkline() { return ''; }
 function getTimeToReport() { return null; }
 function renderPagination() {}
@@ -1225,6 +1228,63 @@ test('a phone never reads the March files: the 2026-02-22 archive says what it d
     await own.flush();
     assert.deepEqual(own.paths().filter((p) => /details\.part|archive_records/.test(p)), [`snapshots/${date}/archive_records.json.gz`]);
     assert.match(own.overlay(), /Harbor Clinic/);
+});
+
+test("the table's geography cell and pip say what a row does not carry, never none", T, async () => {
+    // Summary rows (phone, archives) carry neither study_sites nor countries:
+    // the Geography cell read "No geography data" and the Reported pips
+    // "Geography: not reported", counted out of 5. An archive with its own
+    // file flipped both once the file landed.
+    const geo = (body) => (body.match(/<td class="text-center col-geography">([\s\S]*?)<\/td>/) || [])[1].trim();
+    const reported = (body) => (body.match(/<td class="text-center col-reported">([\s\S]*?)<\/td>/) || [])[1];
+    const none = /No geography data|Geography: not reported/;
+    // The phone view.
+    const phone = harness({ mobile: true, summary: { extracted_at: STAMP, recentStudies: ARCHIVE_ROWS.slice(0, 1) } });
+    await phone.run('loadData()');
+    phone.run('prepareStudiesTab()');
+    const row = phone.el('studies-table-body').innerHTML;
+    assert.doesNotMatch(row, none);
+    assert.equal(geo(row), '<span class="cell-na" title="Not included in the phone view">not included</span>');
+    assert.match(reported(row), /Geography: not included in the phone view/);
+    assert.match(reported(row), /<span class="pip pip-na" aria-hidden="true"><\/span><\/span><span class="pip-count">3 of 4<\/span>/, 'the count still treats geography as not reported');
+    // An aggregate archive without a file of its own.
+    const later = harness({ files: { 'snapshots/2026-04-26/dashboard-summary.json': archiveSummary('2026-04-26') }, history: { dates: ['2026-04-26'] } });
+    await later.run("loadData('2026-04-26')");
+    later.run('prepareStudiesTab()');
+    assert.doesNotMatch(later.el('studies-table-body').innerHTML, none);
+    assert.match(geo(later.el('studies-table-body').innerHTML), /class="cell-na" title="Not included in this archive"/);
+    // An archive with its own file: loading, then the sites the file carries.
+    const date = '2026-04-26';
+    const files = {
+        [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date),
+        [`snapshots/${date}/archive_records.json.gz`]: {
+            source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive',
+            data: Object.fromEntries(RECORDS.slice(0, 3).map((r) => [r.nct_id, r]))
+        }
+    };
+    const archive = harness({ files, history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } } });
+    await archive.run(`loadData('${date}')`);
+    archive.hold();
+    archive.run('prepareStudiesTab()');
+    const pending = archive.el('studies-table-body').innerHTML;
+    assert.doesNotMatch(pending, none);
+    assert.match(geo(pending), /class="cell-pending" role="img" aria-label="Loading sites"/);
+    assert.match(reported(pending), /Geography: loading/);
+    await archive.release();
+    const loaded = archive.el('studies-table-body').innerHTML;
+    assert.match(geo(loaded), /onclick="showGeographyBreakdown\('NCT/);
+    assert.match(reported(loaded), /Geography: reported/);
+    assert.match(reported(loaded), /<span class="pip-count">4 of 5<\/span>/);
+    // A split dataset's core carries the countries: the cell and pips as always.
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run('prepareStudiesTab()');
+    const body = h.el('studies-table-body').innerHTML;
+    assert.match(geo(body), /title="2 sites in 2 countries\. Click to view details\."/);
+    assert.match(reported(body), /Geography: reported/);
+    assert.match(reported(body), /4 of 5/);
+    await h.release();
 });
 
 test('the Population line shows only when the record carries what it is worked out from', T, async () => {

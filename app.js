@@ -1947,6 +1947,14 @@ function sectionLine(klasses, states, what, retry) {
     return stateLine(worst, what, retry);
 }
 
+// The same in a few words, for a tooltip or a pip's label.
+function stateNote(st) {
+    if (st.state === 'pending') return 'loading';
+    if (st.state === 'failed') return 'did not load';
+    if (st.state === 'missing') return 'missing from the published files';
+    return st.text.charAt(0).toLowerCase() + st.text.slice(1);
+}
+
 // A table cell whose value is not here: an ellipsis while it loads, words when
 // it did not load, is missing, or is not part of this view.
 function stateCell(st, what) {
@@ -3791,8 +3799,13 @@ function renderStudiesTable() {
     // then; every other cell, the filters, search and sort read core fields.
     const reader = datasetReader;
     tbody.innerHTML = pageData.map(row => {
-        const { study, states } = studyView(reader, row, ['studies_tab']);
+        const { study, states } = studyView(reader, row, ['core', 'studies_tab']);
         const tab = states.studies_tab;
+        // Geography is core (countries, and each site's country), on every
+        // record loaded from parts. A summary row (phone, archive) has
+        // neither list: its Geography cell and pip say where geography stands
+        // (not included, loading, did not load), never "No geography data".
+        const geography = 'study_sites' in study || 'countries' in study || states.core.state === 'ready' ? null : states.core;
 
         // Format enrollment with type indicator
         const enrollmentText = `${(study.enrollment || 0).toLocaleString()}`;
@@ -3812,7 +3825,7 @@ function renderStudiesTable() {
             </td>
             <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
             <td class="col-results-date">${resultsDate}</td>
-            <td class="text-center col-reported">${renderReportedCell(study)}</td>
+            <td class="text-center col-reported">${renderReportedCell(study, geography ? { geography: stateNote(geography) } : {})}</td>
             <td class="col-time-to-report">${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center col-details">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
@@ -3825,7 +3838,7 @@ function renderStudiesTable() {
             <td class="text-center col-ethnicity">${renderDemographicCell(study, 'ethnicity', tab)}</td>
             <td class="text-center col-sex">${renderDemographicCell(study, 'sex', tab)}</td>
             <td class="text-center col-gender">${renderDemographicCell(study, 'gender', tab)}</td>
-            <td class="text-center col-geography">${renderGeographyCell(study)}</td>
+            <td class="text-center col-geography">${geography ? stateCell(geography, 'sites') : renderGeographyCell(study)}</td>
             <td class="text-right col-enrollment">${enrollmentBadge}</td>
             <td class="col-start">${startDate}</td>
             <td class="col-end">${endDate}</td>
@@ -4065,7 +4078,9 @@ const STUDY_COLUMNS = [
 const STUDY_COLUMNS_KEY = 'civicsample.studyColumns';
 
 // The five dimensions, in a fixed order, as pips. A filled pip is reported;
-// a hollow one is not. The same five columns are still available singly.
+// a hollow one is not; an outlined one is a dimension the row does not carry
+// (a summary row's geography), left out of the count. The same five columns
+// are still available singly.
 const REPORTED_DIMENSIONS = [
     { field: 'race', label: 'Race' },
     { field: 'ethnicity', label: 'Ethnicity' },
@@ -4092,15 +4107,22 @@ function studyReportsDimension(study, field) {
     return !!study[field]?.reported;
 }
 
-function renderReportedCell(study) {
-    const flags = REPORTED_DIMENSIONS.map(d => ({ ...d, on: studyReportsDimension(study, d.field) }));
-    const n = flags.filter(f => f.on).length;
+// notHere names the dimensions the row does not carry, each with what to say
+// for it ("not included in the phone view", "loading", ...): those pips are
+// outlined and left out of the count, which then reads "n of 4", never a
+// "not reported" the row cannot know.
+function renderReportedCell(study, notHere = {}) {
+    const flags = REPORTED_DIMENSIONS.map(d => (d.field in notHere
+        ? { ...d, note: notHere[d.field] }
+        : { ...d, on: studyReportsDimension(study, d.field) }));
+    const known = flags.filter(f => !f.note);
+    const n = known.filter(f => f.on).length;
     const pips = flags.map(f =>
-        `<span class="pip ${f.on ? 'pip-on' : 'pip-off'}" aria-hidden="true"></span>`).join('');
-    const title = flags.map(f => `${f.label}: ${f.on ? 'reported' : 'not reported'}`).join(', ');
+        `<span class="pip ${f.note ? 'pip-na' : f.on ? 'pip-on' : 'pip-off'}" aria-hidden="true"></span>`).join('');
+    const title = flags.map(f => `${f.label}: ${f.note || (f.on ? 'reported' : 'not reported')}`).join(', ');
     return `<span class="reported-cell" title="${escapeHtml(title)}">` +
         `<span class="pips">${pips}</span>` +
-        `<span class="pip-count">${n} of 5</span>` +
+        `<span class="pip-count">${n} of ${known.length}</span>` +
         `<span class="sr-only">${escapeHtml(title)}</span></span>`;
 }
 

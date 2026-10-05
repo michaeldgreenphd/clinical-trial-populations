@@ -5204,6 +5204,9 @@ footer p {
 
 .pip-on { background: var(--primary-light); }
 .pip-off { background: var(--border-color); }
+/* A dimension the row does not carry (app.js renderReportedCell): outlined,
+   so it differs from not reported in shape as well as colour. */
+.pip-na { box-shadow: inset 0 0 0 1px var(--text-secondary); }
 
 .pip-count {
     font-family: var(--font-mono);
