@@ -3,9 +3,20 @@
     "Size ceilings for the study records the dashboard downloads at startup: data/demographics.part1..N.json.gz.",
     "part_count is the number of parts app.js fetches (NUM_PARTS). part_gzip_max_bytes is a per-file budget and total_gzip_max_bytes a budget for the sum over the parts; neither is a hosting limit. The parts are served from GitHub Pages, and the hard limits are GitHub's: a file over 100 MiB cannot be pushed, and a Pages site over 1 GB cannot be published.",
     "The ceilings ratchet down: each engine change that shrinks the parts is followed by a site change lowering them to the new size plus about 15% headroom, so a weekly push cannot quietly grow them back.",
-    "The engine's weekly publish (scripts/check_site_contract.py in civicsample-engine) reads this file before pushing. For size it warns over budget and still pushes, and blocks only at the hard limits; a part count other than part_count blocks the push. tests/data_budget.test.mjs checks the committed parts against this file and fails when they are over budget: the alarm on the site side, after the push is live. CI runs it on main and on every site pull request, so an over-budget week turns them red until the parts shrink or the budget is raised."
+    "The engine's weekly publish (scripts/check_site_contract.py in civicsample-engine) reads this file before pushing. For size it warns over budget and still pushes, and blocks only at the hard limits; a part count other than part_count blocks the push. tests/data_budget.test.mjs checks the committed parts against this file and fails when they are over budget: the alarm on the site side, after the push is live. CI runs it on main and on every site pull request, so an over-budget week turns them red until the parts shrink or the budget is raised.",
+    "classes budgets the class files of a split dataset (tests/record_contract.json, layout): file_gzip_max_bytes for each studies_tab part or detail shard, total_gzip_max_bytes for the sum of a dataset's files of that class. The file counts come from the layout, not from here. For the engine these budgets warn only, and an engine that predates them ignores the block; tests/data_budget.test.mjs checks the class files of data/ and of every snapshot folder against it and fails over budget, the same alarm as for the parts."
   ],
   "part_count": 8,
   "part_gzip_max_bytes": 20971520,
-  "total_gzip_max_bytes": 160000000
+  "total_gzip_max_bytes": 160000000,
+  "classes": {
+    "studies_tab": {
+      "file_gzip_max_bytes": 3600000,
+      "total_gzip_max_bytes": 28500000
+    },
+    "detail": {
+      "file_gzip_max_bytes": 400000,
+      "total_gzip_max_bytes": 71500000
+    }
+  }
 }

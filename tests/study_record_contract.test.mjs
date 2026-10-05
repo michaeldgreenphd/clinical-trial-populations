@@ -7,7 +7,13 @@
  *  - app.js reads no record field the contract leaves out (so a new read
  *    has to be added to the contract, where the engine will see it), and
  *    the contract lists no field app.js never reads;
- *  - every published part carries every listed path on every record.
+ *  - every published record carries every listed path, in the files the
+ *    dataset's layout gives its class: all of them on the parts of an inline
+ *    dataset; core on the parts, studies_tab in the studies_tab part aligned
+ *    with each core part, and detail in each study's shard for a split one
+ *    (the contract's layout section). An in-memory split dataset
+ *    (tests/split_fixture.mjs) runs the split branch before any split data
+ *    is published.
  *
  * The app.js side is a source scan of the member chains it reads off a
  * record (`study.`, `fullStudy.`, `ctgov.`, including `?.`): each chain is
@@ -26,6 +32,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
+import { dataset, fullRecord } from './split_fixture.mjs';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
 const app = read('app.js');
@@ -162,47 +169,204 @@ test('the contract lists no field app.js never reads', () => {
     assert.deepEqual(unread, [], `listed but never read by app.js: ${unread.join(', ')}`);
 });
 
-test('every record in every published part carries every contract path', { timeout: 120000 }, () => {
-    // The browser downloads every part, so every part is read: one at a
-    // time, each gunzipped and parsed, then released.
+// Why a dataset's published files break the contract, as a list (empty when
+// they keep it). read(path) gives a file of the dataset, parsed, or null when
+// there is none. Core part 1's header says how the records are laid out
+// (contract.layout): with no layout key every class is on the parts' records
+// (inline); with layout version 1 core is on the parts, studies_tab on the
+// studies_tab part aligned with each core part, and detail in the shard each
+// study's NCT number picks (split). Any other layout fails.
+function datasetFailures(read, partCount) {
     const failures = [];
+    const fail = (msg) => { if (failures.length < 20) failures.push(msg); };
+    const layoutOf = (part) => JSON.stringify(part.layout ?? null);
     const seen = new Set();
-    let first = null;           // part 1's stamps only, not its records
-    for (let i = 1; i <= budget.part_count; i++) {
-        const file = `data/demographics.part${i}.json.gz`;
-        assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} is missing`);
-        let part;
-        try {
-            part = JSON.parse(gunzipSync(readFileSync(new URL(`../${file}`, import.meta.url))).toString('utf8'));
-        } catch (e) {
-            assert.fail(`${file} is not gzipped JSON: ${e.message}`);
-        }
-        for (const key of ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'data']) assert.ok(key in part, `${file} header lost ${key}`);
-        assert.equal(part.part, i, `${file} says it is part ${part.part}`);
-        assert.equal(part.total_parts, budget.part_count, `${file}: the part count differs from the one app.js fetches`);
+    let first = null;
+    let layout = null;
+    const coreIds = [];
+    for (let i = 1; i <= partCount; i++) {
+        const file = contract.layout.files.core.replace('{K}', i);
+        const part = read(file);
+        if (!part) { fail(`${file} is missing`); return failures; }
+        for (const key of ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'data']) if (!(key in part)) fail(`${file} header lost ${key}`);
+        if (part.part !== i) fail(`${file} says it is part ${part.part}`);
+        if (part.total_parts !== partCount) fail(`${file}: the part count differs from the one app.js fetches`);
         if (!first) {
-            // Part 1's stamps are the baseline the others must match, so they
+            // Part 1's stamps are the baseline every file must match, so they
             // must be real: the browser shows extracted_at as "Last updated".
-            assert.ok(typeof part.extracted_at === 'string' && !Number.isNaN(Date.parse(part.extracted_at)),
-                `${file}: extracted_at is not a timestamp (${JSON.stringify(part.extracted_at)})`);
-            assert.match(String(part.pipeline_commit ?? ''), /^[0-9a-f]{7,40}$/, `${file}: pipeline_commit is not a commit id`);
-            first = { extracted_at: part.extracted_at, pipeline_commit: part.pipeline_commit };
+            if (!(typeof part.extracted_at === 'string' && !Number.isNaN(Date.parse(part.extracted_at)))) fail(`${file}: extracted_at is not a timestamp (${JSON.stringify(part.extracted_at)})`);
+            if (!/^[0-9a-f]{7,40}$/.test(String(part.pipeline_commit ?? ''))) fail(`${file}: pipeline_commit is not a commit id`);
+            first = part;
+            layout = part.layout ?? null;
+            if (layout !== null && layout.version !== contract.layout.version) { fail(`${file}: layout version ${layout.version} is not one this site reads`); return failures; }
         }
-        assert.equal(part.extracted_at, first.extracted_at, `${file} comes from another pull than part 1`);
-        assert.equal(part.pipeline_commit, first.pipeline_commit, `${file} comes from another engine run than part 1`);
-        assert.ok(Array.isArray(part.data) && part.data.length > 0, `${file} has no records`);
+        if (part.extracted_at !== first.extracted_at) fail(`${file} comes from another pull than part 1`);
+        if (part.pipeline_commit !== first.pipeline_commit) fail(`${file} comes from another engine run than part 1`);
+        if (layoutOf(part) !== layoutOf(first)) fail(`${file}: its layout differs from part 1's`);
+        if (!Array.isArray(part.data) || part.data.length === 0) { fail(`${file} has no records`); continue; }
+        const paths = layout ? classes.core : allPaths;
+        coreIds.push(part.data.map((r) => r.nct_id));
         for (const record of part.data) {
-            if (seen.has(record.nct_id)) failures.push(`${record.nct_id} appears in more than one record (${file})`);
+            if (seen.has(record.nct_id)) fail(`${record.nct_id} appears in more than one record (${file})`);
             seen.add(record.nct_id);
-            for (const path of allPaths) {
+            for (const path of paths) {
                 const why = missing(record, path);
-                if (why) failures.push(`${file} ${record.nct_id ?? '(no nct_id)'} ${path}: ${why}`);
+                if (why) fail(`${file} ${record.nct_id ?? '(no nct_id)'} ${path}: ${why}`);
             }
-            if (failures.length >= 20) break;
         }
-        if (failures.length >= 20) break;
     }
+    if (!layout) return failures;
+
+    // Split: the layout adds up, and each class sits in its own files.
+    if (layout.studies_tab?.files !== partCount) fail(`layout.studies_tab.files ${layout.studies_tab?.files} is not total_parts ${partCount}`);
+    if (layout.detail?.key !== contract.layout.detail.key) fail(`layout.detail.key ${layout.detail?.key} is not ${contract.layout.detail.key}`);
+    const shards = layout.detail?.shards;
+    if (!Number.isInteger(shards) || shards < 1) { fail(`layout.detail.shards ${shards} is not a shard count`); return failures; }
+    const stamped = (file, body, header) => {
+        if (body.extracted_at !== first.extracted_at || body.pipeline_commit !== first.pipeline_commit) fail(`${file} comes from another run than core part 1`);
+        for (const [k, v] of Object.entries(header)) if (body[k] !== v) fail(`${file} says ${k} ${JSON.stringify(body[k])}, not ${JSON.stringify(v)}`);
+        if (!body.data || typeof body.data !== 'object' || Array.isArray(body.data)) { fail(`${file}: data is not an object keyed by nct_id`); return false; }
+        return true;
+    };
+    coreIds.forEach((ids, i) => {
+        const file = contract.layout.files.studies_tab.replace('{K}', i + 1);
+        const body = read(file);
+        if (!body) { fail(`${file} is missing`); return; }
+        if (!stamped(file, body, { class: 'studies_tab', part: i + 1, total_parts: partCount })) return;
+        const keys = Object.keys(body.data);
+        if (keys.length !== ids.length || ids.some((id) => !(id in body.data))) fail(`${file} does not hold exactly core part ${i + 1}'s studies`);
+        for (const [id, entry] of Object.entries(body.data)) {
+            for (const path of classes.studies_tab) {
+                const why = missing(entry, path);
+                if (why) fail(`${file} ${id} ${path}: ${why}`);
+            }
+        }
+    });
+    const placed = new Set();
+    for (let n = 0; n < shards; n++) {
+        const file = contract.layout.files.detail.replace('{n}', n);
+        const body = read(file);
+        if (!body) { fail(`${file} is missing`); continue; }
+        if (!stamped(file, body, { class: 'detail', shard: n, shards, key: contract.layout.detail.key })) continue;
+        for (const [id, entry] of Object.entries(body.data)) {
+            if (Number(id.slice(3)) % shards !== n) fail(`${file} holds ${id}, whose shard is ${Number(id.slice(3)) % shards}`);
+            if (placed.has(id)) fail(`${id} is in more than one shard`);
+            placed.add(id);
+            if (!seen.has(id)) fail(`${file} holds ${id}, which no core part has`);
+            for (const path of classes.detail) {
+                const why = missing(entry, path);
+                if (why) fail(`${file} ${id} ${path}: ${why}`);
+            }
+            // whole_lists come whole: the shard's list replaces the core's.
+            for (const list of contract.layout.detail.whole_lists) {
+                for (const path of allPaths.filter((p) => p.startsWith(`${list}[].`))) {
+                    const why = missing(entry, path);
+                    if (why) fail(`${file} ${id} ${path}: ${why} (${list} is written whole)`);
+                }
+            }
+        }
+    }
+    for (const id of seen) if (!placed.has(id)) fail(`${id} has no entry in its detail shard`);
+    return failures;
+}
+
+test('every record in every published file carries every contract path, in the files its layout gives it', { timeout: 120000 }, () => {
+    // The browser downloads every core part, so every part is read: one at a
+    // time, each gunzipped and parsed, then released. The class files of a
+    // split dataset are read the same way.
+    const read = (path) => {
+        const url = new URL(`../data/${path}`, import.meta.url);
+        if (!existsSync(url)) return null;
+        try {
+            return JSON.parse(gunzipSync(readFileSync(url)).toString('utf8'));
+        } catch (e) {
+            assert.fail(`data/${path} is not gzipped JSON: ${e.message}`);
+        }
+    };
+    const failures = datasetFailures(read, budget.part_count);
     assert.deepEqual(failures, [], `published records break the contract:\n${failures.join('\n')}`);
+});
+
+// A dataset in memory, laid out by tests/split_fixture.mjs as the engine's
+// split will lay it out, so the split branch above runs before any split
+// data is published.
+function memory(files, base = 'data') {
+    return (path) => (files[`${base}/${path}`] === undefined ? null : JSON.parse(JSON.stringify(files[`${base}/${path}`])));
+}
+const fixtureRecords = Array.from({ length: 12 }, (_, i) => fullRecord(`NCT0${String(1975376 + i * 7).padStart(7, '0')}`));
+
+test('the fixture records carry every contract path', () => {
+    for (const record of fixtureRecords) for (const path of allPaths) assert.equal(missing(record, path), null, `${record.nct_id} ${path}`);
+});
+
+test('a split dataset passes only with each class in its own files', () => {
+    const files = dataset(fixtureRecords, { parts: 3, shards: 5 });
+    assert.ok(Object.keys(files).some((p) => p.startsWith('data/detail/')), 'the fixture did not split');
+    assert.deepEqual(datasetFailures(memory(files), 3), []);
+    assert.deepEqual(datasetFailures(memory(dataset(fixtureRecords, { parts: 3, layout: false })), 3), [], 'the inline fixture fails');
+    // A core part without its layout, or a split dataset read as inline, is caught.
+    const core = files['data/demographics.part1.json.gz'];
+    assert.ok(!('references' in core.data[0]) && !('allocation' in core.data[0]) && core.data[0].study_sites.every((s) => Object.keys(s).join() === 'country'),
+        'the core parts carry more than core');
+    const edit = (path, change) => {
+        const copy = JSON.parse(JSON.stringify(files));
+        change(copy[path]);
+        return datasetFailures(memory(copy), 3);
+    };
+    const first = (body) => Object.values(body.data)[0];
+    const firstId = (body) => Object.keys(body.data)[0];
+    const n0 = Number(fixtureRecords[0].nct_id.slice(3)) % 5;
+    const cases = {
+        'a studies_tab entry without its references': ['data/studies_tab.part2.json.gz', (b) => { delete first(b).references; }, /references\[\]\.pmid: no references/],
+        'a studies_tab part holding another part\'s studies': ['data/studies_tab.part2.json.gz', (b) => { b.data = { NCT00000001: first(b) }; }, /does not hold exactly core part 2's studies/],
+        'a studies_tab part from another run': ['data/studies_tab.part3.json.gz', (b) => { b.extracted_at = '2027-01-01T00:00:00Z'; }, /another run than core part 1/],
+        'a detail entry without its sites': [`data/detail/${n0}.json.gz`, (b) => { first(b).study_sites = [{ country: 'Peru' }]; }, /study_sites\[\]\.facility: no facility/],
+        'a detail entry whose sites lost their country': [`data/detail/${n0}.json.gz`, (b) => { first(b).study_sites.forEach((x) => delete x.country); }, /written whole/],
+        'a study in the wrong shard': [`data/detail/${n0}.json.gz`, (b) => { const id = firstId(b); b.data[`NCT0${String(Number(id.slice(3)) + 1).padStart(7, '0')}`] = first(b); }, /whose shard is/],
+        'a shard that says it is another': [`data/detail/${n0}.json.gz`, (b) => { b.shard = n0 + 1; }, /says shard/],
+        'a study missing from the shards': [`data/detail/${n0}.json.gz`, (b) => { delete b.data[firstId(b)]; }, /has no entry in its detail shard/],
+        'a core part with another layout': ['data/demographics.part2.json.gz', (b) => { b.layout = { ...b.layout, detail: { ...b.layout.detail, shards: 6 } }; }, /layout differs from part 1's/],
+        'a layout version this site does not read': ['data/demographics.part1.json.gz', (b) => { b.layout = { ...b.layout, version: 2 }; }, /layout version 2 is not one this site reads/],
+        'extras that are not one per part': ['data/demographics.part1.json.gz', (b) => { b.layout = { ...b.layout, studies_tab: { files: 2 } }; }, /studies_tab\.files 2 is not total_parts 3/]
+    };
+    for (const [name, [path, change, message]] of Object.entries(cases)) {
+        const found = edit(path, change);
+        assert.ok(found.some((f) => message.test(f)), `${name} was not caught: ${found.join('; ') || 'no failure'}`);
+    }
+    const gone = JSON.parse(JSON.stringify(files));
+    delete gone['data/studies_tab.part2.json.gz'];
+    assert.ok(datasetFailures(memory(gone), 3).some((f) => /studies_tab\.part2\.json\.gz is missing/.test(f)));
+});
+
+test('the layout section is well formed and places every optional path once', () => {
+    const layout = contract.layout;
+    assert.equal(layout.version, 1);
+    assert.equal(typeof layout.enabled, 'boolean', 'enabled is the switch the engine reads');
+    assert.deepEqual(layout.files, { core: 'demographics.part{K}.json.gz', studies_tab: 'studies_tab.part{K}.json.gz', detail: 'detail/{n}.json.gz' });
+    assert.equal(layout.files.core.replace('{K}', 1), 'demographics.part1.json.gz', 'the core parts keep their names');
+    assert.equal(layout.detail.key, 'nct_number_mod');
+    assert.equal(layout.detail.shards, 256, 'the shard count the engine writes is 256 (decision 13a)');
+    for (const { nct_id: id, shards, shard } of layout.detail.vectors) {
+        assert.equal(Number(id.slice(3)) % shards, shard, `the vector ${id} at ${shards} does not follow n = Number(nct_id.slice(3)) % shards`);
+    }
+    const distinguishes = layout.detail.vectors.filter((v) => v.nct_id === 'NCT01174160').map((v) => v.shard);
+    assert.equal(new Set(distinguishes).size, 2, 'no vector tells 128 shards from 256');
+    assert.deepEqual(Object.keys(layout.optional_class).sort(), [...optional].sort(), 'optional_class does not place exactly the optional paths');
+    for (const [path, klass] of Object.entries(layout.optional_class)) {
+        assert.ok(klass in classes, `${path} rides with ${klass}, which is not a class`);
+        const container = path.split('.').slice(0, -1).join('.');
+        if (container) {
+            assert.ok(classes[klass].some((p) => p.startsWith(`${container}.`)), `${path} rides with ${klass}, but no ${klass} path shares its container`);
+        }
+    }
+    for (const list of layout.detail.whole_lists) {
+        assert.ok(classes.detail.some((p) => p.startsWith(`${list}[].`)), `${list} is written whole in the shards but has no detail paths`);
+    }
+    for (const [file, keys] of Object.entries(layout.headers)) {
+        assert.ok(keys.includes('data'), `${file} header has no data`);
+        assert.ok(keys.includes(file === 'archive' ? 'source_extracted_at' : 'extracted_at'), `${file} header carries no run stamp`);
+    }
+    assert.ok(classes.detail.includes('status') && classes.detail.includes('why_stopped'), 'status and why_stopped are read only by the pop-up (15a)');
 });
 
 test('the path check itself tells present, empty and absent apart', () => {
