@@ -134,6 +134,108 @@ test('the source scan follows nested reads, not only top-level names', () => {
     assert.deepEqual(flagged('x = study._isAI;'), []);
 });
 
+// ── Which class a read needs ──
+// A split dataset's parts carry the core class alone (the layout section);
+// the studies_tab and detail classes arrive later, and only the views below
+// wait for them: each draws a record with what its dataset has loaded laid
+// over it (app.js studyView) and says where a class stands until it arrives.
+// Everything else in app.js (the filters, the charts, the table's sort and
+// search, share links, the approval queue) runs over the records as loaded,
+// so a field it reads must be core, or the split would quietly empty it.
+const CLASS_AWARE = ['breakdownHtml', 'deriveFundingSource', 'pubLabel', 'publicationsHtml', 'renderDemographicCell',
+    'renderPublications', 'renderPublicationsDetail', 'renderStudySites', 'studyDetailsHtml'];
+// The entry points that hand those renderers a record from studyView.
+const CLASS_VIEWS = ['renderStudiesTable', 'showStudyDetails', 'showBreakdown', 'showPublications', 'showGeographyBreakdown'];
+
+// app.js's top-level functions: { name, start, end } (a body ends at the
+// first closing brace in column 0).
+function topLevelFunctions(source) {
+    return [...source.matchAll(/^(?:async )?function (\w+)\s*\(/gm)].map((m) => ({ name: m[1], start: m.index, end: source.indexOf('\n}\n', m.index) + 3 }));
+}
+
+// The class a chain of member names off a record needs: the class of the
+// longest listed path it reaches; for an object or list read whole, core
+// when any of its paths is core (what is read from it then is the reader's
+// business), else the class of its paths. null for a field that is not a
+// record field, or one the contract does not list (the test above says so).
+const leafClass = new Map([
+    ...Object.entries(classes).flatMap(([klass, paths]) => paths.map((p) => [p.replaceAll('[]', ''), klass])),
+    ...Object.entries(contract.layout.optional_class).map(([p, klass]) => [p.replaceAll('[]', ''), klass])
+]);
+function readClass(chain) {
+    if (notRecord.has(chain[0])) return null;
+    for (let k = chain.length; k >= 1; k--) {
+        const path = chain.slice(0, k).join('.');
+        if (leafClass.has(path)) return leafClass.get(path);
+    }
+    for (let k = chain.length; k >= 1; k--) {
+        const path = chain.slice(0, k).join('.');
+        const under = [...leafClass].filter(([p]) => p.startsWith(`${path}.`)).map(([, klass]) => klass);
+        if (under.length) return under.includes('core') ? 'core' : under[0];
+    }
+    return null;
+}
+
+test('every record field read outside the views that wait for their class is core', () => {
+    const fns = topLevelFunctions(app);
+    for (const name of [...CLASS_AWARE, ...CLASS_VIEWS]) assert.ok(fns.some((f) => f.name === name), `app.js lost ${name}; update this test`);
+    // app.js with the class-aware renderers' bodies taken out.
+    let rest = app;
+    for (const f of fns.filter((x) => CLASS_AWARE.includes(x.name)).sort((a, b) => b.start - a.start)) rest = rest.slice(0, f.start) + rest.slice(f.end);
+    const needs = [];
+    for (const chain of recordReads(rest)) {
+        const klass = readClass(chain);
+        if (klass && klass !== 'core') needs.push(`${chain.join('.')} (${klass})`);
+    }
+    // The table sorts every row by its data-sort key.
+    const table = html.slice(html.indexOf('class="studies-table'), html.indexOf('</thead>', html.indexOf('class="studies-table')));
+    for (const m of table.matchAll(/data-sort="([^"]+)"/g)) {
+        const klass = readClass([m[1]]);
+        if (klass !== 'core') needs.push(`sort key ${m[1]} (${klass})`);
+    }
+    // List items read through their item names.
+    for (const [listPath, names] of Object.entries(contract.item_names)) {
+        for (const name of names) {
+            for (const m of rest.matchAll(new RegExp(`\\b${name}\\??\\.([A-Za-z_][A-Za-z0-9_]*)`, 'g'))) {
+                const klass = readClass([...listPath.split('.'), m[1]]);
+                if (klass && klass !== 'core') needs.push(`${name}.${m[1]} as ${listPath}[].${m[1]} (${klass})`);
+            }
+        }
+    }
+    assert.deepEqual([...new Set(needs)].sort(), [],
+        'app.js reads these fields over records as loaded, where a split dataset carries the core class alone. ' +
+        'Class each core in tests/record_contract.json, or read it in a view that waits for its class (studyView).');
+});
+
+test('the class-aware renderers are called only from the views that lay a record\'s loaded classes over it', () => {
+    const fns = topLevelFunctions(app);
+    const owner = (at) => fns.find((f) => f.start <= at && at < f.end)?.name ?? '(top level)';
+    const callers = [];
+    for (const name of CLASS_AWARE) {
+        for (const m of app.matchAll(new RegExp(`(?<!function )\\b${name}\\(`, 'g'))) {
+            const from = owner(m.index);
+            if (![...CLASS_AWARE, ...CLASS_VIEWS].includes(from)) callers.push(`${name} from ${from}`);
+        }
+    }
+    assert.deepEqual(callers, [], 'a class-aware renderer is called on a record no view has laid its loaded classes over');
+    for (const name of CLASS_VIEWS) {
+        const f = fns.find((x) => x.name === name);
+        assert.match(app.slice(f.start, f.end), /\bstudyView\(/, `${name} hands out a record without its loaded classes`);
+    }
+});
+
+test('the class check reads the contract as the split does', () => {
+    assert.equal(readClass(['results_date']), 'core');
+    assert.equal(readClass(['results_date', 'substring']), 'core');
+    assert.equal(readClass(['race', 'reported']), 'core');
+    assert.equal(readClass(['race', 'raw_categories']), 'studies_tab');
+    assert.equal(readClass(['references', 'length']), 'studies_tab');
+    assert.equal(readClass(['study_sites']), 'core', 'study_sites carries its countries in core');
+    assert.equal(readClass(['collaborators']), 'detail');
+    assert.equal(readClass(['official_title']), 'core');
+    assert.equal(readClass(['_isAI']), null);
+});
+
 // The fields of one list's items, by the list's full path:
 // 'race.raw_categories' -> omb_category, confidence, original, flags (+ optional category).
 function itemFields(listPath) {
