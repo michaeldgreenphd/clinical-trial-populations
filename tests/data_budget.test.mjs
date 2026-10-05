@@ -7,6 +7,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
+import vm from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const budget = JSON.parse(readFileSync(new URL('tests/data_budget.json', root), 'utf8'));
@@ -21,18 +22,74 @@ test('the budget is well formed', () => {
 });
 
 test('part_count is the number of parts app.js actually fetches', () => {
-    // NUM_PARTS is a declaration; the fetch path calls partFiles(n). Each call
-    // must ask for part_count parts, by literal or through NUM_PARTS, or a
-    // browser would silently skip parts the budget says exist.
+    // NUM_PARTS is the one place app.js states the part count, and it must
+    // equal part_count, or a browser would silently skip parts the budget
+    // says exist. Every partFiles() call passes NUM_PARTS itself: a literal
+    // beside it is a second copy that a change to the part count would miss.
+    // A call is matched with or without a space before the bracket and as
+    // partFiles?.(...); a second NUM_PARTS declaration (a shadowing local)
+    // fails too.
     const app = readFileSync(new URL('app.js', root), 'utf8');
     const declared = app.match(/const NUM_PARTS = (\d+);/);
     assert.ok(declared, 'app.js lost NUM_PARTS');
     assert.equal(Number(declared[1]), budget.part_count, 'part_count differs from app.js NUM_PARTS');
-    const calls = [...app.matchAll(/\bpartFiles\(\s*([^)]*?)\s*\)/g)].map((m) => m[1]).filter((arg) => arg !== 'n');
+    assert.equal(app.match(/\b(?:const|let|var)\s+NUM_PARTS\b/g).length, 1, 'app.js declares NUM_PARTS more than once');
+    assert.match(app, /\bfunction partFiles\(n\)/, 'app.js lost the partFiles(n) definition');
+    const calls = [...app.matchAll(/(?<!\bfunction\s+)\bpartFiles\s*(?:\?\.\s*)?\(\s*([^)]*?)\s*\)/g)].map((m) => m[1]);
     assert.ok(calls.length > 0, 'app.js no longer builds its part list with partFiles()');
-    for (const arg of calls) {
-        const n = arg === 'NUM_PARTS' ? Number(declared[1]) : Number(arg);
-        assert.equal(n, budget.part_count, `app.js fetches partFiles(${arg}), not the ${budget.part_count} parts the budget names`);
+    assert.deepEqual(calls.filter((arg) => arg !== 'NUM_PARTS'), [],
+        'app.js builds a part list from a count other than NUM_PARTS');
+});
+
+test('getUrlStrategies asks for NUM_PARTS parts, for the latest data and for a snapshot', () => {
+    // The fetch path itself, run in a vm: the latest data and a full snapshot
+    // each list parts 1 to part_count, from data/ and snapshots/<date>/. A
+    // second run with NUM_PARTS changed checks that both lists follow it, so
+    // another copy of the count on the fetch path fails here whatever its
+    // spelling.
+    const app = readFileSync(new URL('app.js', root), 'utf8');
+    const start = app.indexOf('const NUM_PARTS =');
+    const at = app.indexOf('function getUrlStrategies(date)');
+    assert.ok(start >= 0 && at > start, 'app.js lost NUM_PARTS or getUrlStrategies');
+    const source = app.slice(start, app.indexOf('\n}\n', at) + 2);
+    const run = (src, count, label) => {
+        const ctx = vm.createContext({});
+        vm.runInContext(`${src}\nthis.getUrlStrategies = getUrlStrategies;`, ctx);
+        const files = Array.from({ length: count }, (_, i) => `demographics.part${i + 1}.json.gz`);
+        for (const date of [undefined, 'latest']) {
+            const strategies = ctx.getUrlStrategies(date);
+            assert.equal(strategies.length, 1);
+            assert.deepEqual([...strategies[0].urls], files.map((f) => `data/${f}`), `${label}: latest (${date}) lists different parts`);
+        }
+        const snapshot = ctx.getUrlStrategies('2026-08-02');
+        assert.equal(snapshot.length, 1);
+        assert.deepEqual([...snapshot[0].urls], files.map((f) => `snapshots/2026-08-02/${f}`), `${label}: a snapshot lists different parts`);
+    };
+    run(source, budget.part_count, 'as shipped');
+    const probe = budget.part_count + 3;
+    const changed = source.replace(/^const NUM_PARTS = \d+;/, `const NUM_PARTS = ${probe};`);
+    assert.notEqual(changed, source, 'could not change NUM_PARTS for the second run');
+    run(changed, probe, `with NUM_PARTS = ${probe}`);
+});
+
+test("the budget's notes name GitHub's hard limit, not a CDN's", () => {
+    // The parts are served from GitHub Pages. The budget is a budget; the
+    // hard per-file limit is GitHub's 100 MiB push limit, which is where the
+    // engine's weekly gate blocks on size.
+    const about = budget.about.join(' ');
+    assert.doesNotMatch(about, /jsDelivr|CDN/i, 'the notes still cite a CDN limit the site does not depend on');
+    assert.match(about, /\b100 MiB\b/, "the notes do not name GitHub's 100 MiB per-file push limit");
+});
+
+test("the budget's notes say a wrong part count blocks the engine's push", () => {
+    // Warn-only applies to size. The engine's gate (check_site_contract.py)
+    // fails the push when data/ holds a different set of parts than
+    // part_count, so notes that call every rule here warn-only mislead.
+    const about = budget.about.join(' ');
+    assert.match(about, /part count other than part_count blocks the push/,
+        'the notes do not say that a part count other than part_count blocks the push');
+    for (const sentence of about.split(/(?<=\.)\s+/).filter((s) => /blocks only/.test(s))) {
+        assert.match(sentence, /^For size\b/, `the notes say the gate blocks only at the hard limits without limiting that to size: "${sentence}"`);
     }
 });
 
