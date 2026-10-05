@@ -912,6 +912,49 @@ test('the 2026-02-22 archive reads the March files, labelled; every other archiv
     assert.equal(later.status().hidden, true);
 });
 
+test('a phone never reads the March files: the 2026-02-22 archive says what it does not include, as every other', T, async () => {
+    // data/details.part1+2 are 82 MB of gzip and 487 MB of JSON, which a
+    // phone cannot hold; the page before the reader never fetched them on a
+    // phone. An archive's own file of study records is small, and still loads.
+    const march = {
+        'data/details.part1.json.gz': { part: 1, data: { [IDS[0]]: { study_sites: RECORDS[0].study_sites } } },
+        'data/details.part2.json.gz': { part: 2, data: {} }
+    };
+    const phone = harness({ mobile: true, files: { ...march, 'snapshots/2026-02-22/dashboard-summary.json': archiveSummary('2026-02-22') }, history: null });
+    await phone.run("loadData('2026-02-22')");
+    assert.equal(phone.run('datasetReader.mode'), 'summary');
+    phone.run('prepareStudiesTab()');
+    phone.run(`showStudyDetails('${IDS[0]}'); showGeographyBreakdown('${IDS[0]}')`);
+    await phone.flush();
+    assert.deepEqual(phone.paths().filter((p) => p.includes('details.part')), [], 'a phone fetched the March files');
+    assert.equal(phone.status().hidden, true);
+    const modal = phone.overlay();
+    assert.match(modal, /<h5>Study Sites<\/h5>\s*<p class="detail-state is-na">Not included in this archive<\/p>/);
+    assert.doesNotMatch(modal, /2026-03-05 extract/);
+    assert.deepEqual(claims(modal), []);
+    assert.match(phone.overlay('breakdown-overlay'), /Not included in this archive/);
+    // The same archive with a file of its own: read on a phone too.
+    const date = '2026-02-22';
+    const own = harness({
+        mobile: true,
+        files: {
+            ...march,
+            [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date),
+            [`snapshots/${date}/archive_records.json.gz`]: {
+                source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive',
+                data: Object.fromEntries(RECORDS.slice(0, 3).map((r) => [r.nct_id, r]))
+            }
+        },
+        history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } }
+    });
+    await own.run(`loadData('${date}')`);
+    assert.equal(own.run('datasetReader.mode'), 'archive');
+    own.run(`showStudyDetails('${IDS[0]}')`);
+    await own.flush();
+    assert.deepEqual(own.paths().filter((p) => /details\.part|archive_records/.test(p)), [`snapshots/${date}/archive_records.json.gz`]);
+    assert.match(own.overlay(), /Harbor Clinic/);
+});
+
 test('the Population line shows only when the record carries what it is worked out from', T, async () => {
     // getStudyPediatricStatus reads pediatric_status, then std_ages, and only
     // then guesses from min_age and max_age: a row with no age limits ('N/A')

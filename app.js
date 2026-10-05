@@ -1317,7 +1317,8 @@ async function fetchAndDecompress(url, onProgress, init) {
 //                carries every field of its recent-studies rows.
 //   legacy       The aggregate archive extracted before 2026-03-05
 //                (2026-02-22), until it has that file: its pop-ups read the
-//                frozen data/details files, labelled as that extract.
+//                frozen data/details files, labelled as that extract. Not on
+//                a phone, which never reads those files (aggregateReader).
 //   summary      The phone view, and every other aggregate archive. Their rows
 //                are summaries: what a row lacks is "Not included in the
 //                phone view" (or "in this archive"), never a value.
@@ -1441,13 +1442,17 @@ function archiveDetailFile(history, key) {
 
 // The reader of an aggregate archive (summary rows): its own file when
 // history.json names one; else the March fallback when it was extracted
-// before those files were; else nothing beyond its summary rows.
+// before those files were; else nothing beyond its summary rows. The March
+// files are 82 MB of gzip and close to 0.5 GB of JSON, so a phone (or another
+// low-memory device) never reads them, as before the reader: there the
+// archive says what it does not include, like every other. An archive's own
+// file is small, and loads there too.
 function aggregateReader(key, summary, history, rows) {
     const archiveFile = archiveDetailFile(history, key);
     const extracted = String(summary.extracted_at || '');
     const beforeMarch = /^\d{4}-\d{2}-\d{2}/.test(extracted) && extracted.slice(0, 10) < MARCH_EXTRACT_DATE;
     return makeReader({
-        mode: archiveFile ? 'archive' : (beforeMarch ? 'legacy' : 'summary'),
+        mode: archiveFile ? 'archive' : (beforeMarch && !isMobileDevice ? 'legacy' : 'summary'),
         key, base: datasetBase(key), rows, archiveFile, absentText: ABSENT_ARCHIVE,
         stamp: summary.extracted_at === undefined ? null : summary.extracted_at,
         commit: summary.pipeline_commit === undefined ? null : summary.pipeline_commit
