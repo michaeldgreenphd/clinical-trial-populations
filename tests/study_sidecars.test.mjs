@@ -912,6 +912,31 @@ test('the 2026-02-22 archive reads the March files, labelled; every other archiv
     assert.equal(later.status().hidden, true);
 });
 
+test("the March fallback keeps only the archive's own studies, not the whole extract", T, async () => {
+    // The March files hold 76,684 studies (about 584 MB once parsed) for an
+    // archive of 500 rows, and the reader stays on the archive's cache entry
+    // after the user leaves it.
+    const others = Object.fromEntries(IDS.slice(3).map((id) => [id, { study_sites: RECORDS[0].study_sites }]));
+    const march = {
+        'data/details.part1.json.gz': { part: 1, data: { [IDS[0]]: { study_sites: RECORDS[0].study_sites }, ...others } },
+        'data/details.part2.json.gz': { part: 2, data: { [IDS[2]]: { secondary_outcomes: [] }, NCT09999999: { study_sites: [] } } }
+    };
+    const h = harness({ files: { ...march, 'snapshots/2026-02-22/dashboard-summary.json': archiveSummary('2026-02-22') }, history: null });
+    await h.run("loadData('2026-02-22')");
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.deepEqual(h.json('[...datasetReader.extras.map.keys()].sort()'), [IDS[0], IDS[2]].sort(), 'the reader kept studies the archive does not have');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    assert.match(h.overlay(), /Harbor Clinic/);
+    // A split dataset's extras are its own rows already, all of them.
+    const s = harness({ files: split() });
+    await s.run('loadData()');
+    s.run('prepareStudiesTab()');
+    await s.flush();
+    assert.equal(s.run('datasetReader.extras.map.size'), IDS.length);
+});
+
 test('a phone never reads the March files: the 2026-02-22 archive says what it does not include, as every other', T, async () => {
     // data/details.part1+2 are 82 MB of gzip and 487 MB of JSON, which a
     // phone cannot hold; the page before the reader never fetched them on a

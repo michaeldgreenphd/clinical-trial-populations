@@ -1677,8 +1677,14 @@ function loadStudiesTabExtras(r) {
         }
         return body;
     }))).then(bodies => {
+        // A split dataset's parts hold exactly its rows. An archive's files
+        // can hold far more (the March files: 76,684 studies for 500 rows),
+        // so only its own rows are kept, and the rest goes with the bodies.
+        const own = r.mode === 'split' ? null : new Set(r.rows.map(s => s.nct_id));
         const map = new Map();
-        for (const body of bodies) for (const id of Object.keys(body.data)) map.set(id, body.data[id]);
+        for (const body of bodies) {
+            for (const id of Object.keys(body.data)) if (!own || own.has(id)) map.set(id, body.data[id]);
+        }
         x.map = map;
         x.state = 'loaded';
     }, err => {
