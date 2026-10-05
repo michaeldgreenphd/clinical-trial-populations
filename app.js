@@ -1987,7 +1987,8 @@ function paintYearSlider() {
 
 // Move the window's upper end to the dataset on screen. An upper thumb at
 // the old end (the default) moves with it; a narrowed range is kept, and
-// only clamped if it now reaches past the data.
+// only clamped if it now reaches past the data. The Years chip names the
+// range, so it is redrawn here: no switch path can leave it naming the old one.
 function syncYearWindow() {
     const ys = document.getElementById('year-start');
     const ye = document.getElementById('year-end');
@@ -1998,6 +1999,7 @@ function syncYearWindow() {
     if (wasAtEnd || parseInt(ye.value, 10) > latest) ye.value = String(latest);
     if (parseInt(ys.value, 10) > parseInt(ye.value, 10)) ys.value = ye.value;
     paintYearSlider();
+    if (typeof updateActiveFilters === 'function') updateActiveFilters();
 }
 
 // The bounds the filters apply: end is Infinity when the upper thumb sits
