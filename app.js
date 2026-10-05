@@ -1,8 +1,9 @@
 // ClinicalTrials.gov Demographics Dashboard - Enhanced Version
 
 let data = null;
-let detailCache = {};  // Lazy-loaded study detail data keyed by nct_id
-let detailsLoaded = false;  // Whether detail files have been fetched
+// Where the dataset on screen keeps its studies' Studies-tab extras and
+// pop-up details (makeReader): set in the same step as data.
+let datasetReader = null;
 let charts = {};
 let currentSort = { field: null, direction: 'asc' };
 let currentPage = 0;
@@ -1258,7 +1259,9 @@ async function fetchAndDecompress(url, onProgress, init) {
     const response = await keyedFetch(url, init);
     console.log(`Response status for ${url}: ${response.status}`);
     if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+        const err = new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+        err.status = response.status;
+        throw err;
     }
 
     let body = response.body;
@@ -1296,63 +1299,879 @@ async function fetchAndDecompress(url, onProgress, init) {
     return json;
 }
 
-// Detail data for the study modals: full study_sites, secondary_outcomes,
-// outcome and design descriptions.
+// ── Study details on demand ─────────────────────────────────────────────
+// A study record's fields come in three classes (tests/record_contract.json):
+// core, read over every record at load; studies_tab, read by the Studies
+// table and its breakdown and publications pop-ups; detail, read by the study
+// and geography pop-ups. Where a dataset keeps its studies_tab and detail
+// fields is its mode, fixed when the dataset is put on screen:
 //
-// The part files carry every one of those fields, so a dataset loaded from
-// parts (latest, and the full snapshots) needs nothing more. The two
-// data/details files are a frozen 2026-03-05 extract; merged over a full
-// record they would replace its current sites and outcomes with March ones.
-// Only the summary-only archives (desktop with dashboardSummary set) still
-// read them, because their recentStudies rows carry no sites or outcomes.
-let detailLoad = null;  // { target, promise } for the details fetch in flight
+//   inline       Every class is on the records: every dataset published
+//                before the split, and every existing snapshot. Nothing more
+//                is fetched, and every view renders as it always has.
+//   split        Core part 1's header carries layout version 1 (the
+//                contract's layout section). The Studies-tab extras are
+//                studies_tab.part1..N.json.gz, fetched when the Studies tab
+//                opens; a study's details are detail/<n>.json.gz, one shard
+//                per pop-up. Both sit in the dataset's own folder.
+//   archive      An aggregate archive that history.json says has its own file
+//                of study records (archive_records.json.gz): that one file
+//                carries every field of its recent-studies rows.
+//   legacy       The aggregate archive extracted before 2026-03-05
+//                (2026-02-22), until it has that file: its pop-ups read the
+//                frozen data/details files, labelled as that extract. Not on
+//                a phone, which never reads those files (aggregateReader).
+//   summary      The phone view, and every other aggregate archive. Their rows
+//                are summaries: what a row lacks is "Not included in the
+//                phone view" (or "in this archive"), never a value.
+//   unsupported  A layout version this page does not know: loadData refuses
+//                the dataset with an explicit error instead of showing it.
+//
+// datasetReader is the reader of the dataset on screen. loadData assigns it in
+// the same synchronous step as data and dashboardSummary, and keeps it on the
+// dataset's snapshotCache entry: a revisit reuses what it loaded, and whatever
+// frees the entry frees that too. A fetch fills the reader it was started for;
+// a view it redraws first checks that its dataset is still the one on screen.
+const LAYOUT_VERSION = 1;                    // tests/record_contract.json layout.version
+const LAYOUT_SHARD_KEY = 'nct_number_mod';   // its detail.key
+// The frozen 2026-03-05 details files hold every row of the 2026-02-22 archive
+// (with March values) and none of any later archive's, so only an archive
+// extracted before that date falls back to them.
+const MARCH_EXTRACT_DATE = '2026-03-05';
+const MARCH_DETAIL_FILES = ['data/details.part1.json.gz', 'data/details.part2.json.gz'];
+// The fields those files carry, the same five on each of their records: the
+// only detail fields the 2026-02-22 archive waits on them for.
+const MARCH_DETAIL_FIELDS = ['secondary_outcomes', 'primary_outcome_description', 'intervention_model_description', 'study_sites', 'geo_identification_method'];
+const MARCH_EXTRACT_LABEL = 'from the 2026-03-05 extract';
+const ABSENT_PHONE = 'Not included in the phone view';
+const ABSENT_ARCHIVE = 'Not included in this archive';
+const DEMOGRAPHIC_DIMENSIONS = ['race', 'ethnicity', 'sex', 'gender'];
+// Loaded detail shards past this many are dropped, least recently used first,
+// so a long session of pop-ups cannot grow the page without bound.
+const SHARD_CACHE_LIMIT = 32;
 
-// A dataset gets a fresh detail cache in the same synchronous step that puts
-// its data and dashboardSummary on screen (loadData). A details fetch started
-// before then belongs to the dataset still showing, and fills that dataset's
-// cache; it can never land in, or mark loaded, the one that replaces it.
-function resetDetailState() {
-    detailCache = {};
-    detailsLoaded = false;
-    studiesTabReady = false;
+// The detail shard that holds a study's details (layout key nct_number_mod):
+// its NCT number, unpadded, modulo the shard count. Test vectors shared with
+// the engine: NCT01975376 -> 80 at 256 and at 128 shards, NCT00663858 -> 50 at
+// both, NCT01174160 -> 144 at 256 and 16 at 128. Null for a malformed id.
+function shardOf(nctId, shards) {
+    if (!/^NCT\d+$/.test(String(nctId))) return null;
+    return Number(String(nctId).slice(3)) % shards;
 }
 
-async function loadDetailData() {
-    if (detailsLoaded) return;
-    // Details aren't published for mobile; fetching would crash low-memory
-    // devices and the files may not even exist. Mark as loaded so callers
-    // fall through to whatever compact data is already in `data`.
-    if (isMobileDevice) {
-        detailsLoaded = true;
-        return;
+// A refusal loadData passes on as it is: the dataset is not shown, and no
+// other way of loading it is tried.
+function layoutError(message) {
+    const err = new Error(message);
+    err.layoutRefused = true;
+    return err;
+}
+
+// JSON with its keys in order, so two headers that say the same thing compare
+// equal however they were written.
+function canonicalJson(value) {
+    if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${canonicalJson(value[k])}`).join(',')}}`;
     }
-    if (!dashboardSummary) {
-        detailsLoaded = true;
-        return;
+    return JSON.stringify(value === undefined ? null : value);
+}
+
+// The mode a dataset's core parts give it: inline without a layout, split
+// with the layout this page reads, unsupported with any other.
+function layoutMode(layout) {
+    if (layout === undefined || layout === null) return 'inline';
+    const known = typeof layout === 'object' && layout.version === LAYOUT_VERSION &&
+        !!layout.detail && layout.detail.key === LAYOUT_SHARD_KEY;
+    return known ? 'split' : 'unsupported';
+}
+
+// The layout a dataset's core parts declare: null when they declare none
+// (inline), the layout when this page can read it. Every part must declare
+// the same one, as every part must come from the same run; a layout this page
+// does not know, or one that does not add up, refuses the dataset with a
+// message that says so rather than showing it with its extras unreadable.
+function datasetLayout(parts) {
+    const layout = parts[0].layout === undefined ? null : parts[0].layout;
+    if (parts.some(p => canonicalJson(p.layout) !== canonicalJson(layout))) {
+        throw layoutError('the data files disagree about their layout (an update is probably in progress); refresh in a few minutes');
     }
-    // One fetch per dataset: repeated clicks share it, and a result that
-    // arrives after the user switched datasets fills the cache it was
-    // started for, never the one now on screen.
-    if (detailLoad && detailLoad.target === detailCache) return detailLoad.promise;
-    const target = detailCache;
-    const promise = (async () => {
-        try {
-            const [d1, d2] = await Promise.all([
-                fetchAndDecompress('data/details.part1.json.gz'),
-                fetchAndDecompress('data/details.part2.json.gz')
-            ]);
-            Object.assign(target, d1.data, d2.data);
-            if (detailCache === target) detailsLoaded = true;
-            console.log(`✓ Loaded detail data for ${Object.keys(target).length} studies`);
-        } catch (e) {
-            console.warn('Could not load detail data:', e.message);
-        } finally {
-            if (detailLoad && detailLoad.promise === promise) detailLoad = null;
+    const mode = layoutMode(layout);
+    if (mode === 'inline') return null;
+    if (mode === 'unsupported') throw layoutError('this page is older than the data; reload');
+    const files = layout.studies_tab ? layout.studies_tab.files : undefined;
+    const shards = layout.detail.shards;
+    if (files !== parts[0].total_parts || files !== parts.length || !Number.isInteger(shards) || shards < 1) {
+        throw layoutError('the data files describe a layout that does not add up; refresh in a few minutes');
+    }
+    return layout;
+}
+
+// A dataset's reader: its mode and folder, the run stamps every file it
+// fetches must carry, and what it has loaded. extras holds the Studies-tab
+// extras (the studies_tab parts, an archive's own file, or the March files),
+// shards the detail shards by number. rows is the dataset's data, which a late
+// answer compares with the data on screen before it draws anything.
+// superseded is set once a file shows the server has a newer run (16a), or
+// the run check after a file's HTTP error (runCheck, while it is asked) finds
+// the dataset's run gone.
+function makeReader(fields) {
+    return Object.assign({
+        mode: 'inline', key: 'latest', base: 'data', rows: null,
+        stamp: null, commit: null, layout: null, partSizes: null,
+        archiveFile: null, absentText: null, superseded: null, runCheck: null,
+        extras: { state: 'idle', error: null, map: null, promise: null, settle: null, parts: null, loaded: [], totals: [], finished: [] },
+        shards: new Map()
+    }, fields);
+}
+
+// The reader of a dataset loaded from its parts, stamped with core part 1's run.
+function partsReader(key, parts, layout, rows) {
+    if (!layout) return makeReader({ mode: 'inline', key, base: datasetBase(key), rows });
+    return makeReader({
+        mode: 'split', key, base: datasetBase(key), rows, layout,
+        stamp: parts[0].extracted_at === undefined ? null : parts[0].extracted_at,
+        commit: parts[0].pipeline_commit === undefined ? null : parts[0].pipeline_commit,
+        partSizes: parts.map(p => p.data.length)
+    });
+}
+
+// The file of study records history.json names for an aggregate archive,
+// "archives": {"<date>": {"kind": "aggregate", "detail": "archive_records.json.gz"}},
+// or null. Only a plain file name, in the archive's own folder, is taken; an
+// older history.json without "archives" names none.
+function archiveDetailFile(history, key) {
+    const archives = history && history.archives && typeof history.archives === 'object' ? history.archives : null;
+    const entry = archives ? archives[key] : null;
+    const file = entry && typeof entry === 'object' ? entry.detail : null;
+    return typeof file === 'string' && /^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*\.json\.gz$/.test(file) ? file : null;
+}
+
+// The reader of an aggregate archive (summary rows): its own file when
+// history.json names one; else the March fallback when it was extracted
+// before those files were; else nothing beyond its summary rows. The March
+// files are 82 MB of gzip and close to 0.5 GB of JSON, so a phone (or another
+// low-memory device) never reads them, as before the reader: there the
+// archive says what it does not include, like every other. An archive's own
+// file is small, and loads there too.
+function aggregateReader(key, summary, history, rows) {
+    const archiveFile = archiveDetailFile(history, key);
+    const extracted = String(summary.extracted_at || '');
+    const beforeMarch = /^\d{4}-\d{2}-\d{2}/.test(extracted) && extracted.slice(0, 10) < MARCH_EXTRACT_DATE;
+    return makeReader({
+        mode: archiveFile ? 'archive' : (beforeMarch && !isMobileDevice ? 'legacy' : 'summary'),
+        key, base: datasetBase(key), rows, archiveFile, absentText: ABSENT_ARCHIVE,
+        stamp: summary.extracted_at === undefined ? null : summary.extracted_at,
+        commit: summary.pipeline_commit === undefined ? null : summary.pipeline_commit
+    });
+}
+
+// Where one class of a study's fields stands in the dataset r reads:
+//   ready    on the records, or loaded (entry: the study's loaded fields)
+//   pending  on its way, or not asked for yet
+//   failed   did not load (problem says why; the next call tries again)
+//   missing  loaded, but the files hold no entry for this study
+//   absent   this view does not carry it (text says so); entry may still hold
+//            what a fallback had for the study (from: where it came from)
+// A state that holds for some of the class's fields only lists them (only),
+// and says where the others stand (rest): fieldState reads it.
+const READY = Object.freeze({ state: 'ready', entry: null });
+
+function classState(r, klass, nctId) {
+    if (!r || r.mode === 'inline') return READY;
+    if (r.mode === 'split') {
+        if (klass === 'core') return READY;
+        if (klass === 'studies_tab') return loadState(r.extras, map => map.get(nctId));
+        const n = shardOf(nctId, r.layout.detail.shards);
+        if (n === null) return { state: 'missing', entry: null };
+        return loadState(r.shards.get(n), map => map[nctId]);
+    }
+    if (r.mode === 'archive') return loadState(r.extras, map => map.get(nctId));
+    if (r.mode === 'legacy' && klass === 'detail') {
+        const march = loadState(r.extras, map => map.get(nctId));
+        // On their way, or did not load: so are the five fields the March
+        // files carry, and only those. The rest of the class was never in
+        // them, so it is not included in this archive from the start, and
+        // nothing offers to download 82 MB again for it.
+        if (march.state !== 'ready' && march.state !== 'missing') {
+            return Object.assign(march, { only: MARCH_DETAIL_FIELDS, rest: { state: 'absent', entry: null, text: r.absentText } });
         }
-    })();
-    detailLoad = { target, promise };
-    return promise;
+        return { state: 'absent', entry: march.entry, text: r.absentText, from: march.entry ? MARCH_EXTRACT_LABEL : null };
+    }
+    if (r.mode === 'legacy' || r.mode === 'summary') return { state: 'absent', entry: null, text: r.absentText };
+    return { state: 'failed', entry: null, problem: { kind: 'layout', text: 'this page is older than the data; reload' } };
 }
+
+function loadState(load, pick) {
+    if (!load || load.state === 'idle' || load.state === 'loading') return { state: 'pending', entry: null };
+    if (load.state === 'failed') return { state: 'failed', entry: null, problem: load.error };
+    const entry = pick(load.map);
+    return entry === undefined || entry === null ? { state: 'missing', entry: null } : { state: 'ready', entry };
+}
+
+// Where one field stands, given its class's state: as the class does, unless
+// that state holds for some of the class's fields only and this is not one.
+function fieldState(st, field) {
+    return st.only && !st.only.includes(field) ? st.rest : st;
+}
+
+// A study with the fields its dataset loaded for it laid over its record. The
+// four demographic objects merge one level down, so the core's reported flag
+// and totals stay beside the loaded category labels; every other field is
+// replaced whole (a shard's study_sites, written whole, replaces the core's
+// country-only list). The record itself is never changed.
+function mergeStudy(study, ...extras) {
+    const merged = Object.assign({}, study);
+    for (const extra of extras) {
+        if (!extra || typeof extra !== 'object') continue;
+        for (const [key, value] of Object.entries(extra)) {
+            if (DEMOGRAPHIC_DIMENSIONS.includes(key)) {
+                if (value && typeof value === 'object') {
+                    const own = merged[key] && typeof merged[key] === 'object' ? merged[key] : {};
+                    merged[key] = Object.assign({}, own, value);
+                }
+                continue;
+            }
+            merged[key] = value;
+        }
+    }
+    return merged;
+}
+
+// A study as a view shows it: the record with every entry its dataset has
+// loaded for these classes laid over it, and where each class stands.
+function studyView(r, record, klasses) {
+    const states = {};
+    const entries = [];
+    for (const klass of klasses) {
+        states[klass] = classState(r, klass, record.nct_id);
+        const entry = states[klass].entry;
+        if (entry && !entries.includes(entry)) entries.push(entry);
+    }
+    return { study: entries.length ? mergeStudy(record, ...entries) : record, states };
+}
+
+// Why a fetched file does not belong to the dataset r reads, or null when it
+// does. It must carry the dataset's run stamps (core part 1's; an archive's
+// file names the run it was projected from, and a dataset that carries no
+// commit has none to compare), then the header the layout gives it.
+function sidecarProblem(r, body, header) {
+    if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object' || Array.isArray(body.data)) {
+        return { kind: 'mismatch', text: 'the file does not match this dataset' };
+    }
+    const source = header.class === 'archive';
+    const stamp = source ? body.source_extracted_at : body.extracted_at;
+    const commitOf = source ? body.source_pipeline_commit : body.pipeline_commit;
+    const commit = commitOf === undefined ? null : commitOf;
+    const commitOk = (source && r.commit === null) || commit === r.commit;
+    if (stamp !== r.stamp || !commitOk) {
+        const newer = Date.parse(stamp) > Date.parse(r.stamp);
+        return newer
+            ? { kind: 'newer', text: `the server has the run of ${stamp}, newer than ${r.stamp}` }
+            : { kind: 'stale', text: `the server sent the run of ${stamp} (${commit}), not ${r.stamp} (${r.commit})` };
+    }
+    for (const [k, v] of Object.entries(header)) {
+        if (body[k] !== v) return { kind: 'mismatch', text: `the file says ${k} ${JSON.stringify(body[k])}, not ${JSON.stringify(v)}` };
+    }
+    return null;
+}
+
+// studies_tab part k: the layout's header, and exactly core part k's studies.
+function studiesTabPartProblem(r, body, k) {
+    const problem = sidecarProblem(r, body, { class: 'studies_tab', part: k, total_parts: r.layout.studies_tab.files });
+    if (problem) return problem;
+    const start = r.partSizes.slice(0, k - 1).reduce((a, b) => a + b, 0);
+    const own = r.rows.slice(start, start + r.partSizes[k - 1]);
+    if (Object.keys(body.data).length !== own.length || own.some(s => !Object.prototype.hasOwnProperty.call(body.data, s.nct_id))) {
+        return { kind: 'mismatch', text: `studies_tab part ${k} does not hold exactly core part ${k}'s studies` };
+    }
+    return null;
+}
+
+// detail shard n: the layout's header, and only studies whose shard is n.
+function shardProblem(r, body, n) {
+    const shards = r.layout.detail.shards;
+    const problem = sidecarProblem(r, body, { class: 'detail', shard: n, shards, key: LAYOUT_SHARD_KEY });
+    if (problem) return problem;
+    const stray = Object.keys(body.data).find(id => shardOf(id, shards) !== n);
+    return stray ? { kind: 'mismatch', text: `detail shard ${n} holds ${stray}, whose shard is ${shardOf(stray, shards)}` } : null;
+}
+
+// Fetch one of a dataset's files through fetchAndDecompress (the data key,
+// gzip, the pako fallback) and check it with problemOf. A file from another
+// run, or one that does not match, is dropped and fetched once more past the
+// browser cache (a CDN can serve the previous run's copy for a while after a
+// publish); if it still does not belong, nothing of it is used. A 4xx answer
+// is fetched once more past the cache too: a browser keeps it as long as it
+// would keep the file (Cloudflare sends max-age=14400 with a 404 as well), so
+// a file back on the server would stay missing for hours. retry: the file did
+// not load before (Try again, a pop-up opened again, the Studies tab), so its
+// first request goes past the cache, and is the only one that does.
+async function fetchSidecar(url, problemOf, onProgress, retry = false) {
+    const pastCache = { cache: 'reload' };
+    let fresh = retry;   // the copy in hand came past the browser cache
+    let body;
+    try {
+        body = await fetchAndDecompress(url, onProgress, fresh ? pastCache : undefined);
+    } catch (err) {
+        const status = err && err.status;
+        if (fresh || !(status >= 400 && status < 500)) throw err;
+        console.warn(`${url}: HTTP ${status}; fetching it again past the cache`);
+        fresh = true;
+        body = await fetchAndDecompress(url, onProgress, pastCache);
+    }
+    let problem = problemOf ? problemOf(body) : null;
+    if (!problem) return body;
+    if (!fresh) {
+        console.warn(`${url}: ${problem.text}; fetching it again`);
+        body = null;
+        body = await fetchAndDecompress(url, onProgress, pastCache);
+        problem = problemOf(body);
+        if (!problem) return body;
+    }
+    const err = new Error(`${url}: ${problem.text}`);
+    err.sidecar = problem;
+    throw err;
+}
+
+// Why a load failed, in a few words: an HTTP status, a run or file mismatch
+// (fetchSidecar), or the connection.
+function loadProblem(err) {
+    if (err && err.sidecar) return err.sidecar;
+    const http = /HTTP (\d{3})/.exec(String(err && err.message));
+    if (http) return { kind: 'http', text: `HTTP ${http[1]}` };
+    return { kind: 'network', text: err && err.name === 'SyntaxError' ? 'the file could not be read' : 'the connection failed' };
+}
+
+// The files of a dataset's Studies-tab extras, each with its check: the
+// studies_tab parts (split), the archive's own file (archive), or the frozen
+// March files (legacy; they carry no stamps). None for inline and summary.
+function extrasFiles(r) {
+    if (!r) return [];
+    if (r.mode === 'split') {
+        return Array.from({ length: r.layout.studies_tab.files }, (_, i) => ({
+            url: `${r.base}/studies_tab.part${i + 1}.json.gz`,
+            problemOf: body => studiesTabPartProblem(r, body, i + 1)
+        }));
+    }
+    if (r.mode === 'archive') {
+        return [{ url: `${r.base}/${r.archiveFile}`, problemOf: body => sidecarProblem(r, body, { class: 'archive' }) }];
+    }
+    if (r.mode === 'legacy') return MARCH_DETAIL_FILES.map(url => ({ url, problemOf: null }));
+    return [];
+}
+
+// What a dataset's Studies-tab extras are, in words.
+function extrasWhat(r) {
+    if (r.mode === 'archive') return "this archive's study records";
+    if (r.mode === 'legacy') return `sites and outcomes ${MARCH_EXTRACT_LABEL}`;
+    return 'publications and category labels';
+}
+
+// A file that shows the server has a newer run than the dataset's (16a) is
+// not asked for again: the same newer copy would come back, and only a reload
+// brings in the run it belongs to. The first such file marks the dataset
+// superseded, and the Studies-tab extras (tens of megabytes) are not
+// downloaded after that; a detail shard (a fraction of a megabyte) is still
+// tried on its own, since a CDN mid-deploy can hold this run's copy of it.
+function noteSuperseded(r, problem) {
+    if (problem && problem.kind === 'newer' && !r.superseded) r.superseded = problem;
+}
+
+// Whether the run a dataset was loaded from has left the server: asked when
+// one of its files answers with an HTTP error, which carries no run stamp.
+// The engine deletes a split dataset's class files when the split is switched
+// off (the rollback; the next run publishes whole-record parts) and when a
+// snapshot is pruned, so their 404 is the one sign of a newer run there is.
+// The latest dataset's run is the one data/run.json names: LATEST_RUN_STAMP
+// may already name a later one, else the file is read again past every cache
+// (fetchRun keeps its first answer for the page). A snapshot is still published
+// while history.json lists its date, as the kind of dataset the page shows: a
+// split snapshot that is now an aggregate archive, or an archive whose own
+// file it no longer names, has changed. Resolves to a 'newer' problem (16a:
+// the page offers Reload), or null: the run is still there, or the server's
+// file cannot be read, and the error stands.
+async function runLeftServer(r) {
+    const fresh = url => fetch(url, { cache: 'no-store' })
+        .then(resp => (resp.ok ? resp.json() : null))
+        .catch(() => null);
+    const later = stamp => typeof stamp === 'string' && Date.parse(stamp) > Date.parse(r.stamp);
+    if (r.key === 'latest') {
+        let stamp = LATEST_RUN_STAMP;
+        if (!later(stamp)) {
+            const run = await fresh('data/run.json');
+            stamp = run ? run.extracted_at : null;
+        }
+        return later(stamp) ? { kind: 'newer', text: `the server has the run of ${stamp}, newer than ${r.stamp}` } : null;
+    }
+    const history = await fresh('history.json');
+    if (!history || !Array.isArray(history.dates)) return null;
+    const archives = history.archives && typeof history.archives === 'object' ? history.archives : {};
+    const entry = archives[r.key] && typeof archives[r.key] === 'object' ? archives[r.key] : null;
+    const changed = !history.dates.includes(r.key)
+        || (r.mode === 'split' && !!entry && entry.kind === 'aggregate')
+        || (r.mode === 'archive' && archiveDetailFile(history, r.key) !== r.archiveFile);
+    return changed ? { kind: 'newer', text: `the server no longer publishes the ${r.key} snapshot this page shows` } : null;
+}
+
+// Why one of a dataset's files did not load (loadProblem). An HTTP error from
+// a split dataset or an archive's own file is first checked against the
+// server's run (runLeftServer), so files that went with their run say Reload,
+// not Try again; one check at a time per dataset, which the files failing
+// together share, and none once the dataset is known to be superseded. The
+// March files belong to no run: their errors stand as they are.
+async function sidecarFailure(r, err) {
+    const problem = loadProblem(err);
+    if (problem.kind !== 'http' || (r.mode !== 'split' && r.mode !== 'archive')) return problem;
+    if (r.superseded) return r.superseded;
+    if (!r.runCheck) {
+        r.runCheck = runLeftServer(r).then(found => {
+            r.runCheck = null;
+            return found;
+        });
+    }
+    return (await r.runCheck) || problem;
+}
+
+// Load a dataset's Studies-tab extras, all or nothing: the files are fetched
+// in parallel, their bytes summed for the status row, and nothing is used
+// until every one has loaded, so "none" never stands in for "did not load".
+// When one fails, the failure is shown at once, and the others still finish
+// and are kept; the next call (Try again, the tab, a pop-up) fetches only the
+// files that failed, never one that loaded or is still on its way, so retries
+// cannot pile up. Nothing is fetched again once the dataset is superseded
+// (noteSuperseded), and what it kept is let go. One promise per round,
+// shared by every caller; it settles when the round has loaded or failed, and
+// never rejects. Null when the dataset has no extras.
+function loadStudiesTabExtras(r) {
+    const files = extrasFiles(r);
+    if (!files.length) return null;
+    const x = r.extras;
+    if (x.state === 'loading' || x.state === 'loaded') return x.promise;
+    if (r.superseded) {
+        if (x.state !== 'failed' || x.error !== r.superseded) {
+            x.state = 'failed';
+            x.error = r.superseded;
+            x.parts = null;
+            x.promise = Promise.resolve();
+        }
+        return x.promise;
+    }
+    if (!x.parts) {
+        x.parts = files.map(() => ({ state: 'idle', data: null }));
+        x.loaded = files.map(() => 0);
+        x.totals = files.map(() => undefined);
+        x.finished = files.map(() => false);
+    }
+    x.state = 'loading';
+    x.error = null;
+    x.promise = new Promise(resolve => { x.settle = resolve; });
+    // A split dataset's parts hold exactly its rows. An archive's files can
+    // hold far more (the March files: 76,684 studies for 500 rows), so only
+    // its own rows are kept, and the rest goes with the body.
+    const own = r.mode === 'split' ? null : new Set(r.rows.map(s => s.nct_id));
+    const parts = x.parts;
+    files.forEach((file, i) => {
+        const part = parts[i];
+        if (part.state === 'loading' || part.state === 'loaded') return;
+        const retry = part.state === 'failed';   // past the browser cache (fetchSidecar)
+        part.state = 'loading';
+        x.loaded[i] = 0;
+        x.totals[i] = undefined;
+        x.finished[i] = false;
+        fetchSidecar(file.url, file.problemOf, (got, total) => {
+            x.loaded[i] = got;
+            x.totals[i] = total;
+            extrasProgress(r);
+        }, retry).then(body => {
+            part.state = 'loaded';
+            part.data = own ? Object.fromEntries(Object.keys(body.data).filter(id => own.has(id)).map(id => [id, body.data[id]])) : body.data;
+            x.finished[i] = true;
+            extrasPartSettled(r, parts, null);
+        }, async err => {
+            const problem = await sidecarFailure(r, err);
+            part.state = 'failed';
+            noteSuperseded(r, problem);
+            console.warn(`The ${extrasWhat(r)} did not load: ${err.message}`);
+            extrasPartSettled(r, parts, problem);
+        });
+    });
+    extrasProgress(r);
+    return x.promise;
+}
+
+// One file of a dataset's extras has landed or failed. Once all have
+// landed they are merged and the round has loaded; the first failure ends
+// the round as failed (the files still on their way finish, and are kept for
+// the next round). After a newer run shows up the extras can never be whole,
+// so what they kept is dropped, and the row says Reload.
+function extrasPartSettled(r, parts, problem) {
+    const x = r.extras;
+    if (x.parts !== parts) return;   // let go when the dataset was superseded
+    if (parts.every(p => p.state === 'loaded')) {
+        const map = new Map();
+        for (const part of parts) for (const id of Object.keys(part.data)) map.set(id, part.data[id]);
+        x.map = map;
+        x.parts = null;
+        x.state = 'loaded';
+        x.error = null;
+    } else if (problem) {
+        const error = r.superseded || (x.state === 'failed' ? x.error : problem);
+        if (r.superseded) x.parts = null;
+        if (x.state === 'failed' && x.error === error) return;
+        x.state = 'failed';
+        x.error = error;
+    } else {
+        extrasProgress(r);
+        return;
+    }
+    const settle = x.settle;
+    x.settle = null;
+    if (settle) settle();
+    extrasSettled(r);
+}
+
+// Shard n of a dataset has just been used: the cache keeps its shards in the
+// order they were last used, and drops the least recently used first.
+function touchShard(r, n) {
+    const held = r.shards.get(n);
+    if (held) {
+        r.shards.delete(n);
+        r.shards.set(n, held);
+    }
+    return held;
+}
+
+// Load detail shard n of a dataset: one promise per dataset and shard, shared
+// by every pop-up that needs it. Settles, never rejects; a failure is shown,
+// and the next call tries again, unless this shard came from a newer run.
+// Past SHARD_CACHE_LIMIT loaded shards, the least recently used are dropped,
+// never the one that has just loaded (its pop-up is about to draw it).
+function loadShard(r, n) {
+    const held = touchShard(r, n);
+    if (held && (held.state === 'loading' || held.state === 'loaded')) return held.promise;
+    if (held && held.state === 'failed' && held.error && held.error.kind === 'newer') return held.promise;
+    const retry = !!held && held.state === 'failed';   // past the browser cache (fetchSidecar)
+    const shard = { state: 'loading', error: null, map: null, promise: null };
+    r.shards.set(n, shard);   // last: a failed entry was moved there first
+    const url = `${r.base}/detail/${n}.json.gz`;
+    shard.promise = fetchSidecar(url, body => shardProblem(r, body, n), null, retry).then(body => {
+        shard.map = body.data;
+        shard.state = 'loaded';
+        const others = [...r.shards].filter(([k, s]) => k !== n && s.state === 'loaded');
+        others.slice(0, Math.max(0, others.length + 1 - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
+    }, async err => {
+        const problem = await sidecarFailure(r, err);
+        shard.state = 'failed';
+        shard.error = problem;
+        noteSuperseded(r, problem);
+        console.warn(`Could not load ${url}: ${err.message}`);
+    });
+    return shard.promise;
+}
+
+// Start, or join, the loads a view of one study waits on: for each class it
+// shows that has not arrived, its shard or the dataset's extras. A failed load
+// is tried again, except one that found a newer run (loadStudiesTabExtras and
+// loadShard answer that at once). Returns their promises; none when nothing
+// is coming.
+function loadsFor(r, nctId, klasses) {
+    const waits = [];
+    for (const klass of klasses) {
+        const n = r.mode === 'split' && klass === 'detail' ? shardOf(nctId, r.layout.detail.shards) : null;
+        const state = classState(r, klass, nctId).state;
+        if (state !== 'pending' && state !== 'failed') {
+            if (n !== null) touchShard(r, n);   // a loaded shard in use is kept longest
+            continue;
+        }
+        const wait = n !== null ? loadShard(r, n) : loadStudiesTabExtras(r);
+        if (wait && !waits.includes(wait)) waits.push(wait);
+    }
+    return waits;
+}
+
+// The status row's share and bytes: as the loading screen's, in tenths of a
+// megabyte below 100 MB (an archive's own file is under 1 MB).
+function describeExtrasProgress(loaded, totals, finished) {
+    const { fraction } = describePartsProgress(loaded, totals, finished);
+    const got = loaded.reduce((a, b) => a + b, 0);
+    const all = totals.length && totals.every(t => t > 0) ? totals.reduce((a, b) => a + b, 0) : null;
+    const mb = bytes => (bytes / 1e6).toFixed((all === null ? got : all) >= 1e8 ? 0 : 1);
+    return { fraction, text: all === null ? `${mb(got)} MB` : `${mb(got)} of ${mb(all)} MB` };
+}
+
+const capitalize = text => text.charAt(0).toUpperCase() + text.slice(1);
+
+// One sentence for a load of `what` that failed, and the way on it offers. A
+// newer run on the server needs a reload, not another try (16a).
+function failureText(what, problem) {
+    if (problem.kind === 'newer') return { text: 'The data was updated since this page loaded.', action: 'reload' };
+    if (problem.kind === 'stale') return { text: `${capitalize(what)} did not load: the server is still updating them. Try again in a few minutes.`, action: 'retry' };
+    return { text: `${capitalize(what)} did not load (${problem.text}).`, action: 'retry' };
+}
+
+// What the Studies tab's status row says about the extras of the dataset r
+// reads, or null when it has nothing to say: none to load, not asked for yet,
+// or loaded.
+function extrasStatus(r) {
+    if (!extrasFiles(r).length) return null;
+    const x = r.extras;
+    if (x.state === 'loading') {
+        const { fraction, text } = describeExtrasProgress(x.loaded, x.totals, x.finished);
+        return { state: 'loading', label: `Loading ${extrasWhat(r)}`, bytes: text, fraction };
+    }
+    if (x.state === 'failed') {
+        const failed = failureText(extrasWhat(r), x.error);
+        return { state: 'failed', label: failed.text, bytes: '', action: failed.action };
+    }
+    return null;
+}
+
+// The Studies tab's status row (index.html #studies-extras-status): while the
+// extras load, a determinate hairline and "Loading … · x of y MB"; if they did
+// not, why, and Try again (or Reload); hidden otherwise. Focus in the row is
+// not left on what it hides: while the extras load again it waits on the
+// row's line, and once they are here it goes to the table they filled.
+function renderExtrasStatus() {
+    const box = document.getElementById('studies-extras-status');
+    if (!box) return;
+    const status = extrasStatus(datasetReader);
+    if (!status) {
+        if (!box.hidden && box.contains(document.activeElement)) {
+            const table = document.getElementById('studies-table');
+            if (table) table.focus({ preventScroll: true });
+        }
+        // Once a dataset's extras are here, a row that was showing keeps its
+        // place, blank and out of the reading order (styles.css is-settled),
+        // so the table below does not jump up under the pointer. A dataset
+        // without extras, or one whose row never showed, has no row.
+        const keepPlace = !box.hidden && extrasFiles(datasetReader).length > 0;
+        box.classList.toggle('is-settled', keepPlace);
+        box.hidden = !keepPlace;
+        return;
+    }
+    box.classList.remove('is-settled');
+    box.hidden = false;
+    box.classList.toggle('is-failed', status.state === 'failed');
+    const meter = box.querySelector('.loading-meter');
+    meter.hidden = status.state !== 'loading';
+    if (status.state === 'loading') {
+        const percent = Math.round(status.fraction * 100);
+        box.querySelector('.loading-progress-bar').style.width = percent + '%';
+        meter.setAttribute('aria-valuenow', String(percent));
+        meter.setAttribute('aria-label', status.label);
+    }
+    const label = box.querySelector('.extras-status-text');
+    if (label.textContent !== status.label) label.textContent = status.label;
+    box.querySelector('.extras-status-bytes').textContent = status.bytes ? ` · ${status.bytes}` : '';
+    // Read before the button hides: a browser drops focus from a hidden
+    // element at once, without a blur.
+    const action = box.querySelector('.extras-status-action');
+    const actionHadFocus = document.activeElement === action;
+    action.hidden = !status.action;
+    action.textContent = status.action === 'reload' ? 'Reload' : 'Try again';
+    if (action.hidden && actionHadFocus) box.querySelector('.extras-status-line').focus({ preventScroll: true });
+}
+
+// The status row's button: Reload for a newer run, else try the extras again.
+function studiesExtrasAction() {
+    const status = extrasStatus(datasetReader);
+    if (!status || !status.action) return;
+    if (status.action === 'reload') {
+        location.reload();
+        return;
+    }
+    loadStudiesTabExtras(datasetReader);
+    renderExtrasStatus();
+    if (studiesTabActive()) redrawStudiesTableKeepingFocus();
+}
+
+// The Studies table redraws its rows and page buttons when the extras land
+// or a Try again starts, and the control a keyboard user is on goes with
+// them. studiesFocusKey notes which one it was: its row's study, its first
+// class (or tag) and its place among the row's controls of that kind; or a
+// page button's label. Null when focus is not in the rows or page buttons, so
+// a redraw never takes focus from anywhere else.
+function studiesFocusKey(active, body, pager) {
+    if (!active || !body || !pager) return null;
+    if (body.contains(active) && active !== body) {
+        const row = active.closest ? active.closest('tr') : null;
+        const link = row ? row.querySelector('.nct-link') : null;
+        if (!link) return null;
+        const kind = active.classList && active.classList.length ? `.${active.classList[0]}` : String(active.tagName || '').toLowerCase();
+        return { where: 'row', nct: link.textContent.trim(), kind, index: [...row.querySelectorAll(kind)].indexOf(active) };
+    }
+    if (pager.contains(active) && active !== pager) return { where: 'pager', label: String(active.textContent || '').trim() };
+    return null;
+}
+
+// The same control after the redraw, or null when it is gone (its row left
+// the page, or its page button is disabled now).
+function findStudiesControl(key, body, pager) {
+    if (!key) return null;
+    if (key.where === 'pager') {
+        return [...pager.querySelectorAll('button')].find(b => !b.disabled && String(b.textContent || '').trim() === key.label) || null;
+    }
+    const row = [...body.querySelectorAll('tr')].find(tr => {
+        const link = tr.querySelector('.nct-link');
+        return link && link.textContent.trim() === key.nct;
+    });
+    return row ? row.querySelectorAll(key.kind)[key.index] || null : null;
+}
+
+function redrawStudiesTableKeepingFocus() {
+    const body = document.getElementById('studies-table-body');
+    const pager = document.getElementById('pagination');
+    const key = studiesFocusKey(document.activeElement, body, pager);
+    renderStudiesTable();
+    if (!key) return;
+    const target = findStudiesControl(key, body, pager) || document.getElementById('studies-table');
+    if (target) target.focus({ preventScroll: true });
+}
+window.studiesExtrasAction = studiesExtrasAction;
+
+function studiesTabActive() {
+    const tab = document.querySelector('.tab[data-tab="studies"]');
+    return !!(tab && tab.classList.contains('active'));
+}
+
+// Progress of a dataset's extras, drawn once a frame, and only while that
+// dataset is on screen.
+let extrasFrame = 0;
+function extrasProgress(r) {
+    if (r !== datasetReader || extrasFrame) return;
+    extrasFrame = requestAnimationFrame(() => {
+        extrasFrame = 0;
+        renderExtrasStatus();
+    });
+}
+
+// A dataset's extras have settled. If it is still on screen, the status row
+// says so and an open Studies tab redraws its page, which stays where it was.
+// A dataset no longer on screen keeps what it loaded, and nothing is drawn.
+function extrasSettled(r) {
+    if (r !== datasetReader || data !== r.rows) return;
+    renderExtrasStatus();
+    if (studiesTabActive()) redrawStudiesTableKeepingFocus();
+}
+
+// ── The marks a view shows for fields that are not here ──
+// One quiet loader everywhere: the loading screens' hairline meter (no ring,
+// no shimmer, no icon) while fields load; plain words when they did not load,
+// are missing, or are not part of this view. None of them is the '-', 'No',
+// 'N/A' or 'Other' a view shows for a value that is there.
+
+// A section's line for fields it does not have. A line that can follow a Try
+// again (loading, did not load, missing) and its button carry data-state, so
+// drawOverlay can put focus back on the same section's line once the pop-up
+// redraws.
+function stateLine(st, what, retry) {
+    const mark = `data-state="${what}"`;
+    if (st.state === 'pending') {
+        return `<div class="detail-state is-pending" aria-busy="true" ${mark} tabindex="-1">` +
+            `<div class="loading-meter is-indeterminate" role="progressbar" aria-label="Loading ${what}"><div class="loading-progress-bar"></div></div>` +
+            `<span class="detail-state-text">Loading ${what}</span></div>`;
+    }
+    if (st.state === 'failed') {
+        const failed = failureText(what, st.problem);
+        const button = failed.action === 'reload'
+            ? `<button type="button" class="detail-action" onclick="location.reload()" ${mark}>Reload</button>`
+            : `<button type="button" class="detail-action" onclick="${retry}" ${mark}>Try again</button>`;
+        return `<p class="detail-state is-failed" ${mark} tabindex="-1">${escapeHtml(failed.text)} ${button}</p>`;
+    }
+    if (st.state === 'missing') {
+        return `<p class="detail-state is-failed" ${mark} tabindex="-1">This study's ${what} are missing from the published files.</p>`;
+    }
+    return `<p class="detail-state is-na">${escapeHtml(st.text)}</p>`;
+}
+
+// The line for a section whose fields wait on several states (fieldState):
+// the one furthest from arriving speaks for them.
+function sectionLine(waiting, what, retry) {
+    if (!waiting || !waiting.length) return '';
+    const order = ['failed', 'missing', 'pending', 'absent'];
+    const worst = waiting.slice().sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state))[0];
+    return stateLine(worst, what, retry);
+}
+
+// The same in a few words, for a tooltip or a pip's label.
+function stateNote(st) {
+    if (st.state === 'pending') return 'loading';
+    if (st.state === 'failed') return 'did not load';
+    if (st.state === 'missing') return 'missing from the published files';
+    return st.text.charAt(0).toLowerCase() + st.text.slice(1);
+}
+
+// A table cell whose value is not here: an ellipsis while it loads, words when
+// it did not load, is missing, or is not part of this view.
+function stateCell(st, what) {
+    if (st.state === 'pending') {
+        return `<span class="cell-pending" role="img" aria-label="Loading ${what}" title="Loading ${what}">…</span>`;
+    }
+    if (st.state === 'failed') {
+        return `<span class="cell-failed" title="${escapeHtml(failureText(what, st.problem).text)}">did not load</span>`;
+    }
+    if (st.state === 'missing') {
+        return `<span class="cell-failed" title="This study's ${what} are missing from the published files">missing</span>`;
+    }
+    return `<span class="cell-na" title="${escapeHtml(st.text)}">not included</span>`;
+}
+
+// The pop-ups draw at once from what the record has, then again as what they
+// wait for arrives. Each opening takes a token: a redraw whose token is no
+// longer current (the pop-up was closed, or another opened), or whose dataset
+// has left the screen, stands down.
+let breakdownToken = 0;
+let studyModalToken = 0;
+
+// Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
+// what it waits for lands, or by its own Try again, which opens it afresh)
+// keeps its scroll position and does not play its entrance (slideUp) again,
+// and focus that was inside it stays inside it: on the same section's line
+// (its button, when it has one), else on the close button. Replacing the
+// markup would otherwise send focus to the page behind.
+function drawOverlay(id, html, redraw) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    const open = redraw || overlay.style.display === 'flex';
+    const box = open ? overlay.firstElementChild : null;
+    const top = box ? box.scrollTop : 0;
+    const active = document.activeElement;
+    const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
+    const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
+    const same = hadFocus && !section ? controlSignature(active) : null;
+    overlay.innerHTML = html;
+    overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
+    if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
+    overlay.style.display = 'flex';
+    if (hadFocus) {
+        const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
+        const target = (line && (line.querySelector('.detail-action') || line))
+            || findSameControl(overlay, same)
+            || overlay.querySelector('.close-btn, .modal-close-btn');
+        if (target) target.focus({ preventScroll: true });
+    }
+}
+
+// A focused control in a pop-up that has no section line (a study's NCT link,
+// a publication link), told apart from its siblings by tag, class and where
+// it points (or its text), so a redraw can put focus back on it.
+function controlSignature(el) {
+    if (!el || !el.tagName) return null;
+    const tag = String(el.tagName).toLowerCase();
+    const attr = (k) => (el.getAttribute ? el.getAttribute(k) : null) || '';
+    return { tag, cls: attr('class'), id: attr('href') || String(el.textContent || '').trim() };
+}
+
+function findSameControl(overlay, sig) {
+    if (!sig || !overlay.querySelectorAll) return null;
+    return [...overlay.querySelectorAll(sig.tag)].find(el => {
+        const attr = (k) => (el.getAttribute ? el.getAttribute(k) : null) || '';
+        return attr('class') === sig.cls && (attr('href') || String(el.textContent || '').trim()) === sig.id;
+    }) || null;
+}
+
+// ── end study details on demand
 
 // Number of data file parts per snapshot
 const NUM_PARTS = 8;
@@ -1362,22 +2181,31 @@ function partFiles(n) {
     return Array.from({ length: n }, (_, i) => `demographics.part${i + 1}.json.gz`);
 }
 
+// The folder a dataset's files sit in: data/ for the latest run,
+// snapshots/<date>/ for an archived week. Every dataset path is built from
+// it: the parts, an archive's summary, the Studies-tab extras and detail
+// shards, and the ?sg=v2 files (sgBase).
+function datasetBase(key) {
+    return (!key || key === 'latest') ? 'data' : `snapshots/${key}`;
+}
+
 // Build list of URL strategies to try for fetching data.
 // Historical snapshots are stored in snapshots/{date}/ on GitHub Pages (same origin).
 // Mobile uses pre-computed dashboard-summary.json loaded in loadData() — no part files needed.
 function getUrlStrategies(date) {
     const parts = partFiles(NUM_PARTS);
+    const base = datasetBase(date);
 
     if (!date || date === 'latest') {
         return [
-            { name: 'Local', urls: parts.map(f => `data/${f}`) }
+            { name: 'Local', urls: parts.map(f => `${base}/${f}`) }
         ];
     }
 
     return [
         {
             name: 'Snapshot',
-            urls: parts.map(f => `snapshots/${date}/${f}`)
+            urls: parts.map(f => `${base}/${f}`)
         }
     ];
 }
@@ -1396,6 +2224,14 @@ async function loadData(date) {
                 // with real rows + horizontal scroll. Full 77K dataset + details
                 // files aren't served to mobile (would crash low-memory devices).
                 data = dashboardSummary.recentStudies || [];
+                // Summary rows: what they lack is "Not included in the phone view".
+                datasetReader = makeReader({
+                    mode: 'summary', key: 'latest', base: datasetBase('latest'), rows: data,
+                    stamp: summary.extracted_at === undefined ? null : summary.extracted_at,
+                    commit: summary.pipeline_commit === undefined ? null : summary.pipeline_commit,
+                    absentText: ABSENT_PHONE
+                });
+                studiesTabReady = false;
                 const dateLabel = dashboardSummary.extracted_at
                     ? new Date(dashboardSummary.extracted_at).toLocaleDateString()
                     : '';
@@ -1416,9 +2252,13 @@ async function loadData(date) {
         console.log(`⚡ Snapshot "${cacheKey}" loaded from cache (${cached.data.length} studies)`);
         data = cached.data;
         // Aggregate-archive snapshots restore their summary; full snapshots
-        // clear any summary left by a previously viewed aggregate archive.
-        if (!isMobileDevice) dashboardSummary = cached.summary || null;
-        resetDetailState();
+        // clear any summary left by a previously viewed aggregate archive. The
+        // dataset decides, on a phone too: a phone only reaches the cache
+        // after its summary failed and it loaded parts instead.
+        dashboardSummary = cached.summary || null;
+        // Its reader, with whatever it loaded on an earlier visit.
+        datasetReader = cached.reader;
+        studiesTabReady = false;
         document.getElementById('last-updated').textContent = cached.dateLabel;
         if (cached.extractedAt) setDataPulledDate(cached.extractedAt);
         return;
@@ -1469,8 +2309,15 @@ async function loadData(date) {
             });
 
             updateLoadingProgress(72, 'Reading trial records');
+            // What the parts say about their layout, before anything of the
+            // dataset is shown: a layout this page cannot read refuses it.
+            const layout = datasetLayout(parts);
             data = parts.flatMap(p => p.data);
-            resetDetailState();
+            datasetReader = partsReader(cacheKey, parts, layout, data);
+            // Leaving a previously viewed aggregate archive: back to full mode.
+            // The dataset decides, on a phone too (one whose summary failed).
+            dashboardSummary = null;
+            studiesTabReady = false;
             console.log(`✓ Loaded ${data.length} studies via ${strategy.name}`);
 
             // Debug: Log exact keys of first study for data mapping verification
@@ -1498,16 +2345,18 @@ async function loadData(date) {
             document.getElementById('last-updated').textContent = fullDateLabel;
             setDataPulledDate(parts[0].extracted_at);
 
-            // Leaving a previously viewed aggregate archive: back to full mode.
-            if (!isMobileDevice) dashboardSummary = null;
-
             // ── Cache this snapshot for instant re-access ──
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt });
+            // The reader rides on the entry, so the extras it loads are kept
+            // with the dataset and go when the entry goes.
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, reader: datasetReader });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
 
         } catch (error) {
+            // A layout this page cannot read is not a missing snapshot: say
+            // so, rather than fall back to the archive summary below.
+            if (error.layoutRefused) throw error;
             console.warn(`✗ ${strategy.name} failed:`, error.message);
             lastError = error;
         }
@@ -1522,16 +2371,24 @@ async function loadData(date) {
     if (date && date !== 'latest') {
         try {
             updateLoadingProgress(60, 'Loading the archive summary');
-            const resp = await keyedFetch(`snapshots/${date}/dashboard-summary.json`);
+            const resp = await keyedFetch(`${datasetBase(date)}/dashboard-summary.json`);
             if (resp.ok) {
                 const summary = await resp.json();
+                // history.json says whether the archive has its own file of
+                // study records. It is usually in hand already; without an
+                // answer in time, the archive is read as having none.
+                const history = await Promise.race([
+                    fetchHistory(),
+                    new Promise(resolve => setTimeout(() => resolve(null), SMALL_FILE_WAIT_MS))
+                ]);
                 dashboardSummary = summary;
                 data = summary.recentStudies || [];
-                resetDetailState();
+                datasetReader = aggregateReader(date, summary, history, data);
+                studiesTabReady = false;
                 const dateLabel = `${new Date(summary.extracted_at).toLocaleDateString()} (${date} archive · aggregate view)`;
                 document.getElementById('last-updated').textContent = dateLabel;
                 setDataPulledDate(summary.extracted_at);
-                snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary, extractedAt: window.__dataExtractedAt });
+                snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary, extractedAt: window.__dataExtractedAt, reader: datasetReader });
                 console.log(`✓ Loaded ${date} as aggregate archive (summary-only snapshot)`);
                 showToast(`${date} is an archived monthly snapshot: charts show its full-dataset aggregates. Filters and the full study table are available on bi-weekly and latest data.`, 'info', 9000);
                 return;
@@ -1834,7 +2691,8 @@ function initTabs() {
             filtersSection.style.display = hideFilters ? 'none' : '';
             if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
 
-            // Render table when Studies tab is selected - preload ALL data first
+            // The Studies table draws at once; its extras start loading
+            // (prepareStudiesTab).
             if (tab.dataset.tab === 'studies') {
                 prepareStudiesTab();
             }
@@ -2795,6 +3653,10 @@ function renderDashboard() {
         }
         sgAfterRender(stub);
 
+        // A dataset switch with the Studies tab open: the new dataset's rows
+        // and its status row replace the old ones.
+        refreshStudiesTab();
+
         requestAnimationFrame(() => hideDashboardSpinner());
         return;
     }
@@ -2871,20 +3733,23 @@ function renderDashboard() {
     sgAfterRender(filtered);
 
     // Update table if visible
-    const studiesTab = document.querySelector('.tab[data-tab="studies"]');
-    if (studiesTab?.classList.contains('active')) {
-        if (studiesTabReady) {
-            currentPage = 0;
-            renderStudiesTable();
-        } else {
-            // A new dataset: let it decide whether the tab waits on details,
-            // rather than leaving the previous dataset's wait on screen.
-            prepareStudiesTab();
-        }
-    }
+    refreshStudiesTab();
 
     // Use requestAnimationFrame to hide spinner after paint
     requestAnimationFrame(() => hideDashboardSpinner());
+}
+
+// Redraw an open Studies tab after a render: the same dataset's table from
+// its first page, or a new dataset's tab from the start (prepareStudiesTab),
+// so the previous dataset's rows and status row never stay on screen.
+function refreshStudiesTab() {
+    if (!studiesTabActive()) return;
+    if (studiesTabReady) {
+        currentPage = 0;
+        renderStudiesTable();
+    } else {
+        prepareStudiesTab();
+    }
 }
 
 /**
@@ -3021,8 +3886,14 @@ function pubLabel(ref, index) {
 
 /**
  * Render an inline vertical list of publication links for a table cell.
+ * `tab` is where the row's Studies-tab extras stand (classState): until a
+ * row's references are here, the cell shows that, never the '-' of none. A
+ * summary row's own reference_count is a count, so it shows as before.
  */
-function renderPublications(study) {
+function renderPublications(study, tab = READY) {
+    if (!('references' in study) && tab.state !== 'ready' && typeof study.reference_count !== 'number') {
+        return stateCell(tab, 'publications');
+    }
     const refs = study.references || [];
     if (refs.length === 0) {
         // Mobile-slim data: show count badge if available
@@ -3049,8 +3920,42 @@ function renderPublications(study) {
  * and the user clicks "show all").
  */
 function showPublications(nctId) {
-    const study = data.find(s => s.nct_id === nctId);
-    if (!study || !study.references || study.references.length === 0) return;
+    const rows = data;
+    const r = datasetReader;
+    const record = rows.find(s => s.nct_id === nctId);
+    if (!record) return;
+    const token = ++breakdownToken;
+    const draw = (redraw) => {
+        if (token !== breakdownToken || data !== rows) return;
+        const { study, states } = studyView(r, record, ['studies_tab']);
+        const html = publicationsHtml(study, states.studies_tab, redraw);
+        if (html) drawOverlay('breakdown-overlay', html, redraw);
+    };
+    const waits = loadsFor(r, nctId, ['studies_tab']);
+    draw(false);
+    waits.forEach(wait => wait.then(() => draw(true)));
+}
+
+// The publications pop-up: the list once the references are here, the state
+// line until then. A study with none opens no pop-up, as before.
+function publicationsHtml(study, tab, redraw) {
+    const nctId = study.nct_id;
+    if (!('references' in study) && tab.state !== 'ready') {
+        return `<div class="breakdown-modal">
+        <h4>Publications \u2014 ${nctId}</h4>
+        <p class="modal-subtitle">Click outside to close</p>
+        ${stateLine(tab, 'publications', `showPublications('${nctId}')`)}
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+    }
+    if (!study.references || study.references.length === 0) {
+        if (!redraw) return '';
+        return `<div class="breakdown-modal">
+        <h4>Publications \u2014 ${nctId}</h4>
+        <p class="note">No publications linked to this study.</p>
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
+    }
 
     let html = `<div class="breakdown-modal">
         <h4>Publications \u2014 ${nctId}</h4>
@@ -3077,46 +3982,24 @@ function showPublications(nctId) {
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;
 
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    return html;
 }
 
 let studiesTabReady = false;
 
-async function prepareStudiesTab() {
-    const loadingScreen = document.getElementById('studies-loading-screen');
-    const readyContent = document.getElementById('studies-ready-content');
-
+// The Studies tab draws at once from the core fields, in every mode (14a).
+// Its extras (publications and category labels; an archive's study records;
+// the March files for 2026-02-22) start loading when the tab opens for a
+// dataset (6b), and the cells that read them say where they stand until they
+// arrive (extrasSettled redraws the page then). studiesTabReady is reset with
+// each dataset, so renderDashboard hands a new dataset's open tab back here.
+function prepareStudiesTab() {
     initColumnPicker();
-
-    if (studiesTabReady) {
-        // Already loaded — just re-render
-        currentPage = 0;
-        renderStudiesTable();
-        return;
-    }
-
-    // Show loading screen, hide content
-    if (loadingScreen) loadingScreen.style.display = '';
-    if (readyContent) readyContent.style.display = 'none';
-
-    // Summary-only archives preload their detail data so expand clicks are
-    // instant; a dataset loaded from parts returns at once (loadDetailData).
-    // After a switch to another dataset during the wait, the call made for
-    // that dataset owns the tab.
-    const rows = data;
-    await loadDetailData();
-    if (data !== rows) return;
-
     studiesTabReady = true;
-
-    // Hide loading screen, show content
-    if (loadingScreen) loadingScreen.style.display = 'none';
-    if (readyContent) readyContent.style.display = '';
-
+    loadStudiesTabExtras(datasetReader);
     currentPage = 0;
     renderStudiesTable();
+    renderExtrasStatus();
 }
 
 function renderStudiesTable() {
@@ -3175,22 +4058,24 @@ function renderStudiesTable() {
     const pageStart = currentPage * studiesPageSize;
     const pageData = filtered.slice(pageStart, pageStart + studiesPageSize);
 
-    // Render rows for current page only
-    tbody.innerHTML = pageData.map(study => {
-        // Format age range
-        const minAge = study.min_age || 'N/A';
-        const maxAge = study.max_age || 'N/A';
-        const ageRange = minAge === 'N/A' && maxAge === 'N/A' ? 'N/A' : `${minAge} - ${maxAge}`;
+    // Render rows for current page only: each row with its Studies-tab
+    // extras laid over it once they are here. The cells that read them
+    // (publications, the category-label tooltips) say where they stand until
+    // then; every other cell, the filters, search and sort read core fields.
+    const reader = datasetReader;
+    tbody.innerHTML = pageData.map(row => {
+        const { study, states } = studyView(reader, row, ['core', 'studies_tab']);
+        const tab = states.studies_tab;
+        // Geography is core (countries, and each site's country), on every
+        // record loaded from parts. A summary row (phone, archive) has
+        // neither list: its Geography cell and pip say where geography stands
+        // (not included, loading, did not load), never "No geography data".
+        const geography = 'study_sites' in study || 'countries' in study || states.core.state === 'ready' ? null : states.core;
 
         // Format enrollment with type indicator
         const enrollmentText = `${(study.enrollment || 0).toLocaleString()}`;
         const enrollmentBadge = study.enrollment_type === 'ANTICIPATED' ?
             `<span class="enrollment-badge" title="Anticipated enrollment">${enrollmentText}*</span>` : enrollmentText;
-
-        // Format status with tooltip for stopped studies
-        const statusText = study.status || 'N/A';
-        const statusWithReason = study.why_stopped ?
-            `<span title="Reason: ${escapeHtml(study.why_stopped)}" class="status-stopped">${statusText}</span>` : statusText;
 
         const startDate = study.start_date ? study.start_date : '<span class="text-muted">\u2014</span>';
         const endDate = (study.primary_completion_date || study.completion_date) ? (study.primary_completion_date || study.completion_date) : '<span class="text-muted">\u2014</span>';
@@ -3205,7 +4090,7 @@ function renderStudiesTable() {
             </td>
             <td class="col-title">${escapeHtml(study.brief_title || 'Untitled')}</td>
             <td class="col-results-date">${resultsDate}</td>
-            <td class="text-center col-reported">${renderReportedCell(study)}</td>
+            <td class="text-center col-reported">${renderReportedCell(study, geography ? { geography: stateNote(geography) } : {})}</td>
             <td class="col-time-to-report">${renderSparkline(getTimeToReport(study))}</td>
             <td class="text-center col-details">
                 <button class="details-btn" onclick="showStudyDetails('${study.nct_id}')" title="View full study details">
@@ -3214,11 +4099,11 @@ function renderStudiesTable() {
                     </svg>
                 </button>
             </td>
-            <td class="text-center col-race">${renderDemographicCell(study, 'race')}</td>
-            <td class="text-center col-ethnicity">${renderDemographicCell(study, 'ethnicity')}</td>
-            <td class="text-center col-sex">${renderDemographicCell(study, 'sex')}</td>
-            <td class="text-center col-gender">${renderDemographicCell(study, 'gender')}</td>
-            <td class="text-center col-geography">${renderGeographyCell(study)}</td>
+            <td class="text-center col-race">${renderDemographicCell(study, 'race', tab)}</td>
+            <td class="text-center col-ethnicity">${renderDemographicCell(study, 'ethnicity', tab)}</td>
+            <td class="text-center col-sex">${renderDemographicCell(study, 'sex', tab)}</td>
+            <td class="text-center col-gender">${renderDemographicCell(study, 'gender', tab)}</td>
+            <td class="text-center col-geography">${geography ? stateCell(geography, 'sites') : renderGeographyCell(study)}</td>
             <td class="text-right col-enrollment">${enrollmentBadge}</td>
             <td class="col-start">${startDate}</td>
             <td class="col-end">${endDate}</td>
@@ -3226,7 +4111,7 @@ function renderStudiesTable() {
             <td class="text-center col-fda-drug">${renderFdaCell(study.is_fda_regulated_drug, 'Yes: FDA Regulated Drug')}</td>
             <td class="text-center col-fda-device">${renderFdaCell(study.is_fda_regulated_device, 'Yes: FDA Regulated Device')}</td>
             <td class="text-center col-unapproved">${renderFdaCell(study.is_unapproved_device, 'Yes: Unapproved Device')}</td>
-            <td class="col-publications">${renderPublications(study)}</td>
+            <td class="col-publications">${renderPublications(study, tab)}</td>
         </tr>
         `;
     }).join('');
@@ -3458,7 +4343,9 @@ const STUDY_COLUMNS = [
 const STUDY_COLUMNS_KEY = 'civicsample.studyColumns';
 
 // The five dimensions, in a fixed order, as pips. A filled pip is reported;
-// a hollow one is not. The same five columns are still available singly.
+// a hollow one is not; an outlined one is a dimension the row does not carry
+// (a summary row's geography), left out of the count. The same five columns
+// are still available singly.
 const REPORTED_DIMENSIONS = [
     { field: 'race', label: 'Race' },
     { field: 'ethnicity', label: 'Ethnicity' },
@@ -3485,15 +4372,22 @@ function studyReportsDimension(study, field) {
     return !!study[field]?.reported;
 }
 
-function renderReportedCell(study) {
-    const flags = REPORTED_DIMENSIONS.map(d => ({ ...d, on: studyReportsDimension(study, d.field) }));
-    const n = flags.filter(f => f.on).length;
+// notHere names the dimensions the row does not carry, each with what to say
+// for it ("not included in the phone view", "loading", ...): those pips are
+// outlined and left out of the count, which then reads "n of 4", never a
+// "not reported" the row cannot know.
+function renderReportedCell(study, notHere = {}) {
+    const flags = REPORTED_DIMENSIONS.map(d => (d.field in notHere
+        ? { ...d, note: notHere[d.field] }
+        : { ...d, on: studyReportsDimension(study, d.field) }));
+    const known = flags.filter(f => !f.note);
+    const n = known.filter(f => f.on).length;
     const pips = flags.map(f =>
-        `<span class="pip ${f.on ? 'pip-on' : 'pip-off'}" aria-hidden="true"></span>`).join('');
-    const title = flags.map(f => `${f.label}: ${f.on ? 'reported' : 'not reported'}`).join(', ');
+        `<span class="pip ${f.note ? 'pip-na' : f.on ? 'pip-on' : 'pip-off'}" aria-hidden="true"></span>`).join('');
+    const title = flags.map(f => `${f.label}: ${f.note || (f.on ? 'reported' : 'not reported')}`).join(', ');
     return `<span class="reported-cell" title="${escapeHtml(title)}">` +
         `<span class="pips">${pips}</span>` +
-        `<span class="pip-count">${n} of 5</span>` +
+        `<span class="pip-count">${n} of ${known.length}</span>` +
         `<span class="sr-only">${escapeHtml(title)}</span></span>`;
 }
 
@@ -3546,7 +4440,7 @@ function initColumnPicker() {
     applyStudyColumns(on);
 }
 
-function renderDemographicCell(study, field) {
+function renderDemographicCell(study, field, tab = READY) {
     // ?sg=v2: Sex and Gender cells carry the parser's state badges (N6).
     if ((field === 'sex' || field === 'gender') && sgActive()) return sgDemographicCell(study, field);
     const fieldData = study[field];
@@ -3554,11 +4448,16 @@ function renderDemographicCell(study, field) {
         return '<span class="demo-disabled" title="No data reported">✗</span>';
     }
 
-    // Get raw categories for tooltip
+    // Get raw categories for tooltip. The check mark is core; the labels are
+    // Studies-tab extras, so until they arrive the tooltip says so.
     const rawCategories = fieldData.raw_categories || [];
     let tooltipText = 'Click to view demographic breakdown';
 
-    if (rawCategories.length > 0) {
+    if (!('raw_categories' in fieldData) && tab.state === 'pending') {
+        tooltipText = 'Category labels are loading. Click to view the breakdown.';
+    } else if (!('raw_categories' in fieldData) && (tab.state === 'failed' || tab.state === 'missing')) {
+        tooltipText = 'Category labels did not load. Click to view the breakdown.';
+    } else if (rawCategories.length > 0) {
         const summaries = rawCategories.slice(0, 3).map(rc => {
             const confidence = rc.confidence === 'high' ? '✓' :
                              rc.confidence === 'medium' ? '≈' : '⚠';
@@ -3605,24 +4504,26 @@ function renderGeographyCell(study) {
             </button>`;
 }
 
-async function showGeographyBreakdown(nctId) {
+// The geography pop-up opens at once; its sites list (detail) follows from
+// the study's shard, and a redraw stands down if the pop-up was closed or
+// replaced, or the dataset changed, in the meantime.
+function showGeographyBreakdown(nctId) {
     const rows = data;
-    const study = rows.find(s => s.nct_id === nctId);
-    if (!study) return;
+    const r = datasetReader;
+    const record = rows.find(s => s.nct_id === nctId);
+    if (!record) return;
+    const token = ++breakdownToken;
+    const draw = (redraw) => {
+        if (token !== breakdownToken || data !== rows) return;
+        const { study: fullStudy, states } = studyView(r, record, ['detail']);
+        const sitesHtml = renderStudySites(fullStudy, states.detail, `showGeographyBreakdown('${nctId}')`);
+        const provenance = states.detail.from
+            ? `<p class="modal-subtitle detail-provenance">These sites are ${states.detail.from}, not from this archive's own run.</p>`
+            : '';
 
-    // Lazy-load detail data for full site info. A switch to another dataset
-    // during the wait leaves this study's details behind, so don't open it
-    // over the new view with its sites missing.
-    await loadDetailData();
-    if (data !== rows) return;
-    const detail = detailCache[nctId] || {};
-    const fullStudy = Object.assign({}, study, detail);
-
-    const sitesHtml = renderStudySites(fullStudy);
-
-    const html = `<div class="breakdown-modal">
+        const html = `<div class="breakdown-modal">
         <h4>Study Sites \u2014 ${nctId}</h4>
-        <p class="modal-subtitle">${escapeHtml(fullStudy.brief_title || '')}</p>
+        <p class="modal-subtitle">${escapeHtml(fullStudy.brief_title || '')}</p>${provenance}
         <p class="modal-subtitle">Click outside to close</p>
         <div style="max-height: 500px; overflow-y: auto;">
             ${sitesHtml}
@@ -3630,19 +4531,44 @@ async function showGeographyBreakdown(nctId) {
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;
 
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+        drawOverlay('breakdown-overlay', html, redraw);
+    };
+    const waits = loadsFor(r, nctId, ['detail']);
+    draw(false);
+    waits.forEach(wait => wait.then(() => draw(true)));
 }
 
+// The breakdown pop-up opens at once. Its counts are core; its original
+// labels, match quality and quarantined labels are Studies-tab extras, so
+// until they are here it shows the counts alone and a line saying where the
+// rest stands, and redraws in full when they arrive.
 function showBreakdown(nctId, categoryName) {
     // ?sg=v2: the parser's five buckets and source labels for Sex and Gender.
-    if ((categoryName === 'sex' || categoryName === 'gender') && sgActive()) return sgShowBreakdown(nctId, categoryName);
-    const study = data.find(s => s.nct_id === nctId);
-    if (!study) return;
+    if ((categoryName === 'sex' || categoryName === 'gender') && sgActive()) {
+        breakdownToken++;   // a pop-up still waiting on its labels stands down
+        return sgShowBreakdown(nctId, categoryName);
+    }
+    const rows = data;
+    const r = datasetReader;
+    const record = rows.find(s => s.nct_id === nctId);
+    if (!record || !record[categoryName]?.reported) return;
+    const token = ++breakdownToken;
+    const draw = (redraw) => {
+        if (token !== breakdownToken || data !== rows) return;
+        const { study, states } = studyView(r, record, ['studies_tab']);
+        drawOverlay('breakdown-overlay', breakdownHtml(study, categoryName, states.studies_tab), redraw);
+    };
+    const waits = loadsFor(r, nctId, ['studies_tab']);
+    draw(false);
+    waits.forEach(wait => wait.then(() => draw(true)));
+}
 
+function breakdownHtml(study, categoryName, tab) {
+    const nctId = study.nct_id;
     const fieldData = study[categoryName];
-    if (!fieldData?.reported) return;
+    if (!('raw_categories' in fieldData) && tab.state !== 'ready') {
+        return breakdownCountsHtml(study, categoryName, tab);
+    }
 
     const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
 
@@ -3833,10 +4759,61 @@ function showBreakdown(nctId, categoryName) {
         <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
     </div>`;
 
-    // Display modal
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    return html;
+}
+
+// The breakdown before (or without) the Studies-tab extras: the categories
+// with participants and their shares, from the record's own totals (the same
+// denominators as the full breakdown), then a line saying where the original
+// labels, match quality and quarantined labels stand. Nothing here claims a
+// label, a match quality, or that a category was not reported.
+function breakdownCountsHtml(study, categoryName, tab) {
+    const nctId = study.nct_id;
+    const categoryDisplay = categoryName.charAt(0).toUpperCase() + categoryName.slice(1);
+    const RACE_ORDER = [
+        ['american_indian_alaska_native', 'American Indian or Alaska Native'],
+        ['asian', 'Asian'],
+        ['black_african_american', 'Black or African American'],
+        ['native_hawaiian_pacific_islander', 'Native Hawaiian or Pacific Islander'],
+        ['white', 'White'],
+        ['more_than_one_race', 'More than one race'],
+        ['unknown_not_reported', 'Unknown or Not Reported'],
+        ['other', 'Other']
+    ];
+    let rows;
+    let grandTotal;
+    if (categoryName === 'race') {
+        const ombTotals = study.race?.omb_totals || {};
+        grandTotal = RACE_ORDER.reduce((sum, [key]) => sum + (ombTotals[key] || 0), 0);
+        rows = RACE_ORDER.filter(([key]) => ombTotals[key] > 0).map(([key, label]) => [label, ombTotals[key]]);
+    } else {
+        const fieldData = study[categoryName];
+        const totals = fieldData.omb_totals || fieldData.totals || {};
+        grandTotal = Object.values(totals).reduce((sum, v) => sum + (v || 0), 0);
+        rows = Object.entries(totals).filter(([, count]) => count > 0).sort((a, b) => b[1] - a[1])
+            .map(([key, count]) => [formatOmbCategory(key), count]);
+    }
+    const body = rows.map(([label, count]) => {
+        const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
+        return `<tr>
+                <td>${escapeHtml(label)}</td>
+                <td>${count.toLocaleString()}</td>
+                <td style="--percent: ${percent}">${percent}%</td>
+            </tr>`;
+    }).join('');
+    const rest = tab.state === 'absent'
+        ? `<p class="detail-state is-na">${escapeHtml(tab.text)}: original labels, match quality and quarantined labels.</p>`
+        : stateLine(tab, 'category labels', `showBreakdown('${nctId}', '${categoryName}')`);
+    return `<div class="breakdown-modal">
+        <h4>${categoryDisplay} Distribution - ${nctId}</h4>
+        <p class="modal-subtitle">Click outside to close</p>
+        <table class="breakdown-table">
+            <thead><tr><th>NIH/OMB Category</th><th>Count</th><th>Percent</th></tr></thead>
+            <tbody>${body}</tbody>
+        </table>
+        ${rest}
+        <button class="modal-close-btn" onclick="closeBreakdown()">Close</button>
+    </div>`;
 }
 
 function formatOmbCategory(ombCat) {
@@ -3847,6 +4824,7 @@ function formatOmbCategory(ombCat) {
 }
 
 function closeBreakdown() {
+    breakdownToken++;   // whatever it was waiting for no longer redraws it
     document.getElementById('breakdown-overlay').style.display = 'none';
 }
 
@@ -3910,7 +4888,17 @@ function formatGenderDisplay(study) {
     return entries.length > 0 ? entries.join(', ') : 'Not Reported';
 }
 
-function renderPublicationsDetail(study) {
+function renderPublicationsDetail(study, tab = READY, retry = '') {
+    // Until a study's references are here, the section says where they stand,
+    // never "No publications linked". A summary row's reference_count is a
+    // count, so the heading keeps it.
+    if (!('references' in study) && tab.state !== 'ready') {
+        const count = typeof study.reference_count === 'number' && study.reference_count > 0 ? ` (${study.reference_count})` : '';
+        return `<div class="detail-section">
+            <h5>Publications${count}</h5>
+            ${stateLine(tab, 'publications', retry)}
+        </div>`;
+    }
     const refs = study.references || [];
     if (refs.length === 0) {
         return `<div class="detail-section">
@@ -3935,24 +4923,50 @@ function renderPublicationsDetail(study) {
     </div>`;
 }
 
-async function showStudyDetails(nctId) {
+// The study pop-up opens at once (4a): the core fields straight away, and
+// each section whose fields are on their way shows the hairline meter until
+// the study's shard (and, for publications, the Studies-tab extras) arrive,
+// then it redraws. A redraw stands down if the pop-up was closed or another
+// opened, or the dataset changed, in the meantime.
+function showStudyDetails(nctId) {
     const rows = data;
-    const study = rows.find(s => s.nct_id === nctId);
-    if (!study) return;
+    const r = datasetReader;
+    const record = rows.find(s => s.nct_id === nctId);
+    if (!record) return;
+    const token = ++studyModalToken;
+    const klasses = ['core', 'studies_tab', 'detail'];
+    const draw = (redraw) => {
+        if (token !== studyModalToken || data !== rows) return;
+        const { study, states } = studyView(r, record, klasses);
+        drawOverlay('study-details-overlay', studyDetailsHtml(study, states), redraw);
+    };
+    const waits = loadsFor(r, nctId, klasses);
+    draw(false);
+    waits.forEach(wait => wait.then(() => draw(true)));
+}
 
-    const overlay = document.getElementById('study-details-overlay');
-
-    // Lazy-load detail data and merge into study for this modal render. A
-    // switch to another dataset during the wait leaves this study's details
-    // behind, so don't open it over the new view with its sections empty.
-    await loadDetailData();
-    if (data !== rows) return;
-    const detail = detailCache[nctId] || {};
-    const fullStudy = Object.assign({}, study, detail);
+function studyDetailsHtml(fullStudy, states) {
+    const retry = `showStudyDetails('${fullStudy.nct_id}')`;
+    // A field shows when its value is known: on the record or the fields
+    // loaded for it, or its class has arrived (a field the record lacks then
+    // reads as it always has). Otherwise it is left out, and its section ends
+    // with one line saying where it stands: loading, did not load, missing,
+    // or not included in this view. Never N/A, No or Other for a value that
+    // is not here. Where a field stands is where its class stands, except
+    // where the class's state holds for some fields only (fieldState).
+    const waits = {};
+    const has = (section, key, klass) => {
+        const st = fieldState(states[klass], key);
+        if (key in fullStudy || st.state === 'ready') return true;
+        if (!waits[section]) waits[section] = [];
+        if (!waits[section].includes(st)) waits[section].push(st);
+        return false;
+    };
+    const ends = (section, what) => sectionLine(waits[section], what, retry);
 
     // Format masking details
     let maskingDetails = '';
-    if (fullStudy.masking && fullStudy.masking !== 'NONE') {
+    if (fullStudy.masking && fullStudy.masking !== 'NONE' && has('design', 'subject_masked', 'detail')) {
         const masked = [];
         if (fullStudy.subject_masked) masked.push('Participants');
         if (fullStudy.caregiver_masked) masked.push('Care Providers');
@@ -3961,9 +4975,16 @@ async function showStudyDetails(nctId) {
         maskingDetails = masked.length > 0 ? `<br><small>Masked: ${masked.join(', ')}</small>` : '';
     }
 
+    // The model: the interventional one (core), else the observational one (detail).
+    let model = null;
+    if (has('design', 'intervention_model', 'core')) {
+        model = fullStudy.intervention_model
+            || (has('design', 'observational_model', 'detail') ? (fullStudy.observational_model || 'N/A') : null);
+    }
+
     // Format collaborators
     let collaboratorsHtml = '';
-    if (fullStudy.collaborators && fullStudy.collaborators.length > 0) {
+    if (has('sponsor', 'collaborators', 'detail') && fullStudy.collaborators && fullStudy.collaborators.length > 0) {
         collaboratorsHtml = `
             <div class="detail-section">
                 <h5>Collaborators</h5>
@@ -3975,7 +4996,13 @@ async function showStudyDetails(nctId) {
 
     // Format secondary outcomes
     let secondaryOutcomesHtml = '';
-    if (fullStudy.secondary_outcomes && fullStudy.secondary_outcomes.length > 0) {
+    if (!has('secondary', 'secondary_outcomes', 'detail')) {
+        secondaryOutcomesHtml = `
+            <div class="detail-section">
+                <h5>Secondary Outcomes</h5>
+                ${ends('secondary', 'secondary outcomes')}
+            </div>`;
+    } else if (fullStudy.secondary_outcomes && fullStudy.secondary_outcomes.length > 0) {
         secondaryOutcomesHtml = `
             <div class="detail-section">
                 <h5>Secondary Outcomes (${fullStudy.secondary_outcomes.length})</h5>
@@ -3991,6 +5018,21 @@ async function showStudyDetails(nctId) {
             </div>`;
     }
 
+    // The funding source reads the collaborators (an OTHER or NETWORK lead
+    // takes NIH or FED from them), so it waits until they are known.
+    const fundingKnown = has('sponsor', 'sponsor_class', 'core') && has('sponsor', 'collaborators', 'detail');
+
+    // The population is pediatric_status, else std_ages; only a record that
+    // carries neither falls back to guessing from min_age and max_age, which
+    // reads "Not Specified" for a study with no age limits. A summary row
+    // (phone, archive) carries neither, so it shows no population.
+    const populationKnown = 'std_ages' in fullStudy || has('eligibility', 'pediatric_status', 'core');
+
+    // An archive read through the frozen March files says so (legacy).
+    const provenance = states.detail.from
+        ? `<p class="note detail-provenance">Sites, outcomes and descriptions shown here are ${states.detail.from}, not from this archive's own run.</p>`
+        : '';
+
     const html = `
         <div class="study-details-modal">
             <div class="modal-header">
@@ -4002,25 +5044,27 @@ async function showStudyDetails(nctId) {
                     <strong>NCT ID:</strong>
                     <a href="https://clinicaltrials.gov/study/${fullStudy.nct_id}" target="_blank" class="nct-link">${fullStudy.nct_id}</a>
                 </div>
-
+                ${provenance}
                 <div class="detail-section">
                     <h5>Study Design</h5>
                     <div class="detail-grid">
-                        <div><strong>Type:</strong> ${fullStudy.study_type || 'N/A'}</div>
-                        <div><strong>Phase:</strong> ${fullStudy.phase || 'N/A'}</div>
-                        <div><strong>Allocation:</strong> ${fullStudy.allocation || 'N/A'}</div>
-                        <div><strong>Model:</strong> ${fullStudy.intervention_model || fullStudy.observational_model || 'N/A'}</div>
-                        <div><strong>Masking:</strong> ${fullStudy.masking || 'N/A'}${maskingDetails}</div>
-                        <div><strong>Purpose:</strong> ${fullStudy.primary_purpose || 'N/A'}</div>
+                        ${has('design', 'study_type', 'core') ? `<div><strong>Type:</strong> ${fullStudy.study_type || 'N/A'}</div>` : ''}
+                        ${has('design', 'phase', 'core') ? `<div><strong>Phase:</strong> ${fullStudy.phase || 'N/A'}</div>` : ''}
+                        ${has('design', 'allocation', 'detail') ? `<div><strong>Allocation:</strong> ${fullStudy.allocation || 'N/A'}</div>` : ''}
+                        ${model !== null ? `<div><strong>Model:</strong> ${model}</div>` : ''}
+                        ${has('design', 'masking', 'core') ? `<div><strong>Masking:</strong> ${fullStudy.masking || 'N/A'}${maskingDetails}</div>` : ''}
+                        ${has('design', 'primary_purpose', 'core') ? `<div><strong>Purpose:</strong> ${fullStudy.primary_purpose || 'N/A'}</div>` : ''}
                     </div>
-                    ${fullStudy.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(fullStudy.intervention_model_description)}</p>` : ''}
+                    ${has('design', 'intervention_model_description', 'detail') && fullStudy.intervention_model_description ? `<p class="description"><strong>Design Description:</strong> ${escapeHtml(fullStudy.intervention_model_description)}</p>` : ''}
+                    ${ends('design', 'design details')}
                 </div>
 
                 <div class="detail-section">
                     <h5>Primary Outcome</h5>
-                    <p><strong>${escapeHtml(fullStudy.primary_endpoint || 'N/A')}</strong></p>
-                    ${fullStudy.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(fullStudy.primary_outcome_time_frame)}</small></p>` : ''}
-                    ${fullStudy.primary_outcome_description ? `<p class="description">${escapeHtml(fullStudy.primary_outcome_description)}</p>` : ''}
+                    ${has('outcome', 'primary_endpoint', 'core') ? `<p><strong>${escapeHtml(fullStudy.primary_endpoint || 'N/A')}</strong></p>` : ''}
+                    ${has('outcome', 'primary_outcome_time_frame', 'detail') && fullStudy.primary_outcome_time_frame ? `<p><small>Time Frame: ${escapeHtml(fullStudy.primary_outcome_time_frame)}</small></p>` : ''}
+                    ${has('outcome', 'primary_outcome_description', 'detail') && fullStudy.primary_outcome_description ? `<p class="description">${escapeHtml(fullStudy.primary_outcome_description)}</p>` : ''}
+                    ${ends('outcome', 'outcome details')}
                 </div>
 
                 ${secondaryOutcomesHtml}
@@ -4028,48 +5072,62 @@ async function showStudyDetails(nctId) {
                 <div class="detail-section">
                     <h5>Enrollment & Eligibility</h5>
                     <div class="detail-grid">
-                        <div><strong>Enrollment:</strong> ${(fullStudy.enrollment || 0).toLocaleString()} ${fullStudy.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>
-                        <div><strong>Age Range:</strong> ${fullStudy.min_age || 'N/A'} to ${fullStudy.max_age || 'N/A'}</div>
-                        <div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>
-                        <div><strong>Gender:</strong> ${formatGenderDisplay(fullStudy)}</div>
-                        <div><strong>Healthy Volunteers:</strong> ${fullStudy.healthy_volunteers ? 'Yes' : 'No'}</div>
+                        ${has('eligibility', 'enrollment', 'core') ? `<div><strong>Enrollment:</strong> ${(fullStudy.enrollment || 0).toLocaleString()} ${fullStudy.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>` : ''}
+                        ${has('eligibility', 'min_age', 'core') ? `<div><strong>Age Range:</strong> ${fullStudy.min_age || 'N/A'} to ${fullStudy.max_age || 'N/A'}</div>` : ''}
+                        ${populationKnown ? `<div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>` : ''}
+                        ${has('eligibility', 'gender', 'core') ? `<div><strong>Gender:</strong> ${formatGenderDisplay(fullStudy)}</div>` : ''}
+                        ${has('eligibility', 'healthy_volunteers', 'core') ? `<div><strong>Healthy Volunteers:</strong> ${fullStudy.healthy_volunteers ? 'Yes' : 'No'}</div>` : ''}
                     </div>
+                    ${ends('eligibility', 'eligibility details')}
                 </div>
 
                 <div class="detail-section">
                     <h5>Sponsor & Collaborators</h5>
-                    <p><strong>Lead Sponsor:</strong> ${escapeHtml(fullStudy.lead_sponsor_name || 'Unknown')} <span class="badge">${fullStudy.sponsor_class || 'N/A'}</span></p>
-                    <p><strong>Funding Source:</strong> <span class="badge">${deriveFundingSource(fullStudy)}</span></p>
+                    ${has('sponsor', 'lead_sponsor_name', 'detail') ? `<p><strong>Lead Sponsor:</strong> ${escapeHtml(fullStudy.lead_sponsor_name || 'Unknown')} <span class="badge">${fullStudy.sponsor_class || 'N/A'}</span></p>` : ''}
+                    ${fundingKnown ? `<p><strong>Funding Source:</strong> <span class="badge">${deriveFundingSource(fullStudy)}</span></p>` : ''}
                     ${collaboratorsHtml}
+                    ${ends('sponsor', 'sponsor details')}
                 </div>
 
                 <div class="detail-section">
                     <h5>Study Status</h5>
                     <div class="detail-grid">
-                        <div><strong>Status:</strong> ${fullStudy.status || 'N/A'}</div>
-                        <div><strong>Start Date:</strong> ${fullStudy.start_date || 'N/A'}</div>
-                        <div><strong>Completion Date:</strong> ${fullStudy.completion_date || fullStudy.primary_completion_date || 'N/A'}</div>
-                        <div><strong>Results Posted:</strong> ${fullStudy.results_date || 'N/A'}</div>
-                        <div><strong>Last Update:</strong> ${fullStudy.last_update || 'N/A'}</div>
+                        ${has('status', 'status', 'detail') ? `<div><strong>Status:</strong> ${fullStudy.status || 'N/A'}</div>` : ''}
+                        ${has('status', 'start_date', 'core') ? `<div><strong>Start Date:</strong> ${fullStudy.start_date || 'N/A'}</div>` : ''}
+                        ${has('status', 'completion_date', 'core') ? `<div><strong>Completion Date:</strong> ${fullStudy.completion_date || fullStudy.primary_completion_date || 'N/A'}</div>` : ''}
+                        ${has('status', 'results_date', 'core') ? `<div><strong>Results Posted:</strong> ${fullStudy.results_date || 'N/A'}</div>` : ''}
+                        ${has('status', 'last_update', 'detail') ? `<div><strong>Last Update:</strong> ${fullStudy.last_update || 'N/A'}</div>` : ''}
                     </div>
-                    ${fullStudy.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(fullStudy.why_stopped)}</p>` : ''}
+                    ${has('status', 'why_stopped', 'detail') && fullStudy.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(fullStudy.why_stopped)}</p>` : ''}
+                    ${ends('status', 'status details')}
                 </div>
 
-                ${renderPublicationsDetail(fullStudy)}
+                ${renderPublicationsDetail(fullStudy, states.studies_tab, retry)}
 
-                ${renderStudySites(fullStudy)}
+                ${renderStudySites(fullStudy, states.detail, retry)}
             </div>
         </div>
     `;
 
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    return html;
 }
 
 /**
  * Render study sites section for the detail modal
  */
-function renderStudySites(study) {
+function renderStudySites(study, detail = READY, retry = '') {
+    // The sites list is whole only once the study's details are here: until
+    // then a split record's study_sites carry countries alone, and a summary
+    // row carries none, so the section says where they stand instead of
+    // "Location data not available".
+    if (detail.state !== 'ready' && !(detail.entry && 'study_sites' in detail.entry)) {
+        return `
+            <div class="detail-section">
+                <h5>Study Sites</h5>
+                ${stateLine(detail, 'sites', retry)}
+            </div>`;
+    }
+
     // Prefer study_sites (new format) over countries (old format)
     const sites = study.study_sites || [];
     const countries = study.countries || [];
@@ -4149,6 +5207,7 @@ function renderStudySites(study) {
 }
 
 function closeStudyDetails() {
+    studyModalToken++;   // whatever it was waiting for no longer redraws it
     document.getElementById('study-details-overlay').style.display = 'none';
 }
 
@@ -8249,7 +9308,9 @@ async function sgFetchGzText(url, init) {
     return pako.inflate(new Uint8Array(await response.arrayBuffer()), { to: 'string' });
 }
 
-function sgBase(date) { return (!date || date === 'latest') ? 'data' : `snapshots/${date}`; }
+// The dataset's own folder (datasetBase), so the v2 files of the newest date
+// resolve the way its parts and sidecars do.
+function sgBase(date) { return datasetBase(date); }
 
 // The table must be the run its meta describes. The CSV carries no run stamp,
 // so: as many rows as the meta counts, each with the meta's snapshot date.

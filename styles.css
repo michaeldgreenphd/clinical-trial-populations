@@ -53,7 +53,8 @@
    One quiet column: the name, a sentence on what is arriving, a field of
    dots that fills in as the data does (a sample being drawn), a hairline
    meter with the real megabytes, and the credit at the foot. The snapshot
-   switcher and the Studies tab reuse the meter and the stage line. */
+   switcher reuses the meter and the stage line; the Studies tab's status row
+   and the study pop-ups reuse the meter (Study details on demand, below). */
 .loading-overlay {
     position: fixed;
     inset: 0;
@@ -293,9 +294,13 @@
         animation: none;
         transition: none;
     }
+    /* The sweep's own rule is more specific than .loading-progress-bar
+       above, so it is stopped here, by the same selector. */
     .loading-meter.is-indeterminate .loading-progress-bar {
         width: 100%;
         opacity: 0.35;
+        animation: none;
+        transform: none;
     }
 }
 
@@ -1492,16 +1497,127 @@ main {
     font-size: var(--fs-body);
 }
 
-.studies-loading-screen {
+/* ===== Study details on demand =====
+   What a view shows for fields that are not here yet: the loading screens'
+   hairline meter while they load (determinate in the Studies tab's status
+   row, indeterminate in a pop-up section; the reduced-motion rule above
+   holds both still), and plain words when they did not load, are missing, or
+   are not part of this view. A pending cell is an ellipsis, never the '-'
+   that means none. No ring, no shimmer, no icon. */
+.extras-status {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    min-height: 400px;
-    padding: 3rem 1.25rem;
+    gap: 0.5rem 0.75rem;
+    margin: -0.25rem 0 1rem;
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
 }
 
-.studies-loading-screen .loading-panel {
-    width: min(22rem, 100%);
+/* A class selector beats the UA stylesheet's [hidden] rule. */
+.extras-status[hidden] { display: none; }
+
+/* The extras are here: the row keeps its height, blank, so the table below
+   does not move under the pointer (app.js renderExtrasStatus). visibility
+   also takes it out of the reading order and the tab order. */
+.extras-status.is-settled { visibility: hidden; }
+
+.extras-status .loading-meter {
+    flex: 0 0 8rem;
+    margin-top: 0;
+}
+
+.extras-status-line {
+    margin: 0;
+    min-width: 0;
+}
+
+.extras-status.is-failed {
+    color: var(--text-primary);
+}
+
+.detail-state {
+    margin: 0.75rem 0 0;
+    font-size: var(--fs-small);
+    line-height: 1.5;
+    color: var(--text-secondary);
+}
+
+.detail-state.is-pending {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.detail-state.is-pending .loading-meter {
+    flex: 0 0 6rem;
+    margin-top: 0;
+}
+
+.detail-state-text {
+    font-family: var(--font-mono);
+}
+
+.detail-state.is-failed {
+    color: var(--text-primary);
+}
+
+.detail-state.is-na {
+    font-style: italic;
+}
+
+.detail-action {
+    margin-left: 0.25rem;
+    padding: 0.15rem 0.6rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-background);
+    color: var(--primary-color);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    cursor: pointer;
+}
+
+.detail-action:hover {
+    background: var(--tint);
+}
+
+.detail-action:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+/* Where focus goes after a Try again (app.js drawOverlay and
+   renderExtrasStatus): the same ring as the buttons. */
+.detail-state:focus-visible,
+.extras-status-line:focus-visible,
+.studies-table:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.detail-action[hidden] { display: none; }
+
+.cell-pending {
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    letter-spacing: 0.08em;
+}
+
+.cell-failed,
+.cell-na {
+    font-family: var(--font-mono);
+    font-size: var(--fs-label);
+    color: var(--text-secondary);
+    border-bottom: 1px dotted var(--text-secondary);
+    cursor: help;
+}
+
+.detail-provenance {
+    margin: 0 0 1.5rem;
+    font-size: var(--fs-small);
 }
 
 /* Tufte-style table design: maximize data-ink ratio */
@@ -1861,6 +1977,12 @@ footer p {
     to {
         opacity: 1;
     }
+}
+
+/* A pop-up redrawn in place, as what it waits for lands (app.js
+   drawOverlay), does not slide in again. */
+.modal-overlay.is-redrawn > * {
+    animation: none;
 }
 
 .breakdown-modal {
@@ -5093,6 +5215,9 @@ footer p {
 
 .pip-on { background: var(--primary-light); }
 .pip-off { background: var(--border-color); }
+/* A dimension the row does not carry (app.js renderReportedCell): outlined,
+   so it differs from not reported in shape as well as colour. */
+.pip-na { box-shadow: inset 0 0 0 1px var(--text-secondary); }
 
 .pip-count {
     font-family: var(--font-mono);
