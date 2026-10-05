@@ -13,9 +13,8 @@
  * what they say it is, and neither document points at unlanded work.
  *
  * Claims that need a human (Pages serves `main`, DNS lives in Cloudflare,
- * Codex reviews every pull request, Chart.js is v4 when the CDN tag is
- * unpinned, the visual and accessibility constraints) are deliberately not
- * asserted here.
+ * Codex reviews every pull request, the visual and accessibility
+ * constraints) are deliberately not asserted here.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -393,8 +392,8 @@ test('the React island loads what AGENTS.md says it loads, scoped how it says', 
 test('charting libraries come from CDN and datalabels is passed per chart, not registered globally', () => {
   const html = read('index.html');
   const app = read('app.js');
-  matches(html, /<script[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js[^"]*"/,
-    'AGENTS.md says Chart.js loads from CDN; index.html no longer does');
+  matches(html, /<script[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/chart\.js@4\.[^"]*"/,
+    'AGENTS.md says Chart.js v4 loads from CDN; index.html no longer does');
   matches(html, /<script[^>]*src="https:\/\/cdn\.jsdelivr\.net\/npm\/chartjs-plugin-datalabels@2[^"]*"/,
     'AGENTS.md says chartjs-plugin-datalabels v2 loads from CDN; index.html no longer does');
   const globalRegister = [...app.matchAll(/Chart\.register\(([^)]*)\)/g)].filter((m) => /ChartDataLabels/.test(m[1]));
