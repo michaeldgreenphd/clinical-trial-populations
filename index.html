@@ -647,7 +647,7 @@
 
                 <div id="studies-extras-status" class="extras-status" hidden>
                     <div class="loading-meter" role="progressbar" aria-label="Loading publications and category labels" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="loading-progress-bar"></div></div>
-                    <p class="extras-status-line"><span class="extras-status-text" aria-live="polite"></span><span class="extras-status-bytes" aria-hidden="true"></span> <button type="button" class="detail-action extras-status-action" onclick="studiesExtrasAction()" hidden>Try again</button></p>
+                    <p class="extras-status-line" tabindex="-1"><span class="extras-status-text" aria-live="polite"></span><span class="extras-status-bytes" aria-hidden="true"></span> <button type="button" class="detail-action extras-status-action" onclick="studiesExtrasAction()" hidden>Try again</button></p>
                 </div>
 
                 <div class="table-scroll-container">
@@ -658,7 +658,7 @@
                     </div>
                     <button class="table-scroll-btn table-scroll-left" id="table-scroll-left" aria-label="Scroll table left" title="Scroll left">&#9664;</button>
                     <div class="table-wrapper" id="studies-table-wrapper">
-                        <table id="studies-table" class="studies-table">
+                        <table id="studies-table" class="studies-table" tabindex="-1">
                             <thead>
                                 <tr>
                                     <th data-sort="nct_id" class="sortable col-nct">NCT ID</th>

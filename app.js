@@ -1832,13 +1832,22 @@ function extrasStatus(r) {
 
 // The Studies tab's status row (index.html #studies-extras-status): while the
 // extras load, a determinate hairline and "Loading … · x of y MB"; if they did
-// not, why, and Try again (or Reload); hidden otherwise.
+// not, why, and Try again (or Reload); hidden otherwise. Focus in the row is
+// not left on what it hides: while the extras load again it waits on the
+// row's line, and once they are here it goes to the table they filled.
 function renderExtrasStatus() {
     const box = document.getElementById('studies-extras-status');
     if (!box) return;
     const status = extrasStatus(datasetReader);
-    box.hidden = !status;
-    if (!status) return;
+    if (!status) {
+        if (!box.hidden && box.contains(document.activeElement)) {
+            const table = document.getElementById('studies-table');
+            if (table) table.focus({ preventScroll: true });
+        }
+        box.hidden = true;
+        return;
+    }
+    box.hidden = false;
     box.classList.toggle('is-failed', status.state === 'failed');
     const meter = box.querySelector('.loading-meter');
     meter.hidden = status.state !== 'loading';
@@ -1851,9 +1860,13 @@ function renderExtrasStatus() {
     const label = box.querySelector('.extras-status-text');
     if (label.textContent !== status.label) label.textContent = status.label;
     box.querySelector('.extras-status-bytes').textContent = status.bytes ? ` · ${status.bytes}` : '';
+    // Read before the button hides: a browser drops focus from a hidden
+    // element at once, without a blur.
     const action = box.querySelector('.extras-status-action');
+    const actionHadFocus = document.activeElement === action;
     action.hidden = !status.action;
     action.textContent = status.action === 'reload' ? 'Reload' : 'Try again';
+    if (action.hidden && actionHadFocus) box.querySelector('.extras-status-line').focus({ preventScroll: true });
 }
 
 // The status row's button: Reload for a newer run, else try the extras again.
@@ -1901,22 +1914,26 @@ function extrasSettled(r) {
 // are missing, or are not part of this view. None of them is the '-', 'No',
 // 'N/A' or 'Other' a view shows for a value that is there.
 
-// A section's line for fields it does not have.
+// A section's line for fields it does not have. A line that can follow a Try
+// again (loading, did not load, missing) and its button carry data-state, so
+// drawOverlay can put focus back on the same section's line once the pop-up
+// redraws.
 function stateLine(st, what, retry) {
+    const mark = `data-state="${what}"`;
     if (st.state === 'pending') {
-        return `<div class="detail-state is-pending" aria-busy="true">` +
+        return `<div class="detail-state is-pending" aria-busy="true" ${mark} tabindex="-1">` +
             `<div class="loading-meter is-indeterminate" role="progressbar" aria-label="Loading ${what}"><div class="loading-progress-bar"></div></div>` +
             `<span class="detail-state-text">Loading ${what}</span></div>`;
     }
     if (st.state === 'failed') {
         const failed = failureText(what, st.problem);
         const button = failed.action === 'reload'
-            ? '<button type="button" class="detail-action" onclick="location.reload()">Reload</button>'
-            : `<button type="button" class="detail-action" onclick="${retry}">Try again</button>`;
-        return `<p class="detail-state is-failed">${escapeHtml(failed.text)} ${button}</p>`;
+            ? `<button type="button" class="detail-action" onclick="location.reload()" ${mark}>Reload</button>`
+            : `<button type="button" class="detail-action" onclick="${retry}" ${mark}>Try again</button>`;
+        return `<p class="detail-state is-failed" ${mark} tabindex="-1">${escapeHtml(failed.text)} ${button}</p>`;
     }
     if (st.state === 'missing') {
-        return `<p class="detail-state is-failed">This study's ${what} are missing from the published files.</p>`;
+        return `<p class="detail-state is-failed" ${mark} tabindex="-1">This study's ${what} are missing from the published files.</p>`;
     }
     return `<p class="detail-state is-na">${escapeHtml(st.text)}</p>`;
 }
@@ -1952,20 +1969,27 @@ function stateCell(st, what) {
 let breakdownToken = 0;
 let studyModalToken = 0;
 
-// Put a pop-up's markup on screen; a redraw keeps its scroll position, and
-// focus that was inside it goes to its close button.
+// Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
+// what it waits for lands, or by its own Try again, which opens it afresh)
+// keeps its scroll position, and focus that was inside it stays inside it:
+// on the same section's line (its button, when it has one), else on the close
+// button. Replacing the markup would otherwise send focus to the page behind.
 function drawOverlay(id, html, redraw) {
     const overlay = document.getElementById(id);
     if (!overlay) return;
-    const box = redraw ? overlay.firstElementChild : null;
+    const open = redraw || overlay.style.display === 'flex';
+    const box = open ? overlay.firstElementChild : null;
     const top = box ? box.scrollTop : 0;
-    const hadFocus = redraw && overlay.contains(document.activeElement);
+    const active = document.activeElement;
+    const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
+    const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
     overlay.innerHTML = html;
     if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
-        const close = overlay.querySelector('.close-btn, .modal-close-btn');
-        if (close) close.focus();
+        const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
+        const target = (line && (line.querySelector('.detail-action') || line)) || overlay.querySelector('.close-btn, .modal-close-btn');
+        if (target) target.focus({ preventScroll: true });
     }
 }
 

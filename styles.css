@@ -1584,6 +1584,15 @@ main {
     outline-offset: 2px;
 }
 
+/* Where focus goes after a Try again (app.js drawOverlay and
+   renderExtrasStatus): the same ring as the buttons. */
+.detail-state:focus-visible,
+.extras-status-line:focus-visible,
+.studies-table:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
 .detail-action[hidden] { display: none; }
 
 .cell-pending {

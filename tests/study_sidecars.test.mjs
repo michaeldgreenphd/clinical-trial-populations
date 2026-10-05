@@ -106,21 +106,90 @@ const STAMP = '2026-10-11T06:00:00+00:00';
 const NEWER = '2026-10-18T06:00:00+00:00';
 const OLDER = '2026-10-04T12:09:21.454200+00:00';
 
-function element(id) {
-    const kids = {};
+// The markup of the element whose opening tag `open` (a match of
+// /<(tag)\b[^>]*>/) found, to its own closing tag, nested tags of its name
+// counted.
+function wholeElement(markup, open) {
+    const tags = new RegExp(`<(/?)${open[1]}\\b[^>]*>`, 'g');
+    tags.lastIndex = open.index;
+    let depth = 0;
+    for (let t; (t = tags.exec(markup));) {
+        depth += t[1] ? -1 : 1;
+        if (!depth) return markup.slice(open.index, t.index + t[0].length);
+    }
+    return markup.slice(open.index);
+}
+
+// The first element a simple selector ('.cls', '[attr="v"]', or a list of
+// them) picks out of a piece of markup, as its own markup, or null.
+function pick(markup, selector) {
+    const quote = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    for (const sel of selector.split(',').map((x) => x.trim())) {
+        const attr = /^\[([a-z-]+)="([^"]*)"\]$/.exec(sel);
+        const cls = /^\.([\w-]+)$/.exec(sel);
+        if (!attr && !cls) throw new Error(`the stub document cannot read the selector ${sel}`);
+        const open = attr ? new RegExp(`<([a-z0-9]+)\\b[^>]*\\s${attr[1]}="${quote(attr[2])}"[^>]*>`)
+            : new RegExp(`<([a-z0-9]+)\\b[^>]*\\sclass="(?:[^"]*\\s)?${quote(cls[1])}(?:\\s[^"]*)?"[^>]*>`);
+        const m = open.exec(markup);
+        if (m) return wholeElement(markup, m);
+    }
+    return null;
+}
+
+/**
+ * A stub element. doc is the stub document whose activeElement focus() sets.
+ * markup is null for an element whose children the tests do not model (each
+ * querySelector answers with a child of its own); otherwise it is the
+ * element's markup (an overlay and what it holds): querySelector then finds
+ * only what the markup holds, getAttribute reads the element's own tag, and
+ * writing innerHTML replaces the children, so focus on one of them falls to
+ * the page, as in a browser. Hiding a focused element does the same.
+ */
+function element(id, doc, markup = null) {
+    let kids = {};
+    let html = markup ?? '';
+    let hidden = false;
     const classes = new Set();
-    return {
-        id, innerHTML: '', textContent: '', value: '', hidden: false, style: {}, dataset: {}, attrs: {}, firstElementChild: null,
+    const el = {
+        id, textContent: '', value: '', style: {}, dataset: {}, attrs: {}, firstElementChild: null, scrollTop: 0,
+        // Hiding the element that has focus, or one it is in, sends focus to
+        // the page at once (Chrome's focus fixup, which fires no blur).
+        get hidden() { return hidden; },
+        set hidden(value) {
+            hidden = !!value;
+            if (hidden && el.contains(doc.activeElement)) doc.activeElement = doc.body;
+        },
+        get innerHTML() { return html; },
+        set innerHTML(value) {
+            const lost = doc.activeElement !== el && el.contains(doc.activeElement);
+            html = String(value);
+            if (markup === null) return;
+            kids = {};
+            const first = /<([a-z0-9]+)\b[^>]*>/.exec(html);
+            el.firstElementChild = first ? element(`${id} >`, doc, wholeElement(html, first)) : null;
+            if (lost) doc.activeElement = doc.body;
+        },
         setAttribute(k, v) { this.attrs[k] = String(v); },
+        getAttribute(k) {
+            if (markup === null) return k in this.attrs ? this.attrs[k] : null;
+            const m = new RegExp(`^\\s*<[a-z0-9]+\\b[^>]*\\s${k}="([^"]*)"`).exec(html);
+            return m ? m[1] : null;
+        },
         classList: {
             add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c),
             toggle(c, on) { if (on === undefined ? !classes.has(c) : on) classes.add(c); else classes.delete(c); }
         },
-        querySelector(sel) { return kids[sel] || (kids[sel] = element(sel)); },
+        querySelector(sel) {
+            if (kids[sel]) return kids[sel];
+            if (markup === null) return (kids[sel] = element(sel, doc));
+            const found = pick(html, sel);
+            return found === null ? null : (kids[sel] = element(sel, doc, found));
+        },
         querySelectorAll() { return []; },
-        contains() { return false; },
-        focus() {}
+        contains(x) { return !!x && (x === el || Object.values(kids).some((k) => k.contains(x)) || (!!el.firstElementChild && el.firstElementChild.contains(x))); },
+        focus() { doc.activeElement = el; }
     };
+    return el;
 }
 
 /**
@@ -135,8 +204,16 @@ function harness({ files = {}, again = {}, mobile = false, history = null, summa
     let holding = false;
     const held = [];
     const els = {};
-    const el = (id) => els[id] || (els[id] = element(id));
-    const tab = element('tab-studies');
+    const doc = {
+        getElementById: (id) => el(id),
+        querySelector: (sel) => (sel === '.tab[data-tab="studies"]' ? tab : null),
+        querySelectorAll: () => [],
+        activeElement: null, body: null
+    };
+    doc.body = element('body', doc);
+    doc.activeElement = doc.body;
+    const el = (id) => els[id] || (els[id] = element(id, doc, /overlay$/.test(id) ? '' : null));
+    const tab = element('tab-studies', doc);
     if (studiesTab) tab.classList.add('active');
     let reloads = 0;
     const answer = (path, cache) => {
@@ -159,12 +236,7 @@ function harness({ files = {}, again = {}, mobile = false, history = null, summa
         isMobileDevice: mobile,
         window: {},
         location: { reload() { reloads++; } },
-        document: {
-            getElementById: el,
-            querySelector: (sel) => (sel === '.tab[data-tab="studies"]' ? tab : null),
-            querySelectorAll: () => [],
-            activeElement: null
-        },
+        document: doc,
         updateLoadingProgress() {},
         showToast() {},
         fetchLatestSummary: async () => summary,
@@ -209,7 +281,7 @@ function harness({ files = {}, again = {}, mobile = false, history = null, summa
         throw new Error(`flush: ${context.__reads} file reads still in flight`);
     };
     return {
-        run, json, flush, els, el, tab, requests, served, reloaded,
+        run, json, flush, els, el, tab, doc, requests, served, reloaded,
         paths: () => requests.map((r) => r.path),
         reloads: () => reloads,
         hold() { holding = true; },
@@ -438,7 +510,7 @@ test('a file from another run is fetched once more past the cache, and used only
     await newer.flush();
     assert.deepEqual(newer.requests.filter((r) => r.path === path).map((r) => r.cache), [undefined, 'reload']);
     const shown = newer.overlay();
-    assert.match(shown, /The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)">Reload<\/button>/);
+    assert.match(shown, /The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)" data-state="sites">Reload<\/button>/);
     assert.doesNotMatch(shown, /Allocation:|Harbor Clinic|Funding Source/, "another run's details were merged");
     // An earlier run's copy (a CDN mid-deploy): try again later.
     const older = harness({ files: withFile(files, path, (b) => ({ ...b, extracted_at: OLDER })) });
@@ -500,7 +572,7 @@ test('a newer run on the server is not downloaded again; this run\'s shards are 
     assert.deepEqual(h.paths().filter((p) => p.includes('/detail/')), [`data/detail/${shard4(IDS[0])}.json.gz`]);
     const modal = h.overlay();
     assert.match(modal, /Harbor Clinic/);
-    assert.match(modal, /<h5>Publications<\/h5>\s*<p class="detail-state is-failed">The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)">Reload<\/button>/);
+    assert.match(modal, /<h5>Publications<\/h5>\s*<p class="detail-state is-failed" data-state="publications" tabindex="-1">The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)" data-state="publications">Reload<\/button>/);
     assert.deepEqual(claims(modal).filter((c) => c !== 'Healthy Volunteers:</strong> No'), []);
     assert.equal(h.status().action, 'Reload');
     // A shard from a newer run: fetched once more past the cache, then not again,
@@ -595,6 +667,83 @@ test('a failed load says so, and the next call tries again', T, async () => {
     await k.flush();
     assert.equal(k.run('datasetReader.extras.state'), 'loaded');
     assert.equal(k.status().hidden, true);
+});
+
+test('Try again from the keyboard keeps focus, and the scroll position, inside the pop-up', T, async () => {
+    // Try again opens the pop-up afresh, which replaced its markup and sent
+    // focus to the page behind it.
+    const n = shard4(IDS[0]);
+    const path = `data/detail/${n}.json.gz`;
+    const files = split();
+    const h = harness({ files: { ...files, [path]: undefined } });
+    await h.run('loadData()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const overlay = h.el('study-details-overlay');
+    const line = overlay.querySelector('[data-state="sites"]');
+    assert.ok(line, 'the sites line names its section');
+    const button = line.querySelector('.detail-action');
+    assert.match(button.innerHTML, /Try again/);
+    button.focus();
+    overlay.firstElementChild.scrollTop = 640;
+    h.served[path] = files[path];
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);   // what the button does
+    const active = () => h.doc.activeElement;
+    assert.notEqual(active(), h.doc.body, 'focus fell to the page behind the pop-up');
+    assert.ok(overlay.contains(active()), 'focus left the pop-up');
+    assert.equal(active().getAttribute('data-state'), 'sites', 'focus did not stay on the sites line');
+    assert.match(active().innerHTML, /Loading sites/);
+    assert.equal(overlay.firstElementChild.scrollTop, 640, 'Try again sent the pop-up back to its top');
+    await h.release();
+    assert.match(h.overlay(), /Harbor Clinic/);
+    assert.ok(overlay.contains(active()) && active().innerHTML.includes('closeStudyDetails'), 'focus did not go to the close button once the line was gone');
+    // Again after another failure: back on the line's own Try again.
+    const b = harness({ files: { ...files, [path]: undefined } });
+    await b.run('loadData()');
+    b.run(`showBreakdown('${IDS[0]}', 'race'); showGeographyBreakdown('${IDS[0]}')`);
+    await b.flush();
+    const sites = b.el('breakdown-overlay');
+    sites.querySelector('[data-state="sites"]').querySelector('.detail-action').focus();
+    b.run(`showGeographyBreakdown('${IDS[0]}')`);
+    await b.flush();
+    assert.match(b.doc.activeElement.innerHTML, /Try again/, 'focus is not on the new Try again');
+    assert.equal(b.doc.activeElement.getAttribute('data-state'), 'sites');
+    // The pop-up's first opening does not take focus from the page.
+    const c = harness({ files });
+    await c.run('loadData()');
+    const before = c.doc.activeElement;
+    c.run(`showStudyDetails('${IDS[0]}')`);
+    assert.equal(c.doc.activeElement, before);
+});
+
+test("the status row's Try again keeps focus in the row while the extras load, then hands it to the table", T, async () => {
+    const files = split();
+    const part5 = 'data/studies_tab.part5.json.gz';
+    const h = harness({ files: { ...files, [part5]: new TypeError('Failed to fetch') } });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    const box = h.el('studies-extras-status');
+    const action = box.querySelector('.extras-status-action');
+    assert.equal(h.status().action, 'Try again');
+    action.focus();
+    // It fails again: focus waits on the row's line, and the button is back beside it.
+    h.run('studiesExtrasAction()');
+    assert.equal(action.hidden, true);
+    assert.equal(h.doc.activeElement, box.querySelector('.extras-status-line'), 'focus fell to the page with the hidden button');
+    await h.flush();
+    assert.equal(h.status().action, 'Try again');
+    assert.equal(h.doc.activeElement, box.querySelector('.extras-status-line'));
+    // It loads: the row goes, and focus goes to the table it filled.
+    h.served[part5] = files[part5];
+    action.focus();
+    h.run('studiesExtrasAction()');
+    await h.flush();
+    assert.equal(h.status().hidden, true);
+    assert.equal(h.doc.activeElement, h.el('studies-table'), 'focus fell to the page with the hidden row');
+    assert.match(html, /<p class="extras-status-line" tabindex="-1">/, 'the status line cannot take focus');
+    assert.match(html, /<table id="studies-table" class="studies-table" tabindex="-1">/, 'the table cannot take focus');
 });
 
 test('after a part of the extras fails, a later call fetches only what failed, never a part already on its way', T, async () => {
@@ -1144,7 +1293,7 @@ test('no pending, failed, missing or not-included view states a value the record
     assert.match(seen['pending breakdown'], /<th>NIH\/OMB Category<\/th><th>Count<\/th><th>Percent<\/th>/);
     assert.match(seen['pending breakdown'], /Loading category labels/);
     assert.doesNotMatch(seen['pending breakdown'], /Original Label|Not reported<\/td>|Quarantined/);
-    assert.match(seen['failed breakdown'], /Category labels did not load \(HTTP 404\)\. <button[^>]*onclick="showBreakdown\('NCT\d+', 'race'\)">Try again/);
+    assert.match(seen['failed breakdown'], /Category labels did not load \(HTTP 404\)\. <button[^>]*onclick="showBreakdown\('NCT\d+', 'race'\)"[^>]*>Try again/);
     assert.match(seen['failed sites'], /Sites did not load \(HTTP 404\)/);
     assert.match(seen['missing sites'], /This study's sites are missing from the published files\./);
     assert.match(seen['failed table'], /class="cell-failed" title="Publications did not load \(HTTP 404\)\.">did not load<\/span>/);
