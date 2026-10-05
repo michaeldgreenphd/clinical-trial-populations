@@ -717,6 +717,33 @@ test('Try again from the keyboard keeps focus, and the scroll position, inside t
     assert.equal(c.doc.activeElement, before);
 });
 
+test('a pop-up that fills in place does not play its entrance again', T, async () => {
+    // .study-details-modal and .breakdown-modal slide up as they open. A
+    // redraw puts new markup in the overlay, and the new box would slide up
+    // again from transparent: the whole pop-up blinked as its shard landed.
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    const overlay = h.el('study-details-overlay');
+    assert.match(overlay.firstElementChild.innerHTML, /^\s*<div class="study-details-modal">/);
+    assert.equal(overlay.firstElementChild.style.animation, undefined, 'the pop-up did not open with its entrance');
+    await h.release();
+    assert.match(h.overlay(), /Harbor Clinic/);
+    assert.equal(overlay.firstElementChild.style.animation, 'none', 'the filled pop-up played its entrance again');
+    h.run('closeStudyDetails()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    assert.equal(overlay.firstElementChild.style.animation, undefined, 'a pop-up opened again lost its entrance');
+    // The same for the breakdown pop-ups.
+    const b = harness({ files: split() });
+    await b.run('loadData()');
+    b.hold();
+    b.run(`showGeographyBreakdown('${IDS[0]}')`);
+    assert.equal(b.el('breakdown-overlay').firstElementChild.style.animation, undefined);
+    await b.release();
+    assert.equal(b.el('breakdown-overlay').firstElementChild.style.animation, 'none');
+});
+
 test("the status row's Try again keeps focus in the row while the extras load, then hands it to the table", T, async () => {
     const files = split();
     const part5 = 'data/studies_tab.part5.json.gz';

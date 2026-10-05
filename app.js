@@ -1971,9 +1971,10 @@ let studyModalToken = 0;
 
 // Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
 // what it waits for lands, or by its own Try again, which opens it afresh)
-// keeps its scroll position, and focus that was inside it stays inside it:
-// on the same section's line (its button, when it has one), else on the close
-// button. Replacing the markup would otherwise send focus to the page behind.
+// keeps its scroll position and does not play its entrance (slideUp) again,
+// and focus that was inside it stays inside it: on the same section's line
+// (its button, when it has one), else on the close button. Replacing the
+// markup would otherwise send focus to the page behind.
 function drawOverlay(id, html, redraw) {
     const overlay = document.getElementById(id);
     if (!overlay) return;
@@ -1984,6 +1985,7 @@ function drawOverlay(id, html, redraw) {
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
     const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
     overlay.innerHTML = html;
+    if (open && overlay.firstElementChild) overlay.firstElementChild.style.animation = 'none';
     if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
