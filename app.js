@@ -4646,6 +4646,12 @@ function studyDetailsHtml(fullStudy, states) {
     // takes NIH or FED from them), so it waits until they are known.
     const fundingKnown = has('sponsor', 'sponsor_class', 'core') && has('sponsor', 'collaborators', 'detail');
 
+    // The population is pediatric_status, else std_ages; only a record that
+    // carries neither falls back to guessing from min_age and max_age, which
+    // reads "Not Specified" for a study with no age limits. A summary row
+    // (phone, archive) carries neither, so it shows no population.
+    const populationKnown = 'std_ages' in fullStudy || has('eligibility', 'pediatric_status', 'core');
+
     // An archive read through the frozen March files says so (legacy).
     const provenance = states.detail.from
         ? `<p class="note detail-provenance">Sites, outcomes and descriptions shown here are ${states.detail.from}, not from this archive's own run.</p>`
@@ -4692,7 +4698,7 @@ function studyDetailsHtml(fullStudy, states) {
                     <div class="detail-grid">
                         ${has('eligibility', 'enrollment', 'core') ? `<div><strong>Enrollment:</strong> ${(fullStudy.enrollment || 0).toLocaleString()} ${fullStudy.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>` : ''}
                         ${has('eligibility', 'min_age', 'core') ? `<div><strong>Age Range:</strong> ${fullStudy.min_age || 'N/A'} to ${fullStudy.max_age || 'N/A'}</div>` : ''}
-                        <div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>
+                        ${populationKnown ? `<div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>` : ''}
                         ${has('eligibility', 'gender', 'core') ? `<div><strong>Gender:</strong> ${formatGenderDisplay(fullStudy)}</div>` : ''}
                         ${has('eligibility', 'healthy_volunteers', 'core') ? `<div><strong>Healthy Volunteers:</strong> ${fullStudy.healthy_volunteers ? 'Yes' : 'No'}</div>` : ''}
                     </div>

@@ -246,7 +246,8 @@ const withFile = (files, path, edit) => ({ ...files, [path]: edit(structuredClon
 const CLAIMS = [
     'No publications linked', 'Location data not available', 'Facility not specified',
     'Healthy Volunteers:</strong> No', 'Funding Source:</strong> <span class="badge">Other',
-    'Allocation:</strong> N/A', 'Last Update:</strong> N/A', 'Status:</strong> N/A', 'Not Reported</span>'
+    'Allocation:</strong> N/A', 'Last Update:</strong> N/A', 'Status:</strong> N/A', 'Not Reported</span>',
+    'Population:</strong> Not Specified'
 ];
 const claims = (text) => CLAIMS.filter((c) => text.includes(c));
 
@@ -909,6 +910,55 @@ test('the 2026-02-22 archive reads the March files, labelled; every other archiv
     assert.match(text, /Not included in this archive/);
     assert.deepEqual(claims(text), []);
     assert.equal(later.status().hidden, true);
+});
+
+test('the Population line shows only when the record carries what it is worked out from', T, async () => {
+    // getStudyPediatricStatus reads pediatric_status, then std_ages, and only
+    // then guesses from min_age and max_age: a row with no age limits ('N/A')
+    // reads "Not Specified", although its record says "Pediatric Included".
+    // Summary rows (the phone view, aggregate archives) carry neither field.
+    const open = { min_age: 'N/A', max_age: 'N/A' };
+    const rows = ARCHIVE_ROWS.map((r, i) => (i === 0 ? { ...r, ...open } : r));
+    const record = { ...RECORDS[0], ...open, std_ages: ['CHILD', 'ADULT', 'OLDER_ADULT'], pediatric_status: 'Pediatric Included' };
+    const population = (text) => (text.match(/<strong>Population:<\/strong> ([^<]*)</) || [])[1] ?? null;
+    // The phone view.
+    const phone = harness({ mobile: true, summary: { extracted_at: STAMP, recentStudies: rows } });
+    await phone.run('loadData()');
+    for (const row of rows) {
+        phone.run(`showStudyDetails('${row.nct_id}')`);
+        assert.equal(population(phone.overlay()), null, `the phone pop-up of ${row.nct_id} (ages ${row.min_age} to ${row.max_age}) states a population its row does not carry`);
+        assert.match(phone.overlay(), /<h5>Enrollment &amp; Eligibility<\/h5>[\s\S]*?<p class="detail-state is-na">Not included in the phone view<\/p>|<h5>Enrollment & Eligibility<\/h5>[\s\S]*?<p class="detail-state is-na">Not included in the phone view<\/p>/);
+    }
+    // An aggregate archive without a file of its own.
+    const later = harness({ files: { 'snapshots/2026-04-26/dashboard-summary.json': archiveSummary('2026-04-26', { recentStudies: rows }) }, history: { dates: ['2026-04-26'] } });
+    await later.run("loadData('2026-04-26')");
+    later.run(`showStudyDetails('${rows[0].nct_id}')`);
+    await later.flush();
+    assert.equal(population(later.overlay()), null, 'an aggregate archive states a population its row does not carry');
+    // An archive with its own file: nothing while the file loads, the record's value once it is here.
+    const date = '2026-04-26';
+    const files = {
+        [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date, { recentStudies: rows }),
+        [`snapshots/${date}/archive_records.json.gz`]: {
+            source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive',
+            data: { [record.nct_id]: record, ...Object.fromEntries(RECORDS.slice(1, 3).map((r) => [r.nct_id, r])) }
+        }
+    };
+    const archive = harness({ files, history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } } });
+    await archive.run(`loadData('${date}')`);
+    archive.hold();
+    archive.run(`showStudyDetails('${rows[0].nct_id}')`);
+    assert.equal(population(archive.overlay()), null, 'the pending archive pop-up guessed a population');
+    assert.match(archive.overlay(), /Loading eligibility details/);
+    await archive.release();
+    assert.equal(population(archive.overlay()), 'Pediatric Included');
+    // Inline and split records carry pediatric_status: shown as always.
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    assert.equal(population(h.overlay()), 'Adult Only', 'a split record lost its core population while its shard loads');
+    await h.release();
 });
 
 // ── What a view shows for fields that are not here ──
