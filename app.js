@@ -1259,7 +1259,9 @@ async function fetchAndDecompress(url, onProgress, init) {
     const response = await keyedFetch(url, init);
     console.log(`Response status for ${url}: ${response.status}`);
     if (!response.ok) {
-        throw new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+        const err = new Error(`Failed to fetch ${url}: HTTP ${response.status}`);
+        err.status = response.status;
+        throw err;
     }
 
     let body = response.body;
@@ -1597,16 +1599,34 @@ function shardProblem(r, body, n) {
 // gzip, the pako fallback) and check it with problemOf. A file from another
 // run, or one that does not match, is dropped and fetched once more past the
 // browser cache (a CDN can serve the previous run's copy for a while after a
-// publish); if it still does not belong, nothing of it is used.
-async function fetchSidecar(url, problemOf, onProgress) {
-    let body = await fetchAndDecompress(url, onProgress);
+// publish); if it still does not belong, nothing of it is used. A 4xx answer
+// is fetched once more past the cache too: a browser keeps it as long as it
+// would keep the file (Cloudflare sends max-age=14400 with a 404 as well), so
+// a file back on the server would stay missing for hours. retry: the file did
+// not load before (Try again, a pop-up opened again, the Studies tab), so its
+// first request goes past the cache, and is the only one that does.
+async function fetchSidecar(url, problemOf, onProgress, retry = false) {
+    const pastCache = { cache: 'reload' };
+    let fresh = retry;   // the copy in hand came past the browser cache
+    let body;
+    try {
+        body = await fetchAndDecompress(url, onProgress, fresh ? pastCache : undefined);
+    } catch (err) {
+        const status = err && err.status;
+        if (fresh || !(status >= 400 && status < 500)) throw err;
+        console.warn(`${url}: HTTP ${status}; fetching it again past the cache`);
+        fresh = true;
+        body = await fetchAndDecompress(url, onProgress, pastCache);
+    }
     let problem = problemOf ? problemOf(body) : null;
     if (!problem) return body;
-    console.warn(`${url}: ${problem.text}; fetching it again`);
-    body = null;
-    body = await fetchAndDecompress(url, onProgress, { cache: 'reload' });
-    problem = problemOf(body);
-    if (!problem) return body;
+    if (!fresh) {
+        console.warn(`${url}: ${problem.text}; fetching it again`);
+        body = null;
+        body = await fetchAndDecompress(url, onProgress, pastCache);
+        problem = problemOf(body);
+        if (!problem) return body;
+    }
     const err = new Error(`${url}: ${problem.text}`);
     err.sidecar = problem;
     throw err;
@@ -1697,6 +1717,7 @@ function loadStudiesTabExtras(r) {
     files.forEach((file, i) => {
         const part = parts[i];
         if (part.state === 'loading' || part.state === 'loaded') return;
+        const retry = part.state === 'failed';   // past the browser cache (fetchSidecar)
         part.state = 'loading';
         x.loaded[i] = 0;
         x.totals[i] = undefined;
@@ -1705,7 +1726,7 @@ function loadStudiesTabExtras(r) {
             x.loaded[i] = got;
             x.totals[i] = total;
             extrasProgress(r);
-        }).then(body => {
+        }, retry).then(body => {
             part.state = 'loaded';
             part.data = own ? Object.fromEntries(Object.keys(body.data).filter(id => own.has(id)).map(id => [id, body.data[id]])) : body.data;
             x.finished[i] = true;
@@ -1773,10 +1794,11 @@ function loadShard(r, n) {
     const held = touchShard(r, n);
     if (held && (held.state === 'loading' || held.state === 'loaded')) return held.promise;
     if (held && held.state === 'failed' && held.error && held.error.kind === 'newer') return held.promise;
+    const retry = !!held && held.state === 'failed';   // past the browser cache (fetchSidecar)
     const shard = { state: 'loading', error: null, map: null, promise: null };
     r.shards.set(n, shard);   // last: a failed entry was moved there first
     const url = `${r.base}/detail/${n}.json.gz`;
-    shard.promise = fetchSidecar(url, body => shardProblem(r, body, n)).then(body => {
+    shard.promise = fetchSidecar(url, body => shardProblem(r, body, n), null, retry).then(body => {
         shard.map = body.data;
         shard.state = 'loaded';
         const others = [...r.shards].filter(([k, s]) => k !== n && s.state === 'loaded');

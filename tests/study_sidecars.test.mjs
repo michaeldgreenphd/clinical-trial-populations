@@ -197,10 +197,14 @@ function element(id, doc, markup = null) {
 
 /**
  * files: { path: body } served to fetch (gzipped); a body that is an Error is
- * a network failure, a missing path a 404. again: what a cache: 'reload'
- * request gets instead, by path. hold: answer nothing until release().
+ * a network failure, { httpStatus } that status, a missing path a 404. again:
+ * what a cache: 'reload' request gets instead, by path. hold: answer nothing
+ * until release(). browserCache: keep answers as Chrome keeps what Cloudflare
+ * sends with max-age=14400 (every .gz response, a 404 included): a request in
+ * the default mode is answered from that copy; 'reload' and 'no-cache' ask the
+ * server and keep its answer; 'no-store' asks it and keeps nothing.
  */
-function harness({ files = {}, again = {}, mobile = false, history = null, summary = null, studiesTab = true, decompression = true } = {}) {
+function harness({ files = {}, again = {}, mobile = false, history = null, summary = null, studiesTab = true, decompression = true, browserCache = false } = {}) {
     const requests = [];
     const served = { ...files };
     const reloaded = { ...again };
@@ -219,12 +223,25 @@ function harness({ files = {}, again = {}, mobile = false, history = null, summa
     const tab = element('tab-studies', doc);
     if (studiesTab) tab.classList.add('active');
     let reloads = 0;
-    const answer = (path, cache) => {
+    const fromServer = (path, cache) => {
         const body = cache === 'reload' && path in reloaded ? reloaded[path] : served[path];
-        if (body === undefined) return new Response('', { status: 404 });
+        if (body === undefined) return { status: 404 };
         if (body instanceof Error) throw body;
+        if (body && body.httpStatus) return { status: body.httpStatus };
+        return { status: 200, body };
+    };
+    const respond = (path, { status, body }) => {
+        if (status !== 200) return new Response('', { status });
         const bytes = path.endsWith('.gz') ? gz(body) : Buffer.from(JSON.stringify(body));
         return new Response(bytes, { status: 200, headers: { 'content-length': String(bytes.length) } });
+    };
+    const kept = new Map();
+    const answer = (path, cache) => {
+        if (!browserCache) return respond(path, fromServer(path, cache));
+        if ((cache === undefined || cache === 'default') && kept.has(path)) return respond(path, kept.get(path));
+        const got = fromServer(path, cache);
+        if (cache !== 'no-store') kept.set(path, got);
+        return respond(path, got);
     };
     const context = vm.createContext({
         console: { log() {}, warn() {}, error() {} },
@@ -720,7 +737,8 @@ test('a failed load says so, and the next call tries again', T, async () => {
     h.served[path] = files[path];
     h.run(`showStudyDetails('${IDS[0]}')`);   // what Try again does
     await h.flush();
-    assert.equal(h.requests.filter((r) => r.path === path).length, 2);
+    // The 404, once more past the cache, then Try again (past the cache).
+    assert.deepEqual(h.requests.filter((r) => r.path === path).map((r) => r.cache), [undefined, 'reload', 'reload']);
     assert.match(h.overlay(), /Harbor Clinic/);
     // The Studies-tab extras: a network failure, then Try again.
     const k = harness({ files: { ...files, 'data/studies_tab.part5.json.gz': new TypeError('Failed to fetch') } });
@@ -735,6 +753,70 @@ test('a failed load says so, and the next call tries again', T, async () => {
     await k.flush();
     assert.equal(k.run('datasetReader.extras.state'), 'loaded');
     assert.equal(k.status().hidden, true);
+});
+
+test('a file that did not load is fetched past the browser cache: once more after a 4xx, and on every retry', T, async () => {
+    // Cloudflare sends every .gz answer with max-age=14400, a 404 included, and
+    // once data/run.json is published the data key is the run's, so the
+    // browser answered Try again, a pop-up opened again and a page reload with
+    // the 404 it kept, for four hours, without asking the server.
+    const n = shard4(IDS[0]);
+    const path = `data/detail/${n}.json.gz`;
+    const files = split();
+    const modes = (h, p) => h.requests.filter((r) => r.path === p).map((r) => r.cache);
+    // Missing, then back on the server (a deploy that lagged): Try again reaches it.
+    const h = harness({ files: { ...files, [path]: undefined }, browserCache: true });
+    await h.run('loadData()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.match(h.overlay(), /Sites did not load \(HTTP 404\)\. <button[^>]*>Try again/);
+    assert.deepEqual(modes(h, path), [undefined, 'reload'], 'the 404 was not asked for once more past the cache');
+    h.served[path] = files[path];
+    h.run(`showStudyDetails('${IDS[0]}')`);   // what Try again does
+    await h.flush();
+    assert.match(h.overlay(), /Harbor Clinic/, "Try again was answered with the browser's 404");
+    assert.deepEqual(modes(h, path), [undefined, 'reload', 'reload'], 'Try again did not go past the cache, or went twice');
+    // A 404 the server has fixed by the next request (a CDN with no copy yet): filled at once.
+    const once = harness({ files: { ...files, [path]: undefined }, again: { [path]: files[path] }, browserCache: true });
+    await once.run('loadData()');
+    once.run(`showGeographyBreakdown('${IDS[0]}')`);
+    await once.flush();
+    assert.match(once.overlay('breakdown-overlay'), /Harbor Clinic/);
+    // The Studies-tab extras: the status row's Try again fetches the part that failed past the cache, and only it.
+    const part5 = 'data/studies_tab.part5.json.gz';
+    const k = harness({ files: { ...files, [part5]: undefined }, browserCache: true });
+    await k.run('loadData()');
+    k.run('prepareStudiesTab()');
+    await k.flush();
+    assert.equal(k.status().text, 'Publications and category labels did not load (HTTP 404).');
+    k.served[part5] = files[part5];
+    k.run('studiesExtrasAction()');
+    await k.flush();
+    assert.equal(k.run('datasetReader.extras.state'), 'loaded', "the status row's Try again was answered with the browser's 404");
+    assert.deepEqual(modes(k, part5), [undefined, 'reload', 'reload']);
+    assert.equal(k.paths().filter((p) => p.includes('studies_tab')).length, 8 + 2, 'parts that had loaded were fetched again');
+    // A part the Studies tab, or a pop-up, asks for again goes past the cache too.
+    const t = harness({ files: { ...files, [part5]: undefined }, browserCache: true });
+    await t.run('loadData()');
+    t.run('prepareStudiesTab()');
+    await t.flush();
+    t.served[part5] = files[part5];
+    t.run(`showBreakdown('${IDS[9]}', 'race')`);
+    await t.flush();
+    assert.equal(t.run('datasetReader.extras.state'), 'loaded');
+    assert.match(t.overlay('breakdown-overlay'), /<th>Original Label<\/th>/);
+    // A failure the browser does not keep is not fetched again at once: the
+    // connection, or a server error. Try again still goes past the cache.
+    for (const [what, body] of [['a network failure', new TypeError('Failed to fetch')], ['a 503', { httpStatus: 503 }]]) {
+        const x = harness({ files: { ...files, [path]: body }, browserCache: true });
+        await x.run('loadData()');
+        x.run(`showStudyDetails('${IDS[0]}')`);
+        await x.flush();
+        assert.deepEqual(modes(x, path), [undefined], `${what} was fetched again at once`);
+        x.run(`showStudyDetails('${IDS[0]}')`);
+        await x.flush();
+        assert.deepEqual(modes(x, path), [undefined, 'reload'], `Try again after ${what} did not go past the cache`);
+    }
 });
 
 test('Try again from the keyboard keeps focus, and the scroll position, inside the pop-up', T, async () => {
@@ -861,6 +943,7 @@ test('after a part of the extras fails, a later call fetches only what failed, n
     h.hold();   // the parts that exist are slow; part 3's 404 answers first
     h.run('prepareStudiesTab()');
     await h.release((p) => p === part3);
+    await h.release((p) => p === part3);   // its 404, asked for once more past the cache
     assert.equal(h.run('datasetReader.extras.state'), 'failed');
     assert.match(h.status().text, /did not load \(HTTP 404\)/);
     for (let i = 0; i < 3; i++) {
@@ -868,8 +951,9 @@ test('after a part of the extras fails, a later call fetches only what failed, n
         await h.release((p) => p === part3);
     }
     const tab = () => h.paths().filter((p) => p.includes('studies_tab'));
-    assert.equal(tab().filter((p) => p === part3).length, 4, 'part 3 was not tried once per call');
-    assert.equal(tab().length, 8 + 3, `parts that were already on their way were fetched again: ${tab().length} requests`);
+    assert.deepEqual(h.requests.filter((r) => r.path === part3).map((r) => r.cache), [undefined, 'reload', 'reload', 'reload', 'reload'],
+        'part 3 was not tried once per call, past the cache');
+    assert.equal(tab().length, 8 + 1 + 3, `parts that were already on their way were fetched again: ${tab().length} requests`);
     assert.ok(h.run('__reads') <= 8, `${h.run('__reads')} reads of the extras in flight at once`);
     assert.match(h.overlay('breakdown-overlay'), /Category labels did not load \(HTTP 404\)/);
     // The other parts land, and are kept: once part 3 is back, only it is fetched.
@@ -879,7 +963,7 @@ test('after a part of the extras fails, a later call fetches only what failed, n
     h.run('studiesExtrasAction()');
     assert.equal(h.status().text, 'Loading publications and category labels');
     await h.flush();
-    assert.equal(tab().length, 8 + 4, 'Try again fetched parts that had loaded');
+    assert.equal(tab().length, 8 + 1 + 3 + 1, 'Try again fetched parts that had loaded');
     assert.equal(h.run('datasetReader.extras.state'), 'loaded');
     assert.equal(h.run('datasetReader.extras.map.size'), IDS.length, 'the parts kept from the first try were not merged');
     assert.equal(h.status().hidden, true);
@@ -1583,13 +1667,20 @@ test('without DecompressionStream the shards and extras load through pako', T, a
 });
 
 test('every fetch carries the data key, through keyedFetch', T, async () => {
-    const h = harness({ files: split() });
+    // Every data file, the requests past the cache included: a 404 asked for
+    // once more, a file from another run fetched again, and a Try again.
+    const n = shard4(IDS[0]);
+    const files = withFile({ ...split(), [`data/detail/${n}.json.gz`]: undefined }, 'data/studies_tab.part2.json.gz', (b) => ({ ...b, extracted_at: OLDER }));
+    const h = harness({ files });
     await h.run('loadData()');
     h.run(`prepareStudiesTab(); showStudyDetails('${IDS[0]}')`);
     await h.flush();
-    assert.ok(h.requests.length > 9);
-    for (const r of h.requests) assert.match(r.url, /\?v=test$/, `${r.path} was fetched without the data key`);
-    assert.match(READER, /await fetchAndDecompress\(url, onProgress\);[\s\S]*await fetchAndDecompress\(url, onProgress, \{ cache: 'reload' \}\);/);
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const data = h.requests.filter((r) => r.path.endsWith('.json.gz'));
+    assert.ok(data.length > 9);
+    assert.ok(data.some((r) => r.cache === 'reload' && r.path.includes('/detail/')) && data.some((r) => r.cache === 'reload' && r.path.includes('studies_tab')));
+    for (const r of data) assert.match(r.url, /\?v=test$/, `${r.path} was fetched without the data key`);
 });
 
 test('a long session of pop-ups keeps a bounded number of shards', T, async () => {
@@ -1627,7 +1718,7 @@ test('the shard cache drops the least recently used shard, never the one a pop-u
     assert.equal(h.run(`datasetReader.shards.get(${shardOf64(x)})?.state`), 'loaded', 'the shard Try again loaded was dropped at once');
     assert.doesNotMatch(h.overlay(), /loading-meter/, 'the pop-up waits for a shard that was dropped');
     assert.match(h.overlay(), /Harbor Clinic/);
-    assert.equal(h.requests.filter((r) => r.path === path).length, 2);
+    assert.equal(h.requests.filter((r) => r.path === path).length, 3, 'the 404, once more past the cache, and Try again');
     // A shard a user keeps coming back to stays; the one used longest ago goes.
     const k = harness({ files });
     await k.run('loadData()');
