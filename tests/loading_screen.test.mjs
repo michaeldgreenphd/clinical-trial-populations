@@ -369,7 +369,7 @@ test('a snapshot switch runs its meter to the end before the screen hides', () =
             `${name} does not advance the meter in order: load, 78, 90, render, 100, hide`);
     }
     const load = fnSource('async function loadData(date)');
-    assert.match(load, /updateLoadingProgress\(60, 'Loading the archive summary'\);\s*const resp = await keyedFetch\(`snapshots\/\$\{date\}\/dashboard-summary\.json/,
+    assert.match(load, /updateLoadingProgress\(60, 'Loading the archive summary'\);\s*const resp = await keyedFetch\(`\$\{datasetBase\(date\)\}\/dashboard-summary\.json/,
         'a summary-only archive leaves its meter at 0%');
 });
 

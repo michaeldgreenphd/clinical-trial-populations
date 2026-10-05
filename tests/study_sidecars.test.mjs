@@ -1,0 +1,1060 @@
+/**
+ * Study details on demand: the reader app.js keeps for the dataset on screen
+ * (tests/record_contract.json's layout section, app.js "Study details on
+ * demand").
+ *
+ * The reader block, loadData and the views that read studies_tab and detail
+ * fields are evaluated in a vm with a stub document and a stub fetch that
+ * serves in-memory gzip files (tests/split_fixture.mjs), through app.js's own
+ * fetchAndDecompress. Requests can be held and answered later, so a dataset
+ * switch can be played in the middle of a load. Nothing binary is committed.
+ *
+ * What is pinned: an inline dataset fetches nothing more and renders as it
+ * always has; a split dataset fetches its Studies-tab extras once, all or
+ * nothing, and one shard per study, from its own folder; files from another
+ * run are refetched once past the cache and otherwise never merged; a late
+ * answer fills the dataset it was started for and never draws over another;
+ * pending, failed and not-included views never show a value the record does
+ * not have; and the phone and archive views say what they do not carry.
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { gunzipSync } from 'node:zlib';
+import vm from 'node:vm';
+import { contract, dataset, fullRecord, gz } from './split_fixture.mjs';
+
+const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+
+function slice(startMarker, endMarker) {
+    const at = app.indexOf(startMarker);
+    assert.ok(at >= 0, `app.js lost ${startMarker}`);
+    const end = app.indexOf(endMarker, at);
+    assert.ok(end > at, `could not find the end of ${startMarker}`);
+    return app.slice(at, end + endMarker.length);
+}
+const fnSource = (sig) => slice(sig, '\n}\n');
+
+const READER = slice('// ── Study details on demand', '// ── end study details on demand');
+const SOURCES = [
+    READER,
+    slice('const NUM_PARTS =', '\n'),
+    fnSource('function partFiles(n)'),
+    fnSource('function datasetBase(key)'),
+    fnSource('function getUrlStrategies(date)'),
+    fnSource('async function fetchAndDecompress(url, onProgress, init)'),
+    fnSource('function formatLoadMB(bytes)'),
+    fnSource('function describePartsProgress(loaded, totals, finished)'),
+    fnSource('function partsFromDifferentRuns(parts)'),
+    fnSource('function stalePartIndexes(parts, expectedStamp)'),
+    fnSource('async function refetchStaleParts(parts, expectedStamp, refetch)'),
+    fnSource('async function loadData(date)'),
+    fnSource('function setDataPulledDate(iso)'),
+    fnSource('function pubLabel(ref, index)'),
+    fnSource('function renderPublications(study, tab = READY)'),
+    fnSource('function showPublications(nctId)'),
+    fnSource('function publicationsHtml(study, tab, redraw)'),
+    fnSource('function prepareStudiesTab()'),
+    fnSource('function refreshStudiesTab()'),
+    fnSource('function renderStudiesTable()'),
+    fnSource('function renderFdaCell(value, tooltipText)'),
+    fnSource('function renderDemographicCell(study, field, tab = READY)'),
+    fnSource('function studyHasGeography(study)'),
+    fnSource('function renderGeographyCell(study)'),
+    fnSource('function showGeographyBreakdown(nctId)'),
+    fnSource('function showBreakdown(nctId, categoryName)'),
+    fnSource('function breakdownHtml(study, categoryName, tab)'),
+    fnSource('function breakdownCountsHtml(study, categoryName, tab)'),
+    fnSource('function formatOmbCategory(ombCat)'),
+    fnSource('function closeBreakdown()'),
+    fnSource('function deriveFundingSource(study)'),
+    fnSource('function formatGenderDisplay(study)'),
+    fnSource('function getStudyPediatricStatus(study)'),
+    fnSource("function renderPublicationsDetail(study, tab = READY, retry = '')"),
+    fnSource('function showStudyDetails(nctId)'),
+    fnSource('function studyDetailsHtml(fullStudy, states)'),
+    fnSource("function renderStudySites(study, detail = READY, retry = '')"),
+    fnSource('function closeStudyDetails()')
+].join('\n');
+
+// What the dashboard around these functions provides, reduced to what they
+// call. The table's own filters, sort cells and pagination are not under test.
+const SCAFFOLD = `
+let data = null; let datasetReader = null; let dashboardSummary = null; let studiesTabReady = false;
+let currentPage = 0; let studiesPageSize = 15; let currentSort = { field: null, direction: 'asc' };
+let tableRenders = 0;
+const snapshotCache = new Map();
+function getFilteredData() { tableRenders++; return data ? [...data] : []; }
+function initColumnPicker() {}
+function renderReportedCell() { return ''; }
+function renderSparkline() { return ''; }
+function getTimeToReport() { return null; }
+function renderPagination() {}
+function fixTableScroll() {}
+function sgActive() { return false; }
+function sgShowBreakdown() {}
+function sgDemographicCell() { return ''; }
+function escapeHtml(text) { return String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
+// keyedFetch's own behaviour is tests/data_cache_key.test.mjs's; here it adds the key.
+async function keyedFetch(path, init) { return fetch(\`\${path}?v=\${DATA_CACHE_VERSION}\`, init); }
+`;
+
+const T = { timeout: 20000 };
+const STAMP = '2026-10-11T06:00:00+00:00';
+const NEWER = '2026-10-18T06:00:00+00:00';
+const OLDER = '2026-10-04T12:09:21.454200+00:00';
+
+function element(id) {
+    const kids = {};
+    const classes = new Set();
+    return {
+        id, innerHTML: '', textContent: '', value: '', hidden: false, style: {}, dataset: {}, attrs: {}, firstElementChild: null,
+        setAttribute(k, v) { this.attrs[k] = String(v); },
+        classList: {
+            add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c),
+            toggle(c, on) { if (on === undefined ? !classes.has(c) : on) classes.add(c); else classes.delete(c); }
+        },
+        querySelector(sel) { return kids[sel] || (kids[sel] = element(sel)); },
+        querySelectorAll() { return []; },
+        contains() { return false; },
+        focus() {}
+    };
+}
+
+/**
+ * files: { path: body } served to fetch (gzipped); a body that is an Error is
+ * a network failure, a missing path a 404. again: what a cache: 'reload'
+ * request gets instead, by path. hold: answer nothing until release().
+ */
+function harness({ files = {}, again = {}, mobile = false, history = null, summary = null, studiesTab = true, decompression = true } = {}) {
+    const requests = [];
+    const served = { ...files };
+    const reloaded = { ...again };
+    let holding = false;
+    const held = [];
+    const els = {};
+    const el = (id) => els[id] || (els[id] = element(id));
+    const tab = element('tab-studies');
+    if (studiesTab) tab.classList.add('active');
+    let reloads = 0;
+    const answer = (path, cache) => {
+        const body = cache === 'reload' && path in reloaded ? reloaded[path] : served[path];
+        if (body === undefined) return new Response('', { status: 404 });
+        if (body instanceof Error) throw body;
+        const bytes = path.endsWith('.gz') ? gz(body) : Buffer.from(JSON.stringify(body));
+        return new Response(bytes, { status: 200, headers: { 'content-length': String(bytes.length) } });
+    };
+    const context = vm.createContext({
+        console: { log() {}, warn() {}, error() {} },
+        Response, TransformStream, DecompressionStream, Uint8Array,
+        setTimeout, clearTimeout,
+        requestAnimationFrame: (fn) => { setImmediate(fn); return 1; },
+        cancelAnimationFrame() {},
+        DATA_CACHE_VERSION: 'test', LATEST_RUN_STAMP: null, SMALL_FILE_WAIT_MS: 50,
+        hasDecompressionStream: decompression,
+        ensurePako: async () => {},
+        pako: { inflate: (bytes) => gunzipSync(Buffer.from(bytes)).toString('utf8') },
+        isMobileDevice: mobile,
+        window: {},
+        location: { reload() { reloads++; } },
+        document: {
+            getElementById: el,
+            querySelector: (sel) => (sel === '.tab[data-tab="studies"]' ? tab : null),
+            querySelectorAll: () => [],
+            activeElement: null
+        },
+        updateLoadingProgress() {},
+        showToast() {},
+        fetchLatestSummary: async () => summary,
+        fetchHistory: async () => history,
+        fetch: (url, init) => {
+            const path = url.replace(/\?v=.*$/, '');
+            const cache = init && init.cache;
+            requests.push({ url, path, cache });
+            if (holding) return new Promise((resolve, reject) => held.push({ path, go: () => { try { resolve(answer(path, cache)); } catch (e) { reject(e); } } }));
+            return Promise.resolve().then(() => answer(path, cache));
+        }
+    });
+    vm.runInContext(SCAFFOLD + SOURCES, context);
+    // Count the file reads in flight (app.js's fetchAndDecompress, wrapped in
+    // place), so flush() waits for the real gunzip and parse to finish rather
+    // than for a fixed number of turns of the event loop, which a busy machine
+    // can outrun.
+    vm.runInContext(`globalThis.__reads = 0;
+        { const read = fetchAndDecompress;
+          fetchAndDecompress = function (...args) {
+              __reads++;
+              const p = read.apply(this, args);
+              p.then(() => { __reads--; }, () => { __reads--; });
+              return p;
+          }; }`, context);
+    const run = (src) => vm.runInContext(src, context);
+    const json = (src) => JSON.parse(vm.runInContext(`JSON.stringify(${src})`, context));
+    // Settle everything that is not held: every read that can finish has
+    // finished, and the redraws it set off have run. A held request is a read
+    // that cannot finish until release().
+    const heldReads = () => held.filter((x) => x.path.endsWith('.gz')).length;
+    const turns = async (n) => { for (let i = 0; i < n; i++) await new Promise((r) => setImmediate(r)); };
+    const flush = async () => {
+        for (let round = 0; round < 2000; round++) {
+            await turns(30);
+            if (context.__reads <= heldReads()) {
+                await turns(30);
+                if (context.__reads <= heldReads()) return;
+            }
+            await new Promise((r) => setTimeout(r, 2));
+        }
+        throw new Error(`flush: ${context.__reads} file reads still in flight`);
+    };
+    return {
+        run, json, flush, els, el, tab, requests, served, reloaded,
+        paths: () => requests.map((r) => r.path),
+        reloads: () => reloads,
+        hold() { holding = true; },
+        // Answer the held requests whose path passes `which` (all by default).
+        async release(which = () => true) {
+            holding = false;
+            for (const h of held.splice(0).filter((x) => { if (which(x.path)) return true; held.push(x); return false; })) h.go();
+            if (held.length) holding = true;
+            await flush();
+        },
+        overlay: (id = 'study-details-overlay') => el(id).innerHTML,
+        status: () => ({
+            hidden: el('studies-extras-status').hidden,
+            text: el('studies-extras-status').querySelector('.extras-status-text').textContent,
+            bytes: el('studies-extras-status').querySelector('.extras-status-bytes').textContent,
+            action: el('studies-extras-status').querySelector('.extras-status-action').hidden ? null
+                : el('studies-extras-status').querySelector('.extras-status-action').textContent,
+            meter: el('studies-extras-status').querySelector('.loading-meter')
+        })
+    };
+}
+
+// Eight parts (app.js fetches NUM_PARTS), two studies in each, over 4 detail
+// shards: IDS[0], IDS[1] and IDS[2] are in shards 0, 3 and 2, and every
+// fourth id shares a shard (shard4).
+const IDS = Array.from({ length: 16 }, (_, i) => `NCT0${String(1000000 + i * 3).padStart(7, '0')}`);
+const RECORDS = IDS.map((id) => fullRecord(id));
+const shard4 = (id) => Number(id.slice(3)) % 4;
+const split = (opts = {}) => dataset(RECORDS, { parts: 8, shards: 4, stamp: STAMP, commit: 'abc1234', ...opts });
+const inline = (opts = {}) => dataset(RECORDS, { parts: 8, layout: false, stamp: STAMP, commit: 'abc1234', ...opts });
+const withFile = (files, path, edit) => ({ ...files, [path]: edit(structuredClone(files[path])) });
+
+// Text that states a value a pending, failed or not-included view does not have.
+const CLAIMS = [
+    'No publications linked', 'Location data not available', 'Facility not specified',
+    'Healthy Volunteers:</strong> No', 'Funding Source:</strong> <span class="badge">Other',
+    'Allocation:</strong> N/A', 'Last Update:</strong> N/A', 'Status:</strong> N/A', 'Not Reported</span>'
+];
+const claims = (text) => CLAIMS.filter((c) => text.includes(c));
+
+test('the shard rule gives the layout test vectors, and nothing for a malformed id', () => {
+    const h = harness();
+    assert.ok(contract.layout.detail.vectors.length >= 6);
+    for (const { nct_id: id, shards, shard } of contract.layout.detail.vectors) {
+        assert.equal(h.run(`shardOf('${id}', ${shards})`), shard, `${id} at ${shards} shards`);
+    }
+    assert.equal(h.run("shardOf('NCT01174160', 256)"), 144);
+    assert.equal(h.run("shardOf('NCT01174160', 128)"), 16, 'the vectors cannot tell 128 shards from 256');
+    assert.equal(h.run("shardOf('NCT', 256)"), null);
+    assert.equal(h.run("shardOf('01975376', 256)"), null);
+});
+
+test('the reader reads the layout the contract describes', () => {
+    const h = harness();
+    assert.equal(h.run('LAYOUT_VERSION'), contract.layout.version);
+    assert.equal(h.run('LAYOUT_SHARD_KEY'), contract.layout.detail.key);
+    assert.equal(typeof contract.layout.enabled, 'boolean', 'layout.enabled is the owner switch the engine reads');
+    // The file names app.js builds are the contract's patterns.
+    h.run(`globalThis.r = makeReader({ mode: 'split', base: 'snapshots/2026-10-18', layout: { version: 1, studies_tab: { files: 3 }, detail: { shards: 256, key: 'nct_number_mod' } } });`);
+    const urls = h.json('extrasFiles(r).map(f => f.url)');
+    assert.deepEqual(urls, [1, 2, 3].map((k) => `snapshots/2026-10-18/${contract.layout.files.studies_tab.replace('{K}', k)}`));
+    assert.deepEqual(h.json("[1, 2].map(k => partFiles(2)[k - 1])"), [1, 2].map((k) => contract.layout.files.core.replace('{K}', k)));
+    assert.match(READER, /`\$\{r\.base\}\/detail\/\$\{n\}\.json\.gz`/, 'the shard path is not detail/{n}.json.gz under the dataset folder');
+    assert.equal(contract.layout.files.detail, 'detail/{n}.json.gz');
+});
+
+test('mergeStudy lays the extras over the record one level deep for the demographics, and replaces the rest', () => {
+    const h = harness();
+    h.run(`globalThis.core = { nct_id: 'NCT00000001', race: { reported: true, omb_totals: { white: 3 } }, sex: { reported: true, totals: { female: 2 } },
+        study_sites: [{ country: 'Canada' }], ethnicity: { reported: false } };`);
+    h.run(`globalThis.tab = { race: { raw_categories: [{ omb_category: 'white' }] }, sex: { raw_categories: [] }, ethnicity: null };`);
+    h.run(`globalThis.detail = { study_sites: [{ facility: 'A', country: 'Canada' }, { facility: 'B', country: 'Peru' }], allocation: 'RANDOMIZED' };`);
+    const merged = h.json('mergeStudy(core, tab, detail)');
+    assert.deepEqual(merged.race, { reported: true, omb_totals: { white: 3 }, raw_categories: [{ omb_category: 'white' }] }, 'race lost its core fields');
+    assert.deepEqual(merged.sex, { reported: true, totals: { female: 2 }, raw_categories: [] });
+    assert.deepEqual(merged.ethnicity, { reported: false }, 'a null dimension in the extras erased the core one');
+    assert.equal(merged.study_sites.length, 2, "the shard's whole sites list did not replace the core's");
+    assert.equal(merged.allocation, 'RANDOMIZED');
+    assert.deepEqual(h.json('core.race'), { reported: true, omb_totals: { white: 3 } }, 'the record itself was changed');
+    assert.equal(h.json('core.study_sites').length, 1);
+});
+
+test('an inline dataset fetches nothing beyond its parts, and every view renders from its records', T, async () => {
+    const h = harness({ files: inline() });
+    await h.run('loadData()');
+    assert.equal(h.run('datasetReader.mode'), 'inline');
+    assert.equal(h.requests.length, 8);
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    const modal = h.overlay();
+    h.run(`showBreakdown('${IDS[0]}', 'race')`);
+    const breakdown = h.overlay('breakdown-overlay');
+    h.run(`showGeographyBreakdown('${IDS[0]}')`);
+    const sites = h.overlay('breakdown-overlay');
+    await h.flush();
+    assert.equal(h.requests.length, 8, `an inline dataset made requests: ${h.paths().slice(8).join(', ')}`);
+    assert.equal(h.status().hidden, true, 'an inline dataset showed the status row');
+    for (const text of [modal, breakdown, sites]) assert.doesNotMatch(text, /detail-state|loading-meter|not included/i);
+    for (const needle of ['<strong>Allocation:</strong> RANDOMIZED', 'Masked: Participants, Investigators', 'Design Description:</strong> Two parallel arms',
+        'Time Frame: 12 weeks', 'Secondary Outcomes (1)', '<strong>Healthy Volunteers:</strong> No', 'Lead Sponsor:</strong> Harbor University',
+        'Funding Source:</strong> <span class="badge">NIH</span>', 'National Heart, Lung, and Blood Institute', '<strong>Status:</strong> TERMINATED',
+        'Last Update:</strong> 2024-06-01', 'Why Stopped:</strong> Slow accrual', 'Publications (1)', 'Study Sites (2 total)', 'Harbor Clinic']) {
+        assert.ok(modal.includes(needle), `the inline pop-up lost ${needle}`);
+    }
+    assert.match(breakdown, /<th>Original Label<\/th>/);
+    assert.match(breakdown, /Caucasian/);
+    assert.match(breakdown, /Quarantined Labels/);
+    assert.match(sites, /Lakeside Hospital/);
+    // The table: the publications cell lists the reference at once.
+    assert.match(h.el('studies-table-body').innerHTML, /Doe J\. A randomized trial|A randomized trial/);
+    assert.doesNotMatch(h.el('studies-table-body').innerHTML, /cell-pending/);
+    // An inline record with none says so, as it always has.
+    h.run(`data[1].references = []; data[1].study_sites = []; data[1].countries = [];`);
+    h.run(`showStudyDetails('${IDS[1]}')`);
+    assert.match(h.overlay(), /No publications linked to this study\./);
+    assert.match(h.overlay(), /Location data not available for this study\./);
+});
+
+test('a split Studies tab draws at once, fetches its extras once, and fills the page in place when they land', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    assert.equal(h.run('datasetReader.mode'), 'split');
+    assert.equal(h.requests.length, 8, 'the startup load fetched more than the core parts');
+    h.hold();
+    h.run('studiesPageSize = 4; prepareStudiesTab()');
+    // The table is there before any extra has arrived.
+    const before = h.el('studies-table-body').innerHTML;
+    assert.match(before, new RegExp(IDS[0]));
+    assert.match(before, /class="cell-pending" role="img" aria-label="Loading publications"/, 'a waiting publications cell is not marked pending');
+    assert.doesNotMatch(before, /<td class="col-publications"><span class="text-muted">-<\/span>/, "a waiting publications cell shows the '-' of none");
+    assert.match(before, /Category labels are loading/);
+    const status = h.status();
+    assert.equal(status.hidden, false);
+    assert.equal(status.text, 'Loading publications and category labels');
+    assert.equal(status.meter.hidden, false);
+    // More callers join the same load.
+    h.run('prepareStudiesTab(); loadStudiesTabExtras(datasetReader); loadStudiesTabExtras(datasetReader);');
+    const pack = h.paths().filter((p) => p.includes('studies_tab.part'));
+    assert.deepEqual(pack, Array.from({ length: 8 }, (_, i) => `data/studies_tab.part${i + 1}.json.gz`), 'the extras were not fetched once each');
+    h.run('currentPage = 2;');
+    const renders = h.run('tableRenders');
+    await h.release();
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.ok(h.run('tableRenders') > renders, 'the open tab was not redrawn when the extras landed');
+    assert.equal(h.run('currentPage'), 2, 'the redraw sent the reader back to the first page');
+    const after = h.el('studies-table-body').innerHTML;
+    assert.doesNotMatch(after, /cell-pending/);
+    assert.match(after, /Raw data: ✓ &quot;Caucasian&quot;|Raw data: ✓ "Caucasian"/);
+    h.run('studiesPageSize = 15; currentPage = 0; renderStudiesTable()');
+    assert.match(h.el('studies-table-body').innerHTML, /A randomized trial/);
+    assert.equal(h.status().hidden, true, 'the status row stayed after the extras loaded');
+    assert.equal(h.paths().filter((p) => p.includes('/detail/')).length, 0, 'the tab fetched detail shards');
+});
+
+test('the status row shows the bytes summed over the parts on a determinate meter', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run('prepareStudiesTab()');
+    h.run(`(() => { const x = datasetReader.extras; x.loaded = x.loaded.map(() => 1.2e6); x.totals = x.totals.map(() => 3.1e6); renderExtrasStatus(); })()`);
+    const s = h.status();
+    assert.equal(s.text, 'Loading publications and category labels');
+    assert.equal(s.bytes, ' · 9.6 of 24.8 MB');
+    assert.equal(s.meter.attrs['aria-valuenow'], '39');
+    assert.equal(h.el('studies-extras-status').querySelector('.loading-progress-bar').style.width, '39%');
+    assert.match(html, /<div id="studies-extras-status" class="extras-status" hidden>\s*<div class="loading-meter" role="progressbar"[^>]*aria-valuemin="0" aria-valuemax="100"/,
+        'the status row lost its determinate hairline');
+    await h.release();
+});
+
+test("a split pop-up opens at once with the hairline meter and redraws when its study's shard lands", T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[2]}')`);
+    const pending = h.overlay();
+    assert.equal(h.el('study-details-overlay').style.display, 'flex', 'the pop-up waited for its shard to open');
+    assert.match(pending, /<div class="loading-meter is-indeterminate" role="progressbar" aria-label="Loading sites">/);
+    assert.match(pending, /aria-busy="true"/);
+    for (const needle of ['<strong>Type:</strong> INTERVENTIONAL', '<strong>Phase:</strong> PHASE2', '<strong>Masking:</strong> DOUBLE', 'Change in FEV1', '<strong>Healthy Volunteers:</strong> No']) {
+        assert.ok(pending.includes(needle), `the core field ${needle} waited for the shard`);
+    }
+    assert.deepEqual(claims(pending).filter((c) => c !== 'Healthy Volunteers:</strong> No'), [], 'the pending pop-up stated values it does not have');
+    assert.doesNotMatch(pending, /Funding Source/, 'the funding source was worked out before the collaborators were known');
+    assert.doesNotMatch(pending, /spin|shimmer/i);
+    const n = shard4(IDS[2]);
+    // Two more pop-ups for studies of the same shard, and the geography one.
+    h.run(`showStudyDetails('${IDS[2]}'); showGeographyBreakdown('${IDS[2]}')`);
+    assert.deepEqual(h.paths().filter((p) => p.includes('/detail/')), [`data/detail/${n}.json.gz`], 'concurrent pop-ups fetched the shard more than once');
+    await h.release();
+    const ready = h.overlay('breakdown-overlay');
+    assert.match(ready, /Lakeside Hospital/);
+    h.run(`showStudyDetails('${IDS[2]}')`);
+    await h.flush();
+    const full = h.overlay();
+    assert.doesNotMatch(full, /loading-meter/);
+    for (const needle of ['<strong>Allocation:</strong> RANDOMIZED', 'Funding Source:</strong> <span class="badge">NIH</span>',
+        'Study Sites (2 total)', 'Harbor Clinic', '<strong>Status:</strong> TERMINATED', 'Why Stopped:</strong> Slow accrual', 'Publications (1)']) {
+        assert.ok(full.includes(needle), `the loaded pop-up lost ${needle}`);
+    }
+    assert.equal(h.paths().filter((p) => p.includes('/detail/')).length, 1, 'a loaded shard was fetched again');
+});
+
+test("a snapshot's extras and shards come from its own folder", T, async () => {
+    const h = harness({ files: split({ base: 'snapshots/2026-10-18' }) });
+    await h.run("loadData('2026-10-18')");
+    assert.equal(h.run('datasetReader.base'), 'snapshots/2026-10-18');
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const sidecars = h.paths().slice(8);
+    assert.ok(sidecars.length > 0);
+    for (const p of sidecars) assert.match(p, /^snapshots\/2026-10-18\/(studies_tab\.part\d\.json\.gz|detail\/\d+\.json\.gz)$/, `${p} is not in the snapshot's folder`);
+    assert.match(h.overlay(), /Harbor Clinic/);
+});
+
+test('a file from another run is fetched once more past the cache, and used only if the second copy belongs', T, async () => {
+    const n = shard4(IDS[0]);
+    const path = `data/detail/${n}.json.gz`;
+    const files = split();
+    // A newer run's shard, twice: the long-open tab after a weekly publish (16a).
+    const newer = harness({ files: withFile(files, path, (b) => ({ ...b, extracted_at: NEWER })) });
+    await newer.run('loadData()');
+    newer.run(`showStudyDetails('${IDS[0]}')`);
+    await newer.flush();
+    assert.deepEqual(newer.requests.filter((r) => r.path === path).map((r) => r.cache), [undefined, 'reload']);
+    const shown = newer.overlay();
+    assert.match(shown, /The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)">Reload<\/button>/);
+    assert.doesNotMatch(shown, /Allocation:|Harbor Clinic|Funding Source/, "another run's details were merged");
+    // An earlier run's copy (a CDN mid-deploy): try again later.
+    const older = harness({ files: withFile(files, path, (b) => ({ ...b, extracted_at: OLDER })) });
+    await older.run('loadData()');
+    older.run(`showStudyDetails('${IDS[0]}')`);
+    await older.flush();
+    assert.match(older.overlay(), /did not load: the server is still updating them\. Try again in a few minutes\./);
+    assert.match(older.overlay(), /onclick="showStudyDetails\('NCT/);
+    assert.doesNotMatch(older.overlay(), /Allocation:|Harbor Clinic/);
+    // Another commit with the same stamp is another run too.
+    const commit = harness({ files: withFile(files, path, (b) => ({ ...b, pipeline_commit: 'fff9999' })) });
+    await commit.run('loadData()');
+    commit.run(`showStudyDetails('${IDS[0]}')`);
+    await commit.flush();
+    assert.doesNotMatch(commit.overlay(), /Harbor Clinic/);
+    // A stale first answer and a right second one: used.
+    const fixed = harness({ files: withFile(files, path, (b) => ({ ...b, extracted_at: OLDER })), again: { [path]: files[path] } });
+    await fixed.run('loadData()');
+    fixed.run(`showStudyDetails('${IDS[0]}')`);
+    await fixed.flush();
+    assert.deepEqual(fixed.requests.filter((r) => r.path === path).map((r) => r.cache), [undefined, 'reload']);
+    assert.match(fixed.overlay(), /Harbor Clinic/);
+});
+
+test('the Studies-tab extras are all or nothing: one part from another run, and none is used', T, async () => {
+    const files = withFile(split(), 'data/studies_tab.part3.json.gz', (b) => ({ ...b, extracted_at: NEWER }));
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(h.run('datasetReader.extras.state'), 'failed');
+    assert.equal(h.run('datasetReader.extras.map'), null, 'parts that did load were merged');
+    assert.deepEqual(h.requests.filter((r) => r.path.endsWith('part3.json.gz') && r.path.includes('studies_tab')).map((r) => r.cache), [undefined, 'reload']);
+    const s = h.status();
+    assert.equal(s.text, 'The data was updated since this page loaded.');
+    assert.equal(s.action, 'Reload');
+    h.run('studiesExtrasAction()');
+    assert.equal(h.reloads(), 1, 'Reload did not reload the page');
+    const body = h.el('studies-table-body').innerHTML;
+    assert.match(body, /class="cell-failed"[^>]*>did not load</);
+    assert.doesNotMatch(body, /A randomized trial/);
+});
+
+test('a newer run on the server is not downloaded again; this run\'s shards are still used', T, async () => {
+    const files = split();
+    // A Studies-tab part from a newer run: the extras fail, and are not downloaded again.
+    const h = harness({ files: withFile(files, 'data/studies_tab.part3.json.gz', (b) => ({ ...b, extracted_at: NEWER })) });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(h.run('datasetReader.superseded.kind'), 'newer');
+    const pack = () => h.paths().filter((p) => p.includes('studies_tab')).length;
+    assert.equal(pack(), 9, 'the eight parts, and part 3 once more past the cache');
+    h.run('prepareStudiesTab()');   // the tab opened again
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(pack(), 9, 'the extras were downloaded again after a newer run showed up');
+    // The study's shard is this run's, and is used; its publications wait for a reload.
+    assert.deepEqual(h.paths().filter((p) => p.includes('/detail/')), [`data/detail/${shard4(IDS[0])}.json.gz`]);
+    const modal = h.overlay();
+    assert.match(modal, /Harbor Clinic/);
+    assert.match(modal, /<h5>Publications<\/h5>\s*<p class="detail-state is-failed">The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)">Reload<\/button>/);
+    assert.deepEqual(claims(modal).filter((c) => c !== 'Healthy Volunteers:</strong> No'), []);
+    assert.equal(h.status().action, 'Reload');
+    // A shard from a newer run: fetched once more past the cache, then not again,
+    // and the extras are not started after it.
+    const n = shard4(IDS[2]);
+    const s = harness({ files: withFile(files, `data/detail/${n}.json.gz`, (b) => ({ ...b, extracted_at: NEWER })) });
+    await s.run('loadData()');
+    s.run(`showGeographyBreakdown('${IDS[2]}')`);
+    await s.flush();
+    s.run(`showGeographyBreakdown('${IDS[2]}')`);
+    await s.flush();
+    assert.deepEqual(s.requests.filter((r) => r.path === `data/detail/${n}.json.gz`).map((r) => r.cache), [undefined, 'reload']);
+    assert.match(s.overlay('breakdown-overlay'), /The data was updated since this page loaded\. <button[^>]*>Reload<\/button>/);
+    s.run('prepareStudiesTab()');
+    await s.flush();
+    assert.equal(s.paths().filter((p) => p.includes('studies_tab')).length, 0, 'the extras were downloaded for a dataset a newer run has replaced');
+    assert.equal(s.status().text, 'The data was updated since this page loaded.');
+    // Another shard of this run still loads.
+    s.run(`showGeographyBreakdown('${IDS[0]}')`);
+    await s.flush();
+    assert.match(s.overlay('breakdown-overlay'), /Harbor Clinic/);
+});
+
+test('a file that does not match its header or its studies is not used', T, async () => {
+    const n = shard4(IDS[0]);
+    const cases = {
+        'a shard that says it is another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shard: (n + 1) % 4 })],
+        'a shard with another shard count': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shards: 8 })],
+        'a shard holding a study of another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, data: { ...b.data, NCT09999997: {} } })],
+        'a shard with another key': [`data/detail/${n}.json.gz`, (b) => ({ ...b, key: 'nct_fnv' })]
+    };
+    for (const [name, [path, edit]] of Object.entries(cases)) {
+        if (name === 'a shard holding a study of another shard') assert.notEqual(Number('9999997') % 4, n);
+        const h = harness({ files: withFile(split(), path, edit) });
+        await h.run('loadData()');
+        h.run(`showStudyDetails('${IDS[0]}')`);
+        await h.flush();
+        assert.equal(h.requests.filter((r) => r.path === path).length, 2, `${name}: not fetched again`);
+        assert.doesNotMatch(h.overlay(), /Harbor Clinic/, `${name}: it was used`);
+        assert.match(h.overlay(), /did not load \(.*\)\. <button/, `${name}: the pop-up does not say it did not load`);
+    }
+    // A studies_tab part holding other studies than its core part.
+    const files = split();
+    const h = harness({ files: withFile(files, 'data/studies_tab.part2.json.gz', (b) => ({ ...b, data: files['data/studies_tab.part1.json.gz'].data })) });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(h.run('datasetReader.extras.state'), 'failed');
+    assert.match(h.status().text, /did not load \(studies_tab part 2 does not hold exactly core part 2's studies\)/);
+});
+
+test('a study missing from its loaded shard is its own state, not loading and not none', T, async () => {
+    const n = shard4(IDS[0]);
+    const h = harness({ files: withFile(split(), `data/detail/${n}.json.gz`, (b) => { delete b.data[IDS[0]]; return b; }) });
+    await h.run('loadData()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(h.json(`classState(datasetReader, 'detail', '${IDS[0]}')`).state, 'missing');
+    assert.equal(h.json(`classState(datasetReader, 'detail', '${IDS[1]}')`).state, shard4(IDS[1]) === n ? 'ready' : 'pending');
+    const text = h.overlay();
+    assert.match(text, /This study's sites are missing from the published files\./);
+    assert.doesNotMatch(text, /loading-meter.*Loading sites/);
+    assert.deepEqual(claims(text).filter((c) => c !== 'Healthy Volunteers:</strong> No'), []);
+});
+
+test('a failed load says so, and the next call tries again', T, async () => {
+    const n = shard4(IDS[0]);
+    const path = `data/detail/${n}.json.gz`;
+    const files = split();
+    const h = harness({ files: { ...files, [path]: undefined } });
+    await h.run('loadData()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const failed = h.overlay();
+    assert.match(failed, /Sites did not load \(HTTP 404\)\. <button type="button" class="detail-action" onclick="showStudyDetails\('NCT/);
+    assert.deepEqual(claims(failed).filter((c) => c !== 'Healthy Volunteers:</strong> No'), []);
+    h.served[path] = files[path];
+    h.run(`showStudyDetails('${IDS[0]}')`);   // what Try again does
+    await h.flush();
+    assert.equal(h.requests.filter((r) => r.path === path).length, 2);
+    assert.match(h.overlay(), /Harbor Clinic/);
+    // The Studies-tab extras: a network failure, then Try again.
+    const k = harness({ files: { ...files, 'data/studies_tab.part5.json.gz': new TypeError('Failed to fetch') } });
+    await k.run('loadData()');
+    k.run('prepareStudiesTab()');
+    await k.flush();
+    assert.equal(k.status().text, 'Publications and category labels did not load (the connection failed).');
+    assert.equal(k.status().action, 'Try again');
+    k.served['data/studies_tab.part5.json.gz'] = files['data/studies_tab.part5.json.gz'];
+    k.run('studiesExtrasAction()');
+    assert.match(k.el('studies-table-body').innerHTML, /cell-pending/, 'Try again did not show the table waiting again');
+    await k.flush();
+    assert.equal(k.run('datasetReader.extras.state'), 'loaded');
+    assert.equal(k.status().hidden, true);
+});
+
+// ── Dataset switches (the #241 invariant) ──
+// loadData puts a dataset on screen in one synchronous step: data,
+// dashboardSummary and datasetReader together. Every load fills the reader it
+// was started for; anything that draws checks its dataset is still on screen.
+
+test('extras that land after a switch fill the dataset they were started for, and draw nothing', T, async () => {
+    const files = { ...split(), ...inline({ base: 'snapshots/2026-08-02', stamp: OLDER }) };
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run('globalThis.latest = datasetReader; globalThis.latestRows = data;');
+    h.hold();
+    h.run('prepareStudiesTab()');
+    // Switch to the inline snapshot while the extras are in flight.
+    const switching = h.run("loadData('2026-08-02')");
+    await h.release((p) => p.startsWith('snapshots/'));
+    await switching;
+    h.run('renderDashboardStub = () => refreshStudiesTab(); renderDashboardStub();');
+    assert.equal(h.run('datasetReader.mode'), 'inline');
+    const shown = h.el('studies-table-body').innerHTML;
+    const renders = h.run('tableRenders');
+    await h.release();
+    assert.equal(h.run('latest.extras.state'), 'loaded', 'the extras did not fill the dataset they were started for');
+    assert.equal(h.run('datasetReader.extras.state'), 'idle', "the old dataset's extras landed in the new one");
+    assert.equal(h.run('tableRenders'), renders, 'the old extras redrew the table after the switch');
+    assert.equal(h.el('studies-table-body').innerHTML, shown);
+    assert.equal(h.status().hidden, true, "the old dataset's status row came back");
+    assert.equal(h.paths().filter((p) => p.startsWith('snapshots/') && !p.includes('demographics')).length, 0, 'the inline snapshot fetched extras');
+});
+
+test('a pop-up whose shard lands after a switch, or after it was closed or replaced, is not redrawn', T, async () => {
+    const files = { ...split(), ...split({ base: 'snapshots/2026-10-18', stamp: OLDER }) };
+    // After a switch.
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    const pending = h.overlay();
+    const switching = h.run("loadData('2026-10-18')");
+    await h.release((p) => p.includes('demographics'));
+    await switching;
+    h.run('globalThis.before = datasetReader.shards.size');
+    await h.release();
+    assert.equal(h.overlay(), pending, 'a shard of the previous dataset redrew its pop-up over the new one');
+    assert.equal(h.run('before'), 0, 'the new dataset holds a shard it never asked for');
+    // After it was closed.
+    const c = harness({ files });
+    await c.run('loadData()');
+    c.hold();
+    c.run(`showStudyDetails('${IDS[0]}'); closeStudyDetails();`);
+    await c.release();
+    assert.equal(c.el('study-details-overlay').style.display, 'none', 'a closed pop-up opened itself again');
+    // After another study's pop-up replaced it.
+    const other = IDS.find((id) => shard4(id) !== shard4(IDS[0]));
+    const r = harness({ files });
+    await r.run('loadData()');
+    r.hold();
+    r.run(`showStudyDetails('${IDS[0]}'); showStudyDetails('${other}');`);
+    await r.release((p) => p.endsWith(`/${shard4(IDS[0])}.json.gz`));
+    assert.match(r.overlay(), new RegExp(other), "the first study's shard drew its pop-up over the second");
+    // The same for the shared breakdown pop-up.
+    const b = harness({ files });
+    await b.run('loadData()');
+    b.hold();
+    b.run(`showGeographyBreakdown('${IDS[0]}'); closeBreakdown();`);
+    await b.release();
+    assert.equal(b.el('breakdown-overlay').style.display, 'none');
+    // The geography, breakdown and publications pop-ups after a switch: what
+    // lands for the old dataset does not draw over the new one.
+    for (const open of [`showGeographyBreakdown('${IDS[0]}')`, `showBreakdown('${IDS[0]}', 'race')`, `showPublications('${IDS[0]}')`]) {
+        const g = harness({ files });
+        await g.run('loadData()');
+        g.hold();
+        g.run(open);
+        const shown = g.overlay('breakdown-overlay');
+        const switching = g.run("loadData('2026-10-18')");
+        await g.release((p) => p.includes('demographics'));
+        await switching;
+        await g.release();
+        assert.equal(g.overlay('breakdown-overlay'), shown, `${open}: what landed for the previous dataset redrew its pop-up over the new one`);
+    }
+});
+
+test('when the old dataset finishes first, the new one keeps waiting for its own', T, async () => {
+    const files = { ...split(), ...split({ base: 'snapshots/2026-10-18', stamp: OLDER }) };
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.hold();
+    h.run('prepareStudiesTab(); globalThis.first = datasetReader;');
+    const switching = h.run("loadData('2026-10-18')");
+    await h.release((p) => p.includes('demographics'));
+    await switching;
+    h.run('refreshStudiesTab()');
+    const second = h.paths().filter((p) => p.startsWith('snapshots/2026-10-18/studies_tab'));
+    assert.equal(second.length, 8, 'the new dataset waited on the old extras instead of fetching its own');
+    await h.release((p) => p.startsWith('data/'));
+    assert.equal(h.run('first.extras.state'), 'loaded');
+    assert.equal(h.run('datasetReader.extras.state'), 'loading', "the old extras marked the new dataset's loaded");
+    assert.equal(h.status().text, 'Loading publications and category labels');
+    h.run('loadStudiesTabExtras(datasetReader)');
+    assert.equal(h.paths().filter((p) => p.startsWith('snapshots/2026-10-18/studies_tab')).length, 8, 'a third download started');
+    await h.release();
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+});
+
+test('a pop-up opened while another dataset loads belongs to the dataset still on screen', T, async () => {
+    const files = { ...split(), ...split({ base: 'snapshots/2026-10-18', stamp: OLDER }) };
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run('globalThis.latest = datasetReader;');
+    h.hold();
+    const switching = h.run("loadData('2026-10-18')");
+    h.run(`showStudyDetails('${IDS[0]}')`);   // the snapshot's parts are still on their way
+    assert.deepEqual(h.paths().filter((p) => p.includes('/detail/')), [`data/detail/${shard4(IDS[0])}.json.gz`]);
+    await h.release();
+    await switching;
+    assert.equal(h.run(`latest.shards.get(${shard4(IDS[0])}).state`), 'loaded', 'the shard did not fill the dataset it was asked for');
+    assert.equal(h.run('datasetReader.shards.size'), 0, "the latest data's shard landed in the snapshot");
+});
+
+test('a dataset seen again brings back what its reader loaded', T, async () => {
+    const files = { ...split(), ...inline({ base: 'snapshots/2026-08-02', stamp: OLDER }) };
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const count = h.requests.length;
+    await h.run("loadData('2026-08-02')");
+    await h.run("loadData('latest')");
+    assert.equal(h.run('datasetReader.mode'), 'split');
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.equal(h.run("snapshotCache.get('latest').reader === datasetReader"), true, 'the reader is not kept on the cache entry');
+    h.run(`prepareStudiesTab(); showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(h.requests.length, count + 8, 'a revisit fetched again what its reader had loaded');
+});
+
+test('loadData puts the reader on screen in the step that puts the data there', () => {
+    const src = fnSource('async function loadData(date)');
+    const assigns = [...src.matchAll(/\n\s+data = /g)].map((m) => m.index);
+    assert.equal(assigns.length, 4, 'expected data assigned on the phone, cache-hit, part-file and archive paths');
+    for (const at of assigns) {
+        // The straight-line stretch around the assignment: from the last await
+        // or return before it to the first return after it.
+        const before = src.slice(0, at);
+        const from = Math.max(before.lastIndexOf('await '), before.lastIndexOf('return'));
+        const to = src.indexOf('return', at);
+        const stretch = src.slice(from, to).replace(/^(await|return)[^\n]*\n/, '');
+        assert.doesNotMatch(stretch, /\bawait\b/, `an await separates data from its reader:\n${stretch}`);
+        assert.match(stretch, /\bdatasetReader = /, `data is assigned without its reader:\n${stretch}`);
+        assert.match(stretch, /\bdashboardSummary = /, `data is assigned without its summary state:\n${stretch}`);
+        assert.match(stretch, /\bstudiesTabReady = false;/, `data is assigned without handing the Studies tab back:\n${stretch}`);
+    }
+    assert.doesNotMatch(src, /isMobileDevice\)\s*dashboardSummary/, 'the summary state follows the device, not the dataset');
+    assert.match(src, /snapshotCache\.set\(cacheKey, \{[^}]*reader: datasetReader \}\);[\s\S]*snapshotCache\.set\(cacheKey, \{[^}]*reader: datasetReader \}\);/,
+        'a cache entry does not carry its reader');
+    assert.match(fnSource('function refreshStudiesTab()'), /if \(studiesTabReady\)[\s\S]*?else[\s\S]*?prepareStudiesTab\(\)/,
+        'an open Studies tab is no longer handed to a new dataset');
+    const render = fnSource('function renderDashboard()');
+    assert.equal((render.match(/refreshStudiesTab\(\);/g) || []).length, 2, 'renderDashboard does not hand the Studies tab over on both paths');
+});
+
+// ── Layouts ──
+
+test('a layout this page cannot read is refused with an explicit error, and nothing is shown', T, async () => {
+    const files = split();
+    const bump = (edit) => Object.fromEntries(Object.entries(files).map(([p, b]) => [p, p.includes('demographics') ? edit(structuredClone(b), p) : b]));
+    const cases = {
+        'a newer version': [bump((b) => ({ ...b, layout: { ...b.layout, version: 2 } })), /this page is older than the data; reload/],
+        'an unknown shard key': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { ...b.layout.detail, key: 'fnv1a' } } })), /older than the data/],
+        'parts that disagree': [bump((b, p) => (p.endsWith('part5.json.gz') ? { ...b, layout: { ...b.layout, detail: { ...b.layout.detail, shards: 8 } } } : b)), /disagree about their layout/],
+        'a layout with no layout in one part': [bump((b, p) => { if (p.endsWith('part2.json.gz')) delete b.layout; return b; }), /disagree about their layout/],
+        'extras that are not one per part': [bump((b) => ({ ...b, layout: { ...b.layout, studies_tab: { files: 4 } } })), /does not add up/],
+        'no shard count': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { key: 'nct_number_mod' } } })), /does not add up/]
+    };
+    for (const [name, [served, message]] of Object.entries(cases)) {
+        const h = harness({ files: served });
+        await assert.rejects(h.run('loadData()'), message, name);
+        assert.equal(h.run('data'), null, `${name}: the dataset was shown`);
+        assert.equal(h.run('datasetReader'), null, `${name}: a reader was put on screen`);
+    }
+    // A snapshot in a layout this page cannot read is not read as an archive summary either.
+    const snap = Object.fromEntries(Object.entries(split({ base: 'snapshots/2026-10-18' }))
+        .map(([p, b]) => [p, p.includes('demographics') ? { ...b, layout: { ...b.layout, version: 2 } } : b]));
+    snap['snapshots/2026-10-18/dashboard-summary.json'] = { extracted_at: STAMP, recentStudies: [] };
+    const s = harness({ files: snap });
+    await assert.rejects(s.run("loadData('2026-10-18')"), /older than the data/);
+    assert.ok(!s.paths().some((p) => p.endsWith('dashboard-summary.json')), 'the refused snapshot fell back to its summary');
+});
+
+test('a phone whose summary failed reads its parts by their layout, not by being a phone', T, async () => {
+    const h = harness({ files: split(), mobile: true, summary: null });
+    await h.run('loadData()');
+    assert.equal(h.run('datasetReader.mode'), 'split');
+    assert.equal(h.run('dashboardSummary'), null);
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(h.paths().filter((p) => p.includes('studies_tab')).length, 8);
+    assert.match(h.overlay(), /Harbor Clinic/);
+});
+
+test('the phone view says what its summary rows do not carry', T, async () => {
+    const summary = JSON.parse(readFileSync(new URL('../data/dashboard-summary.json', import.meta.url), 'utf8'));
+    const h = harness({ mobile: true, summary });
+    await h.run('loadData()');
+    assert.equal(h.run('datasetReader.mode'), 'summary');
+    const row = summary.recentStudies.find((s) => s.race && s.race.reported && s.reference_count > 0) || summary.recentStudies[0];
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${row.nct_id}')`);
+    h.run(`showBreakdown('${row.nct_id}', 'race')`);
+    await h.flush();
+    assert.equal(h.requests.length, 0, 'the phone view fetched files');
+    assert.equal(h.status().hidden, true);
+    const modal = h.overlay();
+    assert.deepEqual(claims(modal), [], 'the phone pop-up states values its rows do not have');
+    assert.ok((modal.match(/<p class="detail-state is-na">Not included in the phone view<\/p>/g) || []).length >= 5, 'sections the rows lack do not say so');
+    assert.match(modal, new RegExp(`<h5>Publications \\(${row.reference_count}\\)</h5>`), 'the row\'s own reference count was dropped');
+    assert.match(modal, /<strong>Status:<\/strong> /, "the row's own status was dropped");
+    const breakdown = h.overlay('breakdown-overlay');
+    assert.match(breakdown, /Not included in the phone view: original labels, match quality and quarantined labels\./);
+    assert.doesNotMatch(breakdown, /Original Label|Not reported<\/td>/);
+    assert.match(h.el('studies-table-body').innerHTML, /pubs?<\/span>|<span class="text-muted">-<\/span>/, 'the table lost the rows\' reference counts');
+});
+
+// ── Aggregate archives ──
+
+const ARCHIVE_ROWS = RECORDS.slice(0, 3).map((r) => {
+    const { nct_id, brief_title, results_date, start_date, primary_completion_date, completion_date, completion_to_report_days, min_age, max_age,
+        enrollment, enrollment_type, status, why_stopped, phase, is_fda_regulated_drug, is_fda_regulated_device, is_unapproved_device } = r;
+    return {
+        nct_id, brief_title, results_date, start_date, primary_completion_date, completion_date, completion_to_report_days, min_age, max_age,
+        enrollment, enrollment_type, status, why_stopped, phase, is_fda_regulated_drug, is_fda_regulated_device, is_unapproved_device,
+        race: { reported: true, omb_totals: r.race.omb_totals }, ethnicity: { reported: true, omb_totals: r.ethnicity.omb_totals },
+        sex: { reported: true, totals: r.sex.totals }, gender: { reported: false }, reference_count: 1
+    };
+});
+const archiveSummary = (date, extra = {}) => ({ extracted_at: `${date}T07:03:36.020045`, recentStudies: ARCHIVE_ROWS, ...extra });
+
+test('an archive with its own file of study records reads that file, named by history.json', T, async () => {
+    const date = '2026-04-26';
+    const files = {
+        [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date),
+        [`snapshots/${date}/archive_records.json.gz`]: {
+            source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive',
+            data: Object.fromEntries(RECORDS.slice(0, 3).map((r) => [r.nct_id, r]))
+        }
+    };
+    const history = { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } };
+    const h = harness({ files, history });
+    await h.run(`loadData('${date}')`);
+    assert.equal(h.run('datasetReader.mode'), 'archive');
+    h.run('prepareStudiesTab()');
+    h.run(`showStudyDetails('${IDS[0]}'); showGeographyBreakdown('${IDS[1]}')`);
+    await h.flush();
+    // (The eight part requests that 404 first are how loadData finds an archive.)
+    const sidecars = (k) => k.paths().filter((p) => p.endsWith('.json.gz') && !p.includes('/demographics.part'));
+    assert.deepEqual(sidecars(h), [`snapshots/${date}/archive_records.json.gz`], 'the archive file was not fetched once, from the archive');
+    assert.ok(!h.paths().some((p) => p.includes('details.part')), 'an archive with its own file read the March files');
+    assert.match(h.overlay(), /<strong>Allocation:<\/strong> RANDOMIZED/);
+    assert.match(h.overlay(), /Harbor Clinic/);
+    assert.match(h.overlay('breakdown-overlay'), /Lakeside Hospital/);
+    // Its stamps are the run it was projected from; a dataset with no commit
+    // has none to compare, but its date must match.
+    const wrong = harness({ files: { ...files, [`snapshots/${date}/archive_records.json.gz`]: { ...files[`snapshots/${date}/archive_records.json.gz`], source_extracted_at: OLDER } }, history });
+    await wrong.run(`loadData('${date}')`);
+    wrong.run(`showStudyDetails('${IDS[0]}')`);
+    await wrong.flush();
+    assert.equal(wrong.requests.filter((r) => r.path.endsWith('archive_records.json.gz')).length, 2);
+    assert.doesNotMatch(wrong.overlay(), /Harbor Clinic/);
+    // A history.json that names no file, or a file name that is not a plain one, reads no file.
+    for (const named of [{ dates: [date] }, { dates: [date], archives: { [date]: { kind: 'aggregate', detail: '../data/details.part1.json.gz' } } }]) {
+        const k = harness({ files, history: named });
+        await k.run(`loadData('${date}')`);
+        assert.equal(k.run('datasetReader.mode'), 'summary');
+    }
+});
+
+test('the 2026-02-22 archive reads the March files, labelled; every other archive says what it does not include', T, async () => {
+    const march = {
+        'data/details.part1.json.gz': { part: 1, data: { [IDS[0]]: { study_sites: RECORDS[0].study_sites, secondary_outcomes: RECORDS[0].secondary_outcomes, geo_identification_method: 'High (zip)', primary_outcome_description: 'March text', intervention_model_description: 'March design' } } },
+        'data/details.part2.json.gz': { part: 2, data: {} }
+    };
+    const early = harness({ files: { ...march, 'snapshots/2026-02-22/dashboard-summary.json': archiveSummary('2026-02-22') }, history: null });
+    await early.run("loadData('2026-02-22')");
+    assert.equal(early.run('datasetReader.mode'), 'legacy');
+    early.run(`showStudyDetails('${IDS[0]}')`);
+    await early.flush();
+    const sidecars = (k) => k.paths().filter((p) => p.endsWith('.json.gz') && !p.includes('/demographics.part'));
+    assert.deepEqual(sidecars(early), ['data/details.part1.json.gz', 'data/details.part2.json.gz']);
+    const modal = early.overlay();
+    assert.match(modal, /from the 2026-03-05 extract, not from this archive's own run/);
+    assert.match(modal, /Harbor Clinic/);
+    assert.match(modal, /March design/);
+    assert.match(modal, /Not included in this archive/);
+    assert.deepEqual(claims(modal), []);
+    // A study the March files lack.
+    early.run(`showStudyDetails('${IDS[1]}')`);
+    await early.flush();
+    assert.match(early.overlay(), /<h5>Study Sites<\/h5>\s*<p class="detail-state is-na">Not included in this archive<\/p>/);
+    assert.doesNotMatch(early.overlay(), /2026-03-05 extract/);
+
+    const later = harness({ files: { ...march, 'snapshots/2026-04-26/dashboard-summary.json': archiveSummary('2026-04-26') }, history: { dates: ['2026-04-26'] } });
+    await later.run("loadData('2026-04-26')");
+    assert.equal(later.run('datasetReader.mode'), 'summary');
+    later.run('prepareStudiesTab()');
+    later.run(`showStudyDetails('${IDS[0]}')`);
+    await later.flush();
+    assert.equal(sidecars(later).length, 0, 'an archive after 2026-03-05 read the March files');
+    const text = later.overlay();
+    assert.match(text, /Not included in this archive/);
+    assert.deepEqual(claims(text), []);
+    assert.equal(later.status().hidden, true);
+});
+
+// ── What a view shows for fields that are not here ──
+
+test('no pending, failed, missing or not-included view states a value the record does not have', T, async () => {
+    const n = shard4(IDS[0]);
+    const files = split();
+    const seen = {};
+    // Each view as it stands once whatever it asked for has settled (a view
+    // tries a failed load again, so a failed view is read after that try).
+    const views = async (h, label) => {
+        h.run(`showStudyDetails('${IDS[0]}')`);
+        await h.flush();
+        seen[`${label} pop-up`] = h.overlay();
+        h.run(`showGeographyBreakdown('${IDS[0]}')`);
+        await h.flush();
+        seen[`${label} sites`] = h.overlay('breakdown-overlay');
+        h.run(`showBreakdown('${IDS[0]}', 'race')`);
+        await h.flush();
+        seen[`${label} breakdown`] = h.overlay('breakdown-overlay');
+        h.run('prepareStudiesTab()');
+        await h.flush();
+        seen[`${label} table`] = h.el('studies-table-body').innerHTML;
+    };
+    const pending = harness({ files });
+    await pending.run('loadData()');
+    pending.hold();
+    await views(pending, 'pending');
+    const failed = harness({ files: { ...files, [`data/detail/${n}.json.gz`]: undefined, 'data/studies_tab.part1.json.gz': undefined } });
+    await failed.run('loadData()');
+    await views(failed, 'failed');
+    const missing = harness({ files: withFile(files, `data/detail/${n}.json.gz`, (b) => { delete b.data[IDS[0]]; return b; }) });
+    await missing.run('loadData()');
+    await views(missing, 'missing');
+    for (const [label, text] of Object.entries(seen)) {
+        // A pending or failed pop-up still shows the record's own core value
+        // of healthy_volunteers, which here is false.
+        const found = claims(text).filter((c) => !(c === 'Healthy Volunteers:</strong> No' && /pop-up/.test(label)));
+        assert.deepEqual(found, [], `${label} states values it does not have`);
+        if (/table/.test(label)) {
+            assert.doesNotMatch(text, /<td class="col-publications"><span class="text-muted">-<\/span><\/td>/, `${label}: a publications cell that is not here reads as none`);
+        }
+    }
+    assert.match(seen['pending breakdown'], /<th>NIH\/OMB Category<\/th><th>Count<\/th><th>Percent<\/th>/);
+    assert.match(seen['pending breakdown'], /Loading category labels/);
+    assert.doesNotMatch(seen['pending breakdown'], /Original Label|Not reported<\/td>|Quarantined/);
+    assert.match(seen['failed breakdown'], /Category labels did not load \(HTTP 404\)\. <button[^>]*onclick="showBreakdown\('NCT\d+', 'race'\)">Try again/);
+    assert.match(seen['failed sites'], /Sites did not load \(HTTP 404\)/);
+    assert.match(seen['missing sites'], /This study's sites are missing from the published files\./);
+    assert.match(seen['failed table'], /class="cell-failed" title="Publications did not load \(HTTP 404\)\.">did not load<\/span>/);
+    // Once the labels land, the breakdown redraws in full, quarantine and all.
+    await pending.release();
+    pending.run(`showBreakdown('${IDS[0]}', 'race')`);
+    await pending.flush();
+    const full = pending.overlay('breakdown-overlay');
+    assert.match(full, /<th>Original Label<\/th>/);
+    assert.match(full, /Quarantined Labels/);
+    assert.match(full, /Oral contraceptive/);
+});
+
+test('the breakdown counts use the record\'s own totals and the denominators of the full breakdown', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showBreakdown('${IDS[0]}', 'race')`);
+    const counts = h.overlay('breakdown-overlay');
+    // White 100 and Asian 20 of 120: the same shares the full breakdown shows.
+    assert.match(counts, /<td>Asian<\/td>\s*<td>20<\/td>\s*<td style="--percent: 16\.7">16\.7%<\/td>/);
+    assert.match(counts, /<td>White<\/td>\s*<td>100<\/td>\s*<td style="--percent: 83\.3">83\.3%<\/td>/);
+    h.run(`showBreakdown('${IDS[0]}', 'ethnicity')`);
+    assert.match(h.overlay('breakdown-overlay'), /<td>Not Hispanic Latino<\/td>\s*<td>108<\/td>\s*<td style="--percent: 90\.0">90\.0%<\/td>/);
+    await h.release();
+});
+
+test('the publications pop-up waits for the references, then lists them', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showPublications('${IDS[0]}')`);
+    assert.match(h.overlay('breakdown-overlay'), /Loading publications/);
+    await h.release();
+    assert.match(h.overlay('breakdown-overlay'), /A randomized trial/);
+    assert.match(h.overlay('breakdown-overlay'), /PMID 31000001/);
+});
+
+test('the funding source waits for the collaborators', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    assert.doesNotMatch(h.overlay(), /Funding Source/, 'an OTHER lead with an NIH collaborator would read as Other');
+    assert.match(h.overlay(), /Loading sponsor details/);
+    await h.release();
+    assert.match(h.overlay(), /Funding Source:<\/strong> <span class="badge">NIH<\/span>/);
+});
+
+test('without DecompressionStream the shards and extras load through pako', T, async () => {
+    const h = harness({ files: split(), decompression: false });
+    await h.run('loadData()');
+    h.run(`prepareStudiesTab(); showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.match(h.overlay(), /Harbor Clinic/);
+});
+
+test('every fetch carries the data key, through keyedFetch', T, async () => {
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.run(`prepareStudiesTab(); showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.ok(h.requests.length > 9);
+    for (const r of h.requests) assert.match(r.url, /\?v=test$/, `${r.path} was fetched without the data key`);
+    assert.match(READER, /await fetchAndDecompress\(url, onProgress\);[\s\S]*await fetchAndDecompress\(url, onProgress, \{ cache: 'reload' \}\);/);
+});
+
+test('a long session of pop-ups keeps a bounded number of shards', T, async () => {
+    const records = Array.from({ length: 40 }, (_, i) => fullRecord(`NCT0${String(2000000 + i).padStart(7, '0')}`));
+    const files = dataset(records, { parts: 8, shards: 40, stamp: STAMP, commit: 'abc1234' });
+    const h = harness({ files });
+    await h.run('loadData()');
+    const limit = h.run('SHARD_CACHE_LIMIT');
+    for (const r of records.slice(0, limit + 3)) h.run(`showStudyDetails('${r.nct_id}')`);
+    await h.flush();
+    assert.equal(h.run('[...datasetReader.shards.values()].filter(s => s.state === "loaded").length'), limit);
+    assert.equal(h.run(`datasetReader.shards.has(${Number(records[0].nct_id.slice(3)) % 40})`), false, 'the least recently used shard was kept');
+    assert.equal(h.run(`datasetReader.shards.has(${Number(records[limit + 2].nct_id.slice(3)) % 40})`), true);
+});
+
+test('only the 2026-02-22 fallback names the frozen March files', () => {
+    const outside = app.replace(/const MARCH_DETAIL_FILES = \[[^\]]*\];/, '');
+    assert.doesNotMatch(outside, /details\.part/, 'another code path in app.js names the frozen details files');
+    assert.doesNotMatch(html, /details\.part/);
+    assert.match(READER, /const MARCH_EXTRACT_DATE = '2026-03-05';/);
+});
+
+test('one quiet loader: the hairline meter, held still under reduced motion, and no ring or shimmer', () => {
+    assert.doesNotMatch(html, /studies-loading-screen/, 'the full-tab loading screen came back');
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.loading-meter\.is-indeterminate \.loading-progress-bar \{/, 'the reduced-motion rule for the meter is gone');
+    const block = css.slice(css.indexOf('/* ===== Study details on demand'), css.indexOf('/* Tufte-style table design'));
+    assert.ok(block.length > 0, 'styles.css lost the study-details block');
+    assert.doesNotMatch(block, /animation|@keyframes|border-radius: 50%|gradient/, 'the study-details styles add motion or a spinner of their own');
+    for (const cls of ['.extras-status', '.detail-state', '.detail-action', '.cell-pending', '.cell-failed', '.cell-na']) {
+        assert.ok(block.includes(`${cls} {`) || block.includes(`${cls},`), `styles.css has no ${cls} rule`);
+    }
+    for (const token of block.match(/var\(--[a-z-]+\)/g)) {
+        assert.match(css.slice(0, css.indexOf('}')), new RegExp(`${token.slice(4, -1)}:`), `${token} is not a token from :root`);
+    }
+    assert.match(READER, /class="loading-meter is-indeterminate" role="progressbar"/);
+});

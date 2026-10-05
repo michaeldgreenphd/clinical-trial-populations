@@ -26,6 +26,11 @@ const startIdx = app.indexOf(START);
 const endIdx = app.indexOf(END);
 assert.ok(startIdx >= 0 && endIdx > startIdx, 'app.js lost the sg=v2 block markers');
 const block = app.slice(startIdx, endIdx);
+// sgBase resolves a snapshot's folder through app.js's datasetBase, which
+// lives outside the block: the real one is evaluated beside it.
+const datasetBaseAt = app.indexOf('function datasetBase(key)');
+assert.ok(datasetBaseAt >= 0, 'app.js lost datasetBase');
+const datasetBaseSrc = app.slice(datasetBaseAt, app.indexOf('\n}\n', datasetBaseAt) + 2);
 
 // Code only: the block with its comments removed, so a prohibition is on what
 // runs, not on the prose that explains it.
@@ -50,7 +55,7 @@ function harness(opts = {}) {
     });
     // keyedFetch and fetchChecked are tests/data_cache_key.test.mjs's; here
     // they only add the key, through the stub fetch.
-    vm.runInContext("async function keyedFetch(path, init) { return fetch(`${path}?v=${DATA_CACHE_VERSION}`, init); }\nasync function fetchChecked(path) { return keyedFetch(path); }\n" + block, context);
+    vm.runInContext("async function keyedFetch(path, init) { return fetch(`${path}?v=${DATA_CACHE_VERSION}`, init); }\nasync function fetchChecked(path) { return keyedFetch(path); }\n" + datasetBaseSrc + block, context);
     // Values cross the vm realm boundary as plain JSON, so deepEqual compares
     // structure rather than realm-specific prototypes.
     const run = (src) => {
