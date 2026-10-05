@@ -1736,25 +1736,34 @@ function extrasPartSettled(r, parts, problem) {
     extrasSettled(r);
 }
 
+// Shard n of a dataset has just been used: the cache keeps its shards in the
+// order they were last used, and drops the least recently used first.
+function touchShard(r, n) {
+    const held = r.shards.get(n);
+    if (held) {
+        r.shards.delete(n);
+        r.shards.set(n, held);
+    }
+    return held;
+}
+
 // Load detail shard n of a dataset: one promise per dataset and shard, shared
 // by every pop-up that needs it. Settles, never rejects; a failure is shown,
 // and the next call tries again, unless this shard came from a newer run.
+// Past SHARD_CACHE_LIMIT loaded shards, the least recently used are dropped,
+// never the one that has just loaded (its pop-up is about to draw it).
 function loadShard(r, n) {
-    const held = r.shards.get(n);
-    if (held && (held.state === 'loading' || held.state === 'loaded')) {
-        r.shards.delete(n);   // most recently used last
-        r.shards.set(n, held);
-        return held.promise;
-    }
+    const held = touchShard(r, n);
+    if (held && (held.state === 'loading' || held.state === 'loaded')) return held.promise;
     if (held && held.state === 'failed' && held.error && held.error.kind === 'newer') return held.promise;
     const shard = { state: 'loading', error: null, map: null, promise: null };
-    r.shards.set(n, shard);
+    r.shards.set(n, shard);   // last: a failed entry was moved there first
     const url = `${r.base}/detail/${n}.json.gz`;
     shard.promise = fetchSidecar(url, body => shardProblem(r, body, n)).then(body => {
         shard.map = body.data;
         shard.state = 'loaded';
-        const loaded = [...r.shards].filter(([, s]) => s.state === 'loaded');
-        loaded.slice(0, Math.max(0, loaded.length - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
+        const others = [...r.shards].filter(([k, s]) => k !== n && s.state === 'loaded');
+        others.slice(0, Math.max(0, others.length + 1 - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
     }, err => {
         shard.state = 'failed';
         shard.error = loadProblem(err);
@@ -1772,11 +1781,13 @@ function loadShard(r, n) {
 function loadsFor(r, nctId, klasses) {
     const waits = [];
     for (const klass of klasses) {
+        const n = r.mode === 'split' && klass === 'detail' ? shardOf(nctId, r.layout.detail.shards) : null;
         const state = classState(r, klass, nctId).state;
-        if (state !== 'pending' && state !== 'failed') continue;
-        let wait = null;
-        if (r.mode === 'split' && klass === 'detail') wait = loadShard(r, shardOf(nctId, r.layout.detail.shards));
-        else wait = loadStudiesTabExtras(r);
+        if (state !== 'pending' && state !== 'failed') {
+            if (n !== null) touchShard(r, n);   // a loaded shard in use is kept longest
+            continue;
+        }
+        const wait = n !== null ? loadShard(r, n) : loadStudiesTabExtras(r);
         if (wait && !waits.includes(wait)) waits.push(wait);
     }
     return waits;

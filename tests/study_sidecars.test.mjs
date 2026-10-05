@@ -1226,6 +1226,46 @@ test('a long session of pop-ups keeps a bounded number of shards', T, async () =
     assert.equal(h.run(`datasetReader.shards.has(${Number(records[limit + 2].nct_id.slice(3)) % 40})`), true);
 });
 
+test('the shard cache drops the least recently used shard, never the one a pop-up just retried', T, async () => {
+    const records = Array.from({ length: 40 }, (_, i) => fullRecord(`NCT0${String(3000000 + i).padStart(7, '0')}`));
+    const files = dataset(records, { parts: 8, shards: 64, stamp: STAMP, commit: 'abc1234' });
+    const shardOf64 = (r) => Number(r.nct_id.slice(3)) % 64;
+    const limit = 32;
+    // A shard that failed first, then 32 other shards, then Try again on the first.
+    const [x, ...others] = records;
+    const path = `data/detail/${shardOf64(x)}.json.gz`;
+    const h = harness({ files: { ...files, [path]: undefined } });
+    await h.run('loadData()');
+    assert.equal(h.run('SHARD_CACHE_LIMIT'), limit);
+    h.run(`showStudyDetails('${x.nct_id}')`);
+    await h.flush();
+    assert.match(h.overlay(), /Sites did not load \(HTTP 404\)/);
+    for (const r of others.slice(0, limit)) h.run(`showStudyDetails('${r.nct_id}')`);
+    await h.flush();
+    h.served[path] = files[path];
+    h.run(`showStudyDetails('${x.nct_id}')`);   // Try again
+    await h.flush();
+    assert.equal(h.run(`datasetReader.shards.get(${shardOf64(x)})?.state`), 'loaded', 'the shard Try again loaded was dropped at once');
+    assert.doesNotMatch(h.overlay(), /loading-meter/, 'the pop-up waits for a shard that was dropped');
+    assert.match(h.overlay(), /Harbor Clinic/);
+    assert.equal(h.requests.filter((r) => r.path === path).length, 2);
+    // A shard a user keeps coming back to stays; the one used longest ago goes.
+    const k = harness({ files });
+    await k.run('loadData()');
+    const [a, ...rest] = records;
+    k.run(`showStudyDetails('${a.nct_id}')`);
+    await k.flush();
+    for (const r of rest.slice(0, limit)) {
+        k.run(`showStudyDetails('${r.nct_id}')`);
+        await k.flush();
+        k.run(`showStudyDetails('${a.nct_id}')`);   // back to the first study
+    }
+    assert.equal(k.run(`datasetReader.shards.has(${shardOf64(a)})`), true, 'the most recently used shard was dropped');
+    assert.equal(k.run(`datasetReader.shards.has(${shardOf64(rest[0])})`), false, 'the least recently used shard was kept');
+    assert.equal(k.run('[...datasetReader.shards.values()].filter(s => s.state === "loaded").length'), limit);
+    assert.equal(k.requests.filter((r) => r.path === `data/detail/${shardOf64(a)}.json.gz`).length, 1, 'the shard in use was fetched again');
+});
+
 test('only the 2026-02-22 fallback names the frozen March files', () => {
     const outside = app.replace(/const MARCH_DETAIL_FILES = \[[^\]]*\];/, '');
     assert.doesNotMatch(outside, /details\.part/, 'another code path in app.js names the frozen details files');
