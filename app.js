@@ -1559,6 +1559,7 @@ async function loadDataAndRender(date) {
         await snapshotStage(78, 'Setting up filters');
         await sgLoad(date === 'latest' ? undefined : date);
         if (data && data.length > 0) {
+            syncYearWindow();
             populateConditionsDropdown();
             populateCountriesDropdown();
             populatePrimaryConditionDropdown();
@@ -1623,6 +1624,8 @@ async function initHistorySelector() {
 
             if (!data || data.length === 0) throw new Error('No data returned');
 
+            // The Year Range ends at this dataset's latest results year
+            syncYearWindow();
             // Re-populate dynamic dropdowns whose options come from the dataset
             populateConditionsDropdown();
             populateCountriesDropdown();
@@ -1650,6 +1653,7 @@ async function initHistorySelector() {
                 // the restored data renders under the wrong snapshot's banner,
                 // methods and join.
                 try { await sgLoad(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
+                syncYearWindow();
                 renderDashboard();
                 labelChartsForA11y();
                 updateShareUrl();
@@ -1915,7 +1919,8 @@ function disableFiltersForMobile() {
         const fill = document.getElementById('year-range-fill');
         if (fill) { fill.style.left = '0%'; fill.style.right = '0%'; fill.style.width = '100%'; }
         const hint = filterSection.querySelector('.filter-hint');
-        if (hint) hint.textContent = '(2009–2026 · full range shown)';
+        const last = datasetLatestYear();
+        if (hint) hint.textContent = last ? `(${YEAR_WINDOW_MIN}–${last} · full range shown)` : '(full range shown)';
         const note = document.createElement('p');
         note.className = 'mobile-note';
         note.textContent = 'Filters are a desktop feature — this phone view shows pre-computed aggregates of the full dataset.';
@@ -1936,6 +1941,74 @@ function disableFiltersForMobile() {
         note.textContent = `Showing ${shown.toLocaleString()} most recent studies (of ${total.toLocaleString()} total). Full table with search and filters available on desktop.`;
         readyContent.prepend(note);
     }
+}
+
+// ── The Year Range window ──
+// The lower end is the first year of results postings (2009). The upper end
+// is the latest results year in the dataset on screen, so a new year's
+// results are never cut off by a year written into the page, and the labels
+// never name a year the data does not reach. An upper thumb at the window's
+// end means "no upper limit": the filters skip the bound there, so a window
+// that has not caught up with the data still drops nothing.
+const YEAR_WINDOW_MIN = 2009;
+
+// The latest results year in the dataset on screen: the summary's byYear
+// keys for a summary (phones, aggregate archives), else the study records.
+function datasetLatestYear() {
+    let max = 0;
+    if (dashboardSummary && dashboardSummary.byYear) {
+        for (const y of Object.keys(dashboardSummary.byYear)) max = Math.max(max, parseInt(y, 10) || 0);
+    } else if (Array.isArray(data)) {
+        for (const s of data) max = Math.max(max, parseInt(s.results_date?.substring(0, 4), 10) || 0);
+    }
+    return max >= YEAR_WINDOW_MIN ? max : null;
+}
+
+// The fill bar, the two tooltips and their labels, from the inputs' values.
+function paintYearSlider() {
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    if (!ys || !ye) return;
+    const min = parseInt(ys.min, 10), max = parseInt(ys.max, 10);
+    const range = Math.max(1, max - min);
+    const startPct = ((parseInt(ys.value, 10) - min) / range) * 100;
+    const endPct = ((parseInt(ye.value, 10) - min) / range) * 100;
+    const fill = document.getElementById('year-range-fill');
+    if (fill) { fill.style.left = startPct + '%'; fill.style.width = (endPct - startPct) + '%'; }
+    const startTip = document.getElementById('year-start-tooltip');
+    const endTip = document.getElementById('year-end-tooltip');
+    if (startTip) startTip.style.left = startPct + '%';
+    if (endTip) endTip.style.left = endPct + '%';
+    const sl = document.getElementById('year-start-label');
+    const el = document.getElementById('year-end-label');
+    if (sl) sl.textContent = ys.value;
+    if (el) el.textContent = ye.value;
+}
+
+// Move the window's upper end to the dataset on screen. An upper thumb at
+// the old end (the default) moves with it; a narrowed range is kept, and
+// only clamped if it now reaches past the data.
+function syncYearWindow() {
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    const latest = datasetLatestYear();
+    if (!ys || !ye || !latest) return;
+    const wasAtEnd = parseInt(ye.value, 10) >= parseInt(ye.max, 10);
+    ys.max = ye.max = String(latest);
+    if (wasAtEnd || parseInt(ye.value, 10) > latest) ye.value = String(latest);
+    if (parseInt(ys.value, 10) > parseInt(ye.value, 10)) ys.value = ye.value;
+    paintYearSlider();
+}
+
+// The bounds the filters apply: end is Infinity when the upper thumb sits
+// at the window's end. Top-level on purpose: any view that filters by the
+// Year Range reads it, including views drawn before the window is synced.
+function yearWindowEnds() {
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    const start = parseInt(ys?.value, 10) || YEAR_WINDOW_MIN;
+    const openEnded = !ye || ye.value === ye.max;
+    return { start, end: openEnded ? Infinity : parseInt(ye.value, 10) };
 }
 
 function initFilters() {
@@ -1990,36 +2063,12 @@ function initFilters() {
     const yearStartInput = document.getElementById('year-start');
     const yearEndInput = document.getElementById('year-end');
 
-    function updateYearSlider() {
-        const fill = document.getElementById('year-range-fill');
-        const startTip = document.getElementById('year-start-tooltip');
-        const endTip = document.getElementById('year-end-tooltip');
-        if (!fill || !yearStartInput || !yearEndInput) return;
-
-        const min = parseInt(yearStartInput.min);
-        const max = parseInt(yearStartInput.max);
-        const range = max - min;
-        const startVal = parseInt(yearStartInput.value);
-        const endVal = parseInt(yearEndInput.value);
-        const startPct = ((startVal - min) / range) * 100;
-        const endPct = ((endVal - min) / range) * 100;
-
-        // Update fill bar
-        fill.style.left = startPct + '%';
-        fill.style.width = (endPct - startPct) + '%';
-
-        // Position tooltip bubbles above thumbs
-        if (startTip) startTip.style.left = startPct + '%';
-        if (endTip) endTip.style.left = endPct + '%';
-    }
-
     if (yearStartInput) {
         yearStartInput.addEventListener('input', (e) => {
             if (parseInt(e.target.value) > parseInt(yearEndInput.value)) {
                 e.target.value = yearEndInput.value;
             }
-            document.getElementById('year-start-label').textContent = e.target.value;
-            updateYearSlider();
+            paintYearSlider();
         });
     }
 
@@ -2028,13 +2077,12 @@ function initFilters() {
             if (parseInt(e.target.value) < parseInt(yearStartInput.value)) {
                 e.target.value = yearStartInput.value;
             }
-            document.getElementById('year-end-label').textContent = e.target.value;
-            updateYearSlider();
+            paintYearSlider();
         });
     }
 
-    // Initialize slider fill + tooltip positions
-    updateYearSlider();
+    // The window's upper end from the data, then the fill + tooltip positions
+    syncYearWindow();
 
     // Reset filters button
     const resetBtn = document.getElementById('reset-filters');
@@ -2118,17 +2166,11 @@ function populateCountriesDropdown() {
 }
 
 function resetFilters() {
-    document.getElementById('year-start').value = 2009;
-    document.getElementById('year-end').value = 2026;
-    document.getElementById('year-start-label').textContent = '2009';
-    document.getElementById('year-end-label').textContent = '2026';
-    // Re-paint the dual-range fill bar and tooltip positions
-    const fill = document.getElementById('year-range-fill');
-    if (fill) { fill.style.left = '0%'; fill.style.width = '100%'; }
-    const sTip = document.getElementById('year-start-tooltip');
-    const eTip = document.getElementById('year-end-tooltip');
-    if (sTip) sTip.style.left = '0%';
-    if (eTip) eTip.style.left = '100%';
+    // The full window: both thumbs at its ends, then re-paint
+    const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
+    ys.value = ys.min;
+    ye.value = ye.max;
+    paintYearSlider();
     document.getElementById('study-type').value = 'INTERVENTIONAL';
     document.getElementById('phase').value = 'all';
     document.getElementById('sponsor-class').value = 'all';
@@ -2165,20 +2207,12 @@ function updateActiveFilters() {
 
     const filters = [];
 
-    const yearStart = document.getElementById('year-start').value;
-    const yearEnd = document.getElementById('year-end').value;
-    if (yearStart != 2009 || yearEnd != 2026) {
-        filters.push({ label: `Years: ${yearStart}-${yearEnd}`, reset: () => {
-            document.getElementById('year-start').value = 2009;
-            document.getElementById('year-end').value = 2026;
-            document.getElementById('year-start-label').textContent = '2009';
-            document.getElementById('year-end-label').textContent = '2026';
-            const f = document.getElementById('year-range-fill');
-            if (f) { f.style.left = '0%'; f.style.width = '100%'; }
-            const st = document.getElementById('year-start-tooltip');
-            const et = document.getElementById('year-end-tooltip');
-            if (st) st.style.left = '0%';
-            if (et) et.style.left = '100%';
+    const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
+    if (ys.value !== ys.min || ye.value !== ye.max) {
+        filters.push({ label: `Years: ${ys.value}-${ye.value}`, reset: () => {
+            ys.value = ys.min;
+            ye.value = ye.max;
+            paintYearSlider();
         }});
     }
 
@@ -2393,8 +2427,7 @@ function getFilteredData() {
     // the table's own search box is applied separately in renderStudiesTable.
     if (dashboardSummary) return [...data];
 
-    const yearStart = parseInt(document.getElementById('year-start')?.value || 2009);
-    const yearEnd = parseInt(document.getElementById('year-end')?.value || 2026);
+    const { start: yearStart, end: yearEnd } = yearWindowEnds();
     const studyType = document.getElementById('study-type')?.value || 'all';
     const phase = document.getElementById('phase')?.value || 'all';
     const sponsorClass = document.getElementById('sponsor-class')?.value || 'all';
@@ -9503,8 +9536,7 @@ function industryMedian(values) {
 // secondary, has_explicit_unknown] (see trial_fields in the JSON).
 function industryFilteredRows() {
     const d = industryData;
-    const yearStart = parseInt(document.getElementById('year-start')?.value || 2009);
-    const yearEnd   = parseInt(document.getElementById('year-end')?.value || 2100);
+    const { start: yearStart, end: yearEnd } = yearWindowEnds();
     const priSel = document.getElementById('condition-primary')?.value || 'all';
     const secSel = document.getElementById('condition-secondary')?.value || 'all';
     return d.trials.filter(t => {
