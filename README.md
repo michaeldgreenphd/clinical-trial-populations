@@ -69,8 +69,10 @@ npm ci && npm test
   engine writes split files only while that section's `enabled` is true.
 - **`data/details.part1.json.gz` / `part2` are frozen** at 2026-03-05; their
   generator was retired before the repo split. Only the 2026-02-22 archive,
-  extracted before them, still reads them, for its pop-ups, labelled "from
-  the 2026-03-05 extract". The other summary-only archives (snapshots
+  extracted before them, still reads them, on desktop, for its pop-ups,
+  labelled "from the 2026-03-05 extract"; a phone never fetches them (82 MB
+  of gzip) and says "Not included in this archive" instead. The other
+  summary-only archives (snapshots
   holding just `dashboard-summary.json`) say "Not included in this archive"
   for what their summary rows lack, until the engine writes an archive's own
   `archive_records.json.gz` and names it in `history.json`; the latest view
