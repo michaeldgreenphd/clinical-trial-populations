@@ -248,9 +248,11 @@ test('with the FDA tab open, the switch shows the tiles as absent, not zero and 
     assert.equal(h.el('fda-reporting-chart').style.display, 'none', 'an empty chart is left on screen');
     assert.equal(h.el('fda-chart-absent').hidden, false, 'the chart area does not say why it is empty');
     assert.equal(h.run('charts.fdaReporting'), null, "Latest's chart is left in place");
-    // The tab's own click handler renders it the same way.
+    // Clicking the FDA tab calls renderFdaOversight(filtered), and filtered is
+    // [] while data is empty. That input gives the same dashes. (The click
+    // handler itself is not loaded here; the served check clicks the tab.)
     FDA_COUNTS.forEach((id) => { h.el(id).textContent = '0'; });
-    h.run('renderFdaOversight(getFilteredData())');
+    h.run('renderFdaOversight([])');
     for (const id of FDA_COUNTS) assert.equal(h.el(id).textContent, '—');
 });
 
