@@ -1337,6 +1337,9 @@ const LAYOUT_SHARD_KEY = 'nct_number_mod';   // its detail.key
 // extracted before that date falls back to them.
 const MARCH_EXTRACT_DATE = '2026-03-05';
 const MARCH_DETAIL_FILES = ['data/details.part1.json.gz', 'data/details.part2.json.gz'];
+// The fields those files carry, the same five on each of their records: the
+// only detail fields the 2026-02-22 archive waits on them for.
+const MARCH_DETAIL_FIELDS = ['secondary_outcomes', 'primary_outcome_description', 'intervention_model_description', 'study_sites', 'geo_identification_method'];
 const MARCH_EXTRACT_LABEL = 'from the 2026-03-05 extract';
 const ABSENT_PHONE = 'Not included in the phone view';
 const ABSENT_ARCHIVE = 'Not included in this archive';
@@ -1466,6 +1469,8 @@ function aggregateReader(key, summary, history, rows) {
 //   missing  loaded, but the files hold no entry for this study
 //   absent   this view does not carry it (text says so); entry may still hold
 //            what a fallback had for the study (from: where it came from)
+// A state that holds for some of the class's fields only lists them (only),
+// and says where the others stand (rest): fieldState reads it.
 const READY = Object.freeze({ state: 'ready', entry: null });
 
 function classState(r, klass, nctId) {
@@ -1480,7 +1485,13 @@ function classState(r, klass, nctId) {
     if (r.mode === 'archive') return loadState(r.extras, map => map.get(nctId));
     if (r.mode === 'legacy' && klass === 'detail') {
         const march = loadState(r.extras, map => map.get(nctId));
-        if (march.state !== 'ready' && march.state !== 'missing') return march;
+        // On their way, or did not load: so are the five fields the March
+        // files carry, and only those. The rest of the class was never in
+        // them, so it is not included in this archive from the start, and
+        // nothing offers to download 82 MB again for it.
+        if (march.state !== 'ready' && march.state !== 'missing') {
+            return Object.assign(march, { only: MARCH_DETAIL_FIELDS, rest: { state: 'absent', entry: null, text: r.absentText } });
+        }
         return { state: 'absent', entry: march.entry, text: r.absentText, from: march.entry ? MARCH_EXTRACT_LABEL : null };
     }
     if (r.mode === 'legacy' || r.mode === 'summary') return { state: 'absent', entry: null, text: r.absentText };
@@ -1492,6 +1503,12 @@ function loadState(load, pick) {
     if (load.state === 'failed') return { state: 'failed', entry: null, problem: load.error };
     const entry = pick(load.map);
     return entry === undefined || entry === null ? { state: 'missing', entry: null } : { state: 'ready', entry };
+}
+
+// Where one field stands, given its class's state: as the class does, unless
+// that state holds for some of the class's fields only and this is not one.
+function fieldState(st, field) {
+    return st.only && !st.only.includes(field) ? st.rest : st;
 }
 
 // A study with the fields its dataset loaded for it laid over its record. The
@@ -1938,12 +1955,12 @@ function stateLine(st, what, retry) {
     return `<p class="detail-state is-na">${escapeHtml(st.text)}</p>`;
 }
 
-// The line for a section waiting on several classes: the one furthest from
-// arriving speaks for them.
-function sectionLine(klasses, states, what, retry) {
-    if (!klasses || !klasses.length) return '';
+// The line for a section whose fields wait on several states (fieldState):
+// the one furthest from arriving speaks for them.
+function sectionLine(waiting, what, retry) {
+    if (!waiting || !waiting.length) return '';
     const order = ['failed', 'missing', 'pending', 'absent'];
-    const worst = klasses.map(k => states[k]).sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state))[0];
+    const worst = waiting.slice().sort((a, b) => order.indexOf(a.state) - order.indexOf(b.state))[0];
     return stateLine(worst, what, retry);
 }
 
@@ -4687,15 +4704,17 @@ function studyDetailsHtml(fullStudy, states) {
     // reads as it always has). Otherwise it is left out, and its section ends
     // with one line saying where it stands: loading, did not load, missing,
     // or not included in this view. Never N/A, No or Other for a value that
-    // is not here.
+    // is not here. Where a field stands is where its class stands, except
+    // where the class's state holds for some fields only (fieldState).
     const waits = {};
     const has = (section, key, klass) => {
-        if (key in fullStudy || states[klass].state === 'ready') return true;
+        const st = fieldState(states[klass], key);
+        if (key in fullStudy || st.state === 'ready') return true;
         if (!waits[section]) waits[section] = [];
-        if (!waits[section].includes(klass)) waits[section].push(klass);
+        if (!waits[section].includes(st)) waits[section].push(st);
         return false;
     };
-    const ends = (section, what) => sectionLine(waits[section], states, what, retry);
+    const ends = (section, what) => sectionLine(waits[section], what, retry);
 
     // Format masking details
     let maskingDetails = '';

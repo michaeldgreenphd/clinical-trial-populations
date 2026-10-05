@@ -1238,6 +1238,73 @@ test('the 2026-02-22 archive reads the March files, labelled; every other archiv
     assert.equal(later.status().hidden, true);
 });
 
+test('the 2026-02-22 pop-up waits on the March files only for the five fields they carry', T, async () => {
+    // data/details.part1 and part2 carry secondary_outcomes, the primary
+    // outcome and design descriptions, study_sites and geo_identification_method
+    // for each study, and nothing else. Every other detail field (sponsor,
+    // collaborators, allocation, masking, the outcome time frame, last update)
+    // was announced as loading through the 82 MB download, and as "did not
+    // load. Try again" when it failed: a retry that downloads them again for
+    // fields they can never fill.
+    const summary ={ 'snapshots/2026-02-22/dashboard-summary.json': archiveSummary('2026-02-22') };
+    const march = {
+        'data/details.part1.json.gz': { part: 1, data: { [IDS[0]]: { study_sites: RECORDS[0].study_sites, secondary_outcomes: RECORDS[0].secondary_outcomes, geo_identification_method: 'High (zip)', primary_outcome_description: 'March text', intervention_model_description: 'March design' } } },
+        'data/details.part2.json.gz': { part: 2, data: {} }
+    };
+    const line = (text, heading) => {
+        const at = text.indexOf(`<h5>${heading}`);
+        assert.ok(at >= 0, `the pop-up has no ${heading} section`);
+        const end = text.indexOf('<div class="detail-section">', at);
+        return (/<(?:p|div) class="detail-state[^"]*"[^>]*>[\s\S]*?<\/(?:p|div)>/.exec(text.slice(at, end < 0 ? undefined : end)) || [''])[0];
+    };
+    const notIncluded = '<p class="detail-state is-na">Not included in this archive</p>';
+    // While the March files load.
+    const h = harness({ files: { ...march, ...summary }, history: null });
+    await h.run("loadData('2026-02-22')");
+    assert.equal(h.run('datasetReader.mode'), 'legacy');
+    h.hold();
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    const pending = h.overlay();
+    assert.equal(line(pending, 'Sponsor & Collaborators'), notIncluded, 'the sponsor section waits on files that do not carry it');
+    assert.equal(line(pending, 'Study Status'), notIncluded, 'the status section waits on files that do not carry it');
+    assert.doesNotMatch(pending, /Loading sponsor details|Loading status details/);
+    for (const what of ['secondary outcomes', 'sites', 'design details', 'outcome details']) {
+        assert.match(pending, new RegExp(`aria-label="Loading ${what}"`), `the ${what} the March files carry do not say they are loading`);
+    }
+    assert.deepEqual(claims(pending), []);
+    await h.release();
+    const loaded = h.overlay();
+    assert.match(loaded, /Harbor Clinic/);
+    assert.match(loaded, /March design/);
+    assert.match(loaded, /March text/);
+    assert.equal(line(loaded, 'Sponsor & Collaborators'), notIncluded);
+    // When they did not load: Try again only where they could fill something.
+    const f = harness({ files: summary, history: null });
+    await f.run("loadData('2026-02-22')");
+    f.run(`showStudyDetails('${IDS[0]}')`);
+    await f.flush();
+    const failed = f.overlay();
+    assert.equal(f.run('datasetReader.extras.state'), 'failed');
+    assert.equal(line(failed, 'Sponsor & Collaborators'), notIncluded, 'the sponsor section offers a retry that cannot fill it');
+    assert.equal(line(failed, 'Study Status'), notIncluded, 'the status section offers a retry that cannot fill it');
+    assert.doesNotMatch(failed, /Sponsor details did not load|Status details did not load/);
+    assert.match(failed, /Sites did not load \(HTTP 404\)\. <button[^>]*>Try again<\/button>/);
+    assert.deepEqual([...failed.matchAll(/class="detail-action" onclick="showStudyDetails\('NCT\d+'\)" data-state="([^"]+)"/g)].map((m) => m[1]).sort(),
+        ['design details', 'outcome details', 'secondary outcomes', 'sites'], 'Try again is offered for fields the March files do not carry');
+    assert.deepEqual(claims(failed), []);
+    // The geography pop-up's sites are one of the five.
+    f.run(`showGeographyBreakdown('${IDS[0]}')`);
+    await f.flush();
+    assert.match(f.overlay('breakdown-overlay'), /Sites did not load \(HTTP 404\)/);
+    // The five, as the files carry them (each of their 76,684 records has
+    // exactly these keys), are detail fields of the contract.
+    const fields = f.json('MARCH_DETAIL_FIELDS');
+    assert.deepEqual([...fields].sort(), ['geo_identification_method', 'intervention_model_description', 'primary_outcome_description', 'secondary_outcomes', 'study_sites']);
+    for (const field of fields) {
+        assert.ok(contract.classes.detail.includes(field) || contract.classes.detail.some((p) => p.startsWith(`${field}[].`)), `${field} is not a detail field of the contract`);
+    }
+});
+
 test("the March fallback keeps only the archive's own studies, not the whole extract", T, async () => {
     // The March files hold 76,684 studies (about 584 MB once parsed) for an
     // archive of 500 rows, and the reader stays on the archive's cache entry

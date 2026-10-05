@@ -70,7 +70,10 @@ npm ci && npm test
 - **`data/details.part1.json.gz` / `part2` are frozen** at 2026-03-05; their
   generator was retired before the repo split. Only the 2026-02-22 archive,
   extracted before them, still reads them, on desktop, for its pop-ups,
-  labelled "from the 2026-03-05 extract"; a phone never fetches them (82 MB
+  labelled "from the 2026-03-05 extract". They carry five fields (sites,
+  secondary outcomes, and the primary-outcome and design descriptions), and
+  only those wait on them; the archive's other detail fields say "Not
+  included in this archive" from the start. A phone never fetches them (82 MB
   of gzip) and says "Not included in this archive" instead. The other
   summary-only archives (snapshots
   holding just `dashboard-summary.json`) say "Not included in this archive"
