@@ -94,6 +94,7 @@ const select = {
 };
 const document = {
     getElementById: id => (id === 'history-date' ? select : null),
+    querySelector: () => null,   // no tab is open: the switch's FDA-tab check (PR #251) does nothing
     createElement: () => ({})
 };
 const console = { log() {}, warn() {}, error() {} };
@@ -106,7 +107,9 @@ function harness() {
     const newest = ['let NEWEST_PUBLISHED = null;', 'let DATA_RUN_DATE = null;',
         fnSource('function publishedDates(manifest)'), fnSource('function newestPublishedIn(manifest)'),
         fnSource('function noteNewestPublished(manifest)'), fnSource('function servedFromData(date)'),
-        fnSource('function datasetKey(date)')];
+        fnSource('function datasetKey(date)'),
+        // The change handler counts and checks the dataset on screen (PR #251).
+        fnSource('function datasetLoaded()'), fnSource('function datasetStudyCount()'), 'let dashboardSummary = null;'];
     vm.runInContext([SCAFFOLD, ...newest, fnSource('function retainSnapshots(onScreen)'), fnSource('async function initHistorySelector()')].join('\n'), ctx);
     const run = (code) => vm.runInContext(code, ctx);
     // An array or object from the vm, as one of this realm's.

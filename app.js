@@ -2503,6 +2503,23 @@ async function loadData(date) {
     throw new Error(`Could not load data for ${date || 'latest'}: ${lastError?.message || 'Unknown error'}`);
 }
 
+// Whether a dataset is on screen to draw. A dataset loaded from its parts
+// has its study records. An aggregate archive is its summary: its charts
+// draw from the summary's totals, and its study list (recentStudies) may be
+// short or, in a summary from before the list was published (2026-03-29),
+// absent. An empty list there is not a failed load.
+function datasetLoaded() {
+    return !!dashboardSummary || (Array.isArray(data) && data.length > 0);
+}
+
+// How many studies the dataset on screen covers: a summary's totalStudies
+// (what its charts count), never the length of its short study list; else
+// the records loaded.
+function datasetStudyCount() {
+    if (dashboardSummary && Number.isFinite(dashboardSummary.totalStudies)) return dashboardSummary.totalStudies;
+    return Array.isArray(data) ? data.length : 0;
+}
+
 // Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
@@ -2515,7 +2532,9 @@ async function loadDataAndRender(date) {
         await loadData(date);
         await snapshotStage(78, 'Setting up filters');
         await sgLoad(date === 'latest' ? undefined : date);
-        if (data && data.length > 0) {
+        // An aggregate archive is loaded once its summary is, study list or
+        // not (datasetLoaded).
+        if (datasetLoaded()) {
             syncYearWindow();
             populateConditionsDropdown();
             populateCountriesDropdown();
@@ -2587,7 +2606,7 @@ async function initHistorySelector() {
             await snapshotStage(78, 'Setting up filters');
             await sgLoad(chosen === 'latest' ? undefined : chosen);
 
-            if (!data || data.length === 0) throw new Error('No data returned');
+            if (!datasetLoaded()) throw new Error('No data returned');
 
             // The Year Range ends at this dataset's latest results year
             syncYearWindow();
@@ -2607,7 +2626,7 @@ async function initHistorySelector() {
             // Only now, with this dataset drawn, does the one it replaced go.
             retainSnapshots(chosen);
             const snapshotLabel = chosen === 'latest' ? 'latest' : chosen;
-            showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${data.length} studies`, 'info', 3000);
+            showToast(`Loaded ${snapshotLabel} snapshot${isCached ? ' (cached)' : ''} — ${datasetStudyCount().toLocaleString()} studies`, 'info', 3000);
         } catch (err) {
             console.error('Snapshot switch failed:', err);
             showToast(`Snapshot "${chosen}" unavailable: ${err.message}. Reverting.`, 'error', 5000);
@@ -3767,6 +3786,10 @@ function renderDashboard() {
         }
         sgAfterRender(stub);
 
+        // A dataset switch with the FDA tab open: its tiles and chart follow
+        // the summary on screen, rather than keep the previous dataset's.
+        if (document.querySelector('.tab.active')?.dataset.tab === 'fda-oversight') renderFdaOversight(stub);
+
         // A dataset switch with the Studies tab open: the new dataset's rows
         // and its status row replace the old ones.
         refreshStudiesTab();
@@ -4100,6 +4123,8 @@ function publicationsHtml(study, tab, redraw) {
 }
 
 let studiesTabReady = false;
+// The Studies tab's count line for an archive whose summary keeps no study list.
+const ARCHIVE_NO_STUDY_LIST = 'This archive keeps no study list; its charts show the archive\u2019s totals';
 
 // The Studies tab draws at once from the core fields, in every mode (14a).
 // Its extras (publications and category labels; an archive's study records;
@@ -4232,7 +4257,11 @@ function renderStudiesTable() {
 
     // Update count
     if (countSpan) {
-        if (totalCount === 0) {
+        if (dashboardSummary && !Array.isArray(dashboardSummary.recentStudies)) {
+            // A summary without a study list (2026-03-29): there are no rows
+            // to find, so "No studies found" would say the wrong thing.
+            countSpan.textContent = ARCHIVE_NO_STUDY_LIST;
+        } else if (totalCount === 0) {
             countSpan.textContent = 'No studies found';
         } else {
             const end = Math.min(pageStart + studiesPageSize, totalCount);
@@ -6781,6 +6810,11 @@ function fdaClassOf(s) {
     return 'none';
 }
 
+// The FDA tab's four tiles (index.html: <id>-count and <id>-sub), and what
+// their sub-lines say when the dataset has no FDA block.
+const FDA_TILE_IDS = ['fda-regulated', 'fda-drug', 'fda-device', 'fda-nonregulated'];
+const FDA_NOT_RECORDED = 'not recorded in this archive';
+
 function renderFdaOversight(filtered) {
     // Mobile/summary path: the compact recentStudies list is only ~500 trials,
     // so computing FDA aggregates from `filtered` would be wildly
@@ -6788,6 +6822,25 @@ function renderFdaOversight(filtered) {
     // instead; archived snapshot summaries may predate the class schema and
     // fall back to the legacy four-category block.
     const f = dashboardSummary && dashboardSummary.fda;
+    const ctx = document.getElementById('fda-reporting-chart');
+    const absentNote = document.getElementById('fda-chart-absent');
+    // A summary without an FDA block (the 2026-03-29 archive predates it):
+    // absent, not zero, and not the previous dataset's numbers. Its tiles say
+    // so, and the chart is replaced by a note.
+    if (dashboardSummary && !f) {
+        FDA_TILE_IDS.forEach(id => {
+            const v = document.getElementById(`${id}-count`);
+            if (v) v.textContent = '\u2014';
+            const sub = document.getElementById(`${id}-sub`);
+            if (sub) sub.textContent = FDA_NOT_RECORDED;
+        });
+        if (charts.fdaReporting) { charts.fdaReporting.destroy(); charts.fdaReporting = null; }
+        if (ctx) ctx.style.display = 'none';
+        if (absentNote) absentNote.hidden = false;
+        return;
+    }
+    if (absentNote) absentNote.hidden = true;
+    if (ctx) ctx.style.display = '';
     const hasClasses = !!(f && f.classes);
     const legacy = !!(f && !f.classes);
 
@@ -6849,7 +6902,6 @@ function renderFdaOversight(filtered) {
     }
 
     // One grouped chart: % of trials reporting each demographic, per class.
-    const ctx = document.getElementById('fda-reporting-chart');
     if (!ctx) return;
     if (charts.fdaReporting) charts.fdaReporting.destroy();
 
