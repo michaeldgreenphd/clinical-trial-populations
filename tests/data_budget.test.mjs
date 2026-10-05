@@ -4,12 +4,15 @@
  * dataset folder (its studies_tab parts and detail shards, within classes).
  * The engine's weekly publish checks the same ceilings before it pushes; this
  * test is the alarm on the site side, after a push is already live. It reads
- * file sizes only, no data.
+ * file sizes, and the header of each folder's core part 1 (its first bytes
+ * only), which says whether the folder is split and how many files it has.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync, existsSync, openSync, readSync, closeSync } from 'node:fs';
+import { gunzipSync, gzipSync, constants } from 'node:zlib';
 import vm from 'node:vm';
+import { randomBytes } from 'node:crypto';
 
 const root = new URL('../', import.meta.url);
 const budget = JSON.parse(readFileSync(new URL('tests/data_budget.json', root), 'utf8'));
@@ -127,8 +130,11 @@ test('the startup parts stay within the budget', (t) => {
 });
 
 // ── The class files of a split dataset (tests/record_contract.json, layout) ──
-// A split folder holds studies_tab.part1..part_count.json.gz beside its core
-// parts and detail/0..N-1.json.gz; an inline folder holds neither. Sizes only.
+// Core part 1's header says whether a folder is split: a layout key gives the
+// studies_tab part count (layout.studies_tab.files) and the shard count
+// (layout.detail.shards), and the folder must hold exactly those files, 1 to
+// files and 0 to shards - 1. A folder with no layout is inline: the reader
+// never reads class files there. Sizes only, beside that header.
 
 const CLASS_BUDGET_KEYS = ['file_gzip_max_bytes', 'total_gzip_max_bytes'];
 
@@ -142,49 +148,121 @@ test('the class budgets are well formed', () => {
     }
 });
 
+// The header of a gzipped core part: its keys before data (the engine writes
+// them first), read from the first 64 KB of the file (prefix); the whole file
+// (whole()) only when data comes first. null when it is not gzipped JSON with
+// a header.
+function headerOf(prefix, whole) {
+    try {
+        const text = gunzipSync(prefix, { finishFlush: constants.Z_SYNC_FLUSH }).toString('utf8');
+        const at = text.indexOf('"data"');
+        if (at > 0 && text.slice(0, at).trim() !== '{') return JSON.parse(`${text.slice(0, at).replace(/,\s*$/, '')}}`);
+        const { data, ...rest } = JSON.parse(gunzipSync(whole()).toString('utf8'));
+        return data === undefined ? null : rest;
+    } catch (e) {
+        return null;
+    }
+}
+
+function partHeader(url) {
+    const fd = openSync(url);
+    const head = Buffer.alloc(65536);
+    const n = readSync(fd, head, 0, head.length, 0);
+    closeSync(fd);
+    return headerOf(head.subarray(0, n), () => readFileSync(url));
+}
+
 // What breaks the budget or the file set in one folder's class files, given
-// as { studies_tab: [{ name, size }], detail: [{ name, size }] }.
-function classFileFailures(folder, listing, partCount, classes) {
+// its core part 1's layout (null: inline) and its listing as
+// { studies_tab: [{ name, size }], detail: [{ name, size }] }.
+function classFileFailures(folder, layout, listing, partCount, classes) {
     const failures = [];
     const tab = listing.studies_tab;
     const shards = listing.detail;
-    if (!tab.length && !shards.length) return failures;   // inline
+    if (!layout) return failures;   // inline: the reader reads no class files here
+    const files = layout.studies_tab?.files;
+    const count = layout.detail?.shards;
+    if (files !== partCount) failures.push(`${folder}: its layout gives ${files} studies_tab parts, not one per core part (${partCount})`);
+    if (!Number.isInteger(count) || count < 1) {
+        failures.push(`${folder}: its layout gives no shard count (${JSON.stringify(count)})`);
+        return failures;
+    }
     const names = tab.map((f) => f.name).sort((a, b) => Number(a.match(/\d+/)[0]) - Number(b.match(/\d+/)[0]));
-    const expected = Array.from({ length: partCount }, (_, i) => `studies_tab.part${i + 1}.json.gz`);
-    if (names.join() !== expected.join()) failures.push(`${folder}: studies_tab parts ${names.join(', ') || 'none'}, not parts 1 to ${partCount}`);
+    const expected = Array.from({ length: Number.isInteger(files) ? files : partCount }, (_, i) => `studies_tab.part${i + 1}.json.gz`);
+    if (names.join() !== expected.join()) failures.push(`${folder}: studies_tab parts ${names.join(', ') || 'none'}, not parts 1 to ${expected.length}`);
     const numbers = shards.map((f) => (/^\d+\.json\.gz$/.test(f.name) ? Number(f.name.split('.')[0]) : NaN));
     if (numbers.some(Number.isNaN)) failures.push(`${folder}/detail holds files that are not shards: ${shards.filter((f, i) => Number.isNaN(numbers[i])).map((f) => f.name).join(', ')}`);
-    const sorted = numbers.filter((n) => !Number.isNaN(n)).sort((a, b) => a - b);
-    if (!sorted.length || sorted.some((n, i) => n !== i)) failures.push(`${folder}/detail does not hold shards 0 to ${sorted.length - 1} without a gap`);
+    const held = numbers.filter((n) => !Number.isNaN(n)).sort((a, b) => a - b);
+    if (held.length !== count || held.some((n, i) => n !== i)) {
+        const missing = Array.from({ length: count }, (_, n) => n).filter((n) => !held.includes(n));
+        const extra = held.filter((n) => n >= count);
+        failures.push(`${folder}/detail does not hold shards 0 to ${count - 1}, as its layout says` +
+            `${missing.length ? `: ${missing.length} missing (${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ', ...' : ''})` : ''}` +
+            `${extra.length ? `; beyond the count: ${extra.slice(0, 5).join(', ')}` : ''}`);
+    }
     if (!classes) return failures;
-    for (const [klass, files] of [['studies_tab', tab], ['detail', shards]]) {
+    for (const [klass, list] of [['studies_tab', tab], ['detail', shards]]) {
         const b = classes[klass];
-        const over = files.filter((f) => f.size > b.file_gzip_max_bytes);
+        const over = list.filter((f) => f.size > b.file_gzip_max_bytes);
         if (over.length) failures.push(`${folder}: ${klass} files over ${MB(b.file_gzip_max_bytes)}: ${over.map((f) => `${f.name} ${MB(f.size)}`).join(', ')}`);
-        const total = files.reduce((a, f) => a + f.size, 0);
+        const total = list.reduce((a, f) => a + f.size, 0);
         if (total > b.total_gzip_max_bytes) failures.push(`${folder}: ${klass} files total ${MB(total)}, over the ${MB(b.total_gzip_max_bytes)} ceiling`);
     }
     return failures;
 }
 
-test('the class-file check catches a missing part, a gap in the shards, and files over budget', () => {
+test('the class-file check catches a missing part, a gap or a cut in the shards, and files over budget', () => {
     const classes = budget.classes;
+    const layout = { version: 1, studies_tab: { files: 8 }, detail: { shards: 256, key: 'nct_number_mod' } };
     const tab = (sizes) => sizes.map((size, i) => ({ name: `studies_tab.part${i + 1}.json.gz`, size }));
     const shards = (sizes) => sizes.map((size, i) => ({ name: `${i}.json.gz`, size }));
     const ok = { studies_tab: tab(Array(8).fill(3_000_000)), detail: shards(Array(256).fill(240_000)) };
-    assert.deepEqual(classFileFailures('data', ok, 8, classes), []);
-    assert.deepEqual(classFileFailures('data', { studies_tab: [], detail: [] }, 8, classes), [], 'an inline folder failed');
+    const none = { studies_tab: [], detail: [] };
+    assert.deepEqual(classFileFailures('data', layout, ok, 8, classes), []);
+    assert.deepEqual(classFileFailures('data', null, none, 8, classes), [], 'an inline folder failed');
+    assert.deepEqual(classFileFailures('data', { ...layout, detail: { ...layout.detail, shards: 128 } }, { ...ok, detail: ok.detail.slice(0, 128) }, 8, classes), [],
+        'a folder with the shard count its header gives failed');
     const cases = {
-        'a missing studies_tab part': [{ ...ok, studies_tab: ok.studies_tab.slice(1) }, /studies_tab parts/],
-        'a gap in the shards': [{ ...ok, detail: ok.detail.filter((f) => f.name !== '17.json.gz') }, /without a gap/],
-        'a stray file in detail/': [{ ...ok, detail: [...ok.detail, { name: 'index.json', size: 10 }] }, /not shards: index\.json/],
-        'a shard over its ceiling': [{ ...ok, detail: ok.detail.map((f, i) => (i === 80 ? { ...f, size: classes.detail.file_gzip_max_bytes + 1 } : f)) }, /detail files over .*80\.json\.gz/],
-        'extras over their total': [{ ...ok, studies_tab: tab(Array(8).fill(3_599_000)) }, /studies_tab files total .* over the/],
-        'shards over their total': [{ ...ok, detail: shards(Array(256).fill(390_000)) }, /detail files total .* over the/]
+        'a missing studies_tab part': [layout, { ...ok, studies_tab: ok.studies_tab.slice(1) }, /studies_tab parts/],
+        'a gap in the shards': [layout, { ...ok, detail: ok.detail.filter((f) => f.name !== '17.json.gz') }, /does not hold shards 0 to 255.*1 missing \(17\)/],
+        'a stray file in detail/': [layout, { ...ok, detail: [...ok.detail, { name: 'index.json', size: 10 }] }, /not shards: index\.json/],
+        'a shard over its ceiling': [layout, { ...ok, detail: ok.detail.map((f, i) => (i === 80 ? { ...f, size: classes.detail.file_gzip_max_bytes + 1 } : f)) }, /detail files over .*80\.json\.gz/],
+        'extras over their total': [layout, { ...ok, studies_tab: tab(Array(8).fill(3_599_000)) }, /studies_tab files total .* over the/],
+        'shards over their total': [layout, { ...ok, detail: shards(Array(256).fill(390_000)) }, /detail files total .* over the/],
+        // A split header with no class files at all (a snapshot copied without them).
+        'core parts with a layout and no class files': [layout, none, /studies_tab parts none.*|does not hold shards 0 to 255: 256 missing/],
+        'the last shard cut off': [layout, { ...ok, detail: ok.detail.slice(0, 255) }, /does not hold shards 0 to 255.*1 missing \(255\)/],
+        'half the shards the header gives': [layout, { ...ok, detail: ok.detail.slice(0, 128) }, /does not hold shards 0 to 255.*128 missing/],
+        'shards beyond the count': [{ ...layout, detail: { ...layout.detail, shards: 128 } }, ok, /beyond the count: 128/],
+        'a layout with no shard count': [{ ...layout, detail: { key: 'nct_number_mod' } }, ok, /no shard count/],
+        'a layout with another part count': [{ ...layout, studies_tab: { files: 4 } }, ok, /gives 4 studies_tab parts, not one per core part/]
     };
-    for (const [name, [listing, message]] of Object.entries(cases)) {
-        const found = classFileFailures('data', listing, 8, classes);
+    for (const [name, [given, listing, message]] of Object.entries(cases)) {
+        const found = classFileFailures('data', given, listing, 8, classes);
         assert.ok(found.some((f) => message.test(f)), `${name} was not caught: ${found.join('; ') || 'no failure'}`);
+    }
+    const bare = classFileFailures('data', layout, none, 8, classes);
+    assert.ok(bare.some((f) => /studies_tab parts none/.test(f)) && bare.some((f) => /256 missing/.test(f)), 'a split folder with no class files was not caught on both classes');
+});
+
+test('the header reader finds the layout in the first bytes of a part, and none in an inline one', () => {
+    const header = (body) => {
+        const file = gzipSync(Buffer.from(JSON.stringify(body)));
+        return headerOf(file.subarray(0, 65536), () => file);
+    };
+    const layout = { version: 1, studies_tab: { files: 8 }, detail: { shards: 256, key: 'nct_number_mod' } };
+    const rows = Array.from({ length: 3000 }, (_, i) => ({ nct_id: `NCT${i}`, brief_title: randomBytes(48).toString('hex') }));
+    assert.ok(gzipSync(Buffer.from(JSON.stringify(rows))).length > 65536, 'the test part fits in the first 64 KB');
+    assert.deepEqual(header({ extracted_at: 'a', part: 1, total_parts: 8, layout, data: rows }), { extracted_at: 'a', part: 1, total_parts: 8, layout });
+    assert.deepEqual(header({ extracted_at: 'a', part: 1, total_parts: 8, data: rows }), { extracted_at: 'a', part: 1, total_parts: 8 });
+    assert.deepEqual(header({ data: rows, extracted_at: 'a', layout }), { extracted_at: 'a', layout }, 'a header after its data was not read');
+    assert.equal(headerOf(Buffer.from('not gzip'), () => Buffer.from('not gzip')), null);
+    // Today's files: each folder's part 1 header, read this way, carries its stamps.
+    for (const folder of ['data', ...readdirSync(new URL('snapshots/', root)).map((d) => `snapshots/${d}`)]) {
+        const part1 = new URL(`${folder}/demographics.part1.json.gz`, root);
+        if (!existsSync(part1)) continue;
+        const h = partHeader(part1);
+        assert.ok(h && typeof h.extracted_at === 'string' && h.part === 1, `${folder}: part 1's header was not read (${JSON.stringify(h)})`);
     }
 });
 
@@ -203,8 +281,13 @@ test('every split folder holds its whole set of class files, within the class bu
         } catch (e) {
             if (e.code !== 'ENOENT') throw e;
         }
-        if (tab.length || detail.length) split++;
-        failures.push(...classFileFailures(folder, { studies_tab: tab, detail }, budget.part_count, budget.classes));
+        const part1 = new URL('demographics.part1.json.gz', at);
+        const header = existsSync(part1) ? partHeader(part1) : null;
+        if (existsSync(part1) && !header) failures.push(`${folder}/demographics.part1.json.gz has no header the reader can read`);
+        const layout = header?.layout ?? null;
+        if (layout) split++;
+        else if (tab.length || detail.length) t.diagnostic(`${folder} is inline but holds ${tab.length} studies_tab parts and ${detail.length} detail files the reader never reads`);
+        failures.push(...classFileFailures(folder, layout, { studies_tab: tab, detail }, budget.part_count, budget.classes));
     }
     t.diagnostic(`${split} of ${folders.length} dataset folders are split`);
     assert.deepEqual(failures, [], `class files out of budget or incomplete:\n${failures.join('\n')}`);
