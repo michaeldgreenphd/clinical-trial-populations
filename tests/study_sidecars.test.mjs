@@ -332,10 +332,51 @@ test('the shard rule gives the layout test vectors, and nothing for a malformed 
     for (const { nct_id: id, shards, shard } of contract.layout.detail.vectors) {
         assert.equal(h.run(`shardOf('${id}', ${shards})`), shard, `${id} at ${shards} shards`);
     }
+    // The spec's three shared vectors, literally, at both counts.
+    assert.equal(h.run("shardOf('NCT01975376', 256)"), 80);
+    assert.equal(h.run("shardOf('NCT01975376', 128)"), 80);
+    assert.equal(h.run("shardOf('NCT00663858', 256)"), 50);
+    assert.equal(h.run("shardOf('NCT00663858', 128)"), 50);
     assert.equal(h.run("shardOf('NCT01174160', 256)"), 144);
     assert.equal(h.run("shardOf('NCT01174160', 128)"), 16, 'the vectors cannot tell 128 shards from 256');
     assert.equal(h.run("shardOf('NCT', 256)"), null);
     assert.equal(h.run("shardOf('01975376', 256)"), null);
+});
+
+test('the reader checks every header key the contract gives a class file', T, async () => {
+    // sidecarProblem compares a file's run stamps with the dataset's, then
+    // the header values the layout gives its class. Together with data, those
+    // must be exactly the contract's layout.headers for the class, so the
+    // contract (which the engine writes by) and the reader cannot drift apart.
+    const seen = {};
+    const watch = (h) => h.run(`{ const check = sidecarProblem;
+        sidecarProblem = function (r, body, header) { (globalThis.__headers ||= []).push(Object.keys(header)); return check(r, body, header); }; }`);
+    const s = harness({ files: split() });
+    watch(s);
+    await s.run('loadData()');
+    s.run(`prepareStudiesTab(); showStudyDetails('${IDS[0]}')`);
+    await s.flush();
+    for (const keys of s.json('__headers')) seen[keys.includes('shard') ? 'detail' : keys.includes('part') ? 'studies_tab' : '?'] = keys;
+    const date = '2026-04-26';
+    const a = harness({
+        files: {
+            [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date),
+            [`snapshots/${date}/archive_records.json.gz`]: { source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive', data: { [IDS[0]]: RECORDS[0] } }
+        },
+        history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } }
+    });
+    watch(a);
+    await a.run(`loadData('${date}')`);
+    a.run(`showStudyDetails('${IDS[0]}')`);
+    await a.flush();
+    seen.archive = a.json('__headers')[0];
+    assert.match(READER, /body\.source_extracted_at : body\.extracted_at/, 'the reader no longer reads the run stamps it compares');
+    assert.match(READER, /body\.source_pipeline_commit : body\.pipeline_commit/);
+    const stamps = (klass) => (klass === 'archive' ? ['source_extracted_at', 'source_pipeline_commit'] : ['extracted_at', 'pipeline_commit']);
+    for (const klass of ['studies_tab', 'detail', 'archive']) {
+        assert.ok(seen[klass], `the reader checked no ${klass} file`);
+        assert.deepEqual([...stamps(klass), ...seen[klass], 'data'].sort(), [...contract.layout.headers[klass]].sort(), `the ${klass} header the reader checks is not the contract's`);
+    }
 });
 
 test('the reader reads the layout the contract describes', () => {

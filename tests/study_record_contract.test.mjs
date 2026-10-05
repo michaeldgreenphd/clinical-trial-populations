@@ -471,6 +471,38 @@ test('the layout section is well formed and places every optional path once', ()
     assert.ok(classes.detail.includes('status') && classes.detail.includes('why_stopped'), 'status and why_stopped are read only by the pop-up (15a)');
 });
 
+test('the layout section says what the split spec says, word for word', () => {
+    // The engine's split and publish gate read this section, and app.js's
+    // reader checks the same keys and vectors: a change here is a change to
+    // the spec both repositories follow (layout version 1), not a local edit.
+    const layout = contract.layout;
+    assert.deepEqual(layout.headers, {
+        core: ['extracted_at', 'pipeline_commit', 'part', 'total_parts', 'layout', 'data'],
+        studies_tab: ['extracted_at', 'pipeline_commit', 'class', 'part', 'total_parts', 'data'],
+        detail: ['extracted_at', 'pipeline_commit', 'class', 'shard', 'shards', 'key', 'data'],
+        archive: ['source_extracted_at', 'source_pipeline_commit', 'class', 'data']
+    });
+    assert.deepEqual(layout.detail.vectors, [
+        { nct_id: 'NCT01975376', shards: 256, shard: 80 },
+        { nct_id: 'NCT01975376', shards: 128, shard: 80 },
+        { nct_id: 'NCT00663858', shards: 256, shard: 50 },
+        { nct_id: 'NCT00663858', shards: 128, shard: 50 },
+        { nct_id: 'NCT01174160', shards: 256, shard: 144 },
+        { nct_id: 'NCT01174160', shards: 128, shard: 16 }
+    ]);
+    assert.deepEqual(layout.optional_class, {
+        official_title: 'core',
+        'references[].title': 'studies_tab',
+        'references[].journal': 'studies_tab',
+        'race.raw_categories[].category': 'studies_tab',
+        'ethnicity.raw_categories[].category': 'studies_tab',
+        'sex.raw_categories[].omb_category': 'studies_tab',
+        'gender.raw_categories[].omb_category': 'studies_tab'
+    });
+    assert.deepEqual(layout.detail.whole_lists, ['study_sites', 'collaborators']);
+    assert.deepEqual(layout.archive, { file: 'archive_records.json.gz', class: 'archive', listed_in: 'history.json archives.<date>.detail' });
+});
+
 test('the path check itself tells present, empty and absent apart', () => {
     const r = { a: { b: [] }, c: [{ d: null }, { d: 1 }], e: null };
     assert.equal(missing(r, 'a.b'), null);
