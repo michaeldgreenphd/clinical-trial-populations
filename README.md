@@ -24,7 +24,7 @@ engine.
 | `about/`, `race/`, `geography/`, … | One-line redirect stubs so `/race` etc. deep-link into the app |
 | `data/` | The published data the dashboard fetches: demographics parts, summaries, extraction results, the pinned geography run (and, once the engine splits the data, the Studies-tab parts and detail shards beside the parts) |
 | `data/pilot_trials_manuscripts/` | Trial manuscript PDFs the site serves directly — manuscript links fall back to these when a paper has no DOI |
-| `snapshots/` + `history.json` | Dated point-in-time copies powering the "View snapshot" selector (4 recent bi-weekly in full, then monthly summaries) |
+| `snapshots/` + `history.json` | Dated point-in-time copies powering the "View snapshot" selector (4 recent bi-weekly in full, then monthly summaries). The newest date in `history.json` (its `latest`, else the newest of `dates`) is read from `data/`, not `snapshots/` |
 | `condition_ontology.json` | Condition category tree the app loads at startup (canonical copy lives in the engine, published here) |
 | `tests/` + `package.json` | Geography contract tests (`npm ci && npm test`), run by CI on any push touching geo code or data |
 | `CNAME`, `.nojekyll`, `og-preview.png` | GitHub Pages plumbing and the social-share image |

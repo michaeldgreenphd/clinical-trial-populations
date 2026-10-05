@@ -44,6 +44,13 @@ const SOURCES = [
     slice('// ── Study details on demand', '// ── end study details on demand'),
     slice('const NUM_PARTS =', '\n'),
     fnSource('function partFiles(n)'),
+    // The newest-date helpers (PR #252) the loaders and the selector go through.
+    'let NEWEST_PUBLISHED = null;\nlet DATA_RUN_DATE = null;\nasync function newestPublishedReady() { return NEWEST_PUBLISHED; }',
+    fnSource('function publishedDates(manifest)'),
+    fnSource('function newestPublishedIn(manifest)'),
+    fnSource('function noteNewestPublished(manifest)'),
+    fnSource('function servedFromData(date)'),
+    fnSource('function datasetKey(date)'),
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
     fnSource('async function fetchAndDecompress(url, onProgress, init)'),

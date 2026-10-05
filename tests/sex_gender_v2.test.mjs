@@ -26,11 +26,17 @@ const startIdx = app.indexOf(START);
 const endIdx = app.indexOf(END);
 assert.ok(startIdx >= 0 && endIdx > startIdx, 'app.js lost the sg=v2 block markers');
 const block = app.slice(startIdx, endIdx);
-// sgBase resolves a snapshot's folder through app.js's datasetBase, which
-// lives outside the block: the real one is evaluated beside it.
-const datasetBaseAt = app.indexOf('function datasetBase(key)');
-assert.ok(datasetBaseAt >= 0, 'app.js lost datasetBase');
-const datasetBaseSrc = app.slice(datasetBaseAt, app.indexOf('\n}\n', datasetBaseAt) + 2);
+// sgBase resolves a snapshot's folder through app.js's datasetBase, and
+// sgLoad names its dataset through datasetKey; both live outside the block:
+// the real ones are evaluated beside it. No history.json has answered here
+// (NEWEST_PUBLISHED null), so every date is an archive, as before it existed.
+const fnAt = (sig) => {
+    const at = app.indexOf(sig);
+    assert.ok(at >= 0, `app.js lost ${sig}`);
+    return app.slice(at, app.indexOf('\n}\n', at) + 2);
+};
+const datasetBaseSrc = 'let NEWEST_PUBLISHED = null;\nlet DATA_RUN_DATE = null;\nasync function newestPublishedReady() { return NEWEST_PUBLISHED; }\n'
+    + fnAt('function servedFromData(date)') + fnAt('function datasetKey(date)') + fnAt('function datasetBase(key)');
 
 // Code only: the block with its comments removed, so a prohibition is on what
 // runs, not on the prose that explains it.
@@ -566,6 +572,22 @@ test('the Sex tab leads with the composition, then the reporting quality that qu
     const tiles = sex.indexOf('id="sg-sex-tiles"');
     assert.ok(tiles < pf, 'the tiles lead');
     assert.ok(pf < quality && donut < quality, 'percent female and the sex breakdown belong above the reporting status');
+});
+
+test('the newest published date reads the latest pull\'s v2 files, and shares their cache entry', async () => {
+    const urls = [];
+    const h = harness({ search: '?sg=v2', fetch: async (url) => { urls.push(url); return { ok: false, status: 404 }; } });
+    h.runRaw("NEWEST_PUBLISHED = '2026-10-04'; DATA_RUN_DATE = '2026-10-04'");   // history.json and data/run.json agree
+    await h.runRaw("sgLoad('2026-10-04')");
+    assert.equal(h.run('sgSnapshotKey'), 'latest', 'the newest date is shown as an archive of itself');
+    assert.ok(urls.length > 0 && urls.every((u) => u.startsWith('data/')), `asked of snapshots/: ${urls.join(', ')}`);
+    assert.equal(h.run("sgCache.has('2026-10-04')"), false, 'a second cache entry for the latest pull');
+    const before = urls.length;
+    await h.runRaw('sgLoad()');
+    assert.equal(urls.slice(before).filter((u) => u.includes('sex_gender_parsed')).length, 0, 'the latest pull was fetched again');
+    // An older week keeps its own folder.
+    await h.runRaw("sgLoad('2026-08-02')");
+    assert.ok(urls.some((u) => u.startsWith('snapshots/2026-08-02/sex_gender_parsed_meta.json')));
 });
 
 test('a failed artifact request is retried; a 404 is remembered', async () => {
