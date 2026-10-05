@@ -294,9 +294,13 @@
         animation: none;
         transition: none;
     }
+    /* The sweep's own rule is more specific than .loading-progress-bar
+       above, so it is stopped here, by the same selector. */
     .loading-meter.is-indeterminate .loading-progress-bar {
         width: 100%;
         opacity: 0.35;
+        animation: none;
+        transform: none;
     }
 }
 

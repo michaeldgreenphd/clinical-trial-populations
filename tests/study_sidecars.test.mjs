@@ -1044,6 +1044,58 @@ test('only the 2026-02-22 fallback names the frozen March files', () => {
     assert.match(READER, /const MARCH_EXTRACT_DATE = '2026-03-05';/);
 });
 
+// The rules of a stylesheet in source order, flattened out of their @media
+// blocks: { order, media, selectors, decls }. @keyframes and other at-rules
+// are skipped. Enough of CSS for the cascade questions below.
+function cssRules(text) {
+    const src = text.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rules = [];
+    const walk = (s, media) => {
+        let i = 0;
+        while (i < s.length) {
+            const open = s.indexOf('{', i);
+            if (open < 0) break;
+            const head = s.slice(i, open).split(';').pop().trim();
+            let depth = 1;
+            let j = open + 1;
+            for (; j < s.length && depth; j++) depth += s[j] === '{' ? 1 : s[j] === '}' ? -1 : 0;
+            const body = s.slice(open + 1, j - 1);
+            if (head.startsWith('@media')) walk(body, head);
+            else if (!head.startsWith('@')) {
+                const decls = {};
+                for (const d of body.split(';')) {
+                    const k = d.indexOf(':');
+                    if (k > 0) decls[d.slice(0, k).trim()] = d.slice(k + 1).trim();
+                }
+                rules.push({ order: rules.length, media, selectors: head.split(',').map((x) => x.trim().replace(/\s+/g, ' ')), decls });
+            }
+            i = j;
+        }
+    };
+    walk(src, null);
+    return rules;
+}
+
+test('under reduced motion the hairline meter holds still: no rule of the meter keeps its animation', () => {
+    // Each rule that animates the meter needs a reduced-motion rule for the
+    // same selector, later in the file, that stops it: a looser selector
+    // (.loading-progress-bar alone) loses to .loading-meter.is-indeterminate
+    // .loading-progress-bar on specificity, whatever its place.
+    const rules = cssRules(css);
+    const motion = (r) => r.decls.animation ?? r.decls['animation-name'];
+    const reduced = rules.filter((r) => /prefers-reduced-motion:\s*reduce/.test(r.media || ''));
+    const moving = rules.filter((r) => !/prefers-reduced-motion/.test(r.media || '') && motion(r) && !/^none\b/.test(motion(r)));
+    const meter = moving.flatMap((r) => r.selectors.filter((s) => /loading-(meter|progress-bar)/.test(s)).map((s) => [s, r]));
+    assert.ok(meter.some(([s]) => s === '.loading-meter.is-indeterminate .loading-progress-bar'), 'the indeterminate meter no longer animates; update this test');
+    for (const [selector, rule] of meter) {
+        const still = reduced.find((r) => r.order > rule.order && r.selectors.includes(selector) && /^none\b/.test(motion(r) || ''));
+        assert.ok(still, `under prefers-reduced-motion: reduce, ${selector} keeps animation: ${motion(rule)}`);
+    }
+    // The parser reads the file as the browser would on these rules.
+    assert.deepEqual(cssRules('a{x:1}@media (m){b,c d{y:2;z:3}}@keyframes k{from{t:0}}e{animation:none}').map((r) => [r.media, r.selectors, r.decls]),
+        [[null, ['a'], { x: '1' }], ['@media (m)', ['b', 'c d'], { y: '2', z: '3' }], [null, ['e'], { animation: 'none' }]]);
+});
+
 test('one quiet loader: the hairline meter, held still under reduced motion, and no ring or shimmer', () => {
     assert.doesNotMatch(html, /studies-loading-screen/, 'the full-tab loading screen came back');
     assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\.loading-meter\.is-indeterminate \.loading-progress-bar \{/, 'the reduced-motion rule for the meter is gone');
