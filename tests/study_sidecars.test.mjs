@@ -597,6 +597,77 @@ test('a failed load says so, and the next call tries again', T, async () => {
     assert.equal(k.status().hidden, true);
 });
 
+test('after a part of the extras fails, a later call fetches only what failed, never a part already on its way', T, async () => {
+    // Each breakdown, publications or study pop-up tries failed extras again.
+    // Without this, every click restarted all eight parts (3 MB of gzip and
+    // about 28 MB of heap each) while the earlier ones still downloaded.
+    const files = split();
+    const part3 = 'data/studies_tab.part3.json.gz';
+    const h = harness({ files: { ...files, [part3]: undefined } });
+    await h.run('loadData()');
+    h.hold();   // the parts that exist are slow; part 3's 404 answers first
+    h.run('prepareStudiesTab()');
+    await h.release((p) => p === part3);
+    assert.equal(h.run('datasetReader.extras.state'), 'failed');
+    assert.match(h.status().text, /did not load \(HTTP 404\)/);
+    for (let i = 0; i < 3; i++) {
+        h.run(`showBreakdown('${IDS[0]}', 'race')`);   // a user clicking three check marks
+        await h.release((p) => p === part3);
+    }
+    const tab = () => h.paths().filter((p) => p.includes('studies_tab'));
+    assert.equal(tab().filter((p) => p === part3).length, 4, 'part 3 was not tried once per call');
+    assert.equal(tab().length, 8 + 3, `parts that were already on their way were fetched again: ${tab().length} requests`);
+    assert.ok(h.run('__reads') <= 8, `${h.run('__reads')} reads of the extras in flight at once`);
+    assert.match(h.overlay('breakdown-overlay'), /Category labels did not load \(HTTP 404\)/);
+    // The other parts land, and are kept: once part 3 is back, only it is fetched.
+    await h.release();
+    assert.equal(h.run('datasetReader.extras.state'), 'failed');
+    h.served[part3] = files[part3];
+    h.run('studiesExtrasAction()');
+    assert.equal(h.status().text, 'Loading publications and category labels');
+    await h.flush();
+    assert.equal(tab().length, 8 + 4, 'Try again fetched parts that had loaded');
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.equal(h.run('datasetReader.extras.map.size'), IDS.length, 'the parts kept from the first try were not merged');
+    assert.equal(h.status().hidden, true);
+    h.run(`showBreakdown('${IDS[0]}', 'race')`);
+    assert.match(h.overlay('breakdown-overlay'), /<th>Original Label<\/th>/);
+});
+
+test("a part from an earlier run (a CDN mid-deploy) says try again, and Try again fetches it once more", T, async () => {
+    const files = split();
+    const part3 = 'data/studies_tab.part3.json.gz';
+    const h = harness({ files: withFile(files, part3, (b) => ({ ...b, extracted_at: OLDER })) });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.deepEqual(h.requests.filter((r) => r.path === part3).map((r) => r.cache), [undefined, 'reload']);
+    assert.equal(h.run('datasetReader.superseded'), null, 'an earlier run was taken for a newer one');
+    assert.equal(h.status().text, 'Publications and category labels did not load: the server is still updating them. Try again in a few minutes.');
+    assert.equal(h.status().action, 'Try again');
+    // The CDN catches up.
+    h.served[part3] = files[part3];
+    h.run('studiesExtrasAction()');
+    await h.flush();
+    assert.equal(h.requests.filter((r) => r.path === part3).length, 3, 'Try again did not fetch part 3 again');
+    assert.equal(h.requests.filter((r) => r.path.includes('studies_tab')).length, 8 + 2, 'Try again fetched parts that had loaded');
+    assert.equal(h.run('datasetReader.extras.state'), 'loaded');
+    assert.equal(h.status().hidden, true);
+    // The same for a shard: reopening the pop-up fetches it again, and it fills in.
+    const n = shard4(IDS[0]);
+    const path = `data/detail/${n}.json.gz`;
+    const s = harness({ files: withFile(files, path, (b) => ({ ...b, extracted_at: OLDER })) });
+    await s.run('loadData()');
+    s.run(`showStudyDetails('${IDS[0]}')`);
+    await s.flush();
+    assert.match(s.overlay(), /the server is still updating them\. Try again in a few minutes\./);
+    s.served[path] = files[path];
+    s.run(`showStudyDetails('${IDS[0]}')`);
+    await s.flush();
+    assert.equal(s.requests.filter((r) => r.path === path).length, 3);
+    assert.match(s.overlay(), /Harbor Clinic/);
+});
+
 // ── Dataset switches (the #241 invariant) ──
 // loadData puts a dataset on screen in one synchronous step: data,
 // dashboardSummary and datasetReader together. Every load fills the reader it

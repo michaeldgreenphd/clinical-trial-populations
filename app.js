@@ -1413,7 +1413,7 @@ function makeReader(fields) {
         mode: 'inline', key: 'latest', base: 'data', rows: null,
         stamp: null, commit: null, layout: null, partSizes: null,
         archiveFile: null, absentText: null, superseded: null,
-        extras: { state: 'idle', error: null, map: null, promise: null, attempt: 0, loaded: [], totals: [], finished: [] },
+        extras: { state: 'idle', error: null, map: null, promise: null, settle: null, parts: null, loaded: [], totals: [], finished: [] },
         shards: new Map()
     }, fields);
 }
@@ -1639,12 +1639,16 @@ function noteSuperseded(r, problem) {
     if (problem && problem.kind === 'newer' && !r.superseded) r.superseded = problem;
 }
 
-// Load a dataset's Studies-tab extras, all or nothing: one promise per
-// dataset, shared by every caller, with the files fetched in parallel and
-// their bytes summed for the status row. If any file fails, none is used, so
-// "none" never stands in for "did not load"; the failure is shown, and the
-// next call tries again, unless the dataset is superseded (noteSuperseded).
-// Settles, never rejects; null when there are none.
+// Load a dataset's Studies-tab extras, all or nothing: the files are fetched
+// in parallel, their bytes summed for the status row, and nothing is used
+// until every one has loaded, so "none" never stands in for "did not load".
+// When one fails, the failure is shown at once, and the others still finish
+// and are kept; the next call (Try again, the tab, a pop-up) fetches only the
+// files that failed, never one that loaded or is still on its way, so retries
+// cannot pile up. Nothing is fetched again once the dataset is superseded
+// (noteSuperseded), and what it kept is let go. One promise per round,
+// shared by every caller; it settles when the round has loaded or failed, and
+// never rejects. Null when the dataset has no extras.
 function loadStudiesTabExtras(r) {
     const files = extrasFiles(r);
     if (!files.length) return null;
@@ -1654,47 +1658,82 @@ function loadStudiesTabExtras(r) {
         if (x.state !== 'failed' || x.error !== r.superseded) {
             x.state = 'failed';
             x.error = r.superseded;
+            x.parts = null;
             x.promise = Promise.resolve();
         }
         return x.promise;
     }
-    const attempt = ++x.attempt;
-    const current = () => x.attempt === attempt && x.state === 'loading';
+    if (!x.parts) {
+        x.parts = files.map(() => ({ state: 'idle', data: null }));
+        x.loaded = files.map(() => 0);
+        x.totals = files.map(() => undefined);
+        x.finished = files.map(() => false);
+    }
     x.state = 'loading';
     x.error = null;
-    x.loaded = files.map(() => 0);
-    x.totals = files.map(() => undefined);
-    x.finished = files.map(() => false);
-    x.promise = Promise.all(files.map((file, i) => fetchSidecar(file.url, file.problemOf, (got, total) => {
-        if (!current()) return;
-        x.loaded[i] = got;
-        x.totals[i] = total;
-        extrasProgress(r);
-    }).then(body => {
-        if (current()) {
-            x.finished[i] = true;
+    x.promise = new Promise(resolve => { x.settle = resolve; });
+    // A split dataset's parts hold exactly its rows. An archive's files can
+    // hold far more (the March files: 76,684 studies for 500 rows), so only
+    // its own rows are kept, and the rest goes with the body.
+    const own = r.mode === 'split' ? null : new Set(r.rows.map(s => s.nct_id));
+    const parts = x.parts;
+    files.forEach((file, i) => {
+        const part = parts[i];
+        if (part.state === 'loading' || part.state === 'loaded') return;
+        part.state = 'loading';
+        x.loaded[i] = 0;
+        x.totals[i] = undefined;
+        x.finished[i] = false;
+        fetchSidecar(file.url, file.problemOf, (got, total) => {
+            x.loaded[i] = got;
+            x.totals[i] = total;
             extrasProgress(r);
-        }
-        return body;
-    }))).then(bodies => {
-        // A split dataset's parts hold exactly its rows. An archive's files
-        // can hold far more (the March files: 76,684 studies for 500 rows),
-        // so only its own rows are kept, and the rest goes with the bodies.
-        const own = r.mode === 'split' ? null : new Set(r.rows.map(s => s.nct_id));
-        const map = new Map();
-        for (const body of bodies) {
-            for (const id of Object.keys(body.data)) if (!own || own.has(id)) map.set(id, body.data[id]);
-        }
-        x.map = map;
-        x.state = 'loaded';
-    }, err => {
-        x.state = 'failed';
-        x.error = loadProblem(err);
-        noteSuperseded(r, x.error);
-        console.warn(`The ${extrasWhat(r)} did not load: ${err.message}`);
-    }).then(() => extrasSettled(r));
+        }).then(body => {
+            part.state = 'loaded';
+            part.data = own ? Object.fromEntries(Object.keys(body.data).filter(id => own.has(id)).map(id => [id, body.data[id]])) : body.data;
+            x.finished[i] = true;
+            extrasPartSettled(r, parts, null);
+        }, err => {
+            part.state = 'failed';
+            const problem = loadProblem(err);
+            noteSuperseded(r, problem);
+            console.warn(`The ${extrasWhat(r)} did not load: ${err.message}`);
+            extrasPartSettled(r, parts, problem);
+        });
+    });
     extrasProgress(r);
     return x.promise;
+}
+
+// One file of a dataset's extras has landed or failed. Once all have
+// landed they are merged and the round has loaded; the first failure ends
+// the round as failed (the files still on their way finish, and are kept for
+// the next round). After a newer run shows up the extras can never be whole,
+// so what they kept is dropped, and the row says Reload.
+function extrasPartSettled(r, parts, problem) {
+    const x = r.extras;
+    if (x.parts !== parts) return;   // let go when the dataset was superseded
+    if (parts.every(p => p.state === 'loaded')) {
+        const map = new Map();
+        for (const part of parts) for (const id of Object.keys(part.data)) map.set(id, part.data[id]);
+        x.map = map;
+        x.parts = null;
+        x.state = 'loaded';
+        x.error = null;
+    } else if (problem) {
+        const error = r.superseded || (x.state === 'failed' ? x.error : problem);
+        if (r.superseded) x.parts = null;
+        if (x.state === 'failed' && x.error === error) return;
+        x.state = 'failed';
+        x.error = error;
+    } else {
+        extrasProgress(r);
+        return;
+    }
+    const settle = x.settle;
+    x.settle = null;
+    if (settle) settle();
+    extrasSettled(r);
 }
 
 // Load detail shard n of a dataset: one promise per dataset and shard, shared
