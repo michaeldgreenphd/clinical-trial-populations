@@ -1519,6 +1519,11 @@ main {
 /* A class selector beats the UA stylesheet's [hidden] rule. */
 .extras-status[hidden] { display: none; }
 
+/* The extras are here: the row keeps its height, blank, so the table below
+   does not move under the pointer (app.js renderExtrasStatus). visibility
+   also takes it out of the reading order and the tab order. */
+.extras-status.is-settled { visibility: hidden; }
+
 .extras-status .loading-meter {
     flex: 0 0 8rem;
     margin-top: 0;

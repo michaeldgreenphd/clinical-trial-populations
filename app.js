@@ -1941,9 +1941,16 @@ function renderExtrasStatus() {
             const table = document.getElementById('studies-table');
             if (table) table.focus({ preventScroll: true });
         }
-        box.hidden = true;
+        // Once a dataset's extras are here, a row that was showing keeps its
+        // place, blank and out of the reading order (styles.css is-settled),
+        // so the table below does not jump up under the pointer. A dataset
+        // without extras, or one whose row never showed, has no row.
+        const keepPlace = !box.hidden && extrasFiles(datasetReader).length > 0;
+        box.classList.toggle('is-settled', keepPlace);
+        box.hidden = !keepPlace;
         return;
     }
+    box.classList.remove('is-settled');
     box.hidden = false;
     box.classList.toggle('is-failed', status.state === 'failed');
     const meter = box.querySelector('.loading-meter');
@@ -1976,7 +1983,50 @@ function studiesExtrasAction() {
     }
     loadStudiesTabExtras(datasetReader);
     renderExtrasStatus();
-    if (studiesTabActive()) renderStudiesTable();
+    if (studiesTabActive()) redrawStudiesTableKeepingFocus();
+}
+
+// The Studies table redraws its rows and page buttons when the extras land
+// or a Try again starts, and the control a keyboard user is on goes with
+// them. studiesFocusKey notes which one it was: its row's study, its first
+// class (or tag) and its place among the row's controls of that kind; or a
+// page button's label. Null when focus is not in the rows or page buttons, so
+// a redraw never takes focus from anywhere else.
+function studiesFocusKey(active, body, pager) {
+    if (!active || !body || !pager) return null;
+    if (body.contains(active) && active !== body) {
+        const row = active.closest ? active.closest('tr') : null;
+        const link = row ? row.querySelector('.nct-link') : null;
+        if (!link) return null;
+        const kind = active.classList && active.classList.length ? `.${active.classList[0]}` : String(active.tagName || '').toLowerCase();
+        return { where: 'row', nct: link.textContent.trim(), kind, index: [...row.querySelectorAll(kind)].indexOf(active) };
+    }
+    if (pager.contains(active) && active !== pager) return { where: 'pager', label: String(active.textContent || '').trim() };
+    return null;
+}
+
+// The same control after the redraw, or null when it is gone (its row left
+// the page, or its page button is disabled now).
+function findStudiesControl(key, body, pager) {
+    if (!key) return null;
+    if (key.where === 'pager') {
+        return [...pager.querySelectorAll('button')].find(b => !b.disabled && String(b.textContent || '').trim() === key.label) || null;
+    }
+    const row = [...body.querySelectorAll('tr')].find(tr => {
+        const link = tr.querySelector('.nct-link');
+        return link && link.textContent.trim() === key.nct;
+    });
+    return row ? row.querySelectorAll(key.kind)[key.index] || null : null;
+}
+
+function redrawStudiesTableKeepingFocus() {
+    const body = document.getElementById('studies-table-body');
+    const pager = document.getElementById('pagination');
+    const key = studiesFocusKey(document.activeElement, body, pager);
+    renderStudiesTable();
+    if (!key) return;
+    const target = findStudiesControl(key, body, pager) || document.getElementById('studies-table');
+    if (target) target.focus({ preventScroll: true });
 }
 window.studiesExtrasAction = studiesExtrasAction;
 
@@ -2002,7 +2052,7 @@ function extrasProgress(r) {
 function extrasSettled(r) {
     if (r !== datasetReader || data !== r.rows) return;
     renderExtrasStatus();
-    if (studiesTabActive()) renderStudiesTable();
+    if (studiesTabActive()) redrawStudiesTableKeepingFocus();
 }
 
 // ── The marks a view shows for fields that are not here ──
@@ -2089,15 +2139,36 @@ function drawOverlay(id, html, redraw) {
     const active = document.activeElement;
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
     const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
+    const same = hadFocus && !section ? controlSignature(active) : null;
     overlay.innerHTML = html;
     overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
     if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
         const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
-        const target = (line && (line.querySelector('.detail-action') || line)) || overlay.querySelector('.close-btn, .modal-close-btn');
+        const target = (line && (line.querySelector('.detail-action') || line))
+            || findSameControl(overlay, same)
+            || overlay.querySelector('.close-btn, .modal-close-btn');
         if (target) target.focus({ preventScroll: true });
     }
+}
+
+// A focused control in a pop-up that has no section line (a study's NCT link,
+// a publication link), told apart from its siblings by tag, class and where
+// it points (or its text), so a redraw can put focus back on it.
+function controlSignature(el) {
+    if (!el || !el.tagName) return null;
+    const tag = String(el.tagName).toLowerCase();
+    const attr = (k) => (el.getAttribute ? el.getAttribute(k) : null) || '';
+    return { tag, cls: attr('class'), id: attr('href') || String(el.textContent || '').trim() };
+}
+
+function findSameControl(overlay, sig) {
+    if (!sig || !overlay.querySelectorAll) return null;
+    return [...overlay.querySelectorAll(sig.tag)].find(el => {
+        const attr = (k) => (el.getAttribute ? el.getAttribute(k) : null) || '';
+        return attr('class') === sig.cls && (attr('href') || String(el.textContent || '').trim()) === sig.id;
+    }) || null;
 }
 
 // ── end study details on demand

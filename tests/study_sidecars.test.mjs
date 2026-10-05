@@ -315,6 +315,9 @@ function harness({ files = {}, again = {}, mobile = false, history = null, summa
         overlay: (id = 'study-details-overlay') => el(id).innerHTML,
         status: () => ({
             hidden: el('studies-extras-status').hidden,
+            settled: el('studies-extras-status').classList.contains('is-settled'),
+            // Shown: on the page and not a settled, blank placeholder.
+            shown: !el('studies-extras-status').hidden && !el('studies-extras-status').classList.contains('is-settled'),
             text: el('studies-extras-status').querySelector('.extras-status-text').textContent,
             bytes: el('studies-extras-status').querySelector('.extras-status-bytes').textContent,
             action: el('studies-extras-status').querySelector('.extras-status-action').hidden ? null
@@ -494,7 +497,8 @@ test('a split Studies tab draws at once, fetches its extras once, and fills the 
     assert.match(after, /Raw data: ✓ &quot;Caucasian&quot;|Raw data: ✓ "Caucasian"/);
     h.run('studiesPageSize = 15; currentPage = 0; renderStudiesTable()');
     assert.match(h.el('studies-table-body').innerHTML, /A randomized trial/);
-    assert.equal(h.status().hidden, true, 'the status row stayed after the extras loaded');
+    assert.equal(h.status().shown, false, 'the status row stayed after the extras loaded');
+    assert.equal(h.status().settled, true, 'the status row gave up its place, and the table jumped up');
     assert.equal(h.paths().filter((p) => p.includes('/detail/')).length, 0, 'the tab fetched detail shards');
 });
 
@@ -869,7 +873,7 @@ test('a failed load says so, and the next call tries again', T, async () => {
     assert.match(k.el('studies-table-body').innerHTML, /cell-pending/, 'Try again did not show the table waiting again');
     await k.flush();
     assert.equal(k.run('datasetReader.extras.state'), 'loaded');
-    assert.equal(k.status().hidden, true);
+    assert.equal(k.status().shown, false);
 });
 
 test('a file that did not load is fetched past the browser cache: once more after a 4xx, and on every retry', T, async () => {
@@ -1043,7 +1047,7 @@ test("the status row's Try again keeps focus in the row while the extras load, t
     action.focus();
     h.run('studiesExtrasAction()');
     await h.flush();
-    assert.equal(h.status().hidden, true);
+    assert.equal(h.status().shown, false);
     assert.equal(h.doc.activeElement, h.el('studies-table'), 'focus fell to the page with the hidden row');
     assert.match(html, /<p class="extras-status-line" tabindex="-1">/, 'the status line cannot take focus');
     assert.match(html, /<table id="studies-table" class="studies-table" tabindex="-1">/, 'the table cannot take focus');
@@ -1089,7 +1093,7 @@ test('after a part of the extras fails, a later call fetches only what failed, n
     assert.equal(tab().length, 8 + 1 + 3 + 1, 'Try again fetched parts that had loaded');
     assert.equal(h.run('datasetReader.extras.state'), 'loaded');
     assert.equal(h.run('datasetReader.extras.map.size'), IDS.length, 'the parts kept from the first try were not merged');
-    assert.equal(h.status().hidden, true);
+    assert.equal(h.status().shown, false);
     h.run(`showBreakdown('${IDS[0]}', 'race')`);
     assert.match(h.overlay('breakdown-overlay'), /<th>Original Label<\/th>/);
 });
@@ -1112,7 +1116,7 @@ test("a part from an earlier run (a CDN mid-deploy) says try again, and Try agai
     assert.equal(h.requests.filter((r) => r.path === part3).length, 3, 'Try again did not fetch part 3 again');
     assert.equal(h.requests.filter((r) => r.path.includes('studies_tab')).length, 8 + 2, 'Try again fetched parts that had loaded');
     assert.equal(h.run('datasetReader.extras.state'), 'loaded');
-    assert.equal(h.status().hidden, true);
+    assert.equal(h.status().shown, false);
     // The same for a shard: reopening the pop-up fetches it again, and it fills in.
     const n = shard4(IDS[0]);
     const path = `data/detail/${n}.json.gz`;
@@ -1931,4 +1935,113 @@ test('one quiet loader: the hairline meter, held still under reduced motion, and
         assert.match(css.slice(0, css.indexOf('}')), new RegExp(`${token.slice(4, -1)}:`), `${token} is not a token from :root`);
     }
     assert.match(READER, /class="loading-meter is-indeterminate" role="progressbar"/);
+});
+
+// ── Nothing moves or loses focus when the extras land ──
+
+test('once the extras are here the status row keeps its place, blank; an inline dataset has none', T, async () => {
+    // The row's height left with it, and the table jumped up about 31 px under
+    // the pointer as the last part landed.
+    const files = { ...split(), ...inline({ base: 'snapshots/2026-08-02', stamp: OLDER }) };
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run('prepareStudiesTab()');
+    assert.equal(h.status().shown, true, 'the row did not show while the extras loaded');
+    await h.flush();
+    assert.equal(h.status().hidden, false, 'the row left the page, and the table moved up');
+    assert.equal(h.status().settled, true);
+    const rule = cssRules(css).find((r) => r.selectors.includes('.extras-status.is-settled'));
+    assert.ok(rule && rule.decls.visibility === 'hidden', 'a settled row is not blank (visibility: hidden keeps its height)');
+    // An inline dataset has no extras, so no row and no reserved space.
+    await h.run("loadData('2026-08-02')");
+    h.run('renderExtrasStatus()');
+    assert.equal(h.status().hidden, true, 'an inline dataset kept a blank row');
+    assert.equal(h.status().settled, false);
+});
+
+// A small tree of fake elements: enough of the DOM for the focus helpers
+// (contains, closest, querySelector(All) by .class or tag, classList,
+// tagName, textContent, disabled, getAttribute).
+function fakeNode(tag, { cls = [], text = '', disabled = false, attrs = {} } = {}, children = []) {
+    const n = { tagName: tag.toUpperCase(), classList: [...cls], textContent: text, disabled, children, parent: null };
+    children.forEach((c) => { c.parent = n; });
+    const matches = (x, sel) => (sel.startsWith('.') ? x.classList.includes(sel.slice(1)) : x.tagName.toLowerCase() === sel);
+    const below = (x) => x.children.flatMap((c) => [c, ...below(c)]);
+    n.contains = (x) => x === n || children.some((c) => c.contains(x));
+    n.closest = (sel) => { for (let p = n; p; p = p.parent) if (matches(p, sel)) return p; return null; };
+    n.querySelectorAll = (sel) => below(n).filter((x) => matches(x, sel));
+    n.querySelector = (sel) => n.querySelectorAll(sel)[0] || null;
+    n.getAttribute = (k) => (k === 'class' ? (cls.length ? cls.join(' ') : null) : (k in attrs ? attrs[k] : null));
+    return n;
+}
+const fakeRow = (nct, pubs = 0) => fakeNode('tr', {}, [
+    fakeNode('td', {}, [fakeNode('a', { cls: ['nct-link'], text: nct })]),
+    fakeNode('td', {}, Array.from({ length: pubs }, (_, i) => fakeNode('a', { cls: ['pub-link'], text: `PMID ${i}` }))),
+    fakeNode('td', {}, [fakeNode('button', { cls: ['details-btn'], text: '+' })])
+]);
+const fakePager = (page, last) => fakeNode('div', {}, [
+    fakeNode('button', { cls: ['page-btn'], text: 'Prev', disabled: page === 0 }),
+    fakeNode('button', { cls: ['page-btn'], text: '1' }), fakeNode('button', { cls: ['page-btn'], text: '2' }),
+    fakeNode('button', { cls: ['page-btn'], text: 'Next', disabled: page === last })
+]);
+
+test('a redraw of the Studies table puts focus back on the same control, and never takes it from elsewhere', () => {
+    const ctx = vm.createContext({});
+    vm.runInContext(fnSource('function studiesFocusKey(active, body, pager)') + fnSource('function findStudiesControl(key, body, pager)'), ctx);
+    const keyOf = (a, b, p) => ctx.studiesFocusKey(a, b, p);
+    const find = (k, b, p) => ctx.findStudiesControl(k, b, p);
+    // Before: the extras are loading, so the publications cells hold no links.
+    const before = fakeNode('tbody', {}, [fakeRow('NCT00000001'), fakeRow('NCT00000002'), fakeRow('NCT00000003')]);
+    const pager = fakePager(0, 1);
+    // After: the same rows, now with publication links before the + button.
+    const after = fakeNode('tbody', {}, [fakeRow('NCT00000001', 2), fakeRow('NCT00000002', 1), fakeRow('NCT00000003', 3)]);
+    const pagerAfter = fakePager(0, 1);
+    const plus3 = before.children[2].querySelector('.details-btn');
+    const target = find(keyOf(plus3, before, pager), after, pagerAfter);
+    assert.equal(target, after.children[2].querySelector('.details-btn'), "row 3's + button lost focus to another control");
+    const link2 = before.children[1].querySelector('.nct-link');
+    assert.equal(find(keyOf(link2, before, pager), after, pagerAfter), after.children[1].querySelector('.nct-link'));
+    const pub = after.children[2].querySelectorAll('.pub-link')[1];
+    assert.equal(find(keyOf(pub, after, pagerAfter), after, pagerAfter), pub, 'a publication link is not found again by its place');
+    const two = pager.children[2];
+    assert.equal(find(keyOf(two, before, pager), after, pagerAfter), pagerAfter.children[2], 'the page button lost focus');
+    // A row that left the page, or a page button now disabled: nothing, so the caller focuses the table.
+    assert.equal(find(keyOf(plus3, before, pager), fakeNode('tbody', {}, [fakeRow('NCT00000001')]), pagerAfter), null);
+    const next = pager.children[3];
+    assert.equal(find(keyOf(next, before, pager), after, fakePager(1, 1)), null);
+    // Focus anywhere else (the filters, the page itself): no key, so the redraw leaves it alone.
+    assert.equal(keyOf(fakeNode('input'), before, pager), null);
+    assert.equal(keyOf(before, before, pager), null);
+    assert.equal(keyOf(null, before, pager), null);
+});
+
+test('the extras landing and Try again redraw the table through the focus-keeping redraw', () => {
+    for (const sig of ['function extrasSettled(r)', 'function studiesExtrasAction()']) {
+        const src = fnSource(sig);
+        assert.match(src, /redrawStudiesTableKeepingFocus\(\)/, `${sig} redraws without keeping focus`);
+        assert.doesNotMatch(src, /\brenderStudiesTable\(\)/, `${sig} still calls renderStudiesTable directly`);
+    }
+    const redraw = fnSource('function redrawStudiesTableKeepingFocus()');
+    const at = (needle) => redraw.indexOf(needle);
+    assert.ok(at('studiesFocusKey(') > -1 && at('studiesFocusKey(') < at('renderStudiesTable()'), 'focus is read after the rows are gone');
+    assert.ok(at('renderStudiesTable()') < at('findStudiesControl('), 'focus is put back before the rows exist');
+    assert.match(redraw, /if \(!key\) return;/, 'a redraw takes focus that was outside the table');
+});
+
+test('a pop-up redraw puts focus back on a focused link that has no section line', () => {
+    const ctx = vm.createContext({});
+    vm.runInContext(fnSource('function controlSignature(el)') + fnSource('function findSameControl(overlay, sig)'), ctx);
+    const pop = (pubs) => fakeNode('div', {}, [
+        fakeNode('button', { cls: ['close-btn'], text: '✕' }),
+        fakeNode('a', { cls: ['nct-link'], text: 'NCT00000001', attrs: { href: 'https://clinicaltrials.gov/study/NCT00000001' } }),
+        ...pubs.map((p) => fakeNode('a', { cls: ['pub-link'], text: p, attrs: { href: `https://pubmed.ncbi.nlm.nih.gov/${p}/` } }))
+    ]);
+    const before = pop([]);
+    const after = pop(['111', '222']);
+    const nct = before.querySelector('.nct-link');
+    assert.equal(ctx.findSameControl(after, ctx.controlSignature(nct)), after.querySelector('.nct-link'), 'the NCT link lost focus to the close button');
+    const pubBefore = pop(['111', '222']).querySelectorAll('.pub-link')[1];
+    assert.equal(ctx.findSameControl(after, ctx.controlSignature(pubBefore)), after.querySelectorAll('.pub-link')[1]);
+    assert.equal(ctx.findSameControl(pop([]), ctx.controlSignature(pubBefore)), null, 'a link that is gone was matched');
+    assert.match(fnSource('function drawOverlay(id, html, redraw)'), /findSameControl\(overlay, same\)[\s\S]*close-btn/, 'drawOverlay falls back to the close button before trying the same control');
 });
