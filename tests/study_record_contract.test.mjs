@@ -410,14 +410,17 @@ test('a split dataset passes only with each class in its own files', () => {
     const core = files['data/demographics.part1.json.gz'];
     assert.ok(!('references' in core.data[0]) && !('allocation' in core.data[0]) && core.data[0].study_sites.every((s) => Object.keys(s).join() === 'country'),
         'the core parts carry more than core');
-    const edit = (path, change) => {
+    // One edit to the files whose path passes `which` (a path, or a test).
+    const edit = (which, change) => {
         const copy = JSON.parse(JSON.stringify(files));
-        change(copy[path]);
+        for (const path of Object.keys(copy)) if (typeof which === 'string' ? path === which : which(path)) change(copy[path]);
         return datasetFailures(memory(copy), 3);
     };
+    const cores = (path) => path.includes('/demographics.part');
     const first = (body) => Object.values(body.data)[0];
     const firstId = (body) => Object.keys(body.data)[0];
     const n0 = Number(fixtureRecords[0].nct_id.slice(3)) % 5;
+    const part1Ids = Object.keys(files['data/studies_tab.part1.json.gz'].data);
     const cases = {
         'a studies_tab entry without its references': ['data/studies_tab.part2.json.gz', (b) => { delete first(b).references; }, /references\[\]\.pmid: no references/],
         'a studies_tab part holding another part\'s studies': ['data/studies_tab.part2.json.gz', (b) => { b.data = { NCT00000001: first(b) }; }, /does not hold exactly core part 2's studies/],
@@ -429,8 +432,19 @@ test('a split dataset passes only with each class in its own files', () => {
         'a study missing from the shards': [`data/detail/${n0}.json.gz`, (b) => { delete b.data[firstId(b)]; }, /has no entry in its detail shard/],
         'a core part with another layout': ['data/demographics.part2.json.gz', (b) => { b.layout = { ...b.layout, detail: { ...b.layout.detail, shards: 6 } }; }, /layout differs from part 1's/],
         'a layout version this site does not read': ['data/demographics.part1.json.gz', (b) => { b.layout = { ...b.layout, version: 2 }; }, /layout version 2 is not one this site reads/],
-        'extras that are not one per part': ['data/demographics.part1.json.gz', (b) => { b.layout = { ...b.layout, studies_tab: { files: 2 } }; }, /studies_tab\.files 2 is not total_parts 3/]
+        'extras that are not one per part': ['data/demographics.part1.json.gz', (b) => { b.layout = { ...b.layout, studies_tab: { files: 2 } }; }, /studies_tab\.files 2 is not total_parts 3/],
+        // Each of these reaches exactly one check of the split branch.
+        'a studies_tab part holding its own studies and one more': ['data/studies_tab.part2.json.gz', (b) => { b.data[part1Ids[0]] = first(b); }, /does not hold exactly core part 2's studies/],
+        'a detail entry without its status (sites intact)': [`data/detail/${n0}.json.gz`, (b) => { delete first(b).status; }, /detail\/\d+\.json\.gz NCT\d+ status: no status/],
+        'a core record without its sponsor_class': ['data/demographics.part2.json.gz', (b) => { delete b.data[0].sponsor_class; }, /demographics\.part2\.json\.gz NCT\d+ sponsor_class: no sponsor_class/],
+        'another shard key': [cores, (b) => { b.layout = { ...b.layout, detail: { ...b.layout.detail, key: 'fnv' } }; }, /layout\.detail\.key fnv is not nct_number_mod/],
+        'a study no core part has, in the right shard': [`data/detail/${n0}.json.gz`, (b) => { b.data[`NCT0${String(Number(firstId(b).slice(3)) + 5 * 1000).padStart(7, '0')}`] = first(b); }, /which no core part has/],
+        'a shard count of 0': [cores, (b) => { b.layout = { ...b.layout, detail: { ...b.layout.detail, shards: 0 } }; }, /layout\.detail\.shards 0 is not a shard count/],
+        'a studies_tab part whose data is a list': ['data/studies_tab.part1.json.gz', (b) => { b.data = Object.values(b.data); }, /studies_tab\.part1\.json\.gz: data is not an object keyed by nct_id/],
+        'a layout with no version': [cores, (b) => { const { version, ...rest } = b.layout; b.layout = rest; }, /layout version undefined is not one this site reads/],
+        'a detail shard from another run': [`data/detail/${n0}.json.gz`, (b) => { b.extracted_at = '2027-01-01T00:00:00Z'; }, /detail\/\d+\.json\.gz comes from another run than core part 1/]
     };
+    assert.equal(Number(`NCT0${String(Number(fixtureRecords[0].nct_id.slice(3)) + 5000).padStart(7, '0')}`.slice(3)) % 5, n0, 'the made-up study is not in the shard it is put in');
     for (const [name, [path, change, message]] of Object.entries(cases)) {
         const found = edit(path, change);
         assert.ok(found.some((f) => message.test(f)), `${name} was not caught: ${found.join('; ') || 'no failure'}`);

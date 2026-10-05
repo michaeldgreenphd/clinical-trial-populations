@@ -642,13 +642,17 @@ test('a newer run on the server is not downloaded again; this run\'s shards are 
 
 test('a file that does not match its header or its studies is not used', T, async () => {
     const n = shard4(IDS[0]);
+    const mismatch = /did not load \(.*\)\. <button/;
     const cases = {
-        'a shard that says it is another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shard: (n + 1) % 4 })],
-        'a shard with another shard count': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shards: 8 })],
-        'a shard holding a study of another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, data: { ...b.data, NCT09999997: {} } })],
-        'a shard with another key': [`data/detail/${n}.json.gz`, (b) => ({ ...b, key: 'nct_fnv' })]
+        'a shard that says it is another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shard: (n + 1) % 4 }), mismatch],
+        'a shard with another shard count': [`data/detail/${n}.json.gz`, (b) => ({ ...b, shards: 8 }), mismatch],
+        'a shard holding a study of another shard': [`data/detail/${n}.json.gz`, (b) => ({ ...b, data: { ...b.data, NCT09999997: {} } }), mismatch],
+        'a shard with another key': [`data/detail/${n}.json.gz`, (b) => ({ ...b, key: 'nct_fnv' }), mismatch],
+        'a shard keyed by something that is not an NCT id': [`data/detail/${n}.json.gz`, (b) => ({ ...b, data: { ...b.data, NCT1A: {} } }), /did not load \(detail shard \d+ holds NCT1A, whose shard is null\)/],
+        // The dataset carries a commit, so a file that carries none is another run's.
+        'a shard with no pipeline_commit': [`data/detail/${n}.json.gz`, (b) => ({ ...b, pipeline_commit: null }), /did not load: the server is still updating them/]
     };
-    for (const [name, [path, edit]] of Object.entries(cases)) {
+    for (const [name, [path, edit, message]] of Object.entries(cases)) {
         if (name === 'a shard holding a study of another shard') assert.notEqual(Number('9999997') % 4, n);
         const h = harness({ files: withFile(split(), path, edit) });
         await h.run('loadData()');
@@ -656,16 +660,36 @@ test('a file that does not match its header or its studies is not used', T, asyn
         await h.flush();
         assert.equal(h.requests.filter((r) => r.path === path).length, 2, `${name}: not fetched again`);
         assert.doesNotMatch(h.overlay(), /Harbor Clinic/, `${name}: it was used`);
-        assert.match(h.overlay(), /did not load \(.*\)\. <button/, `${name}: the pop-up does not say it did not load`);
+        assert.match(h.overlay(), message, `${name}: the pop-up does not say it did not load`);
     }
-    // A studies_tab part holding other studies than its core part.
+    // A studies_tab part holding other studies than its core part, or its own
+    // studies and one of another part's (merged in part order, the stray entry
+    // would overwrite the right one).
     const files = split();
-    const h = harness({ files: withFile(files, 'data/studies_tab.part2.json.gz', (b) => ({ ...b, data: files['data/studies_tab.part1.json.gz'].data })) });
-    await h.run('loadData()');
-    h.run('prepareStudiesTab()');
-    await h.flush();
-    assert.equal(h.run('datasetReader.extras.state'), 'failed');
-    assert.match(h.status().text, /did not load \(studies_tab part 2 does not hold exactly core part 2's studies\)/);
+    const own2 = files['data/studies_tab.part2.json.gz'].data;
+    const [stray, entry] = Object.entries(files['data/studies_tab.part1.json.gz'].data)[0];
+    for (const [name, data] of [['another part\'s studies', files['data/studies_tab.part1.json.gz'].data], ['its own studies and one more', { ...own2, [stray]: { ...entry, references: [] } }]]) {
+        const h = harness({ files: withFile(files, 'data/studies_tab.part2.json.gz', (b) => ({ ...b, data })) });
+        await h.run('loadData()');
+        h.run('prepareStudiesTab()');
+        await h.flush();
+        assert.equal(h.run('datasetReader.extras.state'), 'failed', `a studies_tab part holding ${name} was used`);
+        assert.match(h.status().text, /did not load \(studies_tab part 2 does not hold exactly core part 2's studies\)/);
+    }
+    // An archive's file of study records, against an archive that carries a commit.
+    const date = '2026-04-26';
+    const archived = (commit) => ({
+        [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date, { pipeline_commit: 'abc1234' }),
+        [`snapshots/${date}/archive_records.json.gz`]: { source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: commit, class: 'archive', data: { [IDS[0]]: RECORDS[0] } }
+    });
+    const history = { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } };
+    for (const [commit, used] of [['abc1234', true], ['fff9999', false], [null, false]]) {
+        const a = harness({ files: archived(commit), history });
+        await a.run(`loadData('${date}')`);
+        a.run(`showStudyDetails('${IDS[0]}')`);
+        await a.flush();
+        assert.equal(/Harbor Clinic/.test(a.overlay()), used, `an archive file with commit ${commit} ${used ? 'was not' : 'was'} used`);
+    }
 });
 
 test('a study missing from its loaded shard is its own state, not loading and not none', T, async () => {
@@ -1061,7 +1085,9 @@ test('a layout this page cannot read is refused with an explicit error, and noth
         'parts that disagree': [bump((b, p) => (p.endsWith('part5.json.gz') ? { ...b, layout: { ...b.layout, detail: { ...b.layout.detail, shards: 8 } } } : b)), /disagree about their layout/],
         'a layout with no layout in one part': [bump((b, p) => { if (p.endsWith('part2.json.gz')) delete b.layout; return b; }), /disagree about their layout/],
         'extras that are not one per part': [bump((b) => ({ ...b, layout: { ...b.layout, studies_tab: { files: 4 } } })), /does not add up/],
-        'no shard count': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { key: 'nct_number_mod' } } })), /does not add up/]
+        'no shard count': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { key: 'nct_number_mod' } } })), /does not add up/],
+        'a shard count of 0': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { ...b.layout.detail, shards: 0 } } })), /does not add up/],
+        'a shard count that is not a whole number': [bump((b) => ({ ...b, layout: { ...b.layout, detail: { ...b.layout.detail, shards: 2.5 } } })), /does not add up/]
     };
     for (const [name, [served, message]] of Object.entries(cases)) {
         const h = harness({ files: served });
