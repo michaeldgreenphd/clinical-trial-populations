@@ -225,6 +225,60 @@ test('the four label trails are read as arrays; a label containing "; " stays on
     assert.ok(!/split\(['"];/.test(code), 'the v2 code splits a label trail on ";"');
 });
 
+// Desktop counts the source labels itself (sgLabelCounts); phones and
+// aggregate archives show the engine's published top lists, which
+// generate_mobile_data.py sorts with sorted(key=(-count, label)): Python
+// compares strings by code point. Tied labels must land in the same order on
+// both, or the 60-row table cut keeps different labels.
+const sgStudiesWithLabels = (key, pairs) => pairs.flatMap(([label, n], i) =>
+    Array.from({ length: n }, (_, j) => ({ nct_id: `NCT${i}-${j}`, sex_gender: { [key]: [label] } })));
+
+test('tied source labels sort by code point, as the engine sorts its published lists', () => {
+    const h = harness();
+    const put = h.runRaw('(name, value) => { globalThis[name] = value; }');
+    const order = (pairs) => {
+        put('__studies', sgStudiesWithLabels('gender_diverse_labels', pairs));
+        return h.run("sgLabelCounts(__studies, 'gender_diverse_labels')");
+    };
+    // capitals before lower case, whatever the browser's locale
+    assert.deepEqual(order([['other', 7], ['Other Gender', 7], ['Non-binary', 9]]),
+        [['Non-binary', 9], ['Other Gender', 7], ['other', 7]]);
+    // Python's own order for these five tied labels (sorted() on 3.x):
+    // ASCII, then Latin-1, then U+FF4F, then U+1F308. A UTF-16 comparison
+    // (JS <) would put the astral label before U+FF4F; localeCompare would
+    // compare letters before case and accents. Every input below arrives out
+    // of order, since a sort that leaves ties alone would keep input order.
+    const tied = ['\u{1F308} queer', 'ｏther', 'Étranger', 'other', 'Other'];
+    assert.deepEqual(order(tied.map((l) => [l, 3])).map(([l]) => l),
+        ['Other', 'other', 'Étranger', 'ｏther', '\u{1F308} queer']);
+    // a label that is a prefix of another sorts first; count still leads
+    assert.deepEqual(order([['Other Gender', 2], ['Other', 2], ['Z', 4]]),
+        [['Z', 4], ['Other', 2], ['Other Gender', 2]]);
+});
+
+test("desktop ranks the published top lists' labels in the published order", () => {
+    const summary = JSON.parse(readFileSync(new URL('../data/dashboard-summary.json', import.meta.url), 'utf8'));
+    const h = harness();
+    const put = h.runRaw('(name, value) => { globalThis[name] = value; }');
+    const moved = {}, ranked = [];
+    for (const t of h.run('SG_LABEL_TRAILS')) {
+        const published = ((summary.sexGender || {}).labels || {})[t.summaryKey];
+        assert.ok(published && published.top.length > 0, `${t.summaryKey}: the summary has no published top list`);
+        const expected = published.top.map(([l, n]) => [l, n]);
+        // fed in reverse, so a tie the comparator leaves alone stays reversed
+        put('__studies', sgStudiesWithLabels(t.key, [...expected].reverse()));
+        const desktop = h.run(`sgLabelCounts(__studies, '${t.key}')`);
+        // the rows the label table renders (sgLabelTableHtml shows 60)
+        moved[t.summaryKey] = desktop.slice(0, 60).filter((p, i) => !expected[i] || p[0] !== expected[i][0]).length;
+        ranked.push([t.summaryKey, desktop, expected]);
+    }
+    assert.deepEqual(moved, { gender_diverse: 0, ambiguous: 0, unknown: 0 },
+        'rows of the top 60 that desktop places differently from the published list');
+    for (const [k, desktop, expected] of ranked) {
+        assert.deepEqual(desktop, expected, `${k}: desktop's ranking differs from the published list`);
+    }
+});
+
 test('the flag: ?sg=v2 turns the beta on and is remembered; ?sg=v1 turns it off', () => {
     assert.equal(harness({ search: '?sg=v2' }).run('SG_V2'), true);
     assert.equal(harness({ search: '' }).run('SG_V2'), false);
