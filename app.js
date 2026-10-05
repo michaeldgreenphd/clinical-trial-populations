@@ -1093,6 +1093,13 @@ let DATA_CACHE_VERSION = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
 // The latest run's extracted_at as data/run.json states it, or null without
 // that file: the latest parts must carry it.
 let LATEST_RUN_STAMP = null;
+// The published date data/ serves, as history.json names it: its "latest"
+// when that is a date, else the newest of its "dates" (a history.json written
+// before "latest" existed). That date is the latest dataset, not an archive:
+// it is read from data/ (datasetBase) and kept under the 'latest' cache entry
+// (datasetKey), and the engine does not copy it into snapshots/<date>/. Null
+// until history.json answers, and while it never does.
+let NEWEST_PUBLISHED = null;
 
 // A small JSON file fetched once per page and checked with the server each
 // time. Null when the server has none or it cannot be read; a failure is
@@ -1114,6 +1121,30 @@ function smallJsonOnce(url) {
 }
 // history.json lists the published dates (the archive selector reads it too).
 const fetchHistory = smallJsonOnce('history.json');
+
+// The dates a history.json lists, well-formed ones only, oldest first.
+function publishedDates(manifest) {
+    return (manifest && Array.isArray(manifest.dates) ? manifest.dates : [])
+        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
+        .sort();
+}
+
+// The date a history.json says data/ serves: "latest" when it is a date,
+// else the newest of "dates"; null when it names neither.
+function newestPublishedIn(manifest) {
+    const latest = manifest ? manifest.latest : undefined;
+    if (typeof latest === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(latest)) return latest;
+    const dates = publishedDates(manifest);
+    return dates.length ? dates[dates.length - 1] : null;
+}
+
+// Take NEWEST_PUBLISHED from a history.json. A manifest that names no date
+// (or none at all: a failed request) leaves what an earlier one said.
+function noteNewestPublished(manifest) {
+    const newest = newestPublishedIn(manifest);
+    if (newest) NEWEST_PUBLISHED = newest;
+    return NEWEST_PUBLISHED;
+}
 // data/run.json holds the latest run's stamps, written by the engine with
 // the parts: extracted_at and pipeline_commit.
 const fetchRun = smallJsonOnce('data/run.json');
@@ -1124,10 +1155,13 @@ const fetchRun = smallJsonOnce('data/run.json');
 const SMALL_FILE_WAIT_MS = 5000;
 
 // Set DATA_CACHE_VERSION before any data is fetched. history.json is not
-// waited for once run.json has answered.
+// waited for once run.json has answered; NEWEST_PUBLISHED is taken from it
+// whenever it answers (within the same wait), and a dated dataset waits for
+// that (newestPublishedReady), not for the archive selector.
 async function resolveDataCacheVersion() {
     const deadline = new Promise(resolve => setTimeout(() => resolve(null), SMALL_FILE_WAIT_MS));
     const manifestRequest = fetchHistory();   // started now: the archive selector reuses it
+    newestPublishedRequest = Promise.race([manifestRequest, deadline]).then(noteNewestPublished);
     const run = await Promise.race([fetchRun(), deadline]);
     if (run && typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at))) {
         LATEST_RUN_STAMP = run.extracted_at;
@@ -1135,9 +1169,7 @@ async function resolveDataCacheVersion() {
         return DATA_CACHE_VERSION;
     }
     const manifest = await Promise.race([manifestRequest, deadline]);
-    const dates = (manifest && Array.isArray(manifest.dates) ? manifest.dates : [])
-        .filter(d => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d))
-        .sort();
+    const dates = publishedDates(manifest);
     if (dates.length) DATA_CACHE_VERSION = dates[dates.length - 1];
     return DATA_CACHE_VERSION;
 }
@@ -1148,6 +1180,15 @@ let dataKeyRequest = null;
 function dataKeyReady() {
     if (!dataKeyRequest) dataKeyRequest = resolveDataCacheVersion();
     return dataKeyRequest;
+}
+
+// NEWEST_PUBLISHED once history.json has answered or its wait is over. Every
+// load of a dated dataset waits for it, so the newest date is never asked of
+// snapshots/<date>/, where it is not published.
+let newestPublishedRequest = null;
+async function newestPublishedReady() {
+    await dataKeyReady();
+    return newestPublishedRequest;
 }
 
 // Every data file is fetched through here: after the key, with the key as
@@ -2181,12 +2222,19 @@ function partFiles(n) {
     return Array.from({ length: n }, (_, i) => `demographics.part${i + 1}.json.gz`);
 }
 
-// The folder a dataset's files sit in: data/ for the latest run,
-// snapshots/<date>/ for an archived week. Every dataset path is built from
-// it: the parts, an archive's summary, the Studies-tab extras and detail
-// shards, and the ?sg=v2 files (sgBase).
+// The key a dataset is cached and read under: 'latest' for the latest run,
+// named as 'latest', as nothing, or by the date history.json says data/
+// serves (NEWEST_PUBLISHED), which is the same dataset; else its date.
+function datasetKey(date) {
+    return (!date || date === 'latest' || date === NEWEST_PUBLISHED) ? 'latest' : date;
+}
+
+// The folder a dataset's files sit in: data/ for the latest run (whichever
+// way datasetKey names it), snapshots/<date>/ for an archived week. Every
+// dataset path is built from it: the parts, an archive's summary, the
+// Studies-tab extras and detail shards, and the ?sg=v2 files (sgBase).
 function datasetBase(key) {
-    return (!key || key === 'latest') ? 'data' : `snapshots/${key}`;
+    return datasetKey(key) === 'latest' ? 'data' : `snapshots/${key}`;
 }
 
 // Build list of URL strategies to try for fetching data.
@@ -2211,7 +2259,11 @@ function getUrlStrategies(date) {
 }
 
 async function loadData(date) {
-    const cacheKey = date || 'latest';
+    // The newest published date is the latest dataset: read as the latest,
+    // from data/ and its cache entry, never from snapshots/<date>/.
+    if (date && date !== 'latest') await newestPublishedReady();
+    const cacheKey = datasetKey(date);
+    if (cacheKey === 'latest') date = undefined;
 
     // ── Mobile: load pre-computed summary (~15 KB) instead of 77K studies ──
     if (isMobileDevice && (!date || date === 'latest')) {
@@ -2408,7 +2460,7 @@ async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
     if (select) select.value = date;
 
-    const isCached = snapshotCache.has(date || 'latest');
+    const isCached = snapshotCache.has(datasetKey(date));
     if (!isCached) showSnapshotLoading(date === 'latest' ? 'Loading latest data…' : `Loading ${date} snapshot…`);
 
     try {
@@ -2445,7 +2497,14 @@ async function initHistorySelector() {
             console.log('history.json not available; archive selector disabled.');
             return;
         }
-        const dates = (manifest.dates || []).slice().sort().reverse(); // newest first
+        // The date data/ serves is listed as "YYYY-MM-DD (latest)", with the
+        // date as its value: choosing it shows the latest dataset (datasetKey),
+        // and a link that names it keeps naming that date once a later run
+        // moves it into snapshots/.
+        noteNewestPublished(manifest);
+        const dates = (manifest.dates || []).slice();
+        if (NEWEST_PUBLISHED && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
+        dates.sort().reverse(); // newest first
 
         // Trust the manifest — the GitHub Actions workflow only appends a date
         // after verifying the release and its assets exist.  The loadData()
@@ -2455,7 +2514,7 @@ async function initHistorySelector() {
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
-            opt.textContent = d;
+            opt.textContent = d === NEWEST_PUBLISHED ? `${d} (latest)` : d;
             select.appendChild(opt);
         });
     } catch (e) {
@@ -2470,7 +2529,7 @@ async function initHistorySelector() {
         const previousValue = select.dataset.lastValue || 'latest';
         console.log(`Switching to snapshot: ${chosen}`);
 
-        const isCached = snapshotCache.has(chosen === 'latest' ? 'latest' : chosen);
+        const isCached = snapshotCache.has(datasetKey(chosen));
         const label = chosen === 'latest' ? 'Loading latest data…' : `Loading ${chosen} snapshot…`;
         if (!isCached) showSnapshotLoading(label);
 
@@ -9327,7 +9386,10 @@ function sgTableMatchesMeta(table, meta) {
 async function sgLoad(date) {
     sgTable = null; sgMeta = null; sgAvailable = false; sgMetaAbsent = false;
     if (!SG_V2) return;
-    const key = date || 'latest';
+    // The newest published date is the latest pull's files and cache entry.
+    if (date && date !== 'latest') await newestPublishedReady();
+    const key = datasetKey(date);
+    if (key === 'latest') date = undefined;
     if (sgCache.has(key)) {
         const c = sgCache.get(key);
         sgMeta = c.meta; sgTable = c.table;

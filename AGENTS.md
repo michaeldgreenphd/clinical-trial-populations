@@ -88,7 +88,10 @@ when either file, or a `geo/` script, changes without its key changing.
 **Published data files** under `data/` are written by the engine's weekly job.
 Editing them by hand, or changing how the app reads them, needs a
 compatibility note covering the snapshots in `snapshots/` that the "View
-snapshot" control still loads.
+snapshot" control still loads. The newest published date (`history.json`'s
+`latest`, else the newest of its `dates`) is the latest dataset: the app reads
+it from `data/` (`datasetKey`/`datasetBase` in `app.js`), never from
+`snapshots/<that date>/`, which the engine's retention change stops writing.
 
 **History is not rewritten here.** No force-pushes, no rebases of pushed
 branches, no deletions of published history.

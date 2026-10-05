@@ -42,6 +42,7 @@ const SOURCES = [
     READER,
     slice('const NUM_PARTS =', '\n'),
     fnSource('function partFiles(n)'),
+    fnSource('function datasetKey(date)'),
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
     fnSource('async function fetchAndDecompress(url, onProgress, init)'),
@@ -89,6 +90,9 @@ let data = null; let datasetReader = null; let dashboardSummary = null; let stud
 let currentPage = 0; let studiesPageSize = 15; let currentSort = { field: null, direction: 'asc' };
 let tableRenders = 0;
 const snapshotCache = new Map();
+// No history.json here: every date is an archive (tests/snapshot_latest.test.mjs has the newest).
+let NEWEST_PUBLISHED = null;
+async function newestPublishedReady() { return NEWEST_PUBLISHED; }
 function getFilteredData() { tableRenders++; return data ? [...data] : []; }
 function initColumnPicker() {}
 function sgDimensionReported() { return false; }
@@ -1146,6 +1150,7 @@ test('extras that land after a switch fill the dataset they were started for, an
     h.run('prepareStudiesTab()');
     // Switch to the inline snapshot while the extras are in flight.
     const switching = h.run("loadData('2026-08-02')");
+    await h.flush();   // a dated load first waits for the newest published date (newestPublishedReady)
     await h.release((p) => p.startsWith('snapshots/'));
     await switching;
     h.run('renderDashboardStub = () => refreshStudiesTab(); renderDashboardStub();');
@@ -1170,6 +1175,7 @@ test('a pop-up whose shard lands after a switch, or after it was closed or repla
     h.run(`showStudyDetails('${IDS[0]}')`);
     const pending = h.overlay();
     const switching = h.run("loadData('2026-10-18')");
+    await h.flush();   // a dated load first waits for the newest published date (newestPublishedReady)
     await h.release((p) => p.includes('demographics'));
     await switching;
     h.run('globalThis.before = datasetReader.shards.size');
@@ -1207,6 +1213,7 @@ test('a pop-up whose shard lands after a switch, or after it was closed or repla
         g.run(open);
         const shown = g.overlay('breakdown-overlay');
         const switching = g.run("loadData('2026-10-18')");
+        await g.flush();   // a dated load first waits for the newest published date (newestPublishedReady)
         await g.release((p) => p.includes('demographics'));
         await switching;
         await g.release();
@@ -1221,6 +1228,7 @@ test('when the old dataset finishes first, the new one keeps waiting for its own
     h.hold();
     h.run('prepareStudiesTab(); globalThis.first = datasetReader;');
     const switching = h.run("loadData('2026-10-18')");
+    await h.flush();   // a dated load first waits for the newest published date (newestPublishedReady)
     await h.release((p) => p.includes('demographics'));
     await switching;
     h.run('refreshStudiesTab()');
