@@ -101,7 +101,13 @@ const console = { log() {}, warn() {}, error() {} };
 
 function harness() {
     const ctx = vm.createContext({ Map, Set, Array, Object, Error, Promise, WeakRef });
-    vm.runInContext([SCAFFOLD, fnSource('function retainSnapshots(onScreen)'), fnSource('async function initHistorySelector()')].join('\n'), ctx);
+    // initHistorySelector goes through the newest-date helpers (PR #252); no
+    // data/run.json here, so no date is read from data/.
+    const newest = ['let NEWEST_PUBLISHED = null;', 'let DATA_RUN_DATE = null;',
+        fnSource('function publishedDates(manifest)'), fnSource('function newestPublishedIn(manifest)'),
+        fnSource('function noteNewestPublished(manifest)'), fnSource('function servedFromData(date)'),
+        fnSource('function datasetKey(date)')];
+    vm.runInContext([SCAFFOLD, ...newest, fnSource('function retainSnapshots(onScreen)'), fnSource('async function initHistorySelector()')].join('\n'), ctx);
     const run = (code) => vm.runInContext(code, ctx);
     // An array or object from the vm, as one of this realm's.
     const json = (code) => JSON.parse(run(`JSON.stringify(${code})`));

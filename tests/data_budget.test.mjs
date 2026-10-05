@@ -58,8 +58,9 @@ test('getUrlStrategies asks for NUM_PARTS parts, for the latest data and for a s
     assert.ok(start >= 0 && at > start, 'app.js lost NUM_PARTS or getUrlStrategies');
     const source = app.slice(start, app.indexOf('\n}\n', at) + 2);
     const run = (src, count, label) => {
-        const ctx = vm.createContext({});
-        vm.runInContext(`${src}\nthis.getUrlStrategies = getUrlStrategies;`, ctx);
+        const ctx = vm.createContext({ NEWEST_PUBLISHED: null, DATA_RUN_DATE: null });   // no history.json: the dates are archives
+        const served = app.slice(app.indexOf('function servedFromData(date)'), app.indexOf('\n}\n', app.indexOf('function servedFromData(date)')) + 2);
+        vm.runInContext(`${served}\n${src}\nthis.getUrlStrategies = getUrlStrategies;`, ctx);
         const files = Array.from({ length: count }, (_, i) => `demographics.part${i + 1}.json.gz`);
         for (const date of [undefined, 'latest']) {
             const strategies = ctx.getUrlStrategies(date);
