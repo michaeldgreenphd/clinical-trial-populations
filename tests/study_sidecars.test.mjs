@@ -92,7 +92,9 @@ let tableRenders = 0;
 const snapshotCache = new Map();
 // No history.json here: every date is an archive (tests/snapshot_latest.test.mjs has the newest).
 let NEWEST_PUBLISHED = null;
+let DATA_RUN_DATE = null;
 async function newestPublishedReady() { return NEWEST_PUBLISHED; }
+${fnSource('function servedFromData(date)')}
 function getFilteredData() { tableRenders++; return data ? [...data] : []; }
 function initColumnPicker() {}
 function sgDimensionReported() { return false; }

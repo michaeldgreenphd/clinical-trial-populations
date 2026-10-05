@@ -1100,6 +1100,11 @@ let LATEST_RUN_STAMP = null;
 // (datasetKey), and the engine does not copy it into snapshots/<date>/. Null
 // until history.json answers, and while it never does.
 let NEWEST_PUBLISHED = null;
+// The date of the run data/ holds, from data/run.json: its snapshot_date when
+// the engine writes one, else the date of its extracted_at. Null without a
+// run.json. A date is read from data/ only when history.json and this agree
+// (servedFromData): during a deploy the two can come from different weeks.
+let DATA_RUN_DATE = null;
 
 // A small JSON file fetched once per page and checked with the server each
 // time. Null when the server has none or it cannot be read; a failure is
@@ -1145,6 +1150,23 @@ function noteNewestPublished(manifest) {
     if (newest) NEWEST_PUBLISHED = newest;
     return NEWEST_PUBLISHED;
 }
+
+// The date of the run a data/run.json describes, or null.
+function runDate(run) {
+    if (!run) return null;
+    if (typeof run.snapshot_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(run.snapshot_date)) return run.snapshot_date;
+    const at = typeof run.extracted_at === 'string' ? run.extracted_at.slice(0, 10) : '';
+    return /^\d{4}-\d{2}-\d{2}$/.test(at) ? at : null;
+}
+
+// Whether data/ serves the dataset of this date: history.json names it as
+// the date data/ serves AND data/run.json is that date's run. While a deploy
+// leaves history.json and data/ on different weeks, or without a run.json
+// to check against, the date is an archive like any other, so one week's
+// numbers are never shown under another week's date.
+function servedFromData(date) {
+    return !!date && date === NEWEST_PUBLISHED && date === DATA_RUN_DATE;
+}
 // data/run.json holds the latest run's stamps, written by the engine with
 // the parts: extracted_at and pipeline_commit.
 const fetchRun = smallJsonOnce('data/run.json');
@@ -1165,6 +1187,7 @@ async function resolveDataCacheVersion() {
     const run = await Promise.race([fetchRun(), deadline]);
     if (run && typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at))) {
         LATEST_RUN_STAMP = run.extracted_at;
+        DATA_RUN_DATE = runDate(run);
         DATA_CACHE_VERSION = run.extracted_at.replace(/[^0-9T]/g, '');   // 20260927T1149536090810000
         return DATA_CACHE_VERSION;
     }
@@ -2223,10 +2246,10 @@ function partFiles(n) {
 }
 
 // The key a dataset is cached and read under: 'latest' for the latest run,
-// named as 'latest', as nothing, or by the date history.json says data/
-// serves (NEWEST_PUBLISHED), which is the same dataset; else its date.
+// named as 'latest', as nothing, or by the date data/ verifiably serves
+// (servedFromData), which is the same dataset; else its date.
 function datasetKey(date) {
-    return (!date || date === 'latest' || date === NEWEST_PUBLISHED) ? 'latest' : date;
+    return (!date || date === 'latest' || servedFromData(date)) ? 'latest' : date;
 }
 
 // The folder a dataset's files sit in: data/ for the latest run (whichever
@@ -2503,7 +2526,7 @@ async function initHistorySelector() {
         // moves it into snapshots/.
         noteNewestPublished(manifest);
         const dates = (manifest.dates || []).slice();
-        if (NEWEST_PUBLISHED && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
+        if (servedFromData(NEWEST_PUBLISHED) && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
         dates.sort().reverse(); // newest first
 
         // Trust the manifest — the GitHub Actions workflow only appends a date
@@ -2514,7 +2537,7 @@ async function initHistorySelector() {
         dates.forEach(d => {
             const opt = document.createElement('option');
             opt.value = d;
-            opt.textContent = d === NEWEST_PUBLISHED ? `${d} (latest)` : d;
+            opt.textContent = servedFromData(d) ? `${d} (latest)` : d;
             select.appendChild(opt);
         });
     } catch (e) {

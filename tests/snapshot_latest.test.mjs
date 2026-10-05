@@ -357,3 +357,56 @@ test('every dated path goes through datasetKey: loadData, sgLoad and the selecto
     // The newest date is taken where history.json is first read, at key resolution.
     assert.match(fnSource('async function resolveDataCacheVersion()'), /newestPublishedRequest = Promise\.race\(\[manifestRequest, deadline\]\)\.then\(noteNewestPublished\);/);
 });
+
+// ── history.json and data/ from different weeks (a deploy in progress) ──
+// The newest date is read from data/ only when data/run.json is that date's
+// run; otherwise it is an archive like any other, so one week's numbers are
+// never shown under another week's date.
+
+test('history.json ahead of data/: its newest date is not read from data/', async () => {
+    const ahead = { dates: [...DATES, '2026-10-11'], latest: '2026-10-11' };
+    const h = harness(site(ahead));   // data/run.json is still the 2026-10-04 run
+    await startup(h);
+    assert.equal(h.run('NEWEST_PUBLISHED'), '2026-10-11');
+    assert.equal(h.run("datasetKey('2026-10-11')"), '2026-10-11', "the 10-11 date would show the 10-04 run's numbers");
+    assert.equal(h.run("datasetBase('2026-10-11')"), 'snapshots/2026-10-11');
+    assert.equal(h.select.options.find((o) => o.value === '2026-10-11').textContent, '2026-10-11', 'labelled latest before data/ holds it');
+    assert.ok(!h.select.options.some((o) => /\(latest\)/.test(o.textContent)));
+});
+
+test('history.json behind data/: the date it calls newest is not read from data/', async () => {
+    const newer = { extracted_at: '2026-10-11T06:12:00.000000+00:00', pipeline_commit: 'def5678' };
+    const h = harness(site(NEW_HISTORY, { 'data/run.json': newer, ...parts('data', newer.extracted_at), ...parts('snapshots/2026-10-04', RUN.extracted_at) }));
+    await startup(h);
+    assert.equal(h.run('NEWEST_PUBLISHED'), '2026-10-04');
+    assert.equal(h.run("datasetKey('2026-10-04')"), '2026-10-04', "the 10-04 date would show the 10-11 run's numbers");
+    assert.ok(!h.select.options.some((o) => /\(latest\)/.test(o.textContent)));
+    const before = h.paths().length;
+    await h.run("loadData('2026-10-04')");
+    const asked = h.paths().slice(before).filter((p) => p.includes('demographics'));
+    assert.ok(asked.length === 8 && asked.every((p) => p.startsWith('snapshots/2026-10-04/')), `read from: ${asked.join(', ')}`);
+});
+
+test("run.json's snapshot_date decides the run's date when the engine writes one", async () => {
+    // A run that starts just before midnight UTC: extracted_at says the next day.
+    const late = { extracted_at: '2026-10-05T00:04:00.000000+00:00', pipeline_commit: 'abc1234', snapshot_date: '2026-10-04' };
+    const h = harness(site(NEW_HISTORY, { 'data/run.json': late }));
+    await h.run('newestPublishedReady()');
+    assert.equal(h.run('DATA_RUN_DATE'), '2026-10-04');
+    assert.equal(h.run("datasetKey('2026-10-04')"), 'latest');
+    for (const bad of ['2026-10', 20261004, null]) {
+        const g = harness(site(NEW_HISTORY, { 'data/run.json': { ...RUN, snapshot_date: bad } }));
+        await g.run('newestPublishedReady()');
+        assert.equal(g.run('DATA_RUN_DATE'), '2026-10-04', `a malformed snapshot_date (${bad}) is not taken; extracted_at's date is`);
+    }
+});
+
+test('without a data/run.json the newest date is an archive, as on main today', async () => {
+    const files = site(NEW_HISTORY, { ...parts('snapshots/2026-10-04', RUN.extracted_at) });
+    delete files['data/run.json'];
+    const h = harness(files);
+    await h.run('newestPublishedReady()');
+    assert.equal(h.run('NEWEST_PUBLISHED'), '2026-10-04');
+    assert.equal(h.run('DATA_RUN_DATE'), null);
+    assert.equal(h.run("datasetBase('2026-10-04')"), 'snapshots/2026-10-04');
+});
