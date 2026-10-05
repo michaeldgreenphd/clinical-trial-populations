@@ -1412,12 +1412,14 @@ function datasetLayout(parts) {
 // extras (the studies_tab parts, an archive's own file, or the March files),
 // shards the detail shards by number. rows is the dataset's data, which a late
 // answer compares with the data on screen before it draws anything.
-// superseded is set once a file shows the server has a newer run (16a).
+// superseded is set once a file shows the server has a newer run (16a), or
+// the run check after a file's HTTP error (runCheck, while it is asked) finds
+// the dataset's run gone.
 function makeReader(fields) {
     return Object.assign({
         mode: 'inline', key: 'latest', base: 'data', rows: null,
         stamp: null, commit: null, layout: null, partSizes: null,
-        archiveFile: null, absentText: null, superseded: null,
+        archiveFile: null, absentText: null, superseded: null, runCheck: null,
         extras: { state: 'idle', error: null, map: null, promise: null, settle: null, parts: null, loaded: [], totals: [], finished: [] },
         shards: new Map()
     }, fields);
@@ -1676,6 +1678,61 @@ function noteSuperseded(r, problem) {
     if (problem && problem.kind === 'newer' && !r.superseded) r.superseded = problem;
 }
 
+// Whether the run a dataset was loaded from has left the server: asked when
+// one of its files answers with an HTTP error, which carries no run stamp.
+// The engine deletes a split dataset's class files when the split is switched
+// off (the rollback; the next run publishes whole-record parts) and when a
+// snapshot is pruned, so their 404 is the one sign of a newer run there is.
+// The latest dataset's run is the one data/run.json names: LATEST_RUN_STAMP
+// may already name a later one, else the file is read again past every cache
+// (fetchRun keeps its first answer for the page). A snapshot is still published
+// while history.json lists its date, as the kind of dataset the page shows: a
+// split snapshot that is now an aggregate archive, or an archive whose own
+// file it no longer names, has changed. Resolves to a 'newer' problem (16a:
+// the page offers Reload), or null: the run is still there, or the server's
+// file cannot be read, and the error stands.
+async function runLeftServer(r) {
+    const fresh = url => fetch(url, { cache: 'no-store' })
+        .then(resp => (resp.ok ? resp.json() : null))
+        .catch(() => null);
+    const later = stamp => typeof stamp === 'string' && Date.parse(stamp) > Date.parse(r.stamp);
+    if (r.key === 'latest') {
+        let stamp = LATEST_RUN_STAMP;
+        if (!later(stamp)) {
+            const run = await fresh('data/run.json');
+            stamp = run ? run.extracted_at : null;
+        }
+        return later(stamp) ? { kind: 'newer', text: `the server has the run of ${stamp}, newer than ${r.stamp}` } : null;
+    }
+    const history = await fresh('history.json');
+    if (!history || !Array.isArray(history.dates)) return null;
+    const archives = history.archives && typeof history.archives === 'object' ? history.archives : {};
+    const entry = archives[r.key] && typeof archives[r.key] === 'object' ? archives[r.key] : null;
+    const changed = !history.dates.includes(r.key)
+        || (r.mode === 'split' && !!entry && entry.kind === 'aggregate')
+        || (r.mode === 'archive' && archiveDetailFile(history, r.key) !== r.archiveFile);
+    return changed ? { kind: 'newer', text: `the server no longer publishes the ${r.key} snapshot this page shows` } : null;
+}
+
+// Why one of a dataset's files did not load (loadProblem). An HTTP error from
+// a split dataset or an archive's own file is first checked against the
+// server's run (runLeftServer), so files that went with their run say Reload,
+// not Try again; one check at a time per dataset, which the files failing
+// together share, and none once the dataset is known to be superseded. The
+// March files belong to no run: their errors stand as they are.
+async function sidecarFailure(r, err) {
+    const problem = loadProblem(err);
+    if (problem.kind !== 'http' || (r.mode !== 'split' && r.mode !== 'archive')) return problem;
+    if (r.superseded) return r.superseded;
+    if (!r.runCheck) {
+        r.runCheck = runLeftServer(r).then(found => {
+            r.runCheck = null;
+            return found;
+        });
+    }
+    return (await r.runCheck) || problem;
+}
+
 // Load a dataset's Studies-tab extras, all or nothing: the files are fetched
 // in parallel, their bytes summed for the status row, and nothing is used
 // until every one has loaded, so "none" never stands in for "did not load".
@@ -1731,9 +1788,9 @@ function loadStudiesTabExtras(r) {
             part.data = own ? Object.fromEntries(Object.keys(body.data).filter(id => own.has(id)).map(id => [id, body.data[id]])) : body.data;
             x.finished[i] = true;
             extrasPartSettled(r, parts, null);
-        }, err => {
+        }, async err => {
+            const problem = await sidecarFailure(r, err);
             part.state = 'failed';
-            const problem = loadProblem(err);
             noteSuperseded(r, problem);
             console.warn(`The ${extrasWhat(r)} did not load: ${err.message}`);
             extrasPartSettled(r, parts, problem);
@@ -1803,10 +1860,11 @@ function loadShard(r, n) {
         shard.state = 'loaded';
         const others = [...r.shards].filter(([k, s]) => k !== n && s.state === 'loaded');
         others.slice(0, Math.max(0, others.length + 1 - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
-    }, err => {
+    }, async err => {
+        const problem = await sidecarFailure(r, err);
         shard.state = 'failed';
-        shard.error = loadProblem(err);
-        noteSuperseded(r, shard.error);
+        shard.error = problem;
+        noteSuperseded(r, problem);
         console.warn(`Could not load ${url}: ${err.message}`);
     });
     return shard.promise;

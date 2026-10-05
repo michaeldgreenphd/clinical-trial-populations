@@ -657,6 +657,123 @@ test('a newer run on the server is not downloaded again; this run\'s shards are 
     assert.match(s.overlay('breakdown-overlay'), /Harbor Clinic/);
 });
 
+test('class files gone with a newer run (the rollback) say Reload, not Try again', T, async () => {
+    // Switching the split off (layout.enabled back to false) makes the next run
+    // publish whole-record parts and delete detail/ and the studies_tab parts.
+    // A 404 carries no run stamp, so a tab left open on the split run said "did
+    // not load (HTTP 404). Try again" for good, and never offered 16a's Reload.
+    const files = split();
+    const run = (stamp) => ({ extracted_at: stamp, pipeline_commit: stamp === STAMP ? 'abc1234' : 'fff9999' });
+    const h = harness({ files: { ...files, 'data/run.json': run(STAMP) } });
+    h.run(`LATEST_RUN_STAMP = '${STAMP}'`);
+    await h.run('loadData()');
+    h.run(`showGeographyBreakdown('${IDS[0]}')`);
+    await h.flush();
+    assert.match(h.overlay('breakdown-overlay'), /Harbor Clinic/);
+    for (const p of Object.keys(h.served)) if (/\/detail\/|\/studies_tab\./.test(p)) delete h.served[p];
+    h.served['data/run.json'] = run(NEWER);
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(h.status().text, 'The data was updated since this page loaded.');
+    assert.equal(h.status().action, 'Reload');
+    assert.match(h.el('studies-table-body').innerHTML, /class="cell-failed" title="The data was updated since this page loaded\.">did not load/);
+    const other = IDS.find((id) => shard4(id) !== shard4(IDS[0]));
+    h.run(`showStudyDetails('${other}')`);
+    await h.flush();
+    const modal = h.overlay();
+    assert.match(modal, /<h5>Study Sites<\/h5>\s*<p class="detail-state is-failed" data-state="sites" tabindex="-1">The data was updated since this page loaded\. <button type="button" class="detail-action" onclick="location\.reload\(\)" data-state="sites">Reload<\/button>/);
+    assert.doesNotMatch(modal, /Try again|HTTP 404/);
+    // run.json was read again past every cache (the startup copy is kept for
+    // the page), once for the eight parts that failed together, and not again
+    // once the dataset was known to be superseded.
+    assert.deepEqual(h.requests.filter((r) => r.path === 'data/run.json').map((r) => r.cache), ['no-store'], 'data/run.json was not read again past the cache, once');
+    assert.equal(h.run('datasetReader.superseded.kind'), 'newer');
+    // Nothing is downloaded for the extras again, and Reload reloads.
+    const pack = () => h.paths().filter((p) => p.includes('studies_tab')).length;
+    const before = pack();
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    assert.equal(pack(), before, 'the extras were fetched again after a newer run showed up');
+    h.run('studiesExtrasAction()');
+    assert.equal(h.reloads(), 1);
+
+    // The same 404 while the server still names this run (or an earlier one, a
+    // CDN behind, or none): a file of this run is missing, and Try again stands.
+    const n = shard4(IDS[0]);
+    for (const [what, named] of [['this run', run(STAMP)], ['an earlier run', run(OLDER)], ['no run.json', undefined]]) {
+        const s = harness({ files: { ...files, [`data/detail/${n}.json.gz`]: undefined, 'data/run.json': named } });
+        s.run(`LATEST_RUN_STAMP = '${STAMP}'`);
+        await s.run('loadData()');
+        s.run(`showStudyDetails('${IDS[0]}')`);
+        await s.flush();
+        assert.match(s.overlay(), /Sites did not load \(HTTP 404\)\. <button[^>]*>Try again/, `with ${what} on the server`);
+        assert.equal(s.run('datasetReader.superseded'), null, `with ${what} on the server`);
+    }
+
+    // A returning visitor in the deploy window: run.json already names the
+    // newer run and the CDN still serves the split parts (shown under their
+    // own date). Their class files 404: Reload, without asking run.json again.
+    const late = harness({ files: { ...Object.fromEntries(Object.entries(files).filter(([p]) => !/\/detail\/|\/studies_tab\./.test(p))), 'data/run.json': run(NEWER) } });
+    late.run(`LATEST_RUN_STAMP = '${NEWER}'`);
+    await late.run('loadData()');
+    assert.equal(late.run('datasetReader.stamp'), STAMP);
+    late.run(`showStudyDetails('${IDS[0]}')`);
+    await late.flush();
+    assert.match(late.overlay(), /The data was updated since this page loaded\. <button[^>]*>Reload/);
+    assert.ok(!late.paths().includes('data/run.json'));
+});
+
+test('a snapshot pruned while it is open says Reload, and so does an archive whose file went', T, async () => {
+    // history.json lists the dates still published (prune_snapshots rewrites
+    // it), and names an aggregate archive's own file.
+    const date = '2026-10-18';
+    const files = split({ base: `snapshots/${date}` });
+    const sidecar = (p) => p.startsWith(`snapshots/${date}/detail/`) || p.startsWith(`snapshots/${date}/studies_tab.`);
+    const open = async (history) => {
+        const h = harness({ files: { ...files, 'history.json': { dates: [date] } } });
+        await h.run(`loadData('${date}')`);
+        assert.equal(h.run('datasetReader.mode'), 'split');
+        for (const p of Object.keys(h.served)) if (sidecar(p)) delete h.served[p];
+        h.served['history.json'] = history;
+        h.run(`showStudyDetails('${IDS[0]}')`);
+        await h.flush();
+        return h;
+    };
+    const gone = await open({ dates: ['2026-10-25'] });
+    assert.match(gone.overlay(), /The data was updated since this page loaded\. <button[^>]*>Reload/, 'a deleted snapshot offers Try again');
+    assert.ok(gone.requests.some((r) => r.path === 'history.json' && r.cache === 'no-store'), 'history.json was not read again past the cache');
+    const aggregate = await open({ dates: [date, '2026-10-25'], archives: { [date]: { kind: 'aggregate' } } });
+    assert.match(aggregate.overlay(), /The data was updated since this page loaded\. <button[^>]*>Reload/, 'a snapshot that became an aggregate archive offers Try again');
+    const kept = await open({ dates: [date, '2026-10-25'] });
+    assert.match(kept.overlay(), /Sites did not load \(HTTP 404\)\. <button[^>]*>Try again/);
+    const unread = await open(undefined);
+    assert.match(unread.overlay(), /Sites did not load \(HTTP 404\)\. <button[^>]*>Try again/);
+    // An aggregate archive's own file of study records.
+    const day = '2026-04-26';
+    const archived = {
+        [`snapshots/${day}/dashboard-summary.json`]: archiveSummary(day),
+        [`snapshots/${day}/archive_records.json.gz`]: { source_extracted_at: `${day}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive', data: { [IDS[0]]: RECORDS[0] } }
+    };
+    const named = { dates: [day], archives: { [day]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } };
+    for (const [history, reload] of [[{ dates: [] }, true], [{ dates: [day] }, true], [named, false]]) {
+        const a = harness({ files: { ...archived, 'history.json': named }, history: named });
+        await a.run(`loadData('${day}')`);
+        assert.equal(a.run('datasetReader.mode'), 'archive');
+        delete a.served[`snapshots/${day}/archive_records.json.gz`];
+        a.served['history.json'] = history;
+        a.run(`showStudyDetails('${IDS[0]}')`);
+        await a.flush();
+        assert.match(a.overlay(), reload ? /The data was updated since this page loaded\. <button[^>]*>Reload/ : /did not load \(HTTP 404\)\. <button[^>]*>Try again/, JSON.stringify(history));
+    }
+    // The March files belong to no run: their 404 stays one, and asks nothing more.
+    const legacy = harness({ files: { 'snapshots/2026-02-22/dashboard-summary.json': archiveSummary('2026-02-22'), 'history.json': { dates: [] } }, history: null });
+    await legacy.run("loadData('2026-02-22')");
+    legacy.run(`showStudyDetails('${IDS[0]}')`);
+    await legacy.flush();
+    assert.match(legacy.overlay(), /Sites did not load \(HTTP 404\)/);
+    assert.ok(!legacy.paths().includes('history.json'));
+});
+
 test('a file that does not match its header or its studies is not used', T, async () => {
     const n = shard4(IDS[0]);
     const mismatch = /did not load \(.*\)\. <button/;
@@ -942,13 +1059,19 @@ test('after a part of the extras fails, a later call fetches only what failed, n
     await h.run('loadData()');
     h.hold();   // the parts that exist are slow; part 3's 404 answers first
     h.run('prepareStudiesTab()');
-    await h.release((p) => p === part3);
-    await h.release((p) => p === part3);   // its 404, asked for once more past the cache
+    // Part 3's 404 (asked for past the cache on a retry), then the server's
+    // run, read to see whether the file went with it (it did not).
+    const part3Fails = async () => {
+        await h.release((p) => p === part3);
+        await h.release((p) => p === 'data/run.json');
+    };
+    await h.release((p) => p === part3);   // its first 404, asked for once more past the cache
+    await part3Fails();
     assert.equal(h.run('datasetReader.extras.state'), 'failed');
     assert.match(h.status().text, /did not load \(HTTP 404\)/);
     for (let i = 0; i < 3; i++) {
         h.run(`showBreakdown('${IDS[0]}', 'race')`);   // a user clicking three check marks
-        await h.release((p) => p === part3);
+        await part3Fails();
     }
     const tab = () => h.paths().filter((p) => p.includes('studies_tab'));
     assert.deepEqual(h.requests.filter((r) => r.path === part3).map((r) => r.cache), [undefined, 'reload', 'reload', 'reload', 'reload'],
