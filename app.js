@@ -1296,6 +1296,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateLoadingProgress(90, 'Drawing charts');
         renderDashboard();
         updateLoadingProgress(100, 'Ready');
+        // The first view, if it painted: the records' Overview is up, so
+        // the rest of the page opens, before the deep links below click
+        // anything (a click on a control still waiting does nothing).
+        settleFirstView();
 
         // Deep links: restore the tab (and desktop filter state) from the
         // hash once the first render is up, then start writing share URLs.
@@ -1306,9 +1310,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
-        // The first view, if it painted: the records' Overview is up, so
-        // the rest of the page opens.
-        settleFirstView();
 
         if (!dashboardSummary) {
             initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)

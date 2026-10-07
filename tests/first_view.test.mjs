@@ -220,7 +220,7 @@ const ELSEWHERE = [
     'renderSexReportedParticipants', 'renderSexFullDistribution', 'renderSexDistribution', 'renderSexTrends',
     'renderGenderReportedParticipants', 'renderGenderFullDistribution', 'renderGenderDistribution',
     'renderGenderTrends', 'renderFdaOversight', 'renderGeographyDashboard', 'labelChartsForA11y',
-    'resetFilters', 'updateShareUrl'
+    'resetFilters', 'updateShareUrl', 'sgOpenMethods', 'updateLoadingProgress'
 ];
 // Filters that apply only away from the default view: they throw, so a
 // default view that ran one would fail.
@@ -251,8 +251,24 @@ const SITE = [
     constLine('RECORDS_PENDING_CONTROLS'),
     fnSource('function setRecordsPending(on)'),
     fnSource('function settleFirstView()'),
-    fnSource('function firstViewFailed(err)')
+    fnSource('function firstViewFailed(err)'),
+    // What startup runs once the records are drawn: the deep-link hooks.
+    fnSource('function applyRouteFromHash()'),
+    fnSource('function sgRouteHooks()')
 ].join('\n');
+
+// Startup, and its tail from the records' render through the hand-over
+// (the deep links run in it).
+const STARTUP = (() => {
+    const init = app.slice(app.indexOf("document.addEventListener('DOMContentLoaded', async () => {"));
+    return init.slice(0, init.indexOf('\n});\n'));
+})();
+const STARTUP_TAIL = (() => {
+    const a = STARTUP.indexOf("updateLoadingProgress(90, 'Drawing charts');");
+    const b = STARTUP.search(/if \(!dashboardSummary\) \{\s*initHistorySelector\(\);/);
+    assert.ok(a >= 0 && b > a, 'startup lost its render … history selector tail');
+    return STARTUP.slice(a, b);
+})();
 
 // One page: index.html's controls at their defaults, the app's Overview
 // code, and switches for what the first view reads from the page around it.
@@ -279,6 +295,7 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         renderLoadingFigure: (s) => figures.push(s),
         hideLoadingOverlay: () => { const o = byId.get('loading-overlay'); if (o) o.classList.add('fade-out'); },
         fetchRun: async () => run,
+        location: { hash, search },
         __mobile: mobile, __hash: hash, __search: search, __runStamp: runStamp
     };
     for (const name of ELSEWHERE) sandbox[name] = () => {};
@@ -290,7 +307,7 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         'let LATEST_RUN_STAMP = __runStamp;',
         "const COLORS = { reporting: { race: '#000000', ethnicity: '#000000', both: '#000000' } };",
         'const CHART_ASPECT_RATIO = undefined;',
-        'let firstViewShown = null; let firstViewClosed = false;',
+        'let firstViewShown = null; let firstViewClosed = false; var shareUrlReady = false;',
         SITE,
         // The counts renderDashboard hands its finding.
         'var __finding = [];',
@@ -668,6 +685,28 @@ test('a failed load after the first view says so in the strip and keeps the rest
     assert.equal(p.run('firstViewShown'), null);
 });
 
+test('a deep-link hook that clicks a waiting control finds it open: ?sgfilters=1 opens the filters', async () => {
+    const records = syntheticRecords();
+    const p = page({ search: '?sgfilters=1' });
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(blockFor(records))), true, '?sgfilters=1 no longer paints the first view');
+    const panel = p.el('filters'), toggle = p.el('filter-summary-toggle');
+    assert.ok(panel.hidden, 'index.html opens the filter panel');
+    assert.ok(toggle.disabled, 'the Filters button is open before the records');
+    // As in a browser: HTMLElement.click() does nothing on a disabled control.
+    toggle.click = () => {
+        if (toggle.disabled) return;
+        panel.hidden = !panel.hidden;
+        toggle.setAttribute('aria-expanded', String(!panel.hidden));
+    };
+    p.context.__records = records;
+    p.run('data = __records; initFilters();');
+    p.run(STARTUP_TAIL);
+    assert.ok(!toggle.disabled);
+    assert.equal(panel.hidden, false, 'the ?sgfilters=1 link clicked the Filters button while it still waited for the records');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.deepEqual(p.warnings, []);
+});
+
 // ── 4. Off, and without the block: as before ───────────────────────────────
 
 for (const [name, opts, summary] of [
@@ -707,7 +746,11 @@ test('startup wires the first view in, and never through dashboardSummary', () =
     };
     assert.ok(at('fetchLatestSummary().then(firstViewOrFigure,') < at('await loadData();'));
     assert.match(body, /await loadData\(\);\s*firstViewClosed = true;/, 'the startup load does not close the first view');
-    assert.ok(at('renderDashboard();') < at('hideLoadingOverlay();') && at('hideLoadingOverlay();') < at('settleFirstView();'));
+    // The page opens right after the records draw, before the deep links run
+    // (a hook that clicks a waiting control would find it disabled).
+    assert.ok(at('renderDashboard();') < at('settleFirstView();'));
+    assert.ok(at('settleFirstView();') < at('applyRouteFromHash();') && at('settleFirstView();') < at('sgRouteHooks();'),
+        'the deep links run before the page opens');
     const fail = body.slice(body.indexOf('} catch (err) {'));
     assert.match(fail, /firstViewClosed = true;[\s\S]*if \(firstViewShown\) firstViewFailed\(err\);/);
     for (const sig of ['function firstViewBlock(summary)', 'function firstViewProblem(summary, run)', 'function overviewOnScreen()',
