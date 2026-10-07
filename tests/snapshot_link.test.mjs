@@ -59,7 +59,12 @@ const SOURCES = [
     fnSource('function datasetKey(date)'),
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
+    // The latest parts go through fetchPart (PR #257), and the start-up's
+    // load of the latest data through loadStartupRecords, its Try again.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('async function loadData(date)'),
+    fnSource('async function loadStartupRecords()'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
     fnSource('function requestedSnapshot()'),
@@ -70,6 +75,7 @@ const SOURCES = [
     line('const RUN_RECHECK_WAIT_MS ='),
     fnSource('async function recheckRun()'),
     fnSource('function adoptRecheckedRun(run)'),
+    fnSource('function listHistoryDates(select, manifest)'),
     fnSource('async function initHistorySelector()'),
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
@@ -108,6 +114,13 @@ function renderIndustryAfterSwitch() {}   // no Industry view open (industry_swi
 function labelChartsForA11y() {}
 function updateShareUrl() {}
 async function fetchLatestSummary() { return null; }
+// The first view's side of the start-up (PR #257): the startup load closes
+// it, and a failed load of the latest data is offered again with Try again
+// (startupFailed's retry), which a test presses.
+let firstViewClosed = false;
+const startupFailures = []; let retryStartup = null; let retries = 0;
+function startupFailed(err, retry) { startupFailures.push(err.message); retryStartup = retry || null; }
+function startupRetrying() { retries++; retryStartup = null; }
 `;
 
 const RUN = { extracted_at: '2026-10-04T12:09:21.454200+00:00', pipeline_commit: 'abc1234' };
@@ -504,6 +517,71 @@ test('a late run.json: a start-up link checks data/\'s parts against the re-read
     assert.deepEqual(toasts(h), []);
 });
 
+// ── With the first view (PR #257) ──
+// A link naming sgsnapshot never paints the first view (firstViewProblem;
+// tests/first_view.test.mjs), so its start-up has no strip under an Overview:
+// what goes wrong is said on the loading screen, then in the toast.
+
+test('the start-up load closes the first view, whichever dataset it opens', async () => {
+    for (const search of ['', '?sgsnapshot=2026-08-02', '?sgsnapshot=2026-07-05', '?sgsnapshot=2026-05-31']) {
+        const h = harness(site(), { search });
+        assert.equal(h.run('firstViewClosed'), false);
+        await h.startup();
+        assert.equal(h.run('firstViewClosed'), true, `${search || 'no link'}: a summary answering now could still paint`);
+        assert.deepEqual(JSON.parse(h.run('JSON.stringify(startupFailures)')), [], search);
+    }
+});
+
+test('a listed snapshot that fails, then latest data that fails once: one failure on screen at a time, then the toast', async () => {
+    // snapshots/2026-05-31/ holds nothing; data/'s part 3 answers 503 once.
+    let asked = 0;
+    const flaky = site({
+        'data/demographics.part3.json.gz': () => (++asked === 1
+            ? new Response('busy', { status: 503 })
+            : json({ extracted_at: RUN.extracted_at, part: 3, total_parts: 8, data: [{ nct_id: 'NCT00000003', from: 'data' }] }))
+    });
+    const h = harness(flaky, { search: '?sgsnapshot=2026-05-31' });
+    await h.run('dataKeyReady()');
+    const startup = finishStartup(h.run);
+    // Wait for the latest data's failure to reach the loading screen.
+    for (let i = 0; i < 50 && !h.run('retryStartup'); i++) await tick();
+    // The loading screen says the latest data stopped, with Try again; the
+    // snapshot's failure waits for the page to be up.
+    const failures = JSON.parse(h.run('JSON.stringify(startupFailures)'));
+    assert.equal(failures.length, 1, JSON.stringify(failures));
+    assert.match(failures[0], /HTTP 503 for data\/demographics\.part3/);
+    assert.equal(typeof h.run('retryStartup'), 'function', 'the latest data is not offered again');
+    assert.deepEqual(toasts(h), [], 'the snapshot was reported over the loading screen');
+    // Try again: the part that failed goes past the browser cache; the
+    // snapshot is not asked for again.
+    const before = h.calls.length;
+    h.run('retryStartup()');
+    assert.equal(await startup, null);
+    const again = h.calls.slice(before);
+    assert.deepEqual(again.filter((c) => c.url.includes('part3')).map((c) => c.cache), ['reload']);
+    assert.deepEqual(again.filter((c) => c.url.includes('snapshots/')), [], 'Try again asked the snapshot again');
+    assert.equal(h.run('retries'), 1);
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data'));
+    assert.equal(h.run('firstViewClosed'), true);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(sgLoads)')), [null]);
+    assert.equal(h.select.value, 'latest');
+    // Once up, the snapshot's failure is said once.
+    const said = toasts(h);
+    assert.equal(said.length, 1, JSON.stringify(said));
+    assert.match(said[0].message, /^Snapshot "2026-05-31" unavailable: .*\. Showing the latest data\.$/);
+});
+
+test('a snapshot link\'s own failure is not offered again: only the latest data has Try again', async () => {
+    // The snapshot fails and the latest data loads: no Try again at all.
+    const h = harness(site(), { search: '?sgsnapshot=2026-05-31' });
+    await h.startup();
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify(startupFailures)')), []);
+    assert.equal(h.run('retries'), 0);
+    // A snapshot's parts are fixed once listed: a 404 is not asked again past
+    // the cache (fetchPart is for the latest parts only).
+    assert.deepEqual(h.calls.filter((c) => c.url.startsWith('snapshots/') && c.cache === 'reload'), []);
+});
+
 // ── The start-up and the hooks around it ──
 
 const init = (() => {
@@ -527,7 +605,11 @@ test('the start-up\'s first data load is the link\'s dataset, and the selector n
     assert.ok(!/showToast/.test(init), 'the start-up shows a toast of its own');
     assert.ok(at('hideLoadingOverlay();') < at('if (startupFailure) reportStartupFailure(startupFailure);'));
     const load = fnSource('async function loadStartupDataset(requested)');
-    assert.ok(load.indexOf('await startupSnapshot(requested)') < load.indexOf('await loadData(opened || undefined)'));
+    assert.ok(load.indexOf('await startupSnapshot(requested)') < load.indexOf('await loadData(opened)'));
+    // The latest data, the link's fallback included, loads with Try again
+    // (loadStartupRecords), and the load closes the first view either way.
+    assert.ok(load.indexOf('await loadData(opened)') < load.indexOf('if (!opened) await loadStartupRecords();'));
+    assert.match(load, /if \(!opened\) await loadStartupRecords\(\);[\s\S]*firstViewClosed = true;[\s\S]*await sgLoad\(/);
     assert.match(load, /await sgLoad\(opened \|\| undefined\);/);
 });
 

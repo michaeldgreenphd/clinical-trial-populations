@@ -46,6 +46,9 @@ const SOURCES = [
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
     fnSource('async function fetchAndDecompress(url, onProgress, init)'),
+    // loadData's part fetch: a 4xx is asked for again past the cache.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('function formatLoadMB(bytes)'),
     fnSource('function describePartsProgress(loaded, totals, finished)'),
     fnSource('function partsFromDifferentRuns(parts)'),

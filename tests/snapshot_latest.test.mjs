@@ -43,11 +43,15 @@ const SOURCES = [
     fnSource('function datasetKey(date)'),
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
+    // loadData's part fetch: a 4xx is asked for again past the cache.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('async function loadData(date)'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),
     fnSource('async function initHistorySelector()'),
+    fnSource('function listHistoryDates(select, manifest)'),
     // The change handler drops what is not on screen (PR #253).
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
@@ -56,6 +60,8 @@ const SOURCES = [
     fnSource('function requestedSnapshot()'),
     fnSource('async function startupSnapshot(requested)'),
     fnSource('async function loadStartupDataset(requested)'),
+    // Its load of the latest data, with Try again (PR #257).
+    fnSource('async function loadStartupRecords()'),
     fnSource('function selectSnapshotOption(date)'),
     app.slice(app.indexOf('const RUN_RECHECK_WAIT_MS ='), app.indexOf('\n', app.indexOf('const RUN_RECHECK_WAIT_MS ='))),
     fnSource('async function recheckRun()'),
@@ -96,6 +102,12 @@ function updateShareUrl() {}
 function sgOpenMethods() {}
 function loadStudyColumns() { return new Set(); }
 async function fetchLatestSummary() { return null; }
+// The first view's side of the start-up (PR #257): the startup load closes
+// it. A failed load of the latest data rejects here instead of waiting for
+// Try again (snapshot_link.test.mjs presses it).
+let firstViewClosed = false;
+function startupFailed(err) { throw err; }
+function startupRetrying() {}
 const SG_INITIAL_HASH = '';
 const SG_INITIAL_SEARCH = location.search;
 `;

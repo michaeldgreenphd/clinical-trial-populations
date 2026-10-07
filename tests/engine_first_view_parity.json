@@ -1,0 +1,7 @@
+{
+  "about": "tests/engine_first_view_parity.mjs is civicsample-engine's scripts/first_view_parity.mjs, byte for byte, at the commit below (engine main after PR #24 merged, the gate that stubs every other top-level app.js function, records the calls and flips their answers; the script is the same as at #24's head, 2aaef5f): the check the engine's weekly publish runs on this site's app.js and index.html, over the staged data parts, before it publishes a firstView block. tests/first_view.test.mjs runs it on this checkout and reads its stub document and runtime from it. Refresh both files together when the engine changes the script; never edit the copy.",
+  "repository": "michaeldgreenphd/civicsample-engine",
+  "path": "scripts/first_view_parity.mjs",
+  "commit": "f7c3a97c1d04afb05bdfee8a92e6d2077a0b6903",
+  "sha256": "dcf8b087c4a5b8eb86e154d29434e66414c5b8c46c47db5978d8086610eec6a3"
+}

@@ -39,7 +39,7 @@ function toolsGroup() {
 
 test('the Industry Sponsors button sits inside the Tools nav group', () => {
   const group = toolsGroup();
-  assert.match(group, /<button class="tab" data-tab="industry">Industry Sponsors<\/button>/,
+  assert.match(group, /<button class="tab" data-tab="industry"[^>]*>Industry Sponsors<\/button>/,
     'the Tools group has no Industry Sponsors tab button — the view is only reachable by URL again');
   const all = [...html.matchAll(/data-tab="industry"/g)];
   assert.equal(all.length, 1, `expected exactly one data-tab="industry" button in the nav, found ${all.length}`);

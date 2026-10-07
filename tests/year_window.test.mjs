@@ -336,7 +336,7 @@ test('no year logic is written against a fixed final year', () => {
                        'function industryFilteredRows()', 'function disableFiltersForMobile()',
                        'function datasetLatestYear()', 'function paintYearSlider()',
                        'function noteYearChoice(', 'function noteYearFromLink(', 'function yearWindowRequest()',
-                       'function syncYearWindow()', 'function resetYearWindow()', 'function yearWindowEnds()',
+                       'function syncYearWindow(', 'function resetYearWindow()', 'function yearWindowEnds()',
                        'function shareYearValue(', 'function updateShareUrl()', 'function applyShareParams(']) {
         const code = fnSource(sig).replace(/^\s*\/\/.*$/gm, '');   // comments may name years
         assert.doesNotMatch(code, /\b20(2[6-9]|[3-9]\d)\b|2100/, `${sig} still names a final year`);

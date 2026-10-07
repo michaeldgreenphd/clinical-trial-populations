@@ -111,7 +111,8 @@ function harness() {
         fnSource('function datasetKey(date)'),
         // The change handler counts and checks the dataset on screen (PR #251).
         fnSource('function datasetLoaded()'), fnSource('function datasetStudyCount()'), 'let dashboardSummary = null;'];
-    vm.runInContext([SCAFFOLD, ...newest, fnSource('function retainSnapshots(onScreen)'), fnSource('async function initHistorySelector()')].join('\n'), ctx);
+    vm.runInContext([SCAFFOLD, ...newest, fnSource('function retainSnapshots(onScreen)'), fnSource('async function initHistorySelector()'),
+        fnSource('function listHistoryDates(select, manifest)')].join('\n'), ctx);
     const run = (code) => vm.runInContext(code, ctx);
     // An array or object from the vm, as one of this realm's.
     const json = (code) => JSON.parse(run(`JSON.stringify(${code})`));

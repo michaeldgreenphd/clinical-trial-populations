@@ -707,7 +707,8 @@ test('the ?view=forest route over an archive draws the forest line', async () =>
 // route (openIndustryView) must do the same, archive or not, or the Industry
 // view's Year Range and Condition controls, and the line saying it applies
 // them, stay invisible though its Filters button is on. The real initTabs and
-// openIndustryView run here, over four tabs.
+// openIndustryView run here, over four tabs, with the real closeNavGroups a
+// tab click calls first (no nav menus on this page: it closes none).
 const TABS_PAGE = `
 const TAB_IDS = ['overview', 'geography', 'faq', 'industry'];
 document.querySelectorAll = (sel) => sel === '.tab'
@@ -729,7 +730,8 @@ function renderGeographyDashboard() {} function updateShareUrl() {} function lab
 function tabsHarness(opts) {
     const h = harness(opts);
     setControls(h);
-    h.run(TABS_PAGE + fnSource('function initTabs()') + '\n' + fnSource('async function openIndustryView()'));
+    h.run(TABS_PAGE + fnSource('function closeNavGroups(except)') + '\n' + fnSource('function initTabs()') + '\n'
+        + fnSource('async function openIndustryView()'));
     h.run('initFilterSummary(); initTabs();');
     const shown = (id) => h.el(id).style.display !== 'none';
     return {
