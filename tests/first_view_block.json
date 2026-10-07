@@ -1,0 +1,147 @@
+{
+  "about": "The firstView block of the 2026-10-04 run's dashboard-summary.json, as civicsample-engine (PR #23, src/first_view.py) writes it from that run's full records, with the summary's top-level stamps. tests/first_view.test.mjs paints it next to the records in data/ while data/dashboard-summary.json has no block of its own (until the 2026-10-11 run publishes one); it is used only while its stamps are the parts'. Never edited by hand.",
+  "extracted_at": "2026-10-04T12:09:21.454200+00:00",
+  "pipeline_commit": "d853532eb8b1297e6333653e81bce5bea9caed4e",
+  "totalStudies": 80320,
+  "firstView": {
+    "about": [
+      "The Overview as it opens: what it paints, counted from the week's full records by the site's own rules (civicsample-engine src/first_view.py). The site formats these counts.",
+      "filter: study_type exactly INTERVENTIONAL; results year (the first four characters of results_date) from results_year_from, with no upper bound (results_year_to null); every other filter at All. newest_results_year: the newest results year of any study type in the file, where the year slider ends.",
+      "Each percentage is a numerator over the trials of its scope, as denominators names: the whole view, or one year of by_results_year (years with trials only). A trial whose race.reported (ethnicity.reported) is not set counts in trials and not in the numerator.",
+      "not_counted: the file's other studies, by the first rule they fail. trials plus these is totalStudies."
+    ],
+    "extracted_at": "2026-10-04T12:09:21.454200+00:00",
+    "pipeline_commit": "d853532eb8b1297e6333653e81bce5bea9caed4e",
+    "filter": {
+      "study_type": "INTERVENTIONAL",
+      "results_year_from": 2009,
+      "results_year_to": null,
+      "other_filters": "none"
+    },
+    "newest_results_year": 2026,
+    "trials": 75607,
+    "trials_reporting_race": 44516,
+    "trials_reporting_ethnicity": 30733,
+    "trials_reporting_race_and_ethnicity": 28995,
+    "denominators": {
+      "trials_reporting_race": "trials",
+      "trials_reporting_ethnicity": "trials",
+      "trials_reporting_race_and_ethnicity": "trials"
+    },
+    "by_results_year": {
+      "2009": {
+        "trials": 1043,
+        "trials_reporting_race": 389,
+        "trials_reporting_ethnicity": 164,
+        "trials_reporting_race_and_ethnicity": 162
+      },
+      "2010": {
+        "trials": 1505,
+        "trials_reporting_race": 354,
+        "trials_reporting_ethnicity": 175,
+        "trials_reporting_race_and_ethnicity": 169
+      },
+      "2011": {
+        "trials": 2042,
+        "trials_reporting_race": 371,
+        "trials_reporting_ethnicity": 183,
+        "trials_reporting_race_and_ethnicity": 175
+      },
+      "2012": {
+        "trials": 2598,
+        "trials_reporting_race": 462,
+        "trials_reporting_ethnicity": 267,
+        "trials_reporting_race_and_ethnicity": 255
+      },
+      "2013": {
+        "trials": 2930,
+        "trials_reporting_race": 463,
+        "trials_reporting_ethnicity": 259,
+        "trials_reporting_race_and_ethnicity": 250
+      },
+      "2014": {
+        "trials": 4531,
+        "trials_reporting_race": 1158,
+        "trials_reporting_ethnicity": 630,
+        "trials_reporting_race_and_ethnicity": 596
+      },
+      "2015": {
+        "trials": 3546,
+        "trials_reporting_race": 992,
+        "trials_reporting_ethnicity": 596,
+        "trials_reporting_race_and_ethnicity": 560
+      },
+      "2016": {
+        "trials": 3868,
+        "trials_reporting_race": 1100,
+        "trials_reporting_ethnicity": 658,
+        "trials_reporting_race_and_ethnicity": 614
+      },
+      "2017": {
+        "trials": 5596,
+        "trials_reporting_race": 2243,
+        "trials_reporting_ethnicity": 1347,
+        "trials_reporting_race_and_ethnicity": 1259
+      },
+      "2018": {
+        "trials": 4480,
+        "trials_reporting_race": 2654,
+        "trials_reporting_ethnicity": 1655,
+        "trials_reporting_race_and_ethnicity": 1547
+      },
+      "2019": {
+        "trials": 6027,
+        "trials_reporting_race": 4033,
+        "trials_reporting_ethnicity": 2525,
+        "trials_reporting_race_and_ethnicity": 2320
+      },
+      "2020": {
+        "trials": 5691,
+        "trials_reporting_race": 4107,
+        "trials_reporting_ethnicity": 2776,
+        "trials_reporting_race_and_ethnicity": 2591
+      },
+      "2021": {
+        "trials": 5516,
+        "trials_reporting_race": 4167,
+        "trials_reporting_ethnicity": 2869,
+        "trials_reporting_race_and_ethnicity": 2688
+      },
+      "2022": {
+        "trials": 3914,
+        "trials_reporting_race": 3304,
+        "trials_reporting_ethnicity": 2397,
+        "trials_reporting_race_and_ethnicity": 2291
+      },
+      "2023": {
+        "trials": 4899,
+        "trials_reporting_race": 4172,
+        "trials_reporting_ethnicity": 3135,
+        "trials_reporting_race_and_ethnicity": 2994
+      },
+      "2024": {
+        "trials": 6320,
+        "trials_reporting_race": 5295,
+        "trials_reporting_ethnicity": 3936,
+        "trials_reporting_race_and_ethnicity": 3737
+      },
+      "2025": {
+        "trials": 6758,
+        "trials_reporting_race": 5657,
+        "trials_reporting_ethnicity": 4378,
+        "trials_reporting_race_and_ethnicity": 4147
+      },
+      "2026": {
+        "trials": 4343,
+        "trials_reporting_race": 3595,
+        "trials_reporting_ethnicity": 2783,
+        "trials_reporting_race_and_ethnicity": 2640
+      }
+    },
+    "not_counted": {
+      "no_results_date": 0,
+      "results_year_not_from_2009": 0,
+      "not_interventional": 4713
+    }
+  }
+}

@@ -54,14 +54,24 @@ const SOURCES = [
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
     fnSource('async function fetchAndDecompress(url, onProgress, init)'),
+    // loadData's part fetch: a 4xx is asked for again past the cache.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('function partsFromDifferentRuns(parts)'),
     fnSource('function stalePartIndexes(parts, expectedStamp)'),
     fnSource('async function refetchStaleParts(parts, expectedStamp, refetch)'),
     fnSource('async function loadData(date)'),
+    // loadData reads data/run.json again when the newest date is not in
+    // snapshots/ (snapshot_link.test.mjs); not reached here.
+    fnSource('function runDate(run)'),
+    slice('const RUN_RECHECK_WAIT_MS =', '\n'),
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),
     fnSource('async function initHistorySelector()'),
+    fnSource('function listHistoryDates(select, manifest)'),
     // The change handler drops what is not on screen (PR #253).
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
