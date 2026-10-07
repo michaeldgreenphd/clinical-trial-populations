@@ -105,7 +105,8 @@ function harness() {
         studyMatchesConditionFilter: () => true, sgRow: () => null, SG_STATE_LABELS: {},
         populateConditionsDropdown() {}, populateCountriesDropdown() {}, populateSecondaryConditionDropdown() {},
         renderDashboard() {},
-        industryRole: 'any', industryDemo: 'sex', industryTrialValue: () => 1
+        industryRole: 'any', industryDemo: 'sex', industryTrialValue: () => 1,
+        industryActive: () => false   // Reset and the chips redraw the Industry view only when it is on screen
     });
     const helpers = between('const YEAR_WINDOW_MIN', 'function initFilters()');
     const share = between('let shareUrlReady = false;', 'function applyRouteFromHash()');
