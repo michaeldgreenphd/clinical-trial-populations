@@ -27,7 +27,12 @@
  *  - the engine's gate itself (its script, copied unchanged and pinned in
  *    tests/engine_first_view_parity.json) passes on this app.js and
  *    index.html, and the pieces it slices run on their own in its runtime,
- *    calling no other app.js function but the ones named in ENGINE_STUBBED.
+ *    calling no other app.js function but the ones named in ENGINE_STUBBED;
+ *  - a phone on the latest summary opens on the same Overview from the same
+ *    block, under the same checks, while its other tabs stay on the
+ *    summary's all-study-type aggregates and its scope line says which
+ *    study types each tab counts (the real summary of the 2026-10-04 run
+ *    with its block, tests/phone_first_view_summary.json).
  *
  * Everything runs app.js's own functions in a vm, over a stub document
  * built from index.html's markup (its controls start at their defaults).
@@ -189,7 +194,7 @@ function buildDocument() {
             const options = [...body.matchAll(/<option(\s[^>]*)?>([\s\S]*?)<\/option>/g)].map((o) => {
                 const a = attributes(o[1]);
                 const text = decode(o[2].replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
-                return { value: 'value' in a ? a.value : text, text, selected: 'selected' in a };
+                return { value: 'value' in a ? a.value : text, text, selected: 'selected' in a, defaultSelected: 'selected' in a };
             });
             let index = Math.max(options.findIndex((o) => o.selected), options.length ? 0 : -1);
             // As a browser's: an appended <option> joins the list.
@@ -258,7 +263,7 @@ const SITE = [
     fnSource('function renderOverviewTileContext('),
     fnSource('function renderOverviewFinding('),
     fnSource('function renderFilterSummary('),
-    fnSource('function renderUnfilteredFilterSummary(el, total)'),
+    fnSource('function renderUnfilteredFilterSummary(el, total, scope)'),
     // The Filters button's archive state, which renderDashboard syncs first
     // (PR #255): the real one, so a records render cannot leave the button
     // the first view holds off looking open, or the reverse.
@@ -283,8 +288,10 @@ const SITE = [
     between('const SHARE_FILTERS = [', 'function shareFilterDefault('),
     constLine('FIRST_VIEW_COUNTS'),
     fnSource('function firstViewBlock(summary)'),
+    fnSource('function firstViewSummaryProblem(summary, run)'),
     fnSource('function firstViewProblem(summary, run)'),
     fnSource('function overviewOnScreen()'),
+    fnSource('function paintOverviewFromBlock(b, years)'),
     fnSource('function paintFirstView(summary)'),
     fnSource('async function firstViewOrFigure(summary)'),
     fnSource('function withdrawFirstView()'),
@@ -302,6 +309,8 @@ const SITE = [
     fnSource('async function loadStartupRecords()'),
     fnSource('function startupFailed(err, retry)'),
     fnSource('function startupRetrying()'),
+    // The phone's Overview from the block, and its scope line.
+    between('// ── Phones: the desktop', '// Initialize\n'),
     // What startup runs once the records are drawn: an open Industry view's
     // redraw (PR #255; the Overview is open here, so it draws nothing) and
     // the deep-link hooks.
@@ -1338,9 +1347,13 @@ const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 //    pieces, so it stays out of renderFilterSummary itself.
 //  - syncFilterToggle (PR #255, first in renderDashboard): the Filters
 //    button's archive state, and over a summary the filter line, as above.
-// Neither paints a tile, the finding or the chart, and each is a lone call
-// statement, so the gate reads no answer from it.
-const ENGINE_STUBBED = ['renderUnfilteredFilterSummary', 'syncFilterToggle'];
+//  - phoneOverview (PR #259, last in renderDashboard's summary painter): a
+//    phone's Overview from the block. It returns at once off a phone or
+//    without a summary on screen, which is every run of the gate, and on a
+//    phone it paints the block's own counts, never the records'.
+// None paints a desktop tile, the finding or the chart, and each is a lone
+// call statement, so the gate reads no answer from it.
+const ENGINE_STUBBED = ['phoneOverview', 'renderUnfilteredFilterSummary', 'syncFilterToggle'];
 
 // The engine script's own lists, slicers, stub document and runtime, from
 // its text (its `export`s dropped: the slices run as a script).
@@ -1490,4 +1503,323 @@ test('the pieces the engine\'s gate slices are all there and run on their own, i
     const ran = Array.from(s.stubbedRan());
     assert.deepEqual(ran.filter((n) => !ENGINE_PARTS.ELSEWHERE.includes(n)), ENGINE_STUBBED,
         'the Overview calls another app.js function the engine\'s gate only stubs: read it, then name it in ENGINE_STUBBED');
+});
+
+// ── 6. Phones: the desktop's Overview from the block ───────────────────────
+// Owner decision 29b. A phone reads dashboard-summary.json; on the latest
+// summary its Overview paints from the firstView block when the block passes
+// the desktop's checks, and every other tab stays on the summary's
+// all-study-type aggregates. tests/phone_first_view_summary.json is the real
+// summary of the 2026-10-04 run with its block, as the engine's first-view
+// branch writes it (the Overview's fields of it).
+
+const PHONE_SUMMARY = (() => {
+    const s = JSON.parse(read('tests/phone_first_view_summary.json'));
+    delete s.about;
+    return s;
+})();
+const phoneSummary = (edit = () => {}) => { const s = clone(PHONE_SUMMARY); edit(s); return s; };
+const stampsOf = (s) => ({ extracted_at: s.extracted_at, pipeline_commit: s.pipeline_commit });
+const OVERVIEW_IDS = ['total-studies', 'race-reporting', 'ethnicity-reporting', 'both-reporting', 'stat-sub-total',
+    'stat-sub-race', 'stat-sub-ethnicity', 'stat-sub-both', 'finding-headline', 'finding-context'];
+const FIRST_VIEW_KEYS = ['trials', 'trials_reporting_race', 'trials_reporting_ethnicity', 'trials_reporting_race_and_ethnicity'];
+const DESKTOP_ONLY = ' · filters are a desktop feature';
+// Values from the page's realm, compared as plain data.
+const plain = (v) => JSON.parse(JSON.stringify(v));
+const same = (a, b, message) => assert.deepEqual(plain(a), plain(b), message);
+
+// A phone opening the latest summary, as loadData's phone branch and
+// startup run it: the block's verdict, the summary, then renderDashboard.
+// The tab renderers record what each one read. today: the summary painter
+// without the phone's own step (phoneOverview), as before this change.
+async function phonePage(summary, { search = '', hash = '', run = stampsOf(summary), today = false } = {}) {
+    const p = page({ mobile: true, search, hash, runStamp: run ? run.extracted_at : null, run });
+    p.context.__summary = summary;
+    // A phone on its summary hides the Filters button (initFilterSummary).
+    p.run("document.getElementById('filter-summary-toggle').hidden = true;");
+    p.run(`var __calls = [];
+        ${ELSEWHERE.filter((n) => /^render/.test(n)).map((n) => `${n} = function () { __calls.push(['${n}', dashboardSummary && dashboardSummary.totalStudies, dashboardSummary === __summary]); };`).join('\n')}
+        ${today ? 'phoneOverview = function () {};' : ''}`);
+    await p.run('(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = __summary; data = __summary.recentStudies || []; renderDashboard(); })()');
+    p.flushFrames();
+    return p;
+}
+const openTab = (p, name) => p.run(`document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === '${name}')); renderPhoneScope();`);
+
+test('a phone opens on the desktop\'s first-view Overview: 75,607 trials, 58.9% report race', async () => {
+    const summary = phoneSummary();
+    const b = summary.firstView;
+    const phone = await phonePage(summary);
+    const desk = page({ runStamp: summary.extracted_at, run: stampsOf(summary) });
+    assert.equal(await desk.run('firstViewOrFigure')(phoneSummary()), true, 'the desktop does not paint the real block');
+    const onPhone = phone.overview(), onDesk = desk.overview();
+    for (const id of OVERVIEW_IDS) same(onPhone[id], onDesk[id], `#${id} differs from the desktop's`);
+    assert.equal(onPhone.findingShown, onDesk.findingShown);
+    same(onPhone.chart, onDesk.chart, 'the trend chart differs from the desktop\'s');
+
+    // The numbers, as the reader sees them: the block's counts over its trials.
+    assert.equal(onPhone['total-studies'].text, '75,607');
+    assert.equal(onPhone['race-reporting'].text, '58.9%');
+    assert.equal(onPhone['ethnicity-reporting'].text, '40.6%');
+    assert.equal(onPhone['both-reporting'].text, '38.3%');
+    assert.equal(onPhone['stat-sub-total'].text, 'results posted 2009–2026');
+    assert.equal(onPhone['stat-sub-race'].text, '44,516 of 75,607 trials');
+    assert.equal(onPhone['finding-headline'].html, '<strong>58.9%</strong> of these trials report race, but only <strong>38.3%</strong> report race and ethnicity together.');
+    assert.equal(onPhone['finding-context'].text, '75,607 trials · 20.5-point gap · ethnicity reported by 40.6%');
+    same(phone.lastCounts(), [b.trials, b.trials_reporting_race, b.trials_reporting_ethnicity, b.trials_reporting_race_and_ethnicity]);
+
+    // The trend chart: each year's ratio from by_results_year, over its trials.
+    const years = Object.keys(b.by_results_year).sort();
+    same(onPhone.chart.labels, years);
+    const want = { Race: 'trials_reporting_race', Ethnicity: 'trials_reporting_ethnicity', Both: 'trials_reporting_race_and_ethnicity' };
+    for (const s of onPhone.chart.series) {
+        const key = want[s.label];
+        assert.ok(key, `an unexpected series ${s.label}`);
+        assert.ok(s.data.every((v, i) => Object.is(v, (b.by_results_year[years[i]][key] / b.by_results_year[years[i]].trials) * 100)), `the ${s.label} series is not by_results_year's`);
+    }
+
+    // The scope line names the view, from the block.
+    assert.equal(onPhone['filter-summary-text'].html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`);
+    // The summary on screen is still the all-study-type one, unchanged.
+    assert.equal(phone.run('dashboardSummary === __summary'), true);
+    same(phone.run('dashboardSummary'), phoneSummary(), 'the phone changed the summary');
+    same(phone.infos, []);
+});
+
+test('a phone\'s other tabs stay on the all-study-type aggregates, and say so', async () => {
+    const phone = await phonePage(phoneSummary());
+    const calls = phone.run('__calls');
+    for (const name of ['renderRaceDistribution', 'renderRaceTrends', 'renderEthnicityDistribution', 'renderSexDistribution', 'renderGenderTrends']) {
+        const call = calls.find((c) => c[0] === name);
+        assert.ok(call, `${name} did not run`);
+        same(call.slice(1), [80320, true], `${name} did not read the all-study-type summary`);
+    }
+    for (const tab of ['race', 'ethnicity', 'sex', 'gender', 'studies', 'fda-oversight']) {
+        openTab(phone, tab);
+        assert.equal(phone.text('filter-summary-text').html, `<b>80,320</b> trials · All study types, unfiltered${DESKTOP_ONLY}`, `the ${tab} tab`);
+    }
+    openTab(phone, 'overview');
+    assert.equal(phone.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`);
+    // The Overview's tiles never mix the two: all four are the block's.
+    same(['total-studies', 'race-reporting', 'ethnicity-reporting', 'both-reporting'].map((id) => phone.text(id).text),
+        ['75,607', '58.9%', '40.6%', '38.3%']);
+    // Every tab switch rewrites the line (initTabs).
+    const tabs = fnSource('function initTabs()');
+    assert.match(tabs, /showFilterChrome\(tab\.dataset\.tab\);\s*\/\/[^\n]*\n\s*renderPhoneScope\(\);/);
+});
+
+test('without the block a phone paints as before, and says All study types', async () => {
+    const summary = phoneSummary((s) => { delete s.firstView; });
+    const now = await phonePage(summary);
+    const before = await phonePage(phoneSummary((s) => { delete s.firstView; }), { today: true });
+    const a = now.overview(), b = before.overview();
+    for (const id of OVERVIEW_IDS) same(a[id], b[id], `#${id} changed`);
+    same(a.chart, b.chart);
+    assert.equal(a['total-studies'].text, '80,320');
+    assert.equal(a['race-reporting'].text, '57.4%');
+    assert.equal(a['stat-sub-total'].text, 'trials with results posted');
+    assert.equal(b['filter-summary-text'].html, `<b>80,320</b> trials · the full dataset, unfiltered${DESKTOP_ONLY}`);
+    assert.equal(a['filter-summary-text'].html, `<b>80,320</b> trials · All study types, unfiltered${DESKTOP_ONLY}`);
+    const years = Object.keys(summary.byYear).sort();
+    assert.ok(a.chart.series[0].data.every((v, i) => Object.is(v, (summary.byYear[years[i]].race_reported / summary.byYear[years[i]].total) * 100)));
+    same(now.infos, [], 'a summary without the block is reported');
+});
+
+test('a block that fails the desktop\'s checks leaves the phone on all study types', async () => {
+    const noBlock = (await phonePage(phoneSummary((s) => { delete s.firstView; }))).overview();
+    const cases = {
+        'a stale block (from an earlier run than its summary)': [phoneSummary((s) => { s.firstView.extracted_at = '2026-09-27T12:00:00+00:00'; })],
+        'a block from another commit': [phoneSummary((s) => { s.firstView.pipeline_commit = 'abc'; })],
+        'a summary from another run than data/run.json': [phoneSummary(), { run: { ...stampsOf(PHONE_SUMMARY), extracted_at: '2026-10-11T00:00:00+00:00' } }],
+        'a malformed count': [phoneSummary((s) => { s.firstView.trials = String(s.firstView.trials); })],
+        'years that do not add up': [phoneSummary((s) => { s.firstView.by_results_year['2015'].trials += 1; })],
+        'another study type': [phoneSummary((s) => { s.firstView.filter.study_type = 'OBSERVATIONAL'; })],
+        'another first year': [phoneSummary((s) => {
+            // well formed: 2009 leaves the block and its totals
+            const b = s.firstView;
+            b.filter.results_year_from = 2010;
+            for (const k of FIRST_VIEW_KEYS) b[k] -= b.by_results_year['2009'][k];
+            delete b.by_results_year['2009'];
+        })],
+        '?firstview=0': [phoneSummary(), { search: '?firstview=0' }],
+        '?firstview=0 in the hash': [phoneSummary(), { hash: '#overview?firstview=0' }]
+    };
+    const refusedByShape = ['a stale block (from an earlier run than its summary)', 'a block from another commit', 'a malformed count', 'years that do not add up'];
+    for (const [name, [summary]] of Object.entries(cases)) {
+        // Each case fails one check only: the shape and stamp checks (firstViewBlock) or a later one.
+        const reachesPhone = !refusedByShape.includes(name);
+        const desk = page();
+        assert.equal(!!desk.run('firstViewBlock')(summary), reachesPhone, `${name}: the block's shape`);
+    }
+    for (const [name, [summary, opts]] of Object.entries(cases)) {
+        const p = await phonePage(summary, opts);
+        const shown = p.overview();
+        for (const id of OVERVIEW_IDS) same(shown[id], noBlock[id], `${name}: #${id}`);
+        same(shown.chart, noBlock.chart, `${name}: the chart`);
+        assert.equal(shown['filter-summary-text'].html, `<b>80,320</b> trials · All study types, unfiltered${DESKTOP_ONLY}`, name);
+        assert.equal(p.infos.length, 1, `${name}: not reported`);
+        assert.match(p.infos[0][0], /^The phone Overview counts all study types: /);
+    }
+    // A link to another tab or to filters does not stop it: a phone applies
+    // no filters, and its Overview is the same whatever tab a link opens.
+    // Nor does a snapshot link: a phone ignores it and opens the latest
+    // summary (requestedSnapshot), which is the block's.
+    for (const opts of [{ hash: '#race' }, { search: '?st=all' }, { search: '?sgsnapshot=2026-03-29' }, { hash: '#overview?sgsnapshot=2026-03-29' }]) {
+        const p = await phonePage(phoneSummary(), opts);
+        assert.equal(p.text('total-studies').text, '75,607', JSON.stringify(opts));
+        assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`, JSON.stringify(opts));
+        same(p.infos, [], JSON.stringify(opts));
+    }
+    assert.match(fnSource('function requestedSnapshot()'), /if \(isMobileDevice\) return null;/);
+});
+
+test('a phone keeps the block only while its summary is on screen', async () => {
+    const phone = await phonePage(phoneSummary());
+    // Another summary on screen (an archive): the block is not its.
+    phone.context.__archive = phoneSummary((s) => { delete s.firstView; s.totalStudies = 70000; });
+    phone.run('dashboardSummary = __archive; renderDashboard();');
+    assert.equal(phone.run('phoneFirstViewOnScreen()'), null);
+    assert.equal(phone.text('total-studies').text, '70,000');
+    assert.equal(phone.text('filter-summary-text').html, `<b>70,000</b> trials · All study types, unfiltered${DESKTOP_ONLY}`);
+    // loadData's phone branch takes the verdict before the summary goes on screen.
+    assert.match(fnSource('async function loadData(date)'),
+        /if \(summary\) \{[^}]*?phoneFirstView = await phoneFirstViewFor\(summary\);\s*dashboardSummary = summary;/);
+});
+
+test('a phone whose summary failed draws its records as before, with their own line', async () => {
+    // The summary answered and its block passed, then the phone fell back to
+    // the records (loadData: the rest of its summary branch threw, or a
+    // later switch loaded parts): dashboardSummary is null, and the phone
+    // code leaves the records' Overview and line alone, on every tab.
+    const draw = async (today) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        if (today) p.run('phoneOverview = function () {}; renderPhoneScope = function () {};');
+        await p.run('(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = null; })()');
+        assert.notEqual(p.run('phoneFirstView'), null, 'the block did not pass');
+        p.loadRecords(syntheticRecords());
+        p.flushFrames();
+        const shown = { overview: p.overview(), lines: [] };
+        for (const tab of ['race', 'studies', 'overview']) {
+            openTab(p, tab);
+            shown.lines.push(p.text('filter-summary-text').html);
+        }
+        return shown;
+    };
+    const now = await draw(false), before = await draw(true);
+    same(now, before, 'the phone code changed a phone drawing records');
+    assert.notEqual(now.overview['total-studies'].text, '75,607');
+    for (const line of now.lines) assert.doesNotMatch(line, /All study types|Interventional studies/);
+});
+
+test('a desktop paints exactly as before: its first view, and an archive summary', async () => {
+    // An aggregate archive on a desktop goes through the summary painter: the
+    // phone's step does nothing there.
+    const archive = () => phoneSummary((s) => { s.extracted_at = s.firstView.extracted_at = '2026-03-29T00:00:00+00:00'; });
+    const paint = (today) => {
+        const p = page();
+        p.context.__summary = archive();
+        if (today) p.run('phoneOverview = function () {};');
+        p.run('phoneFirstView = { summary: __summary, block: __summary.firstView, studyType: "Interventional" }; dashboardSummary = __summary; renderDashboard();');
+        return p.overview();
+    };
+    same(paint(false), paint(true));
+    // On a desktop the archive's line says why its filters are off (PR #255).
+    assert.equal(paint(false)['filter-summary-text'].html,
+        '<b>80,320</b> trials · the full dataset, unfiltered · this archive keeps totals only; filters apply to the latest data and the complete snapshots');
+    // A tab switch on a desktop leaves its line as its filters wrote it.
+    for (const withRecords of [false, true]) {
+        const p = page();
+        p.context.__summary = archive();
+        p.run('dashboardSummary = __summary; renderDashboard();');
+        const line = p.text('filter-summary-text').html;
+        p.run("document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'race')); renderPhoneScope();");
+        assert.equal(p.text('filter-summary-text').html, line, 'renderPhoneScope wrote a desktop\'s line');
+        if (withRecords) {
+            p.run('dashboardSummary = null;');
+            p.loadRecords(syntheticRecords());
+            const records = p.text('filter-summary-text').html;
+            assert.match(records, /<b>interventional<\/b>/);
+            p.run('renderPhoneScope();');
+            assert.equal(p.text('filter-summary-text').html, records);
+        }
+    }
+    // The desktop's first view still reads its year controls for the total's line.
+    const desk = page({ runStamp: PHONE_SUMMARY.extracted_at, run: stampsOf(PHONE_SUMMARY) });
+    assert.equal(await desk.run('firstViewOrFigure')(phoneSummary()), true);
+    assert.equal(desk.text('stat-sub-total').text, `results posted ${desk.el('year-start').value}–${desk.el('year-end').value}`);
+    assert.match(desk.text('filter-summary-text').html, /<b>75,607<\/b> trials · <b>interventional<\/b> · results posted <b>2009–2026<\/b>/);
+    // A phone never takes the desktop's first view (it has no records to hand over to).
+    assert.equal((await phonePage(phoneSummary())).run('firstViewProblem')(phoneSummary(), null), 'a phone reads the summary itself');
+    // renderDashboard reaches the phone's step only where it is defined, so
+    // the engine's gate, which runs renderDashboard alone, is unaffected
+    // (its pieces still run on their own: section 5).
+    const render = fnSource('function renderDashboard()');
+    same(render.replace(/^\s*\/\/.*$/gm, '').match(/phone\w*/gi), ['phoneOverview', 'phoneOverview'], 'renderDashboard calls more phone code');
+    assert.match(render, /if \(typeof phoneOverview === 'function'\) phoneOverview\(\);/);
+    for (const sig of ['function phoneFirstViewProblem(summary, run)', 'async function phoneFirstViewFor(summary)',
+        'function renderPhoneScope()', 'function phoneOverview()', 'function paintOverviewFromBlock(b, years)']) {
+        assert.doesNotMatch(fnSource(sig), /dashboardSummary\s*=[^=]/, `${sig} assigns dashboardSummary`);
+    }
+});
+
+test('a phone checks the block against the declared default study type, not a restored control', async () => {
+    // A browser that restores form state on reload can bring back a study
+    // type chosen on a desktop-width window (All). A phone applies no
+    // filters, so its Overview is still the default view, and the block,
+    // which counts that view, still paints it.
+    const restored = async (value) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        p.el('study-type').value = value;
+        assert.equal(p.el('study-type').value, value, 'the stub did not restore the control');
+        await p.run('(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = __summary; data = __summary.recentStudies || []; renderDashboard(); })()');
+        p.flushFrames();
+        return p;
+    };
+    for (const value of ['all', 'OBSERVATIONAL']) {
+        const p = await restored(value);
+        assert.equal(p.text('total-studies').text, '75,607', `a restored ${value}`);
+        assert.equal(p.text('race-reporting').text, '58.9%', `a restored ${value}`);
+        assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`, `a restored ${value}`);
+        same(p.infos, [], `a restored ${value}`);
+    }
+    // The declared default is still what the block must match.
+    const p = page({ mobile: true });
+    p.run("document.getElementById('study-type').options.forEach(o => { o.defaultSelected = o.value === 'all'; });");
+    assert.equal(p.run('phoneFirstViewProblem')(phoneSummary(), stampsOf(PHONE_SUMMARY)), 'the block’s study type is not the desktop’s default');
+});
+
+test('a phone opened on /#industry says All study types, as the Industry tab does', async () => {
+    // The hash route (openIndustryView) activates Industry without the tab's
+    // click handler; the line above the tabs must still leave the Overview's
+    // view, whichever of the route and the summary's render comes first.
+    const viaRoute = async (routeFirst) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, hash: '#industry', runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        p.run("document.getElementById('filter-summary-toggle').hidden = true;");
+        p.run(constLine('NO_FILTER_TABS') + '\n' + fnSource('function showFilterChrome(tabId)') + '\n' + fnSource('async function openIndustryView()'));
+        p.run(`var promptForBetaAccess = async () => true; var loadIndustryView = async () => {};
+            var __industry = document.createElement('section');
+            const __byId = document.getElementById; document.getElementById = (id) => (id === 'industry' ? __industry : __byId(id));`);
+        const render = '(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = __summary; data = __summary.recentStudies || []; renderDashboard(); })()';
+        if (routeFirst) await p.run('openIndustryView()');
+        await p.run(render);
+        p.flushFrames();
+        if (!routeFirst) {
+            assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`);
+            await p.run('openIndustryView()');
+        }
+        assert.equal(p.run("document.querySelector('.tab.active').dataset.tab"), 'industry');
+        return p.text('filter-summary-text').html;
+    };
+    const tab = await phonePage(phoneSummary());
+    openTab(tab, 'industry');
+    const clicked = tab.text('filter-summary-text').html;
+    assert.equal(clicked, `<b>80,320</b> trials · All study types, unfiltered${DESKTOP_ONLY}`);
+    assert.equal(await viaRoute(false), clicked, 'the route left the Overview\'s line over Industry');
+    assert.equal(await viaRoute(true), clicked);
 });

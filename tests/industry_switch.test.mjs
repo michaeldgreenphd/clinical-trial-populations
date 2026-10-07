@@ -62,8 +62,8 @@ const SOURCES = [
     // Industry view read (yearWindowEnds, industryNewestResultsYear).
     slice('const YEAR_WINDOW_MIN', 'function initFilters()').slice(0, -'function initFilters()'.length),
     fnSource('function renderDashboard()'),
-    fnSource('function renderFilterSummary(total, unfiltered)'),
-    fnSource('function renderUnfilteredFilterSummary(el, total)'),
+    fnSource('function renderFilterSummary(total, unfiltered, scope)'),
+    fnSource('function renderUnfilteredFilterSummary(el, total, scope)'),
     line('const ARCHIVE_FILTERS_NOTE'),
     fnSource('function syncFilterToggle()'),
     fnSource('function redrawArchiveSummary()'),

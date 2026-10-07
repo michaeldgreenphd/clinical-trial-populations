@@ -38,8 +38,8 @@ function line(start) {
 
 const SOURCES = [
     line('const ARCHIVE_FILTERS_NOTE'),
-    fnSource('function renderFilterSummary(total, unfiltered)'),
-    fnSource('function renderUnfilteredFilterSummary(el, total)'),
+    fnSource('function renderFilterSummary(total, unfiltered, scope)'),
+    fnSource('function renderUnfilteredFilterSummary(el, total, scope)'),
     fnSource('function initFilterSummary()'),
     fnSource('function syncFilterToggle()'),
     line('const NO_FILTER_TABS'),
@@ -731,7 +731,9 @@ function renderGeographyDashboard() {} function updateShareUrl() {} function lab
 function tabsHarness(opts) {
     const h = harness(opts);
     setControls(h);
-    h.run(TABS_PAGE + fnSource('function closeNavGroups(except)') + '\n' + fnSource('function initTabs()') + '\n'
+    // renderPhoneScope (PR #259) writes a phone's scope line; it returns at
+    // once off a phone, and these tests check #255's line, so it is inert here.
+    h.run(TABS_PAGE + 'function renderPhoneScope() {}\n' + fnSource('function closeNavGroups(except)') + '\n' + fnSource('function initTabs()') + '\n'
         + fnSource('async function openIndustryView()'));
     h.run('initFilterSummary(); initTabs();');
     const shown = (id) => h.el(id).style.display !== 'none';

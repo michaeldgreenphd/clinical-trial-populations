@@ -108,6 +108,9 @@ function fixTableScroll() {}
 function sgActive() { return false; }
 function sgShowBreakdown() {}
 function sgDemographicCell() { return ''; }
+// The phone's Overview source (tests/first_view.test.mjs has it): none here.
+let phoneFirstView = null;
+async function phoneFirstViewFor() { return null; }
 function escapeHtml(text) { return String(text).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;'); }
 // keyedFetch's own behaviour is tests/data_cache_key.test.mjs's; here it adds the key.
 async function keyedFetch(path, init) { return fetch(\`\${path}?v=\${DATA_CACHE_VERSION}\`, init); }
