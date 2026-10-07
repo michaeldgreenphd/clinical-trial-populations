@@ -419,6 +419,7 @@ function summaryWith(block, stamps = RUN) {
     return s;
 }
 const clone = (v) => JSON.parse(JSON.stringify(v));
+const FIRST_VIEW_TOTALS = ['trials', 'trials_reporting_race', 'trials_reporting_ethnicity', 'trials_reporting_race_and_ethnicity'];
 
 // ── 1. Parity on the real data ─────────────────────────────────────────────
 
@@ -782,6 +783,43 @@ test('different records repaint the Overview without animation, and warn', async
     const now = p.overview();
     assert.notDeepEqual(now['race-reporting'], painted['race-reporting']);
     assert.equal(now['race-reporting'].text, `${(((block.trials_reporting_race + 1) / block.trials) * 100).toFixed(1)}%`);
+    assert.ok(!p.context.document.querySelector('.tab[data-tab="race"]').disabled);
+});
+
+test('records that differ only in the chart redraw the chart without animation, keep the tiles, and warn once', async () => {
+    // One trial moves from one results year to the next: every total, and
+    // so every tile and line of text, is unchanged; two years of the trend
+    // chart are not.
+    const records = syntheticRecords();
+    const block = blockFor(records);
+    const p = page();
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(block)), true);
+    const painted = p.overview();
+    const moved = clone(records);
+    const trial = moved.find((r) => r.study_type === 'INTERVENTIONAL' && r.results_date.startsWith('2010-'));
+    trial.results_date = '2011-05-01';
+    const after = blockFor(moved);
+    for (const k of FIRST_VIEW_TOTALS) assert.equal(after[k], block[k], `moving the trial changed ${k}`);
+    assert.notDeepEqual(after.by_results_year, block.by_results_year);
+    p.loadRecords(moved);
+    p.run('settleFirstView()');
+    const charts = p.trendCharts();
+    assert.equal(charts.length, 2, 'the chart kept the block\'s years');
+    assert.equal(charts[0].destroyed, true);
+    assert.equal(charts[1].config.options.animation, false, 'the redraw animates');
+    const now = p.overview();
+    for (const id of Object.keys(now).filter((k) => k !== 'chart')) assert.deepEqual(now[id], painted[id], `#${id} changed`);
+    // The chart now draws the records' years: the same years, and in the
+    // two the trial moved between, the records' shares.
+    assert.deepEqual(now.chart.labels, painted.chart.labels);
+    const race = now.chart.series.find((x) => x.label === 'Race').data;
+    for (const y of ['2010', '2011']) {
+        const c = after.by_results_year[y];
+        assert.equal(race[now.chart.labels.indexOf(y)], (c.trials_reporting_race / c.trials) * 100, `${y} is not the records'`);
+        assert.notEqual(race[now.chart.labels.indexOf(y)], (block.by_results_year[y].trials_reporting_race / block.by_results_year[y].trials) * 100);
+    }
+    assert.equal(p.warnings.length, 1, `${p.warnings.length} warnings`);
+    assert.match(String(p.warnings[0][0]), /differs from the trial records/);
     assert.ok(!p.context.document.querySelector('.tab[data-tab="race"]').disabled);
 });
 
