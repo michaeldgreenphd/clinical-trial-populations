@@ -74,6 +74,7 @@ const SOURCES = [
     slice('const ARCHIVE_FILTERS_NOTE', '\n'),
     fnSource('function initFilterSummary()'),
     fnSource('function syncFilterToggle()'),
+    fnSource('function industryActive()'),
     fnSource('function refreshStudiesTab()'),
     slice('const ARCHIVE_NO_STUDY_LIST', '\n'),
     fnSource('function prepareStudiesTab()'),

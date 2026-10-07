@@ -40,15 +40,20 @@ const SOURCES = [
     line('const ARCHIVE_FILTERS_NOTE'),
     fnSource('function renderFilterSummary(total, unfiltered)'),
     fnSource('function initFilterSummary()'),
-    fnSource('function syncFilterToggle()')
+    fnSource('function syncFilterToggle()'),
+    fnSource('function industryActive()')
 ].join('\n');
 
 // What these functions read and write on an element. The title property
 // reflects the title attribute, as in a browser.
 function element(id) {
     const attrs = {};
+    const classes = new Set();
     const e = {
         id, innerHTML: '', hidden: false, listeners: {},
+        classList: {
+            add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c)
+        },
         get title() { return attrs.title || ''; },
         set title(v) { attrs.title = String(v); },
         getAttribute: (k) => (k in attrs ? attrs[k] : null),
@@ -91,7 +96,7 @@ test('on a desktop archive the line names the archive, not the device', () => {
 
 test('the phone view keeps its text', () => {
     const h = harness({ mobile: true, summary: ARCHIVE });
-    h.run('renderFilterSummary(77176, true);');
+    h.run('initFilterSummary(); renderFilterSummary(77176, true);');
     assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
 });
 
@@ -153,3 +158,51 @@ test('the greyed-out button keeps its focus ring and its description target exis
     assert.match(html, /id="filter-summary-text"/);
     assert.match(html, /<button type="button" class="filter-summary-toggle" id="filter-summary-toggle"/);
 });
+
+// The Industry Sponsors view (Tools, beta) always draws from the latest
+// data/industry_sponsors.json and honours the global Year Range and Condition
+// filters (industryFilteredRows), whatever snapshot the selector shows. Its
+// Filters button stays on while an archive is on screen, and goes off again
+// on leaving the tab.
+test('on the Industry tab the Filters button stays on while an archive is on screen', () => {
+    const h = harness();
+    h.run('initFilterSummary(); dashboardSummary = ' + JSON.stringify(ARCHIVE) + '; syncFilterToggle();');
+    assert.equal(h.btn.getAttribute('aria-disabled'), 'true', 'off on an archive tab');
+
+    // The Industry tab opens (initTabs / openIndustryView mark it active).
+    h.el('industry').classList.add('active');
+    h.run('syncFilterToggle();');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null, 'the Industry view still reads the filters, but its button is off');
+    assert.equal(h.btn.getAttribute('aria-describedby'), null);
+    assert.equal(h.btn.title, '');
+    h.btn.click();
+    assert.equal(h.panel.hidden, false, 'the Filters button does not open the panel on the Industry tab');
+    assert.equal(h.btn.getAttribute('aria-expanded'), 'true');
+
+    // A snapshot switch while on the Industry tab redraws (renderDashboard
+    // syncs): the button stays on there.
+    h.run('syncFilterToggle();');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null);
+    assert.equal(h.panel.hidden, false);
+
+    // Back to a tab drawn from the archive: off again, panel closed.
+    h.el('industry').classList.remove('active');
+    h.run('syncFilterToggle();');
+    assert.equal(h.btn.getAttribute('aria-disabled'), 'true');
+    assert.equal(h.panel.hidden, true);
+    assert.equal(h.btn.getAttribute('aria-expanded'), 'false');
+});
+
+test('a tab switch and the /#industry route set the Filters button', () => {
+    const tabs = fnSource('function initTabs()');
+    const active = tabs.indexOf("document.getElementById(tab.dataset.tab).classList.add('active');");
+    const sync = tabs.indexOf('syncFilterToggle();');
+    assert.ok(active > 0, 'initTabs lost its activation line');
+    assert.ok(sync > active, 'a tab click does not set the Filters button after the tab is active');
+    const route = fnSource('async function openIndustryView()');
+    const routeActive = route.indexOf("document.getElementById('industry').classList.add('active');");
+    const routeSync = route.indexOf('syncFilterToggle();');
+    assert.ok(routeActive > 0, 'openIndustryView lost its activation line');
+    assert.ok(routeSync > routeActive, 'the /#industry route does not set the Filters button after the view is active');
+});
+

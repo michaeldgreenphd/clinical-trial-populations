@@ -2823,6 +2823,9 @@ function initTabs() {
             // the panel's `hidden` attribute governs whether they are expanded.
             filtersSection.style.display = hideFilters ? 'none' : '';
             if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
+            // The Filters button is off on an archive except on the Industry
+            // view, which reads the filters whatever snapshot is on screen.
+            syncFilterToggle();
 
             // The Studies table draws at once; its extras start loading
             // (prepareStudiesTab).
@@ -3752,15 +3755,19 @@ function initFilterSummary() {
 // On desktop an aggregate archive keeps totals only, so the panel's controls
 // would change nothing there: the Filters button is greyed out and the panel
 // closed while one is on screen, and both come back on the latest data and a
-// complete snapshot. aria-disabled rather than the disabled attribute: the
-// button stays in the tab order, a screen reader announces it as dimmed, and
-// its description is the summary line that says why. The phone view hides
-// the button altogether (initFilterSummary).
+// complete snapshot. The Industry Sponsors view is the exception: it always
+// draws the latest data/industry_sponsors.json under the global Year Range
+// and Condition filters, so the button stays on while that tab is open
+// (initTabs and openIndustryView call this on every tab change).
+// aria-disabled rather than the disabled attribute: the button stays in the
+// tab order, a screen reader announces it as dimmed, and its description is
+// the summary line that says why. The phone view hides the button altogether
+// (initFilterSummary).
 function syncFilterToggle() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel || isMobileDevice) return;
-    if (dashboardSummary) {
+    if (dashboardSummary && !industryActive()) {
         btn.setAttribute('aria-disabled', 'true');
         btn.setAttribute('aria-describedby', 'filter-summary-text');
         btn.title = 'Filters are off: ' + ARCHIVE_FILTERS_NOTE;
@@ -11548,6 +11555,7 @@ async function openIndustryView() {
     document.getElementById('industry').classList.add('active');
     const filtersSection = document.getElementById('filters');
     if (filtersSection && !dashboardSummary) filtersSection.style.display = '';
+    syncFilterToggle();   // on here even while an archive is on screen
 
     await loadIndustryView();
 }
