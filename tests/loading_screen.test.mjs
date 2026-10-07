@@ -316,7 +316,11 @@ test('the summary is fetched once and shared; a failure is not remembered', T, a
 
 test('the figure is desktop only, and the mobile view reads the shared summary', () => {
     const init = app.slice(app.indexOf("document.addEventListener('DOMContentLoaded', async () => {"));
-    assert.match(init, /if \(isMobileDevice\) renderLoadingFigure\(null\);\s*else fetchLatestSummary\(\)\.then\(renderLoadingFigure, \(\) => renderLoadingFigure\(null\)\);/);
+    // On a desktop the summary either paints the Overview (the first view,
+    // tests/first_view.test.mjs) or draws the figure (firstViewOrFigure).
+    assert.match(init, /if \(isMobileDevice\) renderLoadingFigure\(null\);\s*else fetchLatestSummary\(\)\.then\(firstViewOrFigure, \(\) => renderLoadingFigure\(null\)\);/);
+    assert.match(fnSource('async function firstViewOrFigure(summary)'), /renderLoadingFigure\(summary\);\s*return false;/,
+        'a summary the first view cannot use no longer draws the figure');
     const load = fnSource('async function loadData(date)');
     assert.match(load, /const summary = await fetchLatestSummary\(\);/);
     assert.doesNotMatch(load, /fetch\(`data\/dashboard-summary\.json/, 'the mobile view fetches the summary a second time');

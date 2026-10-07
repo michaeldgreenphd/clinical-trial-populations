@@ -54,6 +54,9 @@ const SOURCES = [
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
     fnSource('async function fetchAndDecompress(url, onProgress, init)'),
+    // loadData's part fetch: a 4xx is asked for again past the cache.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('function partsFromDifferentRuns(parts)'),
     fnSource('function stalePartIndexes(parts, expectedStamp)'),
     fnSource('async function refetchStaleParts(parts, expectedStamp, refetch)'),
@@ -68,6 +71,7 @@ const SOURCES = [
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),
     fnSource('async function initHistorySelector()'),
+    fnSource('function listHistoryDates(select, manifest)'),
     // The change handler drops what is not on screen (PR #253).
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
