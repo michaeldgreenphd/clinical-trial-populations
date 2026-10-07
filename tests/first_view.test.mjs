@@ -26,8 +26,8 @@
  *    it did: the loading screen's figure, nothing painted, nothing disabled;
  *  - the engine's gate itself (its script, copied unchanged and pinned in
  *    tests/engine_first_view_parity.json) passes on this app.js and
- *    index.html, and the pieces it slices run on their own in its stub
- *    document, calling nothing else;
+ *    index.html, and the pieces it slices run on their own in its runtime,
+ *    calling no other app.js function but the ones named in ENGINE_STUBBED;
  *  - a phone on the latest summary opens on the same Overview from the same
  *    block, under the same checks, while its other tabs stay on the
  *    summary's all-study-type aggregates and its scope line says which
@@ -40,7 +40,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
-import { gunzipSync } from 'node:zlib';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
@@ -263,6 +263,15 @@ const SITE = [
     fnSource('function renderOverviewTileContext('),
     fnSource('function renderOverviewFinding('),
     fnSource('function renderFilterSummary('),
+    fnSource('function renderUnfilteredFilterSummary(el, total, scope)'),
+    // The Filters button's archive state, which renderDashboard syncs first
+    // (PR #255): the real one, so a records render cannot leave the button
+    // the first view holds off looking open, or the reverse.
+    'let industryLoadFailed = false;',
+    constLine('ARCHIVE_FILTERS_NOTE'),
+    fnSource('function industryActive()'),
+    fnSource('function redrawArchiveSummary()'),
+    fnSource('function syncFilterToggle()'),
     fnSource('function renderDashboard()'),
     fnSource('function escapeHtml('),
     fnSource('function renderReportingTrends('),
@@ -302,7 +311,10 @@ const SITE = [
     fnSource('function startupRetrying()'),
     // The phone's Overview from the block, and its scope line.
     between('// ── Phones: the desktop', '// Initialize\n'),
-    // What startup runs once the records are drawn: the deep-link hooks.
+    // What startup runs once the records are drawn: an open Industry view's
+    // redraw (PR #255; the Overview is open here, so it draws nothing) and
+    // the deep-link hooks.
+    fnSource('function renderIndustryAfterSwitch()'),
     fnSource('function applyRouteFromHash()'),
     fnSource('function sgRouteHooks()')
 ].join('\n');
@@ -1305,35 +1317,61 @@ test('startup wires the first view in, and never through dashboardSummary', () =
 
 // ── 5. The engine's gate ───────────────────────────────────────────────────
 // civicsample-engine scripts/first_view_parity.mjs runs this app.js and
-// index.html before every weekly publish of a firstView block; a mismatch,
-// or a piece that cannot run in its vm, holds the publish. Its copy here
+// index.html over the week's staged data parts before every weekly publish
+// of a firstView block; a mismatch (exit 1), or site code it cannot run
+// faithfully (exit 2), holds the publish. Its copy here
 // (tests/engine_first_view_parity.mjs, pinned by tests/
 // engine_first_view_parity.json) is run as the publish runs it, and its stub
-// document is read from it rather than written again: a querySelector that
-// answers class selectors only and throws on any other, the markup from
-// <header> to the end of the Overview's section, and requestAnimationFrame
-// run at once. The site's own stub above answers more (attribute
-// selectors, :not, the markup from <body>), so a change can pass the tests
-// above and still stop the publish; it fails here.
+// document and runtime are read from it rather than written again: a
+// querySelector that answers class selectors only and throws on any other,
+// the markup from <header> to the end of the Overview's section,
+// requestAnimationFrame run at once, the pieces it slices, and every other
+// top-level app.js function run as an inert stub that records its calls
+// (engine PR #24). The site's own stub above answers more (attribute
+// selectors, :not, the markup from <body>, the real functions), so a change
+// can pass the tests above and still stop the publish; it fails here.
 const ENGINE_FILE = new URL('./engine_first_view_parity.mjs', import.meta.url);
 const ENGINE_PIN = JSON.parse(read('tests/engine_first_view_parity.json'));
 const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 
-// The engine script's own lists, slicers and stub document, from its text.
+// The app.js functions, beyond the gate's fixed list (its ELSEWHERE), that
+// the Overview's pieces call and the gate runs as inert stubs. It passes
+// with them, with a note, when the numbers agree whether they answer nothing
+// or true; what it cannot see is a stub that paints an Overview number on
+// the real page. So each is named here, and one added to the pieces fails
+// the tests below until someone has read it and added it:
+//  - renderUnfilteredFilterSummary (PR #255, from renderFilterSummary over
+//    a summary): the filter line over a summary or archive, which the gate
+//    compares only with no summary on screen. It reads the Industry view's
+//    state and ARCHIVE_FILTERS_NOTE, which the gate does not give the
+//    pieces, so it stays out of renderFilterSummary itself.
+//  - syncFilterToggle (PR #255, first in renderDashboard): the Filters
+//    button's archive state, and over a summary the filter line, as above.
+//  - phoneOverview (PR #259, last in renderDashboard's summary painter): a
+//    phone's Overview from the block. It returns at once off a phone or
+//    without a summary on screen, which is every run of the gate, and on a
+//    phone it paints the block's own counts, never the records'.
+// None paints a desktop tile, the finding or the chart, and each is a lone
+// call statement, so the gate reads no answer from it.
+const ENGINE_STUBBED = ['phoneOverview', 'renderUnfilteredFilterSummary', 'syncFilterToggle'];
+
+// The engine script's own lists, slicers, stub document and runtime, from
+// its text (its `export`s dropped: the slices run as a script).
 function engineSource(from, to) {
     const a = ENGINE.indexOf(from), b = ENGINE.indexOf(to, a);
     assert.ok(a >= 0 && b > a, `the engine script lost ${from} … ${to}`);
-    return ENGINE.slice(a, b);
+    return ENGINE.slice(a, b).replace(/^export /gm, '');
 }
 const ENGINE_PARTS = (() => {
-    const ctx = vm.createContext({ readFileSync });
+    const ctx = vm.createContext({ readFileSync, vm });
     vm.runInContext([
         engineSource('const APP_PIECES = [', '// What renderDashboard and initFilters call outside the Overview'),
         engineSource('const ELSEWHERE = [', '// The Overview\'s text'),
         'class InputError extends Error {}',
         engineSource('function slicePiece(', 'function writeExcerpt('),
         engineSource('const ENTITIES = ', '// ── the site\'s code in a vm'),
-        'this.parts = { APP_PIECES, INDEX_SLICE, ELSEWHERE, AWAY_FROM_DEFAULT, readSite, buildDocument };'
+        engineSource('function siteRuntime(', '// ── the comparison'),
+        'this.parts = { APP_PIECES, INDEX_SLICE, ELSEWHERE, AWAY_FROM_DEFAULT, readSite, buildDocument, siteRuntime };'
     ].join('\n'), ctx, { filename: 'engine_first_view_parity.mjs' });
     return ctx.parts;
 })();
@@ -1341,19 +1379,29 @@ const APP_PATH = fileURLToPath(new URL('../app.js', import.meta.url));
 const INDEX_PATH = fileURLToPath(new URL('../index.html', import.meta.url));
 
 // Synthetic records and the summary the engine would publish for them, as
-// files, and the engine script run on them and on an app.js.
+// files, and the engine script run on them and on an app.js. The records
+// go in as the publish passes them: the site's eight staged parts
+// (demographics.partN.json.gz), each a container of the run's stamps and
+// its share of the records, as repeated --records.
+const ENGINE_PARTS_COUNT = 8;
 function runEngineGate(appPath = APP_PATH) {
     const dir = mkdtempSync(join(tmpdir(), 'first-view-gate-'));
     try {
         const records = syntheticRecords();
         const block = blockFor(records);
-        writeFileSync(join(dir, 'records.json'), JSON.stringify({ ...RUN, data: records }));
+        const size = Math.ceil(records.length / ENGINE_PARTS_COUNT);
+        const parts = [];
+        for (let i = 0; i < ENGINE_PARTS_COUNT; i++) {
+            const file = join(dir, `demographics.part${i + 1}.json.gz`);
+            writeFileSync(file, gzipSync(JSON.stringify({ ...RUN, data: records.slice(i * size, (i + 1) * size) })));
+            parts.push('--records', file);
+        }
         writeFileSync(join(dir, 'summary.json'), JSON.stringify({ ...summaryWith(block), totalStudies: records.length }));
-        const r = spawnSync(process.execPath, [fileURLToPath(ENGINE_FILE), '--records', join(dir, 'records.json'),
+        const r = spawnSync(process.execPath, [fileURLToPath(ENGINE_FILE), ...parts,
             '--summary', join(dir, 'summary.json'), '--app', appPath, '--index', INDEX_PATH], { encoding: 'utf8', timeout: 60000 });
         let report = null;
-        try { report = JSON.parse(r.stdout); } catch { /* exit 2 prints no report */ }
-        return { status: r.status, stderr: r.stderr, report };
+        try { report = JSON.parse(r.stdout); } catch { /* exit 2 on an input error prints no report */ }
+        return { status: r.status, stderr: r.stderr, report, records };
     } finally {
         rmSync(dir, { recursive: true, force: true });
     }
@@ -1367,11 +1415,21 @@ test('the engine\'s gate is the pinned copy of its script', () => {
 });
 
 test('the engine\'s gate passes on this app.js and index.html, run as the weekly publish runs it', () => {
-    const { status, stderr, report } = runEngineGate();
-    assert.equal(status, 0, `the gate would hold the publish: ${stderr || JSON.stringify(report && report.mismatches, null, 1)}`);
+    const { status, stderr, report, records } = runEngineGate();
+    // Exit 1 is a mismatch, exit 2 code it could not run (faithfully): either holds the publish.
+    assert.equal(status, 0, `the gate would hold the publish (exit ${status}): ${stderr || JSON.stringify(report && report.mismatches, null, 1)}`);
     assert.equal(report.ok, true);
+    assert.equal(report.could_not_run, null);
     assert.deepEqual(report.mismatches, []);
     assert.ok(report.checked >= 40, `only ${report.checked} checks ran`);
+    assert.equal(report.records.count, records.length, 'the gate did not count the eight parts together');
+    // Its stubs: no answer the Overview uses, and none of app.js's own
+    // beyond the ones named above (ENGINE_STUBBED), noted as the gate notes them.
+    assert.deepEqual(report.answer_matters_for, []);
+    assert.deepEqual(report.site_functions_stubbed, ENGINE_STUBBED,
+        'the Overview calls another app.js function the engine\'s gate only stubs: read it, then name it in ENGINE_STUBBED');
+    assert.match(stderr, new RegExp(`note: the Overview now calls ${ENGINE_STUBBED.join(', ')}, which the parity does not run`));
+    assert.doesNotMatch(stderr, /could not run faithfully/);
     // And it holds the publish for what the site's own stub lets by: one of
     // its pieces asking for an attribute selector.
     const dir = mkdtempSync(join(tmpdir(), 'first-view-gate-app-'));
@@ -1388,71 +1446,63 @@ test('the engine\'s gate passes on this app.js and index.html, run as the weekly
     }
 });
 
-test('the pieces the engine\'s gate slices are all there and run on their own, in its document, calling nothing else', () => {
+test('the pieces the engine\'s gate slices are all there and run on their own, in its runtime, calling no other app.js function but those named', () => {
     // Sliced by the engine's own readSite (a piece it cannot find is an
-    // input error that holds the publish), then run in a vm that defines
-    // only what the engine's does: any other app.js function a piece calls
-    // is a ReferenceError here, whatever a later engine script does with it.
+    // input error that holds the publish), then run in the engine's own
+    // runtime (siteRuntime): its document, its fixed stubs, and every other
+    // top-level app.js function an inert stub that records its calls. A
+    // name app.js does not declare as a function (a top-level value, a
+    // let) is a ReferenceError there, which holds the publish.
     const site = ENGINE_PARTS.readSite(APP_PATH, INDEX_PATH);
     assert.equal(site.pieces.length, ENGINE_PARTS.APP_PIECES.length);
     assert.ok(site.markup.startsWith('<header>') && site.markup.endsWith('</section>'));
-    const { document, byId, controls } = ENGINE_PARTS.buildDocument(site.markup);
-    assert.throws(() => document.querySelector('.tab[data-tab="overview"]'), /class selectors only/, 'the engine\'s document answers more than class selectors');
-    const made = [];
-    let sgOn = false;
-    const sandbox = {
-        document, window: {}, console: { log() {}, info() {}, debug() {}, warn() {}, error() {} },
-        requestAnimationFrame: (fn) => { fn(); return 1; }, cancelAnimationFrame() {},
-        Chart: class { constructor(canvas, config) { made.push({ canvas, config }); } destroy() {} },
-        sgActive: () => sgOn
-    };
-    for (const name of ENGINE_PARTS.ELSEWHERE) sandbox[name] = () => {};
-    for (const name of ENGINE_PARTS.AWAY_FROM_DEFAULT) sandbox[name] = () => { throw new Error(`${name} ran`); };
-    const context = vm.createContext(sandbox);
-    vm.runInContext([
-        'let data = null; let dashboardSummary = null; let charts = {}; let sgV2Filters = null;',
-        "const COLORS = { reporting: { race: '#000000', ethnicity: '#000000', both: '#000000' } };",
-        'const CHART_ASPECT_RATIO = undefined;',
-        ...site.pieces
-    ].join('\n'), context);
-    const run = (code) => vm.runInContext(code, context);
+    for (const name of ENGINE_STUBBED) assert.ok(site.stubs.some((s) => s.name === name), `the gate no longer stubs ${name}`);
+    const s = ENGINE_PARTS.siteRuntime(site, new Set());
+    assert.throws(() => s.run('document.querySelector(\'.tab[data-tab="overview"]\')'), /class selectors only/,
+        'the engine\'s document answers more than class selectors');
     const records = syntheticRecords();
     const b = blockFor(records);
-    context.__records = records;
+    s.context.__records = records;
     // What the gate runs, in its order: the records' Overview, the
     // controls, ?sg=v2 at Any, the block through the summary painter and
     // through the desktop painters, each results year alone, and the
     // filter with study type All.
-    run('data = __records; dashboardSummary = null; initFilters(); renderDashboard();');
+    s.run('data = __records; dashboardSummary = null; initFilters(); renderDashboard();');
+    const recordsChart = s.chart();
     const painted = Object.fromEntries(['total-studies', 'race-reporting', 'stat-sub-total', 'finding-headline', 'filter-summary-text']
-        .map((id) => [id, byId.get(id).innerHTML || byId.get(id).textContent]));
-    assert.equal(run('(() => { const w = yearWindowEnds(); return JSON.stringify([w.start, w.end === Infinity ? null : w.end]); })()'), '[2009,null]');
-    assert.equal(run('datasetLatestYear()'), b.newest_results_year);
-    assert.equal(controls.length > 5, true, 'the engine finds no filter controls');
-    sgOn = true;
-    assert.equal(run('getFilteredData().length'), b.trials);
-    sgOn = false;
-    context.__summary = {
+        .map((id) => [id, s.text(id).html || s.text(id).text]));
+    assert.equal(s.run('(() => { const w = yearWindowEnds(); return JSON.stringify([w.start, w.end === Infinity ? null : w.end]); })()'), '[2009,null]');
+    assert.equal(s.run('datasetLatestYear()'), b.newest_results_year);
+    assert.equal(s.controls.length > 5, true, 'the engine finds no filter controls');
+    s.setSg(true);
+    assert.equal(s.run('getFilteredData().length'), b.trials);
+    s.setSg(false);
+    s.context.__summary = {
         totalStudies: b.trials,
         cards: { raceCount: b.trials_reporting_race, ethCount: b.trials_reporting_ethnicity, bothCount: b.trials_reporting_race_and_ethnicity },
         byYear: Object.fromEntries(Object.entries(b.by_results_year).map(([y, c]) => [y, { total: c.trials, race_reported: c.trials_reporting_race,
             eth_reported: c.trials_reporting_ethnicity, both_reported: c.trials_reporting_race_and_ethnicity }]))
     };
-    run('dashboardSummary = __summary; renderDashboard();');
+    s.run('dashboardSummary = __summary; renderDashboard();');
+    const blockChart = s.chart();
     const args = [b.trials, b.trials_reporting_race, b.trials_reporting_ethnicity, b.trials_reporting_race_and_ethnicity].join(', ');
-    run(`dashboardSummary = null; renderOverviewTileContext(${args}); renderOverviewFinding(${args}); renderFilterSummary(${b.trials});`);
-    for (const [id, html] of Object.entries(painted)) assert.equal(byId.get(id).innerHTML || byId.get(id).textContent, html, `#${id}`);
+    s.run(`dashboardSummary = null; renderOverviewTileContext(${args}); renderOverviewFinding(${args}); renderFilterSummary(${b.trials});`);
+    for (const [id, html] of Object.entries(painted)) assert.equal(s.text(id).html || s.text(id).text, html, `#${id}`);
     for (const y of Object.keys(b.by_results_year)) {
-        run(`(() => { const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
+        s.run(`(() => { const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
             ye.value = '${y}'; ys.value = '${y}'; noteYearChoice(ys); noteYearChoice(ye);
             dashboardSummary = null; renderDashboard(); })()`);
     }
-    run('resetYearWindow(); document.getElementById(\'study-type\').value = \'all\';');
-    assert.equal(run('getFilteredData().length'), records.length);
-    const trend = made.filter((c) => c.canvas && c.canvas.id === 'reporting-trends-chart');
-    assert.ok(trend.length >= 2, 'the trend chart was not drawn');
-    assert.deepEqual(trend[1].config.data.datasets.map((d) => d.data), trend[0].config.data.datasets.map((d) => d.data),
+    s.run('resetYearWindow(); document.getElementById(\'study-type\').value = \'all\';');
+    assert.equal(s.run('getFilteredData().length'), records.length);
+    assert.ok(recordsChart && blockChart, 'the trend chart was not drawn');
+    assert.deepEqual(blockChart.series.map((d) => d.data), recordsChart.series.map((d) => d.data),
         'the gate would read the records\' chart as the block\'s');
+    // What ran as a stub: the gate's fixed list, and of app.js's own only
+    // the ones named above (an array of this realm, not the vm's).
+    const ran = Array.from(s.stubbedRan());
+    assert.deepEqual(ran.filter((n) => !ENGINE_PARTS.ELSEWHERE.includes(n)), ENGINE_STUBBED,
+        'the Overview calls another app.js function the engine\'s gate only stubs: read it, then name it in ENGINE_STUBBED');
 });
 
 // ── 6. Phones: the desktop's Overview from the block ───────────────────────
@@ -1485,6 +1535,8 @@ const same = (a, b, message) => assert.deepEqual(plain(a), plain(b), message);
 async function phonePage(summary, { search = '', hash = '', run = stampsOf(summary), today = false } = {}) {
     const p = page({ mobile: true, search, hash, runStamp: run ? run.extracted_at : null, run });
     p.context.__summary = summary;
+    // A phone on its summary hides the Filters button (initFilterSummary).
+    p.run("document.getElementById('filter-summary-toggle').hidden = true;");
     p.run(`var __calls = [];
         ${ELSEWHERE.filter((n) => /^render/.test(n)).map((n) => `${n} = function () { __calls.push(['${n}', dashboardSummary && dashboardSummary.totalStudies, dashboardSummary === __summary]); };`).join('\n')}
         ${today ? 'phoneOverview = function () {};' : ''}`);
@@ -1553,7 +1605,7 @@ test('a phone\'s other tabs stay on the all-study-type aggregates, and say so', 
         ['75,607', '58.9%', '40.6%', '38.3%']);
     // Every tab switch rewrites the line (initTabs).
     const tabs = fnSource('function initTabs()');
-    assert.match(tabs, /filterSummary\.style\.display = hideFilters \? 'none' : '';\s*\/\/[^\n]*\n\s*renderPhoneScope\(\);/);
+    assert.match(tabs, /showFilterChrome\(tab\.dataset\.tab\);\s*\/\/[^\n]*\n\s*renderPhoneScope\(\);/);
 });
 
 test('without the block a phone paints as before, and says All study types', async () => {
@@ -1673,7 +1725,9 @@ test('a desktop paints exactly as before: its first view, and an archive summary
         return p.overview();
     };
     same(paint(false), paint(true));
-    assert.equal(paint(false)['filter-summary-text'].html, `<b>80,320</b> trials · the full dataset, unfiltered${DESKTOP_ONLY}`);
+    // On a desktop the archive's line says why its filters are off (PR #255).
+    assert.equal(paint(false)['filter-summary-text'].html,
+        '<b>80,320</b> trials · the full dataset, unfiltered · this archive keeps totals only; filters apply to the latest data and the complete snapshots');
     // A tab switch on a desktop leaves its line as its filters wrote it.
     for (const withRecords of [false, true]) {
         const p = page();
@@ -1746,7 +1800,8 @@ test('a phone opened on /#industry says All study types, as the Industry tab doe
         const summary = phoneSummary();
         const p = page({ mobile: true, hash: '#industry', runStamp: summary.extracted_at, run: stampsOf(summary) });
         p.context.__summary = summary;
-        p.run(fnSource('async function openIndustryView()'));
+        p.run("document.getElementById('filter-summary-toggle').hidden = true;");
+        p.run(constLine('NO_FILTER_TABS') + '\n' + fnSource('function showFilterChrome(tabId)') + '\n' + fnSource('async function openIndustryView()'));
         p.run(`var promptForBetaAccess = async () => true; var loadIndustryView = async () => {};
             var __industry = document.createElement('section');
             const __byId = document.getElementById; document.getElementById = (id) => (id === 'industry' ? __industry : __byId(id));`);

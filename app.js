@@ -1580,6 +1580,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         initFilterSummary();
         updateLoadingProgress(90, 'Drawing charts');
         renderDashboard();
+        // A #industry link's route may have drawn the view already, from
+        // the thumbs as they stood before initFilters fitted them.
+        renderIndustryAfterSwitch();
         updateLoadingProgress(100, 'Ready');
         // The first view, if it painted: the records' Overview is up, so
         // the rest of the page opens, before the deep links below click
@@ -3289,6 +3292,24 @@ function adoptRecheckedRun(run) {
     }
 }
 
+// After a dataset switch has fitted the Year Range to the dataset now on
+// screen (syncYearWindow) and drawn the dashboard: an open Industry view,
+// drawn again. That view draws the latest sponsor data under the Year Range
+// and Condition controls whatever dataset is on screen, and renderDashboard
+// does not draw it, so a bound the switch clamped (an archive whose results
+// end earlier) or put back (Latest again) left its chart and cohort count on
+// the old window while the line above named the new one. Shared by every
+// switch path: the selector's change handler, its revert after a failed
+// switch, loadDataAndRender, and start-up. Start-up too: a #industry link
+// opens the view at DOMContentLoaded, and the sponsor file is small enough
+// to be drawn while the dataset is still loading, from the thumbs as they
+// stood before initFilters fitted them (values a reload restored, say). A
+// closed Industry view is drawn when it opens (loadIndustryView), and one
+// whose sponsor data has not loaded is not drawn (renderIndustry).
+function renderIndustryAfterSwitch() {
+    if (industryActive()) renderIndustry();
+}
+
 // Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
@@ -3310,6 +3331,7 @@ async function loadDataAndRender(date) {
             populatePrimaryConditionDropdown();
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
+            renderIndustryAfterSwitch();
             retainSnapshots(date || 'latest');
         }
         await snapshotStage(100, 'Ready');
@@ -3406,6 +3428,7 @@ async function initHistorySelector() {
             populatePrimaryConditionDropdown();
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
+            renderIndustryAfterSwitch();
             // The provenance note under the parser-v2 charts names the snapshot,
             // and the canvases carry that note as their text alternative.
             labelChartsForA11y();
@@ -3434,6 +3457,7 @@ async function initHistorySelector() {
                 try { await sgLoad(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
                 syncYearWindow();
                 renderDashboard();
+                renderIndustryAfterSwitch();
                 labelChartsForA11y();
                 updateShareUrl();
             }
@@ -3612,15 +3636,8 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById(tab.dataset.tab).classList.add('active');
 
-            // Hide filters on FAQ, About, and AI Devices tabs
-            const filtersSection = document.getElementById('filters');
-            const filterSummary = document.getElementById('filter-summary');
-            const noFilterTabs = ['faq', 'about', 'ai-devices', 'geography', 'fda-extraction', 'lit-extraction', 'approval-queue'];
-            const hideFilters = noFilterTabs.includes(tab.dataset.tab);
-            // style.display governs whether this tab has filters at all;
-            // the panel's `hidden` attribute governs whether they are expanded.
-            filtersSection.style.display = hideFilters ? 'none' : '';
-            if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
+            // The filters and their line for this tab, and its Filters button.
+            showFilterChrome(tab.dataset.tab);
             // A phone: the line names the study types this tab counts.
             renderPhoneScope();
 
@@ -3870,6 +3887,26 @@ function yearWindowEnds() {
     const start = parseInt(ys?.value, 10) || YEAR_WINDOW_MIN;
     const { end } = yearWindowRequest();
     return { start, end: end === null || !ye ? Infinity : parseInt(ye.value, 10) };
+}
+
+// The newest results year (row field t[2]; null and 0 are no year) in the
+// sponsor data the Industry view loaded, or null before it loads. With an
+// open end (yearWindowEnds: Infinity) that view reaches this year, which
+// can be past the window the archive on screen sets the thumbs to, so the
+// Industry line names it (renderFilterSummary). Read once per load.
+const industryNewestYearByLoad = new WeakMap();
+function industryNewestResultsYear() {
+    const d = industryData;
+    if (!d || !Array.isArray(d.trials)) return null;
+    if (!industryNewestYearByLoad.has(d)) {
+        let max = 0;
+        for (const t of d.trials) {
+            const ry = Number(t[2]);
+            if (ry > max) max = ry;
+        }
+        industryNewestYearByLoad.set(d, max || null);
+    }
+    return industryNewestYearByLoad.get(d);
 }
 
 function initFilters() {
@@ -4492,13 +4529,16 @@ function renderFilterSummary(total, unfiltered, scope) {
     const el = document.getElementById('filter-summary-text');
     if (!el) return;
 
-    // The phone view renders pre-computed aggregates of the whole dataset and
+    // A summary renders pre-computed aggregates of the whole dataset and
     // applies no filters, so reading the (desktop) controls here would claim
     // a narrowing that was never applied. scope: what the numbers count, on
-    // a phone (renderPhoneScope).
+    // a phone (renderPhoneScope). In the phone view (its Filters
+    // button hidden: initFilterSummary) that summary is the phone view.
+    // Anywhere else, desktop or a phone whose summary did not load and that
+    // runs the full page, it is an aggregate archive, which keeps totals
+    // only (the Filters button is off there: syncFilterToggle).
     if (unfiltered) {
-        el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
-            (scope ? `${escapeHtml(scope)} \u00b7 ` : 'the full dataset, unfiltered \u00b7 ') + 'filters are a desktop feature';
+        renderUnfilteredFilterSummary(el, total, scope);
         return;
     }
     const val = (id) => {
@@ -4534,6 +4574,85 @@ function renderFilterSummary(total, unfiltered, scope) {
     el.innerHTML = parts.join(' \u00b7 ');
 }
 
+// The line over a summary (renderFilterSummary, unfiltered). Its own
+// function, called as a statement: before every weekly publish the
+// engine's first-view gate (civicsample-engine scripts/first_view_parity.mjs)
+// runs renderFilterSummary in a vm with app.js's other functions stubbed
+// and none of its top-level values, and this line reads the Industry
+// view's state and ARCHIVE_FILTERS_NOTE, which would stop the publish.
+// The gate compares the filter line only with no summary on screen.
+function renderUnfilteredFilterSummary(el, total, scope) {
+    // A phone's scope line (renderPhoneScope): what the open tab counts.
+    if (scope) {
+        el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
+            `${escapeHtml(scope)} \u00b7 filters are a desktop feature`;
+        return;
+    }
+    const btn = document.getElementById('filter-summary-toggle');
+    // Except on the Industry Sponsors view: it draws the latest sponsor
+    // data under the Year Range and Condition controls whatever archive
+    // is on screen, so the line says that, read from the controls
+    // industryFilteredRows reads. A thumb at the window's end is no upper
+    // bound there (yearWindowEnds): the view then keeps sponsor trials
+    // posted after the archive's last year, where syncYearWindow clamps
+    // that thumb, so the line names the newest results year the sponsor
+    // data reaches, or, before it loads, the open end in words. It opens
+    // with a noun phrase, as every line here does, since it follows the
+    // fixed "Showing" label (index.html).
+    if (btn && !btn.hidden && industryActive()) {
+        // The sponsor data did not load (loadIndustryView): the view
+        // shows an error, no sponsor data and nothing to filter, and the
+        // Filters button is off (syncFilterToggle). Before the load ends
+        // the line below stands, its open end in words.
+        if (industryLoadFailed) {
+            el.innerHTML = [
+                'the Industry view without its sponsor data, which did not load',
+                "other tabs show this archive's totals, unfiltered"
+            ].join(' · ');
+            return;
+        }
+        // Only the heatmap and the trend draw industryFilteredRows(). The
+        // Adjusted Differences view draws model estimates fitted over the
+        // whole cohort, which its footnote says do not respond to the
+        // year/condition filters (renderIndustryForest), so its line
+        // claims no narrowing. A sub-view switch redraws the line
+        // (redrawArchiveSummary).
+        if (industryView === 'forest') {
+            el.innerHTML = [
+                'the latest sponsor data',
+                'adjusted estimates over all years and conditions',
+                "other tabs show this archive's totals, unfiltered"
+            ].join(' \u00b7 ');
+            return;
+        }
+        const { start, end } = yearWindowEnds();
+        const newest = end === Infinity ? industryNewestResultsYear() : null;
+        const years = end !== Infinity ? `<b>${escapeHtml(start + '\u2013' + end)}</b>`
+            : newest && newest >= start ? `<b>${escapeHtml(start + '\u2013' + newest)}</b>`
+            : `from <b>${escapeHtml(String(start))}</b>`;
+        const pri = document.getElementById('condition-primary')?.value || 'all';
+        const sec = document.getElementById('condition-secondary')?.value || 'all';
+        const conditions = [];
+        if (pri !== 'all') conditions.push(`condition <b>${escapeHtml(pri)}</b>`);
+        if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
+        el.innerHTML = [
+            'the latest sponsor data',
+            `results posted ${years}`,
+            ...(conditions.length ? conditions : ['all conditions']),
+            "other tabs show this archive's totals, unfiltered"
+        ].join(' \u00b7 ');
+        return;
+    }
+    el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
+        'the full dataset, unfiltered \u00b7 ' + (btn && btn.hidden
+            ? 'filters are a desktop feature'
+            : ARCHIVE_FILTERS_NOTE);
+}
+
+// Why the filters do nothing on a desktop aggregate archive: the summary
+// line says it, and the Filters button's tooltip repeats it.
+const ARCHIVE_FILTERS_NOTE = 'this archive keeps totals only; filters apply to the latest data and the complete snapshots';
+
 function initFilterSummary() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
@@ -4542,16 +4661,90 @@ function initFilterSummary() {
     // an aggregate archive from a link keeps the button for the latest data.
     if (isMobileDevice && dashboardSummary) { btn.hidden = true; return; }
     btn.addEventListener('click', () => {
+        // Off while an aggregate archive is on screen (syncFilterToggle).
+        if (btn.getAttribute('aria-disabled') === 'true') return;
         const open = panel.hidden;
         panel.hidden = !open;
         btn.setAttribute('aria-expanded', String(open));
     });
 }
 
+// Tabs that apply no dashboard filter: the panel and the line above it are
+// not shown there at all.
+const NO_FILTER_TABS = ['faq', 'about', 'ai-devices', 'geography', 'fda-extraction', 'lit-extraction', 'approval-queue'];
+
+// Shared by both ways onto a tab, a tab click (initTabs) and the /#industry
+// route (openIndustryView), once the tab is active. style.display governs
+// whether the tab has filters at all; the panel's `hidden` attribute governs
+// whether they are expanded, and is left as it is here (syncFilterToggle
+// closes it on an archive tab). On the phone summary view the panel stays
+// collapsed: its Filters button is hidden (initFilterSummary).
+function showFilterChrome(tabId) {
+    const display = NO_FILTER_TABS.includes(tabId) ? 'none' : '';
+    const filtersSection = document.getElementById('filters');
+    const filterSummary = document.getElementById('filter-summary');
+    if (filtersSection) filtersSection.style.display = display;
+    if (filterSummary) filterSummary.style.display = display;
+    // The Filters button is off on an archive except on the Industry view,
+    // which reads the filters whatever snapshot is on screen.
+    syncFilterToggle();
+}
+
+// On desktop an aggregate archive keeps totals only, so the panel's controls
+// would change nothing there: the Filters button is greyed out and the panel
+// closed while one is on screen, and both come back on the latest data and a
+// complete snapshot. The Industry Sponsors view is the exception: it always
+// draws the latest data/industry_sponsors.json under the global Year Range
+// and Condition filters, so the button stays on while that tab is open
+// (showFilterChrome calls this on every tab change), unless that data did
+// not load: then the controls have nothing to filter there either, and the
+// button is off until a load succeeds (loadIndustryView calls this on both
+// outcomes). On the latest data a failed sponsor load leaves the button on:
+// its controls still filter the dataset the line counts and the other tabs.
+// aria-disabled rather than the disabled attribute: the button stays in the
+// tab order, a screen reader announces it as dimmed, and its description is
+// the summary line that says why. The phone view hides the button altogether
+// (initFilterSummary) and is left alone; a phone whose summary did not load
+// runs the full page, button included, and is treated as desktop here.
+function syncFilterToggle() {
+    const btn = document.getElementById('filter-summary-toggle');
+    const panel = document.getElementById('filters');
+    if (!btn || !panel || btn.hidden) return;
+    const onIndustry = industryActive();
+    if (dashboardSummary && (!onIndustry || industryLoadFailed)) {
+        btn.setAttribute('aria-disabled', 'true');
+        btn.setAttribute('aria-describedby', 'filter-summary-text');
+        btn.title = 'Filters are off: ' + (onIndustry
+            ? "the Industry sponsor data did not load, and other tabs show this archive's totals, unfiltered"
+            : ARCHIVE_FILTERS_NOTE);
+        if (!panel.hidden) {
+            panel.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    } else {
+        btn.removeAttribute('aria-disabled');
+        btn.removeAttribute('aria-describedby');
+        btn.removeAttribute('title');
+    }
+    // On an archive the line above the panel depends on the tab too (the
+    // Industry view's own line: renderFilterSummary), so a tab change redraws
+    // it here.
+    redrawArchiveSummary();
+}
+
+// On an archive the line above the panel depends on the tab and, on the
+// Industry tab, on its sub-view (renderFilterSummary): a tab change, a
+// sub-view switch and the #industry?view= route redraw it. The latest data
+// and complete snapshots keep theirs, drawn with the dashboard.
+function redrawArchiveSummary() {
+    if (dashboardSummary) renderFilterSummary(dashboardSummary.totalStudies || 0, true);
+}
+
 function renderDashboard() {
     if (!data && !dashboardSummary) return;
 
     showDashboardSpinner();
+    syncFilterToggle();
 
     // ── Mobile summary path: use pre-computed aggregates ──
     if (dashboardSummary) {
@@ -11413,6 +11606,7 @@ const INDUSTRY_GREY = '#6b7280';   // underrepresentation on race/ethnicity tier
 const INDUSTRY_TREND_MIN_N = 5;    // suppress sponsor-year medians under this n
 
 let industryData = null;           // parsed industry_sponsors.json
+let industryLoadFailed = false;    // the last load of it failed (HTTP error, not JSON, not the sponsor dataset, or set-up threw); cleared by a load that succeeds
 let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
 let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
@@ -12334,11 +12528,63 @@ async function openIndustryView() {
     const navBtn = document.querySelector('.tab[data-tab="industry"]');
     if (navBtn) navBtn.classList.add('active');   // lights the Tools group via :has(.tab.active)
     document.getElementById('industry').classList.add('active');
-    const filtersSection = document.getElementById('filters');
-    if (filtersSection && !dashboardSummary) filtersSection.style.display = '';
+    // As a tab click does: a tab with no filters (FAQ, Geography …) may have
+    // hidden them, and the Filters button is on here even over an archive.
+    showFilterChrome('industry');
     renderPhoneScope();   // a phone: the line names Industry's study types, as a tab click does
 
     await loadIndustryView();
+}
+
+// What is wrong with a parsed data/industry_sponsors.json as the Industry
+// view reads it, or null. JSON that is not the sponsor dataset ({}, an error
+// body, a schema the view does not know) would otherwise be kept as loaded:
+// a step that reads it throws, the view shows an error while the archive
+// line and the Filters button say the data is there, and a reopen skips the
+// fetch and throws outside loadIndustryView's catch. Required: what every
+// format since the first (July 2026) carries and the view reads unguarded.
+// The keys added since (company_n, top_n, contrasts_lead, pooled_lead,
+// contrasts_demo, race_categories, eth_categories, sex_specific_conditions)
+// are read through guards that fall back for that format, so they are
+// checked only when set, for the shape those reads need. Keys the view never
+// reads (trial_fields, heatmap_conditions, prevalence_benchmarks …), and
+// census, read through guards alone, are not checked.
+function industryDataProblem(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return 'not an object with trials';
+    const num = v => typeof v === 'number' && Number.isFinite(v);
+    const names = a => Array.isArray(a) && a.every(s => typeof s === 'string');
+    // The forest reads sponsor, beta, lo, hi (toFixed) and n (toLocaleString).
+    const fits = a => Array.isArray(a) && a.every(c => c && typeof c.sponsor === 'string' &&
+        num(c.beta) && num(c.lo) && num(c.hi) && num(c.n));
+    // Rows are read by index (industryFilteredRows); t[1], percent female,
+    // goes into medians the heatmap and trend call toFixed on.
+    if (!Array.isArray(d.trials)) return 'no trials list';
+    if (!d.trials.every(t => Array.isArray(t) && (t[1] === null || num(t[1])))) {
+        return 'a trials row is not [company, percent female or null, …]';
+    }
+    for (const k of ['companies', 'primaries', 'secondaries']) {
+        if (!names(d[k])) return `no ${k} list of names`;
+    }
+    if (!num(d.cohort_n)) return 'no cohort_n';
+    if (!fits(d.contrasts)) return 'no contrasts list of fits';
+    if (Array.isArray(d.contrasts_lead) && !fits(d.contrasts_lead)) return 'a contrasts_lead fit is incomplete';
+    // pooled.n.toLocaleString() whenever the block is set.
+    for (const k of ['pooled', 'pooled_lead']) {
+        if (d[k] && !num(d[k].n)) return `${k} has no n`;
+    }
+    // contrasts_demo[tier][category].any / .lead, spread when set.
+    const demoFits = Object.values(d.contrasts_demo || {}).flatMap(tier => Object.values(tier || {}))
+        .flatMap(cat => (cat ? [cat.any, cat.lead] : [])).filter(Boolean);
+    if (!demoFits.every(fits)) return 'a contrasts_demo fit is not a list of fits';
+    // Mapped over for the category chips; a Set of the sex-specific list.
+    for (const k of ['race_categories', 'eth_categories', 'sex_specific_conditions']) {
+        if (d[k] && !names(d[k])) return `${k} is not a list of names`;
+    }
+    if (d.source_extracted_at && typeof d.source_extracted_at !== 'string') return 'source_extracted_at is not a date';
+    for (const k of ['min_cell', 'top_n']) {
+        if (d[k] != null && !num(d[k])) return `${k} is not a number`;
+    }
+    return null;
 }
 
 // Shared by both entries. Assumes the gate has passed and #industry is the
@@ -12348,12 +12594,20 @@ async function loadIndustryView() {
         try {
             const resp = await fetchChecked('data/industry_sponsors.json', d => d.source_extracted_at);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            industryData = await resp.json();
+            const parsed = await resp.json();
+            const problem = industryDataProblem(parsed);
+            if (problem) throw new Error('not the sponsor dataset: ' + problem);
+            industryData = parsed;
+            industryLoadFailed = false;
             industrySelected = new Set(industryTop10());
             renderIndustryCatRow();
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
+            // A shared ?view= may have set the sub-view since openIndustryView
+            // drew the archive line, and after a failed load the Filters
+            // button comes back on: the button and the line, redrawn.
+            syncFilterToggle();
             // After the route parameters, not before: the menu lists the top
             // 10 or every sponsor depending on scope, so a shared scope=all
             // link must build it once the scope is known, summary included.
@@ -12361,6 +12615,16 @@ async function loadIndustryView() {
             updateIndustryShareUrl();
         } catch (e) {
             updateIndustryShareUrl();   // #industry in the bar even if the fetch fails
+            // An HTTP error, a body that is not JSON or not the sponsor
+            // dataset (industryDataProblem), or a step after the parse that
+            // threw: no usable sponsor data, so over an archive the line says
+            // so and the Filters button is off (renderFilterSummary,
+            // syncFilterToggle) until a load succeeds. Half-set-up data is
+            // dropped too, so a reopen fetches and sets it up again instead
+            // of drawing it outside this catch.
+            industryData = null;
+            industryLoadFailed = true;
+            syncFilterToggle();
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by the civicsample-engine pipeline during the weekly extraction.</p>`;
             return;
@@ -12415,6 +12679,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('active');
             industryView = btn.dataset.iview;
             renderIndustry();
+            redrawArchiveSummary();   // the forest applies no year/condition filter
         });
     });
     // Demographic tier tabs (Sex / Race / Ethnicity).
@@ -12469,6 +12734,15 @@ document.addEventListener('DOMContentLoaded', () => {
     // Re-render under the global filters this view honors.
     ['year-start', 'year-end', 'condition-primary', 'condition-secondary'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
+            // A new primary condition always resets the subcategory to all
+            // (populateSecondaryConditionDropdown, from initFilters' handler).
+            // That handler is added after this one, so reset it here first:
+            // otherwise the view draws the new condition with the old
+            // subcategory, and nothing redraws it once the reset lands.
+            if (id === 'condition-primary') {
+                const sec = document.getElementById('condition-secondary');
+                if (sec) sec.value = 'all';
+            }
             if (industryActive()) renderIndustry();
         });
     });

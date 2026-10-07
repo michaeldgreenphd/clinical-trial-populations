@@ -96,6 +96,7 @@ function populateConditionsDropdown() {}
 function populateCountriesDropdown() {}
 function populatePrimaryConditionDropdown() {}
 function renderDashboard() { renders++; }
+function renderIndustryAfterSwitch() {}   // no Industry view open (industry_switch.test.mjs)
 function labelChartsForA11y() {}
 function updateShareUrl() {}
 function sgOpenMethods() {}
