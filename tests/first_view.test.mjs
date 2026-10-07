@@ -24,16 +24,23 @@
  *    so in the strip;
  *  - a summary without the block (today's, and every archive's) does what
  *    it did: the loading screen's figure, nothing painted, nothing disabled;
- *  - the pieces the engine's gate slices are all still there and still run
- *    on their own, as it runs them.
+ *  - the engine's gate itself (its script, copied unchanged and pinned in
+ *    tests/engine_first_view_parity.json) passes on this app.js and
+ *    index.html, and the pieces it slices run on their own in its stub
+ *    document, calling nothing else.
  *
  * Everything runs app.js's own functions in a vm, over a stub document
  * built from index.html's markup (its controls start at their defaults).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { gunzipSync } from 'node:zlib';
+import { createHash } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 
 const read = (p) => readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
@@ -1205,66 +1212,153 @@ test('startup wires the first view in, and never through dashboardSummary', () =
 });
 
 // ── 5. The engine's gate ───────────────────────────────────────────────────
-// civicsample-engine scripts/first_view_parity.mjs slices these from the
-// live app.js by name and runs them alone in a vm with these names defined.
-// A rename, or a new helper one of them calls, stops the weekly publish.
-const ENGINE_APP_PIECES = [
-    ['between', 'const YEAR_WINDOW_MIN', 'function initFilters()'],
-    ['fn', 'function initFilters()'],
-    ['fn', 'function getFilteredData()'],
-    ['fn', 'function sgReadFilters()'],
-    ['fn', 'function showDashboardSpinner()'],
-    ['fn', 'function hideDashboardSpinner()'],
-    ['fn', 'function renderOverviewTileContext('],
-    ['fn', 'function renderOverviewFinding('],
-    ['fn', 'function renderFilterSummary('],
-    ['fn', 'function renderDashboard()'],
-    ['fn', 'function escapeHtml('],
-    ['fn', 'function renderReportingTrends(']
-];
-const ENGINE_ELSEWHERE = [
-    'sgApplyMode', 'sgAfterRender', 'refreshStudiesTab', 'updateActiveFilters',
-    'populateConditionsDropdown', 'populateCountriesDropdown', 'populateSecondaryConditionDropdown',
-    'renderRaceDistribution', 'renderRaceTrends', 'renderRaceSubcategories', 'renderRaceReportedParticipants',
-    'renderRaceFullDistribution', 'renderEthnicityDistribution', 'renderEthnicityTrends',
-    'renderEthnicitySubcategories', 'renderEthnicityReportedParticipants', 'renderEthnicityFullDistribution',
-    'renderSexReportedParticipants', 'renderSexFullDistribution', 'renderSexDistribution', 'renderSexTrends',
-    'renderGenderReportedParticipants', 'renderGenderFullDistribution', 'renderGenderDistribution',
-    'renderGenderTrends', 'renderFdaOversight', 'renderGeographyDashboard'
-];
+// civicsample-engine scripts/first_view_parity.mjs runs this app.js and
+// index.html before every weekly publish of a firstView block; a mismatch,
+// or a piece that cannot run in its vm, holds the publish. Its copy here
+// (tests/engine_first_view_parity.mjs, pinned by tests/
+// engine_first_view_parity.json) is run as the publish runs it, and its stub
+// document is read from it rather than written again: a querySelector that
+// answers class selectors only and throws on any other, the markup from
+// <header> to the end of the Overview's section, and requestAnimationFrame
+// run at once. The site's own stub above answers more (attribute
+// selectors, :not, the markup from <body>), so a change can pass the tests
+// above and still stop the publish; it fails here.
+const ENGINE_FILE = new URL('./engine_first_view_parity.mjs', import.meta.url);
+const ENGINE_PIN = JSON.parse(read('tests/engine_first_view_parity.json'));
+const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 
-test('the pieces the engine\'s gate slices are all there and run on their own', () => {
-    const pieces = ENGINE_APP_PIECES.map(([kind, from, to]) => (kind === 'fn' ? fnSource(from) : between(from, to)));
-    const { document } = buildDocument();
+// The engine script's own lists, slicers and stub document, from its text.
+function engineSource(from, to) {
+    const a = ENGINE.indexOf(from), b = ENGINE.indexOf(to, a);
+    assert.ok(a >= 0 && b > a, `the engine script lost ${from} … ${to}`);
+    return ENGINE.slice(a, b);
+}
+const ENGINE_PARTS = (() => {
+    const ctx = vm.createContext({ readFileSync });
+    vm.runInContext([
+        engineSource('const APP_PIECES = [', '// What renderDashboard and initFilters call outside the Overview'),
+        engineSource('const ELSEWHERE = [', '// The Overview\'s text'),
+        'class InputError extends Error {}',
+        engineSource('function slicePiece(', 'function writeExcerpt('),
+        engineSource('const ENTITIES = ', '// ── the site\'s code in a vm'),
+        'this.parts = { APP_PIECES, INDEX_SLICE, ELSEWHERE, AWAY_FROM_DEFAULT, readSite, buildDocument };'
+    ].join('\n'), ctx, { filename: 'engine_first_view_parity.mjs' });
+    return ctx.parts;
+})();
+const APP_PATH = fileURLToPath(new URL('../app.js', import.meta.url));
+const INDEX_PATH = fileURLToPath(new URL('../index.html', import.meta.url));
+
+// Synthetic records and the summary the engine would publish for them, as
+// files, and the engine script run on them and on an app.js.
+function runEngineGate(appPath = APP_PATH) {
+    const dir = mkdtempSync(join(tmpdir(), 'first-view-gate-'));
+    try {
+        const records = syntheticRecords();
+        const block = blockFor(records);
+        writeFileSync(join(dir, 'records.json'), JSON.stringify({ ...RUN, data: records }));
+        writeFileSync(join(dir, 'summary.json'), JSON.stringify({ ...summaryWith(block), totalStudies: records.length }));
+        const r = spawnSync(process.execPath, [fileURLToPath(ENGINE_FILE), '--records', join(dir, 'records.json'),
+            '--summary', join(dir, 'summary.json'), '--app', appPath, '--index', INDEX_PATH], { encoding: 'utf8', timeout: 60000 });
+        let report = null;
+        try { report = JSON.parse(r.stdout); } catch { /* exit 2 prints no report */ }
+        return { status: r.status, stderr: r.stderr, report };
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+}
+
+test('the engine\'s gate is the pinned copy of its script', () => {
+    assert.equal(createHash('sha256').update(readFileSync(ENGINE_FILE)).digest('hex'), ENGINE_PIN.sha256,
+        'tests/engine_first_view_parity.mjs is not the engine script tests/engine_first_view_parity.json pins');
+    assert.equal(ENGINE_PIN.path, 'scripts/first_view_parity.mjs');
+    assert.match(ENGINE_PIN.commit, /^[0-9a-f]{40}$/);
+});
+
+test('the engine\'s gate passes on this app.js and index.html, run as the weekly publish runs it', () => {
+    const { status, stderr, report } = runEngineGate();
+    assert.equal(status, 0, `the gate would hold the publish: ${stderr || JSON.stringify(report && report.mismatches, null, 1)}`);
+    assert.equal(report.ok, true);
+    assert.deepEqual(report.mismatches, []);
+    assert.ok(report.checked >= 40, `only ${report.checked} checks ran`);
+    // And it holds the publish for what the site's own stub lets by: one of
+    // its pieces asking for an attribute selector.
+    const dir = mkdtempSync(join(tmpdir(), 'first-view-gate-app-'));
+    try {
+        const at = app.indexOf('function renderFilterSummary(');
+        const body = app.indexOf('{', at) + 1;
+        const changed = `${app.slice(0, body)}\n    document.querySelector('.tab[data-tab="overview"]');${app.slice(body)}`;
+        writeFileSync(join(dir, 'app.js'), changed);
+        const held = runEngineGate(join(dir, 'app.js'));
+        assert.equal(held.status, 2, 'the engine\'s gate ran a piece with an attribute selector');
+        assert.match(held.stderr, /class selectors only/);
+    } finally {
+        rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('the pieces the engine\'s gate slices are all there and run on their own, in its document, calling nothing else', () => {
+    // Sliced by the engine's own readSite (a piece it cannot find is an
+    // input error that holds the publish), then run in a vm that defines
+    // only what the engine's does: any other app.js function a piece calls
+    // is a ReferenceError here, whatever a later engine script does with it.
+    const site = ENGINE_PARTS.readSite(APP_PATH, INDEX_PATH);
+    assert.equal(site.pieces.length, ENGINE_PARTS.APP_PIECES.length);
+    assert.ok(site.markup.startsWith('<header>') && site.markup.endsWith('</section>'));
+    const { document, byId, controls } = ENGINE_PARTS.buildDocument(site.markup);
+    assert.throws(() => document.querySelector('.tab[data-tab="overview"]'), /class selectors only/, 'the engine\'s document answers more than class selectors');
     const made = [];
+    let sgOn = false;
     const sandbox = {
         document, window: {}, console: { log() {}, info() {}, debug() {}, warn() {}, error() {} },
         requestAnimationFrame: (fn) => { fn(); return 1; }, cancelAnimationFrame() {},
         Chart: class { constructor(canvas, config) { made.push({ canvas, config }); } destroy() {} },
-        sgActive: () => false
+        sgActive: () => sgOn
     };
-    for (const name of ENGINE_ELSEWHERE) sandbox[name] = () => {};
-    for (const name of [...AWAY_FROM_DEFAULT, 'resetFilters', 'updateShareUrl']) sandbox[name] = () => { throw new Error(`${name} ran`); };
+    for (const name of ENGINE_PARTS.ELSEWHERE) sandbox[name] = () => {};
+    for (const name of ENGINE_PARTS.AWAY_FROM_DEFAULT) sandbox[name] = () => { throw new Error(`${name} ran`); };
     const context = vm.createContext(sandbox);
     vm.runInContext([
         'let data = null; let dashboardSummary = null; let charts = {}; let sgV2Filters = null;',
         "const COLORS = { reporting: { race: '#000000', ethnicity: '#000000', both: '#000000' } };",
         'const CHART_ASPECT_RATIO = undefined;',
-        ...pieces
+        ...site.pieces
     ].join('\n'), context);
+    const run = (code) => vm.runInContext(code, context);
     const records = syntheticRecords();
-    context.__records = records;
-    vm.runInContext('data = __records; initFilters(); renderDashboard();', context);
-    // The block through the summary painter, as the gate paints it.
     const b = blockFor(records);
+    context.__records = records;
+    // What the gate runs, in its order: the records' Overview, the
+    // controls, ?sg=v2 at Any, the block through the summary painter and
+    // through the desktop painters, each results year alone, and the
+    // filter with study type All.
+    run('data = __records; dashboardSummary = null; initFilters(); renderDashboard();');
+    const painted = Object.fromEntries(['total-studies', 'race-reporting', 'stat-sub-total', 'finding-headline', 'filter-summary-text']
+        .map((id) => [id, byId.get(id).innerHTML || byId.get(id).textContent]));
+    assert.equal(run('(() => { const w = yearWindowEnds(); return JSON.stringify([w.start, w.end === Infinity ? null : w.end]); })()'), '[2009,null]');
+    assert.equal(run('datasetLatestYear()'), b.newest_results_year);
+    assert.equal(controls.length > 5, true, 'the engine finds no filter controls');
+    sgOn = true;
+    assert.equal(run('getFilteredData().length'), b.trials);
+    sgOn = false;
     context.__summary = {
         totalStudies: b.trials,
         cards: { raceCount: b.trials_reporting_race, ethCount: b.trials_reporting_ethnicity, bothCount: b.trials_reporting_race_and_ethnicity },
         byYear: Object.fromEntries(Object.entries(b.by_results_year).map(([y, c]) => [y, { total: c.trials, race_reported: c.trials_reporting_race,
             eth_reported: c.trials_reporting_ethnicity, both_reported: c.trials_reporting_race_and_ethnicity }]))
     };
-    vm.runInContext('dashboardSummary = __summary; renderDashboard();', context);
+    run('dashboardSummary = __summary; renderDashboard();');
+    const args = [b.trials, b.trials_reporting_race, b.trials_reporting_ethnicity, b.trials_reporting_race_and_ethnicity].join(', ');
+    run(`dashboardSummary = null; renderOverviewTileContext(${args}); renderOverviewFinding(${args}); renderFilterSummary(${b.trials});`);
+    for (const [id, html] of Object.entries(painted)) assert.equal(byId.get(id).innerHTML || byId.get(id).textContent, html, `#${id}`);
+    for (const y of Object.keys(b.by_results_year)) {
+        run(`(() => { const ys = document.getElementById('year-start'), ye = document.getElementById('year-end');
+            ye.value = '${y}'; ys.value = '${y}'; noteYearChoice(ys); noteYearChoice(ye);
+            dashboardSummary = null; renderDashboard(); })()`);
+    }
+    run('resetYearWindow(); document.getElementById(\'study-type\').value = \'all\';');
+    assert.equal(run('getFilteredData().length'), records.length);
     const trend = made.filter((c) => c.canvas && c.canvas.id === 'reporting-trends-chart');
-    assert.equal(trend.length, 2, 'the gate would read the records\' chart as the block\'s');
-    assert.deepEqual(trend[1].config.data.datasets.map((d) => d.data), trend[0].config.data.datasets.map((d) => d.data));
+    assert.ok(trend.length >= 2, 'the trend chart was not drawn');
+    assert.deepEqual(trend[1].config.data.datasets.map((d) => d.data), trend[0].config.data.datasets.map((d) => d.data),
+        'the gate would read the records\' chart as the block\'s');
 });
