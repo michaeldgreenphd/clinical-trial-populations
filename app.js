@@ -3706,6 +3706,20 @@ function renderFilterSummary(total, unfiltered) {
         // does. It opens with a noun phrase, as every line here does, since
         // it follows the fixed "Showing" label (index.html).
         if (btn && !btn.hidden && industryActive()) {
+            // Only the heatmap and the trend draw industryFilteredRows(). The
+            // Adjusted Differences view draws model estimates fitted over the
+            // whole cohort, which its footnote says do not respond to the
+            // year/condition filters (renderIndustryForest), so its line
+            // claims no narrowing. A sub-view switch redraws the line
+            // (redrawArchiveSummary).
+            if (industryView === 'forest') {
+                el.innerHTML = [
+                    'the latest sponsor data',
+                    'adjusted estimates over all years and conditions',
+                    "other tabs show this archive's totals, unfiltered"
+                ].join(' \u00b7 ');
+                return;
+            }
             const { start, end } = yearWindowEnds();
             const last = end === Infinity ? document.getElementById('year-end')?.value : end;
             const pri = document.getElementById('condition-primary')?.value || 'all';
@@ -3809,7 +3823,15 @@ function syncFilterToggle() {
     }
     // On an archive the line above the panel depends on the tab too (the
     // Industry view's own line: renderFilterSummary), so a tab change redraws
-    // it here. The latest data and complete snapshots keep theirs.
+    // it here.
+    redrawArchiveSummary();
+}
+
+// On an archive the line above the panel depends on the tab and, on the
+// Industry tab, on its sub-view (renderFilterSummary): a tab change, a
+// sub-view switch and the #industry?view= route redraw it. The latest data
+// and complete snapshots keep theirs, drawn with the dashboard.
+function redrawArchiveSummary() {
     if (dashboardSummary) renderFilterSummary(dashboardSummary.totalStudies || 0, true);
 }
 
@@ -11604,6 +11626,9 @@ async function loadIndustryView() {
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
+            // A shared ?view= may have set the sub-view since openIndustryView
+            // drew the archive line.
+            redrawArchiveSummary();
             // After the route parameters, not before: the menu lists the top
             // 10 or every sponsor depending on scope, so a shared scope=all
             // link must build it once the scope is known, summary included.
@@ -11665,6 +11690,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btn.classList.add('active');
             industryView = btn.dataset.iview;
             renderIndustry();
+            redrawArchiveSummary();   // the forest applies no year/condition filter
         });
     });
     // Demographic tier tabs (Sex / Race / Ethnicity).
