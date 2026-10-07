@@ -10874,7 +10874,7 @@ const INDUSTRY_GREY = '#6b7280';   // underrepresentation on race/ethnicity tier
 const INDUSTRY_TREND_MIN_N = 5;    // suppress sponsor-year medians under this n
 
 let industryData = null;           // parsed industry_sponsors.json
-let industryLoadFailed = false;    // the last load of it failed (HTTP error or not JSON); cleared by a load that succeeds
+let industryLoadFailed = false;    // the last load of it failed (HTTP error, not JSON, not the sponsor dataset, or set-up threw); cleared by a load that succeeds
 let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
 let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
@@ -11803,6 +11803,57 @@ async function openIndustryView() {
     await loadIndustryView();
 }
 
+// What is wrong with a parsed data/industry_sponsors.json as the Industry
+// view reads it, or null. JSON that is not the sponsor dataset ({}, an error
+// body, a schema the view does not know) would otherwise be kept as loaded:
+// a step that reads it throws, the view shows an error while the archive
+// line and the Filters button say the data is there, and a reopen skips the
+// fetch and throws outside loadIndustryView's catch. Required: what every
+// format since the first (July 2026) carries and the view reads unguarded.
+// The keys added since (company_n, top_n, contrasts_lead, pooled_lead,
+// contrasts_demo, race_categories, eth_categories, sex_specific_conditions)
+// are read through guards that fall back for that format, so they are
+// checked only when set, for the shape those reads need. Keys the view never
+// reads (trial_fields, heatmap_conditions, prevalence_benchmarks …), and
+// census, read through guards alone, are not checked.
+function industryDataProblem(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return 'not an object with trials';
+    const num = v => typeof v === 'number' && Number.isFinite(v);
+    const names = a => Array.isArray(a) && a.every(s => typeof s === 'string');
+    // The forest reads sponsor, beta, lo, hi (toFixed) and n (toLocaleString).
+    const fits = a => Array.isArray(a) && a.every(c => c && typeof c.sponsor === 'string' &&
+        num(c.beta) && num(c.lo) && num(c.hi) && num(c.n));
+    // Rows are read by index (industryFilteredRows); t[1], percent female,
+    // goes into medians the heatmap and trend call toFixed on.
+    if (!Array.isArray(d.trials)) return 'no trials list';
+    if (!d.trials.every(t => Array.isArray(t) && (t[1] === null || num(t[1])))) {
+        return 'a trials row is not [company, percent female or null, …]';
+    }
+    for (const k of ['companies', 'primaries', 'secondaries']) {
+        if (!names(d[k])) return `no ${k} list of names`;
+    }
+    if (!num(d.cohort_n)) return 'no cohort_n';
+    if (!fits(d.contrasts)) return 'no contrasts list of fits';
+    if (Array.isArray(d.contrasts_lead) && !fits(d.contrasts_lead)) return 'a contrasts_lead fit is incomplete';
+    // pooled.n.toLocaleString() whenever the block is set.
+    for (const k of ['pooled', 'pooled_lead']) {
+        if (d[k] && !num(d[k].n)) return `${k} has no n`;
+    }
+    // contrasts_demo[tier][category].any / .lead, spread when set.
+    const demoFits = Object.values(d.contrasts_demo || {}).flatMap(tier => Object.values(tier || {}))
+        .flatMap(cat => (cat ? [cat.any, cat.lead] : [])).filter(Boolean);
+    if (!demoFits.every(fits)) return 'a contrasts_demo fit is not a list of fits';
+    // Mapped over for the category chips; a Set of the sex-specific list.
+    for (const k of ['race_categories', 'eth_categories', 'sex_specific_conditions']) {
+        if (d[k] && !names(d[k])) return `${k} is not a list of names`;
+    }
+    if (d.source_extracted_at && typeof d.source_extracted_at !== 'string') return 'source_extracted_at is not a date';
+    for (const k of ['min_cell', 'top_n']) {
+        if (d[k] != null && !num(d[k])) return `${k} is not a number`;
+    }
+    return null;
+}
+
 // Shared by both entries. Assumes the gate has passed and #industry is the
 // active section; fetches the dataset once, then renders.
 async function loadIndustryView() {
@@ -11810,7 +11861,10 @@ async function loadIndustryView() {
         try {
             const resp = await fetchChecked('data/industry_sponsors.json', d => d.source_extracted_at);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            industryData = await resp.json();
+            const parsed = await resp.json();
+            const problem = industryDataProblem(parsed);
+            if (problem) throw new Error('not the sponsor dataset: ' + problem);
+            industryData = parsed;
             industryLoadFailed = false;
             industrySelected = new Set(industryTop10());
             renderIndustryCatRow();
@@ -11828,12 +11882,15 @@ async function loadIndustryView() {
             updateIndustryShareUrl();
         } catch (e) {
             updateIndustryShareUrl();   // #industry in the bar even if the fetch fails
-            // An HTTP error or a body that is not JSON: no sponsor data, so
-            // over an archive the line says so and the Filters button is off
-            // (renderFilterSummary, syncFilterToggle) until a load succeeds.
-            // Only while no sponsor data is held: a step after the parse that
-            // threw is not a failed load.
-            industryLoadFailed = !industryData;
+            // An HTTP error, a body that is not JSON or not the sponsor
+            // dataset (industryDataProblem), or a step after the parse that
+            // threw: no usable sponsor data, so over an archive the line says
+            // so and the Filters button is off (renderFilterSummary,
+            // syncFilterToggle) until a load succeeds. Half-set-up data is
+            // dropped too, so a reopen fetches and sets it up again instead
+            // of drawing it outside this catch.
+            industryData = null;
+            industryLoadFailed = true;
             syncFilterToggle();
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by the civicsample-engine pipeline during the weekly extraction.</p>`;

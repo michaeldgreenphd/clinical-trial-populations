@@ -514,6 +514,11 @@ const SPONSOR_ROWS = `let industryRole = 'any', industryDemo = 'sex';
     ${fnSource('function industryFilteredRows()')}`;
 const sponsorData = (years) => JSON.stringify({ primaries: ['Oncology'], secondaries: ['Breast'],
     trials: years.map(y => [0, 0, y, 2011, 0, 0]) });
+// The same rows as a whole file, as loadIndustryView checks a fetched one
+// (industryDataProblem): today's format, every key the view reads.
+const sponsorPayload = (years) => JSON.stringify({ ...JSON.parse(sponsorData(years)),
+    source_extracted_at: '2026-10-04T12:09:21+00:00', cohort_n: years.length, min_cell: 10,
+    companies: ['Pfizer'], company_n: [years.length], top_n: 10, contrasts: [], pooled: { n: years.length, r2: 0.1 } });
 const rowYears = (h) => JSON.parse(h.run('JSON.stringify(industryFilteredRows().map(t => t[2]))'));
 
 test('an open end names the newest results year the Industry view includes, not the clamped thumb', () => {
@@ -575,7 +580,7 @@ test('before the sponsor data loads, an open end is said in words, never as the 
     // The load redraws the line (loadIndustryView, after it sets industryData).
     // syncFilterToggle() redraws it, and sets the button a failed load turned off.
     assert.match(fnSource('async function loadIndustryView()'),
-        /industryData = await resp\.json\(\);[\s\S]*?syncFilterToggle\(\);/);
+        /industryData = parsed;[\s\S]*?syncFilterToggle\(\);/);
     h.run(`industryData = ${sponsorData([2012, 2027])}; redrawArchiveSummary();`);
     assert.equal(h.text(), industryLine('2015–2027'));
     // Each load names its own newest year.
@@ -685,8 +690,9 @@ test('the ?view=forest route over an archive draws the forest line', async () =>
         function renderIndustrySponsorMenu() {} function updateIndustryShareUrl() {}
         function renderIndustry() {}
         async function fetchChecked() {
-            return { ok: true, json: async () => ({ secondaries: [], min_cell: 10, source_extracted_at: 'x' }) };
+            return { ok: true, json: async () => (${sponsorPayload([2012])}) };
         }
+        ${fnSource('function industryDataProblem(d)')}
         ${line('let industryRouteApplied = false;')}
         ${fnSource('function applyIndustryShareParams()')}
         ${fnSource('async function loadIndustryView()')}`);
@@ -942,11 +948,16 @@ function loadHarness({ archive = true, view = 'heatmap' } = {}) {
             industryConditionSelected = new Set(), industrySelected = null;
         const INDUSTRY_CAT_LABELS = {}, INDUSTRY_SUBTITLES = {};
         document.querySelectorAll = () => [];
-        function industryTop10() { return []; } function renderIndustryCatRow() {}
+        function renderIndustryCatRow() {}
         function renderIndustrySponsorMenu() {} function updateIndustryShareUrl() {}
-        let industryRenders = 0; function renderIndustry() { if (industryData) industryRenders++; }
-        let nextResponse = null;
-        async function fetchChecked() { return nextResponse; }
+        // The real top-10 cut (Codex's case: {} threw there), and a render
+        // that reads the rows, as renderIndustry does (industryFilteredRows).
+        ${fnSource('function industryTop10()')}
+        let industryRenders = 0;
+        function renderIndustry() { if (!industryData) return; industryData.trials.filter(Boolean); industryRenders++; }
+        let nextResponse = null, fetches = 0;
+        async function fetchChecked() { fetches++; return nextResponse; }
+        ${fnSource('function industryDataProblem(d)')}
         ${line('let industryRouteApplied = false;')}
         ${fnSource('function applyIndustryShareParams()')}
         ${fnSource('async function loadIndustryView()')}`);
@@ -955,7 +966,23 @@ function loadHarness({ archive = true, view = 'heatmap' } = {}) {
 }
 const HTTP_500 = '{ ok: false, status: 500, json: async () => ({}) }';
 const BAD_JSON = "{ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token < in JSON at position 0'); } }";
-const GOOD = `{ ok: true, status: 200, json: async () => (${sponsorData([2012, 2027])}) }`;
+const GOOD = `{ ok: true, status: 200, json: async () => (${sponsorPayload([2012, 2027])}) }`;
+// JSON, but not the sponsor dataset: an empty object, and a file without its rows.
+const EMPTY = '{ ok: true, status: 200, json: async () => ({}) }';
+const NO_TRIALS = `{ ok: true, status: 200, json: async () => { const d = ${sponsorPayload([2012, 2027])}; delete d.trials; return d; } }`;
+// The first published format (July 2026), which industryTop10 and
+// industryMenuCompanies still read: the top 10 plus a pooled "Other
+// Industry", 7-field rows, and no company_n, top_n, lead-only or
+// demographic fits.
+const FIRST_FORMAT = `{ ok: true, status: 200, json: async () => (${JSON.stringify({
+    generated_at: '2026-07-03T13:58:56Z', source_extracted_at: '2026-06-28T09:08:13.834989', cohort_n: 2, min_cell: 10,
+    companies: ['Novartis', 'GlaxoSmithKline', 'Merck Sharp & Dohme', 'Pfizer', 'Eli Lilly and Company', 'AstraZeneca',
+        'Bristol-Myers Squibb', 'Johnson & Johnson', 'Boehringer Ingelheim', 'Roche', 'Other Industry'],
+    primaries: ['Oncology'], secondaries: ['Breast'], heatmap_conditions: ['Breast'],
+    contrasts: [{ sponsor: 'Novartis', n: 120, beta: 1.2, lo: 0.1, hi: 2.3, p: 0.03 }], pooled: { n: 2, r2: 0.1, adj_r2: 0.1 },
+    trial_fields: ['bucket', 'pf', 'results_year', 'pcd_year', 'primary', 'secondary', 'has_explicit_unknown'],
+    trials: [[10, 33.3, 2012, 2010, 0, 0, 0], [0, null, 2027, 2022, 0, 0, 0]]
+})}) }`;
 const off = (h, why) => {
     assert.equal(h.btn.getAttribute('aria-disabled'), 'true', `the Filters button is on ${why}`);
     assert.equal(h.btn.getAttribute('aria-describedby'), 'filter-summary-text', why);
@@ -1040,15 +1067,105 @@ test('the phone summary view leaves its hidden button alone when the sponsor dat
     assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
 });
 
-test('a step after the sponsor data parsed that throws is not a failed load', async () => {
+// JSON that is not the sponsor dataset (Codex, PR #255): {} used to be kept
+// as loaded. industryTop10() threw on it inside the loader's try, so the view
+// showed its error, but industryLoadFailed stayed false: over an archive the
+// line said the latest sponsor data was shown and the Filters button stayed
+// on. And a reopen found industryData set, skipped the fetch and rendered it,
+// throwing outside the catch. industryDataProblem now turns such a body away
+// before it is kept: a failed load like an HTTP error.
+for (const [name, body] of [['{}', EMPTY], ['a file without its trial rows', NO_TRIALS]]) {
+    test(`over an archive, ${name} for the sponsor data is a failed load, and a reopen fetches again`, async () => {
+        const h = loadHarness();
+        h.run('syncFilterToggle();');
+        h.btn.click();
+        assert.equal(h.panel.hidden, false);
+        h.respond(body);
+        await h.load();
+        assert.match(h.el('industry-view-heatmap').innerHTML, /Could not load the industry sponsor dataset \(not the sponsor dataset: .*trials/);
+        assert.equal(h.run('industryData'), null, 'a body that is not the sponsor dataset was kept');
+        assert.equal(h.run('industryLoadFailed'), true);
+        assert.equal(h.text(), FAILED_LINE, 'the line claims sponsor data that did not load');
+        off(h, 'after a body that is not the sponsor dataset');
+        assert.equal(h.panel.hidden, true, 'the panel stayed open over controls that change nothing');
+
+        // Reopening the tab fetches again (it used to render the held object
+        // and throw outside the catch), and fails the same way.
+        await h.load();
+        assert.equal(h.run('fetches'), 2, 'the reopen did not fetch the sponsor data again');
+        assert.equal(h.text(), FAILED_LINE);
+        off(h, 'after the reopen');
+        assert.equal(h.run('industryRenders'), 0);
+
+        // A good file afterwards loads as usual.
+        h.respond(GOOD);
+        await h.load();
+        assert.equal(h.run('fetches'), 3);
+        assert.equal(h.run('industryRenders'), 1);
+        assert.equal(h.text(), industryLine('2015–2027'));
+        on(h, 'after the sponsor data loaded');
+    });
+}
+
+test('the first published sponsor format still loads, and a reopen keeps it without fetching', async () => {
+    const h = loadHarness();
+    h.respond(FIRST_FORMAT);
+    await h.load();
+    assert.equal(h.run('industryLoadFailed'), false);
+    assert.doesNotMatch(h.el('industry-view-heatmap').innerHTML, /Could not load/);
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify([...industrySelected])')),
+        ['Novartis', 'GlaxoSmithKline', 'Merck Sharp & Dohme', 'Pfizer', 'Eli Lilly and Company', 'AstraZeneca',
+            'Bristol-Myers Squibb', 'Johnson & Johnson', 'Boehringer Ingelheim', 'Roche'],
+        'the named top 10 of the first format (no top_n: the first 10 companies)');
+    assert.equal(h.text(), industryLine('2015–2027'));
+    on(h, 'with the sponsor data held');
+    await h.load();
+    assert.equal(h.run('fetches'), 1, 'held sponsor data was fetched again');
+    assert.equal(h.run('industryRenders'), 2);
+});
+
+test('{} for the sponsor data on the latest data keeps the line and the Filters button, and a reopen fetches again', async () => {
+    const h = loadHarness({ archive: false });
+    h.run('renderFilterSummary(1234); syncFilterToggle();');
+    const latest = '<b>1,234</b> trials · results posted <b>2015–2026</b> · all sponsors, purposes and conditions';
+    h.respond(EMPTY);
+    await h.load();
+    assert.match(h.el('industry-view-heatmap').innerHTML, /Could not load the industry sponsor dataset/);
+    assert.equal(h.text(), latest);
+    on(h, 'on the latest data: its controls still filter the dataset the line counts');
+    // The reopen used to throw here, outside the loader's catch.
+    await h.load();
+    assert.equal(h.run('fetches'), 2, 'the reopen did not fetch the sponsor data again');
+    assert.equal(h.text(), latest);
+    on(h, 'after the reopen on the latest data');
+    h.respond(GOOD);
+    await h.load();
+    assert.equal(h.run('industryRenders'), 1);
+    assert.equal(h.text(), latest);
+});
+
+// A step after a good file parsed that throws (here the category row) used
+// to keep the half-set-up data as loaded: the view showed the error, but
+// the line and the Filters button said the data was there, and a reopen
+// skipped the fetch and drew the half-set-up view outside the catch. The
+// data is now dropped and the load reported as failed, so a reopen sets it
+// up again from a fresh fetch.
+test('a step after the sponsor data parsed that throws drops the data: a failed load, and a reopen fetches again', async () => {
     const h = loadHarness();
     h.run("renderIndustryCatRow = () => { throw new Error('cat row'); };");
     h.respond(GOOD);
     await h.load();
     assert.match(h.el('industry-view-heatmap').innerHTML, /cat row/);
-    assert.equal(h.run('industryLoadFailed'), false, 'sponsor data that loaded is reported as not loaded');
+    assert.equal(h.run('industryData'), null, 'half-set-up sponsor data was kept');
+    assert.equal(h.run('industryLoadFailed'), true);
+    assert.equal(h.text(), FAILED_LINE);
+    off(h, 'with no usable sponsor data');
+    h.run('renderIndustryCatRow = () => {};');
+    await h.load();
+    assert.equal(h.run('fetches'), 2, 'the reopen did not fetch the sponsor data again');
+    assert.equal(h.run('industryRenders'), 1);
     assert.equal(h.text(), industryLine('2015–2027'));
-    on(h, 'with the sponsor data held');
+    on(h, 'after the reopen loaded the sponsor data');
 });
 
 // Whichever listener runs first, and with only the Industry view's own (the
