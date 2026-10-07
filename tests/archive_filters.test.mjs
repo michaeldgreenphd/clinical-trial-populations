@@ -206,3 +206,23 @@ test('a tab switch and the /#industry route set the Filters button', () => {
     assert.ok(routeSync > routeActive, 'the /#industry route does not set the Filters button after the view is active');
 });
 
+// A phone (isMobileDevice: a phone, a window ≤768px at load, or deviceMemory
+// ≤4) whose dashboard-summary.json did not load falls back to the full parts:
+// its filters work on Latest, its button is shown, and its history selector
+// offers the archives. On an archive it is a desktop page in all but name.
+test('a phone whose summary did not load gets the desktop archive line and a greyed-out button', () => {
+    const h = harness({ mobile: true, summary: null });
+    h.run('initFilterSummary(); syncFilterToggle();');
+    assert.equal(h.btn.hidden, false, 'the fallback phone has a Filters button on Latest');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null);
+
+    h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + '; syncFilterToggle(); renderFilterSummary(77176, true);');
+    assert.equal(h.btn.getAttribute('aria-disabled'), 'true', 'the fallback phone keeps a live Filters button on an archive');
+    h.btn.click();
+    assert.equal(h.panel.hidden, true, 'the fallback phone opens a panel of controls that change nothing');
+    assert.doesNotMatch(h.text(), /desktop feature/, 'the fallback phone is told filters are a desktop feature, though they work on Latest');
+    assert.match(h.text(), /this archive keeps totals only/);
+
+    h.run('dashboardSummary = null; syncFilterToggle();');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null, 'off after returning to Latest');
+});

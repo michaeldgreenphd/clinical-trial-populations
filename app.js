@@ -3691,12 +3691,15 @@ function renderFilterSummary(total, unfiltered) {
 
     // A summary renders pre-computed aggregates of the whole dataset and
     // applies no filters, so reading the (desktop) controls here would claim
-    // a narrowing that was never applied. On a phone that summary is the
-    // phone view; on desktop it is an aggregate archive, which keeps totals
+    // a narrowing that was never applied. In the phone view (its Filters
+    // button hidden: initFilterSummary) that summary is the phone view.
+    // Anywhere else, desktop or a phone whose summary did not load and that
+    // runs the full page, it is an aggregate archive, which keeps totals
     // only (the Filters button is off there: syncFilterToggle).
     if (unfiltered) {
+        const btn = document.getElementById('filter-summary-toggle');
         el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
-            'the full dataset, unfiltered \u00b7 ' + (isMobileDevice
+            'the full dataset, unfiltered \u00b7 ' + (btn && btn.hidden
                 ? 'filters are a desktop feature'
                 : ARCHIVE_FILTERS_NOTE);
         return;
@@ -3762,11 +3765,12 @@ function initFilterSummary() {
 // aria-disabled rather than the disabled attribute: the button stays in the
 // tab order, a screen reader announces it as dimmed, and its description is
 // the summary line that says why. The phone view hides the button altogether
-// (initFilterSummary).
+// (initFilterSummary) and is left alone; a phone whose summary did not load
+// runs the full page, button included, and is treated as desktop here.
 function syncFilterToggle() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
-    if (!btn || !panel || isMobileDevice) return;
+    if (!btn || !panel || btn.hidden) return;
     if (dashboardSummary && !industryActive()) {
         btn.setAttribute('aria-disabled', 'true');
         btn.setAttribute('aria-describedby', 'filter-summary-text');
