@@ -322,7 +322,7 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         URLSearchParams,
         renderLoadingFigure: (s) => figures.push(s),
         hideLoadingOverlay: () => { const o = byId.get('loading-overlay'); if (o) o.classList.add('fade-out'); },
-        fetchRun: async () => run,
+        fetchRun: async () => { sandbox.__runAsked = (sandbox.__runAsked || 0) + 1; return run; },
         fetchHistory: async () => history,
         location: { hash, search },
         __mobile: mobile, __hash: hash, __search: search, __runStamp: runStamp, __runDate: runDate
@@ -589,6 +589,42 @@ test('the first view paints only the latest default Overview on a desktop', asyn
         const why = problem(opts, summary, run, before);
         assert.equal(typeof why, 'string', `${name}: the first view would paint`);
     }
+});
+
+test('the first view reads data/run.json only once it has answered, and stays off when it names another run', async () => {
+    const records = syntheticRecords();
+    const summary = () => summaryWith(blockFor(records));
+    const other = {
+        'another extracted_at': { ...RUN, extracted_at: '2026-10-11T12:00:00+00:00' },
+        'another pipeline_commit': { ...RUN, pipeline_commit: 'abc' }
+    };
+    // data/run.json answered (LATEST_RUN_STAMP set) and names another run:
+    // the loading screen's figure, nothing painted, and the console says why.
+    for (const [name, run] of Object.entries(other)) {
+        const p = page({ runStamp: run.extracted_at, run });
+        const s = summary();
+        assert.equal(await p.run('firstViewOrFigure')(s), false, `${name}: the first view painted`);
+        assert.equal(p.context.__runAsked, 1, `${name}: data/run.json was not read`);
+        assert.deepEqual(p.figures, [s], `${name}: the figure did not draw`);
+        assert.deepEqual(p.infos.map((a) => a.join(' ')), ['The Overview waits for the records: the summary is not from the run data/run.json names'], name);
+        assert.equal(p.trendCharts().length, 0);
+        assert.equal(p.rootClasses.size, 0);
+        assert.equal(p.el('records-pending').hidden, true);
+        assert.ok(!p.context.document.querySelector('.tab[data-tab="race"]').disabled);
+    }
+    // It answered and names this run: the first view paints.
+    const same = page({ runStamp: RUN.extracted_at, run: RUN });
+    assert.equal(await same.run('firstViewOrFigure')(summary()), true);
+    assert.equal(same.context.__runAsked, 1);
+    // It never answered (LATEST_RUN_STAMP null): nothing to hold the summary
+    // to, and no new request for it; the first view paints, even though the
+    // file would now name another run.
+    const never = page({ runStamp: null, run: other['another extracted_at'] });
+    assert.equal(await never.run('firstViewOrFigure')(summary()), true, 'a run.json that never answered holds the first view');
+    assert.equal(never.context.__runAsked, undefined, 'data/run.json was asked for again');
+    assert.deepEqual(never.infos, []);
+    // The wiring, as app.js writes it.
+    assert.match(fnSource('async function firstViewOrFigure(summary)'), /const run = LATEST_RUN_STAMP \? await fetchRun\(\) : null;/);
 });
 
 test('the year window is sized to the block\'s newest year before it is checked', async () => {
