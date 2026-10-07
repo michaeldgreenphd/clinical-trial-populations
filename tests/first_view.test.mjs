@@ -485,6 +485,12 @@ test('the first view paints only the latest default Overview on a desktop', asyn
     assert.equal(problem({ search: '?sg=v2' }), null, '?sg=v2 (its filters at Any) does not paint');
     assert.equal(problem({ search: '?firstview=1' }), null);
     assert.equal(problem({ search: '?utm_source=x' }), null, 'a parameter the page does not read stops it');
+    // The same parameters in the hash: the site writes #overview?sg=v2 itself
+    // (updateShareUrl, for a remembered ?sg choice), and the /overview/ stub
+    // moves any query into the hash.
+    assert.equal(problem({ hash: '#overview?sg=v2' }), null, '#overview?sg=v2 does not paint');
+    assert.equal(problem({ hash: '#overview?sgfilters=1' }), null, '#overview?sgfilters=1 does not paint');
+    assert.equal(problem({ hash: '#overview?utm_source=x' }), null, '#overview?utm_source=x does not paint');
     assert.equal(problem({}, summaryWith(clone(good)), RUN), null, 'data/run.json naming this run stops it');
     assert.equal(problem({}, summaryWith(clone(good)), { extracted_at: RUN.extracted_at }), null, 'a run.json without a commit stops it');
 
@@ -493,6 +499,8 @@ test('the first view paints only the latest default Overview on a desktop', asyn
         '?firstview=0': [{ search: '?firstview=0' }],
         '?firstview=0 in the hash': [{ hash: '#overview?firstview=0' }],
         'a link to another tab': [{ hash: '#race' }],
+        'a link to another tab with a query': [{ hash: '#race?sg=v2' }],
+        'a snapshot link in the hash': [{ hash: '#overview?sgsnapshot=2026-09-27' }],
         'a link with filters in the hash': [{ hash: '#overview?st=all' }],
         'a link with filters in the query': [{ search: '?sp=INDUSTRY' }],
         'a link with a year': [{ search: '?ye=2020' }],

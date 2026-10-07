@@ -1059,7 +1059,10 @@ function firstViewProblem(summary, run) {
     if (firstViewClosed || data || dashboardSummary) return 'the records are already in';
     const params = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH);
     if (params.get('firstview') === '0') return '?firstview=0';
-    const route = String(SG_INITIAL_HASH || '').replace(/^#/, '');
+    // The tab the hash opens, without its query: the site writes
+    // #overview?sg=v2 itself, and the /overview/ stub moves any query into
+    // the hash. The query's keys are checked below, wherever they are.
+    const route = String(SG_INITIAL_HASH || '').replace(/^#/, '').split('?')[0];
     if (route && route !== 'overview') return `the link opens #${route}`;
     const asked = [...SHARE_FILTERS.map(([, key]) => key), 'sgsnapshot', 'm'].find(k => params.has(k));
     if (asked) return `the link sets ${asked}`;
