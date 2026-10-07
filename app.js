@@ -12336,6 +12336,7 @@ async function openIndustryView() {
     document.getElementById('industry').classList.add('active');
     const filtersSection = document.getElementById('filters');
     if (filtersSection && !dashboardSummary) filtersSection.style.display = '';
+    renderPhoneScope();   // a phone: the line names Industry's study types, as a tab click does
 
     await loadIndustryView();
 }

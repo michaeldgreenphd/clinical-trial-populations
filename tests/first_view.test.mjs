@@ -1737,3 +1737,34 @@ test('a phone checks the block against the declared default study type, not a re
     p.run("document.getElementById('study-type').options.forEach(o => { o.defaultSelected = o.value === 'all'; });");
     assert.equal(p.run('phoneFirstViewProblem')(phoneSummary(), stampsOf(PHONE_SUMMARY)), 'the block’s study type is not the desktop’s default');
 });
+
+test('a phone opened on /#industry says All study types, as the Industry tab does', async () => {
+    // The hash route (openIndustryView) activates Industry without the tab's
+    // click handler; the line above the tabs must still leave the Overview's
+    // view, whichever of the route and the summary's render comes first.
+    const viaRoute = async (routeFirst) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, hash: '#industry', runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        p.run(fnSource('async function openIndustryView()'));
+        p.run(`var promptForBetaAccess = async () => true; var loadIndustryView = async () => {};
+            var __industry = document.createElement('section');
+            const __byId = document.getElementById; document.getElementById = (id) => (id === 'industry' ? __industry : __byId(id));`);
+        const render = '(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = __summary; data = __summary.recentStudies || []; renderDashboard(); })()';
+        if (routeFirst) await p.run('openIndustryView()');
+        await p.run(render);
+        p.flushFrames();
+        if (!routeFirst) {
+            assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`);
+            await p.run('openIndustryView()');
+        }
+        assert.equal(p.run("document.querySelector('.tab.active').dataset.tab"), 'industry');
+        return p.text('filter-summary-text').html;
+    };
+    const tab = await phonePage(phoneSummary());
+    openTab(tab, 'industry');
+    const clicked = tab.text('filter-summary-text').html;
+    assert.equal(clicked, `<b>80,320</b> trials · All study types, unfiltered${DESKTOP_ONLY}`);
+    assert.equal(await viaRoute(false), clicked, 'the route left the Overview\'s line over Industry');
+    assert.equal(await viaRoute(true), clicked);
+});
