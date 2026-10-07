@@ -2652,6 +2652,21 @@ function adoptRecheckedRun(run) {
     }
 }
 
+// After a dataset switch has fitted the Year Range to the dataset now on
+// screen (syncYearWindow) and drawn the dashboard: an open Industry view,
+// drawn again. That view draws the latest sponsor data under the Year Range
+// and Condition controls whatever dataset is on screen, and renderDashboard
+// does not draw it, so a bound the switch clamped (an archive whose results
+// end earlier) or put back (Latest again) left its chart and cohort count on
+// the old window while the line above named the new one. Shared by every
+// switch path: the selector's change handler, its revert after a failed
+// switch, and loadDataAndRender. A closed Industry view is drawn when it
+// opens (loadIndustryView), and start-up loads no sponsor data before its
+// first render.
+function renderIndustryAfterSwitch() {
+    if (industryActive()) renderIndustry();
+}
+
 // Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
@@ -2673,6 +2688,7 @@ async function loadDataAndRender(date) {
             populatePrimaryConditionDropdown();
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
+            renderIndustryAfterSwitch();
             retainSnapshots(date || 'latest');
         }
         await snapshotStage(100, 'Ready');
@@ -2755,6 +2771,7 @@ async function initHistorySelector() {
             populatePrimaryConditionDropdown();
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
+            renderIndustryAfterSwitch();
             // The provenance note under the parser-v2 charts names the snapshot,
             // and the canvases carry that note as their text alternative.
             labelChartsForA11y();
@@ -2783,6 +2800,7 @@ async function initHistorySelector() {
                 try { await sgLoad(previousValue === 'latest' ? undefined : previousValue); } catch (_) {}
                 syncYearWindow();
                 renderDashboard();
+                renderIndustryAfterSwitch();
                 labelChartsForA11y();
                 updateShareUrl();
             }

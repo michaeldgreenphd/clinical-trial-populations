@@ -82,6 +82,9 @@ const SOURCES = [
     fnSource('function syncFilterToggle()'),
     fnSource('function redrawArchiveSummary()'),
     fnSource('function industryActive()'),
+    // After the dashboard, a switch redraws an open Industry view
+    // (industry_switch.test.mjs); none is open here.
+    fnSource('function renderIndustryAfterSwitch()'),
     slice('let industryLoadFailed', '\n'),
     fnSource('function refreshStudiesTab()'),
     slice('const ARCHIVE_NO_STUDY_LIST', '\n'),
@@ -117,6 +120,7 @@ function renderSexReportedParticipants() {} function renderSexFullDistribution()
 function renderSexTrends() {} function renderGenderReportedParticipants() {} function renderGenderFullDistribution() {}
 function renderGenderDistribution() {} function renderGenderTrends() {} function renderGeographyDashboard() {}
 function sgActive() { return false; } function sgApplyMode() {} function sgAfterRender() {}
+function renderIndustry() { calls.industry = (calls.industry || 0) + 1; }
 function initColumnPicker() {} function renderPagination() {} function fixTableScroll() {}
 function renderSparkline() { return ''; } function getTimeToReport() { return null; }
 function renderReportedCell() { return ''; } function renderDemographicCell() { return ''; }
