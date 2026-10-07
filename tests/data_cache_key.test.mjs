@@ -266,9 +266,9 @@ test('snapshot files, files without a run stamp to compare, and failures are not
 
 
 test('every reader of history.json shares the one request', () => {
-    // One exception: recheckRunDate reads run.json again past every cache
+    // One exception: recheckRun reads run.json again past every cache
     // when the newest date was not found in snapshots/ (snapshot_link).
-    const recheck = fnSource('async function recheckRunDate()');
+    const recheck = fnSource('async function recheckRun()');
     assert.match(recheck, /fetch\('data\/run\.json', \{ cache: 'no-store' \}\)/, 'the re-read can be answered from a cache');
     assert.deepEqual([...app.replace(recheck, '').matchAll(/fetch\(\s*['"`](?:history\.json|data\/run\.json)/g)], [],
         'history.json or data/run.json is fetched outside the shared fetchers');

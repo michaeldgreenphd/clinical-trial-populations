@@ -62,7 +62,8 @@ const SOURCES = [
     // snapshots/ (snapshot_link.test.mjs); not reached here.
     fnSource('function runDate(run)'),
     slice('const RUN_RECHECK_WAIT_MS =', '\n'),
-    fnSource('async function recheckRunDate()'),
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),

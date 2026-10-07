@@ -40,7 +40,7 @@ const CHART_ASPECT_RATIO = isMobileDevice ? 1 : undefined;
 // A full snapshot costs about 0.75-1 GB of browser memory once parsed, so the
 // page keeps only two: the latest data, which most visits go back to, and the
 // snapshot on screen. Four cached snapshots measured 2.96 GiB of a 4 GiB tab.
-const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, reader }
+const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, runStamp (parts only), reader }
 
 // Drop every cached dataset but the latest and the one on screen, and with
 // it what its reader loaded (the Studies-tab extras and detail shards ride on
@@ -1039,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await keyReady;
         // The one dataset the page opens with: the link's snapshot, or the
         // latest data. Null means the latest.
-        const opened = await loadStartupDataset(requested);
+        const { opened, failed: startupFailure } = await loadStartupDataset(requested);
         updateLoadingProgress(78, 'Setting up filters');
         initTabs();
         // The phone's summary view. A desktop that opened an aggregate
@@ -1082,6 +1082,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
+        // A listed snapshot the link named that did not load: said once the
+        // latest data is on screen, so the toast is not lost behind the
+        // overlay.
+        if (startupFailure) reportStartupFailure(startupFailure);
 
         if (!summaryMode) {
             initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
@@ -2458,7 +2462,7 @@ async function loadData(date) {
             // The reader rides on the entry, so the extras it loads are kept
             // with the dataset and go when the entry goes. Nothing is dropped
             // here: retainSnapshots runs once the switch has rendered.
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, reader: datasetReader });
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, runStamp: parts[0].extracted_at, reader: datasetReader });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
@@ -2475,17 +2479,21 @@ async function loadData(date) {
     // ── The newest date, asked of snapshots/ because data/run.json was late ──
     // The newest published date is read from data/ only once data/run.json
     // has dated the run there (servedFromData). When that file missed its
-    // wait at start-up, the date was taken for an archive, and the engine no
-    // longer writes snapshots/<newest>/, so the parts are not found. Read
-    // run.json again: if data/ holds that date's run, serve it from there;
-    // otherwise nothing else holds it, and the caller falls back (start-up
-    // opens the latest data; the selector reverts).
-    if (date && date === NEWEST_PUBLISHED && date !== DATA_RUN_DATE && lastError && lastError.status === 404) {
-        if (await recheckRunDate() === date) {
-            DATA_RUN_DATE = date;
+    // wait at start-up, the run in data/ is undated, the date was taken for
+    // an archive, and the engine no longer writes snapshots/<newest>/, so the
+    // parts are not found. Read run.json again: if data/ holds that date's
+    // run, serve it from there (adoptRecheckedRun); otherwise nothing else
+    // holds it, and the caller falls back (start-up opens the latest data;
+    // the selector reverts). Only an undated data/: a run.json that dated
+    // data/ as another week (a deploy window) keeps the archive fallback
+    // below, so one week's numbers never show under another week's date.
+    if (date && date === NEWEST_PUBLISHED && DATA_RUN_DATE === null && lastError && lastError.status === 404) {
+        const run = await recheckRun();
+        if (runDate(run) === date) {
+            adoptRecheckedRun(run);
             return loadData(date);
         }
-        throw new Error(`Could not load data for ${date}: not in snapshots/, and data/run.json does not date data/ as ${date}`);
+        throw new Error(`Could not load data for ${date}: it is not in snapshots/, and data/run.json does not confirm that data/ holds it; refresh in a few minutes`);
     }
 
     // ── Aggregate-archive fallback ──
@@ -2569,23 +2577,33 @@ async function startupSnapshot(requested) {
 
 // Load the dataset the page opens with, and its ?sg=v2 files: the snapshot
 // a link asks for when history.json lists it (startupSnapshot), else the
-// latest data, without a word (owner decision 25b). A listed snapshot that
-// fails to load also gives way to the latest data. Returns the date opened,
-// or null for the latest data.
+// latest data, without a word (owner decision 25b: an unlisted date). A
+// listed snapshot that fails to load also gives way to the latest data, and
+// the failure is returned for reportStartupFailure. Returns { opened: the
+// date opened, or null for the latest data; failed: { date, message } or
+// null }.
 async function loadStartupDataset(requested) {
     let opened = await startupSnapshot(requested);
+    let failed = null;
     updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
     try {
         await loadData(opened || undefined);
     } catch (e) {
         if (!opened) throw e;
         console.warn(`Snapshot ${opened} could not be loaded; opening the latest data:`, e.message);
+        failed = { date: opened, message: e.message };
         opened = null;
         await loadData();
     }
     // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
     await sgLoad(opened || undefined);
-    return opened;
+    return { opened, failed };
+}
+
+// A listed snapshot a link named did not load, and the latest data is on
+// screen instead: say so, as the selector's switch says it.
+function reportStartupFailure(failed) {
+    showToast(`Snapshot "${failed.date}" unavailable: ${failed.message}. Showing the latest data.`, 'error', 8000);
 }
 
 // Put the snapshot opened at start-up in the selector before its options
@@ -2602,22 +2620,36 @@ function selectSnapshotOption(date) {
     select.value = date;
 }
 
-// How long a second read of data/run.json may take (recheckRunDate). It
+// How long a second read of data/run.json may take (recheckRun). It
 // runs only after the first read missed its wait, so it gets twice that.
 const RUN_RECHECK_WAIT_MS = 2 * SMALL_FILE_WAIT_MS;
 
-// The date of the run data/ holds, read again from data/run.json past every
-// cache (not the remembered fetchRun answer), or null if it still does not
-// answer in time or names no date.
-async function recheckRunDate() {
+// data/run.json read again past every cache (not the remembered fetchRun
+// answer), or null if it still does not answer in time.
+async function recheckRun() {
     const deadline = new Promise(resolve => setTimeout(() => resolve(null), RUN_RECHECK_WAIT_MS));
-    const run = await Promise.race([
+    return Promise.race([
         fetch('data/run.json', { cache: 'no-store' })
             .then(resp => (resp.ok ? resp.json() : null))
             .catch(() => null),
         deadline
     ]);
-    return runDate(run);
+}
+
+// Take the run a second read of data/run.json dated as the newest date: it
+// dates data/ and stamps the latest parts, as a first read on time would
+// have. Latest data cached before it (read with no stamp to check against)
+// is kept only if it is that run's; otherwise it goes, with its ?sg=v2
+// table, so data/ is read again and checked against the stamp.
+function adoptRecheckedRun(run) {
+    DATA_RUN_DATE = runDate(run);
+    const stamp = typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at)) ? run.extracted_at : null;
+    if (stamp) LATEST_RUN_STAMP = stamp;
+    const cached = snapshotCache.get('latest');
+    if (cached && (!stamp || cached.runStamp !== stamp)) {
+        snapshotCache.delete('latest');
+        sgCache.delete('latest');
+    }
 }
 
 // Wrapper function to reload with a specific date (called from error recovery buttons)
@@ -2871,7 +2903,10 @@ function applyRouteFromHash() {
     if (!raw || raw === 'industry' || raw.indexOf('industry?') === 0) return; // industryRoute owns it
     const parts = raw.split('?');
     const tabId = parts[0], query = parts[1];
-    if (query && !isMobileDevice && !dashboardSummary) applyShareParams(query);
+    // Desktop only (a phone has no filter controls). A desktop on an
+    // aggregate archive keeps the link's filters, for when it goes back to
+    // data that has study rows.
+    if (query && !isMobileDevice) applyShareParams(query);
     const btn = tabId && document.querySelector('.tab[data-tab="' + CSS.escape(tabId) + '"]');
     if (btn && !btn.classList.contains('active')) btn.click();
 }

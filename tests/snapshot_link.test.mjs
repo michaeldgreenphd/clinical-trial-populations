@@ -9,14 +9,19 @@
  * place of the latest data (loadStartupDataset). A date history.json does
  * not list, a malformed one, or a history.json that does not answer in time
  * opens the latest data with no snapshot request and no toast (owner
- * decision 25b). Phones keep ignoring the parameter.
+ * decision 25b). A listed snapshot that fails to load opens the latest data
+ * too, and says so once it is on screen (reportStartupFailure). Phones keep
+ * ignoring the parameter.
  *
  * And the newest date when data/run.json was late: without it the run in
  * data/ is undated (DATA_RUN_DATE null), so the newest date is read as an
  * archive and asked of snapshots/<newest>/, which the engine's retention
  * change no longer writes. On that 404 the page reads run.json again past
- * the cache (recheckRunDate); if data/ holds that date's run it is served
- * from there, otherwise the latest data opens, again without a word.
+ * the cache (recheckRun); if data/ holds that date's run, the run is taken
+ * (adoptRecheckedRun: its stamp checks the parts, and latest data cached from
+ * another run is dropped) and the date is served from data/. Otherwise the
+ * date did not load. A run.json that dated data/ as another week is not
+ * read again: the date stays an archive, as before.
  *
  * The cache-key block and the loaders run in a vm with a stub fetch that
  * records every request and the cache mode it asked for; timers fire only
@@ -60,9 +65,11 @@ const SOURCES = [
     fnSource('function requestedSnapshot()'),
     fnSource('async function startupSnapshot(requested)'),
     fnSource('async function loadStartupDataset(requested)'),
+    fnSource('function reportStartupFailure(failed)'),
     fnSource('function selectSnapshotOption(date)'),
     line('const RUN_RECHECK_WAIT_MS ='),
-    fnSource('async function recheckRunDate()'),
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)'),
     fnSource('async function initHistorySelector()'),
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
@@ -177,15 +184,23 @@ function harness(files, { search = '', hash = '', mobile = false } = {}) {
         paths: () => calls.map((c) => c.url.replace(/\?v=.*$/, '')),
         dataFrom: () => JSON.parse(run('JSON.stringify(data.map(r => r.from))')),
         // The start-up as app.js runs it: the key, the one dataset, the
-        // selector named before the first share URL, the selector filled.
+        // selector named before the first share URL, the selector filled,
+        // and a listed snapshot that did not load reported.
         async startup() {
             await run('dataKeyReady()');
-            const opened = await run('loadStartupDataset(requestedSnapshot())');
-            if (opened) run(`selectSnapshotOption(${JSON.stringify(opened)})`);
-            await run('initHistorySelector()');
-            return opened;
+            return finishStartup(run);
         }
     };
+}
+
+// Everything the start-up does after the key, as app.js orders it.
+async function finishStartup(run) {
+    await run('loadStartupDataset(requestedSnapshot()).then(r => { globalThis.__startup = r; })');
+    const opened = run('__startup.opened');
+    if (opened) run(`selectSnapshotOption(${JSON.stringify(opened)})`);
+    await run('initHistorySelector()');
+    run('if (__startup.failed) reportStartupFailure(__startup.failed)');
+    return opened;
 }
 
 const toasts = (h) => JSON.parse(h.run('JSON.stringify(toasts)'));
@@ -251,14 +266,14 @@ test('without an answer from history.json the link opens the latest data, after 
     delete gone['history.json'];
     const h = harness(gone, { search: '?sgsnapshot=2026-08-02' });
     await h.run('dataKeyReady()');
-    assert.equal(await h.run('loadStartupDataset(requestedSnapshot())'), null);
+    assert.equal(await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened || r.failed)'), null);
     assert.deepEqual(h.paths().filter((p) => p.startsWith('snapshots/')), []);
     assert.deepEqual(toasts(h), []);
 
     // history.json stalled: nothing loads until the key's wait for it is over
     const s = harness(site({ 'history.json': never }), { search: '?sgsnapshot=2026-08-02' });
     await s.run('dataKeyReady()');
-    const opening = s.run('loadStartupDataset(requestedSnapshot())');
+    const opening = s.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened || r.failed)');
     await tick();
     assert.deepEqual(demographics(s), [], 'the load went ahead before history.json could answer');
     assert.ok(s.timers.length > 0 && s.timers.every((t) => t.ms === 5000), 'the start-up set a wait of its own');
@@ -272,17 +287,33 @@ test('without an answer from history.json the link opens the latest data, after 
 test('a phone ignores the link and loads its summary', async () => {
     const h = harness(site(), { search: '?sgsnapshot=2026-08-02', mobile: true });
     await h.run('dataKeyReady()');
-    assert.equal(await h.run('loadStartupDataset(requestedSnapshot())'), null);
+    assert.equal(await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened || r.failed)'), null);
     assert.deepEqual(h.paths().filter((p) => p.startsWith('snapshots/')), []);
 });
 
-test('a listed snapshot that does not load gives way to the latest data', async () => {
+test('a listed snapshot that does not load gives way to the latest data, and says so', async () => {
     const h = harness(site(), { search: '?sgsnapshot=2026-05-31' });   // listed, nothing published
     assert.equal(await h.startup(), null);
     assert.deepEqual(demographics(h).filter((p) => p.startsWith('data/')), partsIn('data'));
     assert.deepEqual(h.dataFrom(), Array(8).fill('data'));
     assert.deepEqual(JSON.parse(h.run('JSON.stringify(sgLoads)')), [null]);
     assert.equal(h.select.value, 'latest');
+    // Decision 25b's silence covers a date history.json does not list; a
+    // listed one that fails is reported, as the selector's switch reports it.
+    const said = toasts(h);
+    assert.equal(said.length, 1, JSON.stringify(said));
+    assert.equal(said[0].type, 'error');
+    assert.match(said[0].message, /^Snapshot "2026-05-31" unavailable: Could not load data for 2026-05-31: .*\. Showing the latest data\.$/);
+
+    // Parts from two runs (a deploy in progress): the actionable message.
+    const mixed = site();
+    mixed['snapshots/2026-08-02/demographics.part3.json.gz'] = { extracted_at: '2026-08-09T06:00:00+00:00', part: 3, total_parts: 8, data: [] };
+    const g = harness(mixed, { search: '?sgsnapshot=2026-08-02' });
+    assert.equal(await g.startup(), null);
+    assert.deepEqual(g.dataFrom(), Array(8).fill('data'));
+    const told = toasts(g);
+    assert.equal(told.length, 1, JSON.stringify(told));
+    assert.match(told[0].message, /^Snapshot "2026-08-02" unavailable: .*different weekly runs.*refresh in a few minutes\. Showing the latest data\.$/);
 });
 
 // ── data/run.json late: the newest date was taken for an archive ──
@@ -305,10 +336,7 @@ async function lateStartup(h) {
     h.fireTimers();                 // run.json missed its wait
     await key;
     assert.equal(h.run('DATA_RUN_DATE'), null);
-    const opened = await h.run('loadStartupDataset(requestedSnapshot())');
-    if (opened) h.run(`selectSnapshotOption(${JSON.stringify(opened)})`);
-    await h.run('initHistorySelector()');
-    return opened;
+    return finishStartup(h.run);
 }
 
 test('a late run.json: the newest date is read again from run.json and opened from data/', T, async () => {
@@ -329,7 +357,7 @@ test('a late run.json: the newest date is read again from run.json and opened fr
     assert.deepEqual(toasts(h), []);
 });
 
-test('a late run.json that dates data/ otherwise, or stays silent, opens the latest data without a word', T, async () => {
+test('a late run.json that dates data/ otherwise, or stays silent, opens the latest data and says the date did not load', T, async () => {
     const other = { extracted_at: '2026-09-27T12:00:00+00:00' };
     for (const [label, second] of [['another week', () => json(other)], ['no run.json', () => new Response('', { status: 404 })], ['silent', never]]) {
         const run = lateRun(second);
@@ -346,7 +374,9 @@ test('a late run.json that dates data/ otherwise, or stays silent, opens the lat
         assert.equal(h.run('DATA_RUN_DATE'), null, label);
         assert.deepEqual(h.dataFrom(), Array(8).fill('data'), label);
         assert.ok(!h.paths().includes('snapshots/2026-10-04/dashboard-summary.json'), `${label}: an archive summary was asked for the newest date`);
-        assert.deepEqual(toasts(h), [], label);
+        const said = toasts(h);
+        assert.equal(said.length, 1, `${label}: ${JSON.stringify(said)}`);
+        assert.match(said[0].message, /^Snapshot "2026-10-04" unavailable: .*Showing the latest data\.$/, label);
         assert.equal(h.select.value, 'latest', label);
     }
 });
@@ -378,6 +408,101 @@ test('choosing the newest date in the selector after a late run.json serves it f
     assert.deepEqual(demographics(h).filter((p) => p.startsWith('data/')), partsIn('data'), 'data/ was fetched twice');
 });
 
+// ── run.json and data/ from different weeks: never one week under another's date ──
+
+const PREV = { extracted_at: '2026-09-27T12:00:00+00:00', pipeline_commit: 'prev123' };
+
+// data/'s parts as a deploy leaves them: the run stampOf(init) names, tagged
+// with it so the test can tell which week is on screen.
+function weekParts(stampOf) {
+    const out = {};
+    for (let k = 1; k <= 8; k++) {
+        out[`data/demographics.part${k}.json.gz`] = (init) => {
+            const stamp = stampOf(init);
+            return json({ extracted_at: stamp, part: k, total_parts: 8, data: [{ nct_id: `NCT0000000${k}`, from: `data@${stamp.slice(0, 10)}` }] });
+        };
+    }
+    return out;
+}
+
+test('run.json that dated data/ as the previous week: choosing the newest date does not show that week under it', async () => {
+    // At load run.json and data/ are still the 09-27 run; then the deploy settles.
+    let settled = false;
+    const runSeen = [];
+    const h = harness(site({
+        'data/run.json': (init) => { runSeen.push(init && init.cache); return json(settled ? RUN : PREV); },
+        ...weekParts(() => (settled ? RUN : PREV).extracted_at)
+    }));
+    assert.equal(await h.startup(), null);
+    assert.equal(h.run('DATA_RUN_DATE'), '2026-09-27');
+    settled = true;
+    h.select.value = '2026-10-04';
+    h.select.dispatchEvent();
+    await h.select.fired;
+    assert.deepEqual(runSeen, ['no-cache'], 'run.json was read again although it had dated data/');
+    assert.equal(h.run('DATA_RUN_DATE'), '2026-09-27');
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data@2026-09-27'));
+    const said = toasts(h);
+    assert.ok(!said.some((t) => t.type === 'info'), `the switch said it loaded: ${JSON.stringify(said)}`);
+    assert.ok(said.some((t) => t.type === 'error' && t.message.startsWith('Snapshot "2026-10-04" unavailable')), JSON.stringify(said));
+    assert.equal(h.select.value, 'latest');
+    assert.equal(h.select.dataset.lastValue, 'latest');
+});
+
+test('a start-up link to the newest date while run.json dates data/ as the previous week opens the latest data under its own date, and says so', async () => {
+    let settled = false;
+    const runSeen = [];
+    const h = harness(site({
+        'data/run.json': (init) => { runSeen.push(init && init.cache); const r = settled ? RUN : PREV; settled = true; return json(r); },
+        // the browser still holds the old parts; only a reload reaches the new ones
+        ...weekParts((init) => (init && init.cache === 'reload' ? RUN : PREV).extracted_at)
+    }), { search: '?sgsnapshot=2026-10-04' });
+    assert.equal(await h.startup(), null);
+    assert.deepEqual(runSeen, ['no-cache']);
+    assert.equal(h.run('DATA_RUN_DATE'), '2026-09-27');
+    assert.equal(h.run('LATEST_RUN_STAMP'), PREV.extracted_at);
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data@2026-09-27'));
+    assert.equal(h.select.value, 'latest');
+    assert.equal(h.select.options.find((o) => o.value === '2026-10-04').textContent, '2026-10-04', 'the newest date is labelled as the data on screen');
+    const said = toasts(h);
+    assert.equal(said.length, 1, JSON.stringify(said));
+    assert.match(said[0].message, /^Snapshot "2026-10-04" unavailable: .*Showing the latest data\.$/);
+});
+
+test('a late run.json: the latest data cached from an earlier run is not reused for the newest date', T, async () => {
+    // run.json misses its wait; data/ still holds the previous week, so the
+    // latest data on screen is that week. Then the deploy settles.
+    let settled = false;
+    const run = lateRun();
+    const h = harness(site({ 'data/run.json': run.file, ...weekParts(() => (settled ? RUN : PREV).extracted_at) }));
+    assert.equal(await lateStartup(h), null);
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data@2026-09-27'));
+    settled = true;
+    h.select.value = '2026-10-04';
+    h.select.dispatchEvent();
+    await h.select.fired;
+    assert.deepEqual(run.seen, ['no-cache', 'no-store']);
+    assert.equal(h.run('LATEST_RUN_STAMP'), RUN.extracted_at, 'the re-read run\'s stamp was not taken');
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data@2026-10-04'), 'the previous week was shown under the newest date');
+    assert.deepEqual(demographics(h).filter((p) => p.startsWith('data/')), [...partsIn('data'), ...partsIn('data')]);
+    assert.equal(h.select.dataset.lastValue, '2026-10-04');
+    assert.deepEqual(JSON.parse(h.run('JSON.stringify([...snapshotCache.keys()])')), ['latest']);
+    assert.equal(h.run("snapshotCache.get('latest').data === data"), true);
+});
+
+test('a late run.json: a start-up link checks data/\'s parts against the re-read run', T, async () => {
+    // The browser holds the previous week's parts under the date key; only
+    // a reload reaches the run run.json names.
+    const run = lateRun();
+    const h = harness(site({ 'data/run.json': run.file, ...weekParts((init) => (init && init.cache === 'reload' ? RUN : PREV).extracted_at) }),
+        { search: '?sgsnapshot=2026-10-04' });
+    assert.equal(await lateStartup(h), '2026-10-04');
+    assert.equal(h.run('LATEST_RUN_STAMP'), RUN.extracted_at);
+    assert.deepEqual(h.dataFrom(), Array(8).fill('data@2026-10-04'), 'parts from another run were shown as 2026-10-04 (latest)');
+    assert.equal(h.calls.filter((c) => c.url.startsWith('data/demographics') && c.cache === 'reload').length, 8);
+    assert.deepEqual(toasts(h), []);
+});
+
 // ── The start-up and the hooks around it ──
 
 const init = (() => {
@@ -392,11 +517,14 @@ test('the start-up\'s first data load is the link\'s dataset, and the selector n
         return i;
     };
     assert.ok(at('const requested = requestedSnapshot();') < at('await keyReady;'));
-    assert.ok(at('await keyReady;') < at('const opened = await loadStartupDataset(requested);'));
+    assert.ok(at('await keyReady;') < at('const { opened, failed: startupFailure } = await loadStartupDataset(requested);'));
     assert.ok(!/await loadData\(|await sgLoad\(/.test(init), 'the start-up loads a dataset of its own');
     assert.ok(at('if (opened) selectSnapshotOption(opened);') < at('shareUrlReady = true;'),
         'the first share URL is written before the selector names the snapshot, so the address drops it');
-    assert.ok(!/showToast/.test(init), 'the start-up says something about the link (decision 25b: silent)');
+    // Decision 25b: an unlisted date is silent. The one thing the start-up
+    // says is that a listed snapshot did not load, once the overlay is gone.
+    assert.ok(!/showToast/.test(init), 'the start-up shows a toast of its own');
+    assert.ok(at('hideLoadingOverlay();') < at('if (startupFailure) reportStartupFailure(startupFailure);'));
     const load = fnSource('async function loadStartupDataset(requested)');
     assert.ok(load.indexOf('await startupSnapshot(requested)') < load.indexOf('await loadData(opened || undefined)'));
     assert.match(load, /await sgLoad\(opened \|\| undefined\);/);
@@ -419,4 +547,24 @@ test('no deep-link hook switches the snapshot after the first render', () => {
     const hooks = fnSource('function sgRouteHooks()');
     assert.doesNotMatch(hooks, /history-date|sgsnapshot'|setInterval|dispatchEvent\(new Event\('change'\)\)/,
         'a hook still loads the snapshot after the latest data');
+});
+
+test('a desktop link to an aggregate archive keeps the filters it carries', () => {
+    // updateShareUrl writes filter params next to sgsnapshot on an aggregate
+    // archive (#overview?st=OBSERVATIONAL&sgsnapshot=2026-04-26). The archive
+    // is open before the route is applied, so dashboardSummary is set; only
+    // the phone's summary view skips the link's filters.
+    const src = fnSource('function applyRouteFromHash()');
+    for (const [mobile, applied] of [[false, ['st=OBSERVATIONAL&sgsnapshot=2026-04-26']], [true, []]]) {
+        const ctx = vm.createContext({
+            location: { hash: '#overview?st=OBSERVATIONAL&sgsnapshot=2026-04-26' },
+            isMobileDevice: mobile,
+            dashboardSummary: { totalStudies: 500 },
+            CSS: { escape: (x) => x },
+            document: { querySelector: () => null },
+            applied: []
+        });
+        vm.runInContext(`${src}\nfunction applyShareParams(q) { applied.push(q); }\napplyRouteFromHash();`, ctx);
+        assert.deepEqual(ctx.applied, applied, `mobile=${mobile}`);
+    }
 });

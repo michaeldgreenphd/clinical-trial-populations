@@ -58,7 +58,8 @@ const SOURCES = [
     fnSource('async function loadStartupDataset(requested)'),
     fnSource('function selectSnapshotOption(date)'),
     app.slice(app.indexOf('const RUN_RECHECK_WAIT_MS ='), app.indexOf('\n', app.indexOf('const RUN_RECHECK_WAIT_MS ='))),
-    fnSource('async function recheckRunDate()')
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)')
 ].join('\n');
 
 // What loadData and the selector call around the paths under test.
@@ -329,7 +330,7 @@ test('a ?sgsnapshot=<newest> link opens the latest data with no snapshots/ reque
     for (const history of [NEW_HISTORY, OLD_HISTORY]) {
         const h = harness(site(history), { search: '?sgsnapshot=2026-10-04' });
         await h.run('dataKeyReady()');
-        await h.run('loadStartupDataset(requestedSnapshot()).then(d => d && selectSnapshotOption(d))');
+        await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened && selectSnapshotOption(r.opened))');
         await h.run('initHistorySelector()');
         assert.equal(h.select.value, '2026-10-04');
         assert.equal(h.select.dataset.lastValue, '2026-10-04', 'the link did not open its date');
@@ -345,7 +346,7 @@ test('a ?sgsnapshot=<newest> link opens the latest data with no snapshots/ reque
 test('a ?sgsnapshot link to an older week still opens that week from snapshots/', async () => {
     const h = harness(site(NEW_HISTORY), { search: '?sgsnapshot=2026-08-02' });
     await h.run('dataKeyReady()');
-    await h.run('loadStartupDataset(requestedSnapshot()).then(d => d && selectSnapshotOption(d))');
+    await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened && selectSnapshotOption(r.opened))');
     await h.run('initHistorySelector()');
     assert.equal(h.select.dataset.lastValue, '2026-08-02');
     assert.deepEqual(h.paths().filter((p) => p.includes('demographics')), Array.from({ length: 8 }, (_, i) => `snapshots/2026-08-02/demographics.part${i + 1}.json.gz`),
