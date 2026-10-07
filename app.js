@@ -40,7 +40,7 @@ const CHART_ASPECT_RATIO = isMobileDevice ? 1 : undefined;
 // A full snapshot costs about 0.75-1 GB of browser memory once parsed, so the
 // page keeps only two: the latest data, which most visits go back to, and the
 // snapshot on screen. Four cached snapshots measured 2.96 GiB of a 4 GiB tab.
-const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, reader }
+const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, runStamp (parts only), reader }
 
 // Drop every cached dataset but the latest and the one on screen, and with
 // it what its reader loaded (the Studies-tab extras and detail shards ride on
@@ -1076,7 +1076,10 @@ function firstViewProblem(summary, run) {
     if (firstViewClosed || data || dashboardSummary) return 'the records are already in';
     const params = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH);
     if (params.get('firstview') === '0') return '?firstview=0';
-    const route = String(SG_INITIAL_HASH || '').replace(/^#/, '');
+    // The tab the hash opens, without its query: the site writes
+    // #overview?sg=v2 itself, and the /overview/ stub moves any query into
+    // the hash. The query's keys are checked below, wherever they are.
+    const route = String(SG_INITIAL_HASH || '').replace(/^#/, '').split('?')[0];
     if (route && route !== 'overview') return `the link opens #${route}`;
     const asked = [...SHARE_FILTERS.map(([, key]) => key), 'sgsnapshot', 'm'].find(k => params.has(k));
     if (asked) return `the link sets ${asked}`;
@@ -1165,17 +1168,49 @@ async function firstViewOrFigure(summary) {
     if (!problem) {
         try {
             paintFirstView(summary);
+            listHistoryWhileWaiting();
             return true;
         } catch (err) {
             // The loading screen stays up and the records draw as always.
             console.warn('The Overview could not paint from the summary:', err);
-            firstViewShown = null;
-            setRecordsPending(false);
+            withdrawFirstView();
         }
     }
     if (summary && summary.firstView !== undefined) console.info(`The Overview waits for the records: ${problem}`);
     renderLoadingFigure(summary);
     return false;
+}
+
+// The archive selector lists history.json's dates while it waits for the
+// records, as initHistorySelector lists them once they are in: the selector
+// is then as wide as it will stay, and the masthead does not reflow at the
+// swap (between about 905 and 925 px the wider selector wrapped the masthead
+// to a second row and moved the Overview down 54 px). history.json is asked
+// for with the data key (resolveDataCacheVersion), so it is in hand by now
+// and the dates are listed before the browser draws the first view; one
+// that answers later lists them then. The selector stays disabled until the
+// records arrive (setRecordsPending): its change handler is wired by
+// initHistorySelector.
+function listHistoryWhileWaiting() {
+    const select = document.getElementById('history-date');
+    if (!select) return;
+    fetchHistory().then(manifest => {
+        if (manifest) listHistoryDates(select, manifest);
+    });
+}
+
+// The first view could not finish painting (paintFirstView threw): take
+// back what it did, quietly. The controls it closed open again; the strip,
+// if it was up, goes without saying the records loaded (they have not), and
+// the root's first-view-pending class goes at once, not a frame later, so
+// the records' render shows its spinner under the loading screen as it
+// always has.
+function withdrawFirstView() {
+    firstViewShown = null;
+    const strip = document.getElementById('records-pending');
+    if (strip) strip.hidden = true;   // a hidden strip says nothing (setRecordsPending)
+    setRecordsPending(false);
+    document.documentElement.classList.remove('first-view-pending');
 }
 
 // While the records load behind the first view: every tab but the
@@ -1188,8 +1223,14 @@ const RECORDS_PENDING_CONTROLS = '.tab:not([data-tab="overview"]), #filter-summa
 function setRecordsPending(on) {
     const root = document.documentElement;
     const strip = document.getElementById('records-pending');
-    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+    const controls = Array.from(document.querySelectorAll(RECORDS_PENDING_CONTROLS));
+    // A browser drops keyboard focus to <body> from a control it disables.
+    if (on) focusOffClosing(controls);
+    controls.forEach(el => {
         if (on && !el.disabled) {
+            // Firefox keeps a disabled state across a reload unless told not
+            // to (index.html says so too; clearRestoredDisabled).
+            el.setAttribute('autocomplete', 'off');
             el.disabled = true;
             el.dataset.waitsForRecords = '';
             el.setAttribute('aria-disabled', 'true');
@@ -1203,7 +1244,10 @@ function setRecordsPending(on) {
     });
     if (on) {
         root.classList.add('first-view-pending');
-        if (strip) strip.hidden = false;
+        if (strip) {
+            strip.hidden = false;
+            keepPageAboveStrip(strip);
+        }
         return;
     }
     // After the frame in which renderDashboard hides its spinner.
@@ -1214,6 +1258,53 @@ function setRecordsPending(on) {
     if (text) text.textContent = 'Trial records loaded. Every tab is open.';
     strip.classList.add('is-done');
     setTimeout(() => { strip.hidden = true; }, 2500);
+}
+
+// The strip is fixed to the foot of the window, over the foot of the page:
+// while it is up, the page ends above it. Its measured height, as
+// --records-pending-height on the root, pads the bottom of the page and
+// its scroll padding (styles.css), so the footer's last link can be read
+// and clicked and a control that takes focus scrolls clear of it. A
+// ResizeObserver follows the strip as its line wraps (a failure says more;
+// a narrower window wraps it sooner) and back to 0 when it hides.
+function keepPageAboveStrip(strip) {
+    if (strip.dataset.padsPage !== undefined || typeof ResizeObserver === 'undefined') return;
+    strip.dataset.padsPage = '';
+    const root = document.documentElement;
+    new ResizeObserver(() => {
+        root.style.setProperty('--records-pending-height', `${strip.hidden ? 0 : strip.offsetHeight}px`);
+    }).observe(strip);
+}
+
+// Firefox keeps the disabled state of a <button> or <select> across a
+// reload (MDN, the disabled attribute), so a refresh while the records were
+// loading, or after they failed ("Refresh the page to try again"), could
+// bring the waiting controls back disabled, without the data-waits-for-
+// records mark setRecordsPending(false) opens them by: most of the page
+// would stay closed for good. index.html turns that off for them
+// (autocomplete="off"); this clears a state restored anyway, at startup,
+// before anything here disables them. None of them is meant to start
+// disabled: the controls the app disables on purpose are elsewhere (the
+// filter panel's on a phone, disableFiltersForMobile; the condition
+// subcategory until a category is chosen; the Industry tab's Gender view,
+// "Coming soon"). A control here that should start disabled carries
+// data-stays-disabled and is kept.
+function clearRestoredDisabled() {
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.disabled && el.dataset.staysDisabled === undefined && el.dataset.waitsForRecords === undefined) {
+            el.disabled = false;
+        }
+    });
+}
+
+// Keyboard focus on one of these controls, about to be disabled or hidden,
+// moves to the Overview tab (open throughout the wait) instead of falling
+// to <body>, where the next Tab would start again from the top of the page.
+function focusOffClosing(els) {
+    const active = document.activeElement;
+    if (!active || !els.includes(active)) return;
+    const overview = document.querySelector('.tab[data-tab="overview"]');
+    if (overview) overview.focus();
 }
 
 // The records are on screen, drawn by renderDashboard over the first view:
@@ -1233,8 +1324,11 @@ function settleFirstView() {
 // Startup failed after the first view painted (the records did not load,
 // or did not draw): the Overview stays, the rest stays closed, and the
 // strip says what happened, since the loading screen that would is gone.
-function firstViewFailed(err) {
-    firstViewShown = null;
+// retry: the load can be tried again (loadStartupRecords), and the strip
+// offers it; the first view stays the Overview the records will replace.
+// Without it, a refresh is the way back.
+function firstViewFailed(err, retry) {
+    if (!retry) firstViewShown = null;
     const strip = document.getElementById('records-pending');
     if (!strip) return;
     strip.hidden = false;
@@ -1244,7 +1338,76 @@ function firstViewFailed(err) {
     if (meter) meter.hidden = true;
     strip.removeAttribute('data-load-progress');
     const text = strip.querySelector('.records-pending-text');
-    if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}. Refresh the page to try again.`;
+    if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}.${retry ? '' : ' Refresh the page to try again.'}`;
+    const again = strip.querySelector('.records-pending-retry');
+    if (again) offerRetry(again, retry);
+    // The controls still closed will not open on their own now: their
+    // tooltip says what the strip says, in place of "Opens when the trial
+    // records have loaded". A title the page gave them is left alone.
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.dataset.waitTitle !== undefined) el.title = 'Unavailable: the trial records did not load.';
+    });
+    openRecordFreeTabs();
+}
+
+// Try again under the first view: the strip follows the new load, and the
+// controls still closed say again that they open when the records arrive.
+function firstViewRetrying() {
+    const strip = document.getElementById('records-pending');
+    if (!strip) return;
+    const again = strip.querySelector('.records-pending-retry');
+    if (again) {
+        focusOffClosing([again]);
+        offerRetry(again, null);
+    }
+    strip.classList.remove('is-failed');
+    strip.setAttribute('role', 'status');
+    const meter = strip.querySelector('.loading-meter');
+    if (meter) meter.hidden = false;
+    strip.setAttribute('data-load-progress', '');
+    const text = strip.querySelector('.records-pending-text');
+    if (text) text.textContent = 'The other tabs and the filters open when they arrive.';
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.dataset.waitTitle !== undefined) el.title = 'Opens when the trial records have loaded';
+    });
+}
+
+// A Try again button: shown with its action, hidden without one. One click
+// runs it once.
+function offerRetry(button, retry) {
+    button.hidden = !retry;
+    button.onclick = retry ? () => { button.onclick = null; retry(); } : null;
+}
+
+// About and FAQ need no records, so a failed load opens them, and the
+// Overview tab returns from them. Until initTabs wires every tab (once a
+// retry loads the records), these three switch the page themselves, while
+// the page is still waiting on the records (the root's first-view-pending
+// class); after that, initTabs's handler does it.
+const RECORD_FREE_TABS = ['overview', 'about', 'faq'];
+function openRecordFreeTabs() {
+    document.querySelectorAll('.tab').forEach(tab => {
+        const name = tab.dataset.tab;
+        if (!RECORD_FREE_TABS.includes(name)) return;
+        if (tab.dataset.waitsForRecords !== undefined) {
+            tab.disabled = false;
+            delete tab.dataset.waitsForRecords;
+            tab.removeAttribute('aria-disabled');
+            if (tab.dataset.waitTitle !== undefined) { tab.removeAttribute('title'); delete tab.dataset.waitTitle; }
+        }
+        if (tab.dataset.recordFree !== undefined) return;
+        tab.dataset.recordFree = '';
+        tab.addEventListener('click', () => {
+            if (!document.documentElement.classList.contains('first-view-pending')) return;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === name));
+            // As initTabs does: no filters on About and FAQ.
+            ['filters', 'filter-summary'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = name === 'overview' ? '' : 'none';
+            });
+        });
+    });
 }
 
 // ── Phones: the desktop's Overview, and each tab's study types ──
@@ -1357,9 +1520,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         // (resolveDataCacheVersion); the condition ontology, which carries
         // no key, loads alongside. Every data fetch waits for the key too.
         const keyReady = dataKeyReady();
+        // Controls a browser brought back disabled from before a reload.
+        clearRestoredDisabled();
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
+        // A shared snapshot link (?sgsnapshot=, desktop only) opens that
+        // snapshot in place of the latest data, never after it.
+        const requested = requestedSnapshot();
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
@@ -1374,14 +1542,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadConditionOntology();
         }
         await keyReady;
-        updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
-        await loadData();
-        firstViewClosed = true;
-        // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
-        await sgLoad();
+        // The one dataset the page opens with: the link's snapshot, or the
+        // latest data. Null means the latest.
+        const { opened, failed: startupFailure } = await loadStartupDataset(requested);
         updateLoadingProgress(78, 'Setting up filters');
         initTabs();
-        if (!dashboardSummary) {
+        // The phone's summary view. A desktop that opened an aggregate
+        // archive from a link holds a summary too, and still gets the full
+        // desktop set-up, as it does when it switches to one.
+        const summaryMode = isMobileDevice && !!dashboardSummary;
+        if (!summaryMode) {
             // Full desktop mode: initialize filters, table, geography
             initFilters();
             initTable();
@@ -1408,6 +1578,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // anything (a click on a control still waiting does nothing).
         settleFirstView();
 
+        // The selector names the snapshot on screen before the first share
+        // URL is written, so the address keeps naming it.
+        if (opened) selectSnapshotOption(opened);
+
         // Deep links: restore the tab (and desktop filter state) from the
         // hash once the first render is up, then start writing share URLs.
         shareUrlReady = true;
@@ -1417,25 +1591,82 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
+        // A listed snapshot the link named that did not load: said once the
+        // latest data is on screen, so the toast is not lost behind the
+        // overlay.
+        if (startupFailure) reportStartupFailure(startupFailure);
 
-        if (!dashboardSummary) {
+        if (!summaryMode) {
             initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
         }
     } catch (err) {
         console.error('Dashboard initialization failed:', err);
-        firstViewClosed = true;
-        // The overlay is gone once the first view painted: say it there.
-        if (firstViewShown) firstViewFailed(err);
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-            const status = document.getElementById('loading-status');
-            if (status) {
-                status.textContent = `Error: ${err.message}. Please refresh the page.`;
-                status.style.color = '#ef4444';
-            }
-        }
+        startupFailed(err);
     }
 });
+
+// Startup's load of the latest records. When it fails, the page says so
+// where the reader is looking (the strip under the first view, else the
+// loading screen) with a Try again button, and waits for it: the retry asks
+// for the parts that did not load past the browser cache (fetchPart,
+// PARTS_PAST_CACHE), and startup goes on from here once they load. Nothing
+// after the load has run yet, so a retry repeats nothing. A dataset whose
+// layout this page cannot read is refused, not retried.
+async function loadStartupRecords() {
+    for (;;) {
+        try {
+            await loadData();
+            return;
+        } catch (err) {
+            if (err && err.layoutRefused) throw err;
+            console.error('The trial records did not load:', err);
+            await new Promise(resolve => startupFailed(err, resolve));
+            startupRetrying();
+        }
+    }
+}
+
+// Startup failed: say so. The overlay is gone once the first view painted,
+// so the strip says it there (firstViewFailed). The loading screen stops
+// following the download before it says it: a part still in flight, or a
+// frame it queued, writes its stage to every [data-load-progress] screen
+// (updateLoadingProgress), which would put "Loading trial records" back
+// over the error. retry: what Try again runs (loadStartupRecords); without
+// it (a failure after the records loaded), a refresh is the way back.
+function startupFailed(err, retry) {
+    firstViewClosed = true;
+    if (firstViewShown) {
+        firstViewFailed(err, retry);
+        return;
+    }
+    const overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    overlay.removeAttribute('data-load-progress');
+    const bytes = overlay.querySelector('.loading-bytes');
+    if (bytes) bytes.textContent = '';
+    const status = document.getElementById('loading-status');
+    if (status) {
+        status.textContent = retry ? `Loading stopped: ${err.message}.` : `Error: ${err.message}. Please refresh the page.`;
+        status.style.color = '#ef4444';
+    }
+    const again = document.getElementById('loading-retry');
+    if (again) offerRetry(again, retry);
+}
+
+// Try again: the screen that said the load stopped follows the new one.
+function startupRetrying() {
+    if (firstViewShown) {
+        firstViewRetrying();
+    } else {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.setAttribute('data-load-progress', '');
+        const status = document.getElementById('loading-status');
+        if (status) status.style.color = '';
+        const again = document.getElementById('loading-retry');
+        if (again) offerRetry(again, null);
+    }
+    updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records', '');
+}
 
 // Feature-detect DecompressionStream (not available on Safari iOS, older mobile browsers)
 const hasDecompressionStream = typeof DecompressionStream !== 'undefined';
@@ -1732,6 +1963,41 @@ async function fetchAndDecompress(url, onProgress, init) {
     const count = Array.isArray(json.data) ? json.data.length : Object.keys(json.data).length;
     console.log(`Successfully loaded ${count} records from ${url}`);
     return json;
+}
+
+// The parts that did not load (a 4xx after its second request, a 5xx, the
+// connection, a body that could not be read): their next request, a Try
+// again's, goes past the browser cache. A part leaves the set when it loads.
+const PARTS_PAST_CACHE = new Set();
+
+// One part of the latest dataset (loadData). A 4xx is asked for once more past the
+// browser cache before it counts as missing, as fetchSidecar does for the
+// Studies-tab and detail files: Cloudflare sends max-age=14400 with a 404
+// as well, so a part missing for a moment (mid-deploy) would otherwise stay
+// missing in this browser for four hours, through every refresh. A part in
+// PARTS_PAST_CACHE goes past the cache on its first request, and that is its
+// only one. init: the fetch options (loadData's abort signal).
+async function fetchPart(url, onProgress, init) {
+    const pastCache = { ...init, cache: 'reload' };
+    const fresh = PARTS_PAST_CACHE.has(url);
+    let body;
+    try {
+        try {
+            body = await fetchAndDecompress(url, onProgress, fresh ? pastCache : init);
+        } catch (err) {
+            const status = err && err.status;
+            if (fresh || !(status >= 400 && status < 500)) throw err;
+            console.warn(`${url}: HTTP ${status}; fetching it again past the cache`);
+            body = await fetchAndDecompress(url, onProgress, pastCache);
+        }
+    } catch (err) {
+        // A part stopped because another failed (loadData aborts the rest)
+        // did not fail itself: its next request may use the cache.
+        if (!(init && init.signal && init.signal.aborted)) PARTS_PAST_CACHE.add(url);
+        throw err;
+    }
+    PARTS_PAST_CACHE.delete(url);
+    return body;
 }
 
 // ── Study details on demand ─────────────────────────────────────────────
@@ -2729,28 +2995,46 @@ async function loadData(date) {
             const totals = new Array(numParts).fill(undefined);
             const finished = new Array(numParts).fill(false);
             let frame = 0;
+            // When one part fails, the others stop downloading: their bytes
+            // would go on moving the meter (and the stage line) under the
+            // failure's message, and a Try again would fetch them twice.
+            const stop = typeof AbortController === 'function' ? new AbortController() : null;
+            const stopped = () => !!stop && stop.signal.aborted;
             const showProgress = () => {
                 frame = 0;
+                if (stopped()) return;
                 const { fraction, text } = describePartsProgress(loaded, totals, finished);
                 updateLoadingProgress(10 + 60 * fraction, 'Loading trial records', text);
             };
             const queueProgress = () => {
-                if (!frame) frame = requestAnimationFrame(showProgress);
+                if (!frame && !stopped()) frame = requestAnimationFrame(showProgress);
             };
+            // The latest parts go through fetchPart (a 4xx is asked for
+            // again past the cache). A snapshot's parts are fixed once it is
+            // listed: one that answers 404 is a summary-only archive, read
+            // below, and is not asked for twice.
+            const fetchOne = date ? fetchAndDecompress : fetchPart;
             // No array of the part promises is kept: it would hold the
             // payloads after a stale part is dropped for its refetch.
-            let parts = await Promise.all(strategy.urls.map((url, i) => {
-                return fetchAndDecompress(url, (got, total) => {
-                    loaded[i] = got;
-                    totals[i] = total;
-                    queueProgress();
-                }).then(result => {
-                    finished[i] = true;
-                    queueProgress();
-                    return result;
-                });
-            }));
-            if (frame) cancelAnimationFrame(frame);
+            let parts;
+            try {
+                parts = await Promise.all(strategy.urls.map((url, i) => {
+                    return fetchOne(url, (got, total) => {
+                        loaded[i] = got;
+                        totals[i] = total;
+                        queueProgress();
+                    }, stop ? { signal: stop.signal } : undefined).then(result => {
+                        finished[i] = true;
+                        queueProgress();
+                        return result;
+                    });
+                }));
+            } catch (err) {
+                if (stop) stop.abort();
+                throw err;
+            } finally {
+                if (frame) cancelAnimationFrame(frame);
+            }
             // A part from another run is fetched again past the browser cache.
             const expectedStamp = !date || date === 'latest' ? LATEST_RUN_STAMP : null;
             parts = await refetchStaleParts(parts, expectedStamp, (i) => {
@@ -2799,7 +3083,7 @@ async function loadData(date) {
             // The reader rides on the entry, so the extras it loads are kept
             // with the dataset and go when the entry goes. Nothing is dropped
             // here: retainSnapshots runs once the switch has rendered.
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, reader: datasetReader });
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, runStamp: parts[0].extracted_at, reader: datasetReader });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
@@ -2811,6 +3095,26 @@ async function loadData(date) {
             console.warn(`✗ ${strategy.name} failed:`, error.message);
             lastError = error;
         }
+    }
+
+    // ── The newest date, asked of snapshots/ because data/run.json was late ──
+    // The newest published date is read from data/ only once data/run.json
+    // has dated the run there (servedFromData). When that file missed its
+    // wait at start-up, the run in data/ is undated, the date was taken for
+    // an archive, and the engine no longer writes snapshots/<newest>/, so the
+    // parts are not found. Read run.json again: if data/ holds that date's
+    // run, serve it from there (adoptRecheckedRun); otherwise nothing else
+    // holds it, and the caller falls back (start-up opens the latest data;
+    // the selector reverts). Only an undated data/: a run.json that dated
+    // data/ as another week (a deploy window) keeps the archive fallback
+    // below, so one week's numbers never show under another week's date.
+    if (date && date === NEWEST_PUBLISHED && DATA_RUN_DATE === null && lastError && lastError.status === 404) {
+        const run = await recheckRun();
+        if (runDate(run) === date) {
+            adoptRecheckedRun(run);
+            return loadData(date);
+        }
+        throw new Error(`Could not load data for ${date}: it is not in snapshots/, and data/run.json does not confirm that data/ holds it; refresh in a few minutes`);
     }
 
     // ── Aggregate-archive fallback ──
@@ -2871,6 +3175,112 @@ function datasetStudyCount() {
     return Array.isArray(data) ? data.length : 0;
 }
 
+// The snapshot a shared link asks for (?sgsnapshot=YYYY-MM-DD in the query
+// or in the hash the page opened with, where the routing stubs put it), or
+// null. Desktop only: phones show the latest summary and have no snapshot
+// selector.
+function requestedSnapshot() {
+    if (isMobileDevice) return null;
+    const snap = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH).get('sgsnapshot');
+    return snap && /^\d{4}-\d{2}-\d{2}$/.test(snap) ? snap : null;
+}
+
+// The requested snapshot if history.json still lists it (in "dates", or as
+// the date data/ serves), else null: the latest data opens instead, with no
+// toast. history.json is already in flight for the data key; this waits for
+// it no longer than the key's own wait for it (newestPublishedReady).
+async function startupSnapshot(requested) {
+    if (!requested) return null;
+    const manifest = await Promise.race([fetchHistory(), newestPublishedReady().then(() => null)]);
+    if (!manifest) return null;
+    return publishedDates(manifest).includes(requested) || newestPublishedIn(manifest) === requested ? requested : null;
+}
+
+// Load the dataset the page opens with, and its ?sg=v2 files: the snapshot
+// a link asks for when history.json lists it (startupSnapshot), else the
+// latest data, without a word (owner decision 25b: an unlisted date). A
+// listed snapshot that fails to load also gives way to the latest data, and
+// the failure is returned for reportStartupFailure. Returns { opened: the
+// date opened, or null for the latest data; failed: { date, message } or
+// null }.
+async function loadStartupDataset(requested) {
+    let opened = await startupSnapshot(requested);
+    let failed = null;
+    updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
+    if (opened) {
+        try {
+            await loadData(opened);
+        } catch (e) {
+            console.warn(`Snapshot ${opened} could not be loaded; opening the latest data:`, e.message);
+            failed = { date: opened, message: e.message };
+            opened = null;
+        }
+    }
+    // The latest data, with Try again if it does not load
+    // (loadStartupRecords). A link's snapshot that failed is not retried:
+    // the latest data opens in its place and the failure is reported once
+    // the page is up, so the loading screen shows one failure at a time.
+    if (!opened) await loadStartupRecords();
+    // The records are in: a summary that answers from here on paints
+    // nothing (firstViewProblem). A link's snapshot never had a first view.
+    firstViewClosed = true;
+    // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
+    await sgLoad(opened || undefined);
+    return { opened, failed };
+}
+
+// A listed snapshot a link named did not load, and the latest data is on
+// screen instead: say so, as the selector's switch says it.
+function reportStartupFailure(failed) {
+    showToast(`Snapshot "${failed.date}" unavailable: ${failed.message}. Showing the latest data.`, 'error', 8000);
+}
+
+// Put the snapshot opened at start-up in the selector before its options
+// arrive; initHistorySelector keeps the choice when it fills the list.
+function selectSnapshotOption(date) {
+    const select = document.getElementById('history-date');
+    if (!select) return;
+    if (!Array.from(select.options).some(o => o.value === date)) {
+        const opt = document.createElement('option');
+        opt.value = date;
+        opt.textContent = servedFromData(date) ? `${date} (latest)` : date;
+        select.appendChild(opt);
+    }
+    select.value = date;
+}
+
+// How long a second read of data/run.json may take (recheckRun). It
+// runs only after the first read missed its wait, so it gets twice that.
+const RUN_RECHECK_WAIT_MS = 2 * SMALL_FILE_WAIT_MS;
+
+// data/run.json read again past every cache (not the remembered fetchRun
+// answer), or null if it still does not answer in time.
+async function recheckRun() {
+    const deadline = new Promise(resolve => setTimeout(() => resolve(null), RUN_RECHECK_WAIT_MS));
+    return Promise.race([
+        fetch('data/run.json', { cache: 'no-store' })
+            .then(resp => (resp.ok ? resp.json() : null))
+            .catch(() => null),
+        deadline
+    ]);
+}
+
+// Take the run a second read of data/run.json dated as the newest date: it
+// dates data/ and stamps the latest parts, as a first read on time would
+// have. Latest data cached before it (read with no stamp to check against)
+// is kept only if it is that run's; otherwise it goes, with its ?sg=v2
+// table, so data/ is read again and checked against the stamp.
+function adoptRecheckedRun(run) {
+    DATA_RUN_DATE = runDate(run);
+    const stamp = typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at)) ? run.extracted_at : null;
+    if (stamp) LATEST_RUN_STAMP = stamp;
+    const cached = snapshotCache.get('latest');
+    if (cached && (!stamp || cached.runStamp !== stamp)) {
+        snapshotCache.delete('latest');
+        sgCache.delete('latest');
+    }
+}
+
 // Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
@@ -2903,6 +3313,37 @@ async function loadDataAndRender(date) {
 }
 window.loadDataAndRender = loadDataAndRender;
 
+// List a history.json's dates in the archive selector after its "Latest",
+// newest first. The date data/ serves is listed as "YYYY-MM-DD (latest)",
+// with the date as its value: choosing it shows the latest dataset
+// (datasetKey), and a link that names it keeps naming that date once a later
+// run moves it into snapshots/. A date already listed is left as it is, so
+// a history.json that names a date twice lists it once. The first view lists
+// them while the records load (listHistoryWhileWaiting); initHistorySelector
+// then lists them again in order after "Latest", keeping the choice (a
+// snapshot a link opened is appended first by selectSnapshotOption).
+function listHistoryDates(select, manifest) {
+    noteNewestPublished(manifest);
+    const dates = (manifest.dates || []).slice();
+    if (servedFromData(NEWEST_PUBLISHED) && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
+    dates.sort().reverse(); // newest first
+
+    // Trust the manifest — the GitHub Actions workflow only appends a date
+    // after verifying the release and its assets exist.  The loadData()
+    // function already handles failures gracefully (toast + revert), so
+    // we don't need a HEAD-probe gate here.  Previous probes used jsDelivr,
+    // which 403s on files >50 MB, hiding every valid date.
+    const listed = new Set(Array.from(select.options, o => o.value));
+    dates.forEach(d => {
+        if (listed.has(d)) return;
+        listed.add(d);
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = servedFromData(d) ? `${d} (latest)` : d;
+        select.appendChild(opt);
+    });
+}
+
 // Fetch history.json, populate the date-selector dropdown, and wire up
 // the change handler so selecting a historical date reloads + re-renders.
 async function initHistorySelector() {
@@ -2916,32 +3357,22 @@ async function initHistorySelector() {
             console.log('history.json not available; archive selector disabled.');
             return;
         }
-        // The date data/ serves is listed as "YYYY-MM-DD (latest)", with the
-        // date as its value: choosing it shows the latest dataset (datasetKey),
-        // and a link that names it keeps naming that date once a later run
-        // moves it into snapshots/.
-        noteNewestPublished(manifest);
-        const dates = (manifest.dates || []).slice();
-        if (servedFromData(NEWEST_PUBLISHED) && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
-        dates.sort().reverse(); // newest first
-
-        // Trust the manifest — the GitHub Actions workflow only appends a date
-        // after verifying the release and its assets exist.  The loadData()
-        // function already handles failures gracefully (toast + revert), so
-        // we don't need a HEAD-probe gate here.  Previous probes used jsDelivr,
-        // which 403s on files >50 MB, hiding every valid date.
-        dates.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = servedFromData(d) ? `${d} (latest)` : d;
-            select.appendChild(opt);
-        });
+        // A snapshot opened from a link already has its option
+        // (selectSnapshotOption), appended after "Latest": the list is
+        // rebuilt in order and the choice kept. Rebuilt in the same task, so
+        // a list the first view put up (listHistoryWhileWaiting) keeps its
+        // width.
+        const current = select.value;
+        Array.from(select.options).forEach(o => { if (o.value !== 'latest') o.remove(); });
+        listHistoryDates(select, manifest);
+        select.value = Array.from(select.options).some(o => o.value === current) ? current : 'latest';
     } catch (e) {
         console.warn('Could not load history manifest:', e);
     }
 
-    // Initialize tracking so revert-on-error knows the starting state
-    select.dataset.lastValue = 'latest';
+    // Initialize tracking so revert-on-error knows the starting state: the
+    // snapshot a link opened, else Latest.
+    select.dataset.lastValue = select.value || 'latest';
 
     select.addEventListener('change', async () => {
         const chosen = select.value;
@@ -3115,7 +3546,10 @@ function applyRouteFromHash() {
     if (!raw || raw === 'industry' || raw.indexOf('industry?') === 0) return; // industryRoute owns it
     const parts = raw.split('?');
     const tabId = parts[0], query = parts[1];
-    if (query && !isMobileDevice && !dashboardSummary) applyShareParams(query);
+    // Desktop only (a phone has no filter controls). A desktop on an
+    // aggregate archive keeps the link's filters, for when it goes back to
+    // data that has study rows.
+    if (query && !isMobileDevice) applyShareParams(query);
     const btn = tabId && document.querySelector('.tab[data-tab="' + CSS.escape(tabId) + '"]');
     if (btn && !btn.classList.contains('active')) btn.click();
 }
@@ -4096,7 +4530,9 @@ function initFilterSummary() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel) return;
-    if (dashboardSummary) { btn.hidden = true; return; }   // no panel to open
+    // The phone's summary view has no panel to open. A desktop that opened
+    // an aggregate archive from a link keeps the button for the latest data.
+    if (isMobileDevice && dashboardSummary) { btn.hidden = true; return; }
     btn.addEventListener('click', () => {
         const open = panel.hidden;
         panel.hidden = !open;
@@ -10947,18 +11383,8 @@ function sgRouteHooks() {
         on.add('sex'); on.add('gender');
         applyStudyColumns(on);
     }
-    // ?sgsnapshot=YYYY-MM-DD: open that archived snapshot. The history
-    // selector fills after the first render, so wait for its option.
-    const snap = params.get('sgsnapshot');
-    if (snap && /^\d{4}-\d{2}-\d{2}$/.test(snap)) {
-        let tries = 0;
-        const timer = setInterval(() => {
-            const sel = document.getElementById('history-date');
-            const has = !!sel && Array.from(sel.options).some(o => o.value === snap);
-            if (has) { sel.value = snap; sel.dispatchEvent(new Event('change')); }
-            if (has || ++tries > 40) clearInterval(timer);
-        }, 250);
-    }
+    // ?sgsnapshot= is read at start-up (requestedSnapshot), so the snapshot
+    // loads in place of the latest data rather than after it.
 }
 
 // Which v2 tab renderers to run after a dashboard render.

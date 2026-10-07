@@ -360,6 +360,11 @@
 /* A class selector beats the UA stylesheet's [hidden] rule. */
 .records-pending[hidden] { display: none; }
 
+/* While the strip is up, the page ends above it: app.js measures it into
+   --records-pending-height (keepPageAboveStrip), 0 once it hides. */
+html { scroll-padding-bottom: var(--records-pending-height, 0px); }
+body { padding-bottom: var(--records-pending-height, 0px); }
+
 .records-pending .loading-meter {
     position: absolute;
     top: 0;
@@ -389,6 +394,17 @@
 .records-pending.is-failed {
     color: var(--text-primary);
     border-top: 1px solid var(--border-color);
+}
+
+/* Try again, after a failed load: on the strip's line, and under the
+   loading screen's stage line. */
+.records-pending .records-pending-retry {
+    margin-left: 0;
+    align-self: center;
+}
+
+.loading-overlay .loading-retry {
+    margin: 0.75rem 0 0;
 }
 
 /* What waits for the records reads as waiting, not broken. */
