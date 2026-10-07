@@ -782,6 +782,11 @@ test('the archive selector lists its dates while it waits, as it lists them afte
     assert.equal(await q.run('firstViewOrFigure')(summaryWith(undefined)), false);
     await tick();
     assert.deepEqual(listed(q.el('history-date')), [['latest', 'Latest']]);
+    // A date history.json names twice is listed once.
+    const twice = page({ history: { dates: ['2026-08-02', '2026-08-02', '2026-10-04'] }, runDate: '2026-10-04' });
+    assert.equal(await twice.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    await tick();
+    assert.deepEqual(listed(twice.el('history-date')).map(([v]) => v), ['latest', '2026-10-04', '2026-08-02']);
     // A history.json that did not answer lists nothing.
     const r = page({ history: null });
     assert.equal(await r.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
