@@ -86,7 +86,7 @@ function buildDocument() {
     const stack = [];
     let root = null;
     const matches = (el, simple) => {
-        // tag, .class, #id, [attr="v"], :not(simple), :disabled — what app.js's selectors here use
+        // tag, .class, #id, [attr="v"], [attr], :not(simple), :disabled — what app.js's selectors here use
         let rest = simple.trim();
         const not = /:not\(([^)]*)\)/.exec(rest);
         if (not) {
@@ -94,7 +94,8 @@ function buildDocument() {
             rest = rest.replace(not[0], '');
         }
         if (rest.endsWith(':disabled')) { if (!el.disabled) return false; rest = rest.slice(0, -9); }
-        for (const m of rest.matchAll(/([#.]?)([\w-]+)|\[([\w-]+)="([^"]*)"\]/g)) {
+        for (const m of rest.matchAll(/([#.]?)([\w-]+)|\[([\w-]+)(?:="([^"]*)")?\]/g)) {
+            if (m[3] && m[4] === undefined) { if (el.getAttribute(m[3]) === null) return false; continue; }
             if (m[3]) { if (el.getAttribute(m[3]) !== m[4]) return false; continue; }
             if (m[1] === '#') { if (el.id !== m[2]) return false; }
             else if (m[1] === '.') { if (!el.classList.contains(m[2])) return false; }
@@ -252,6 +253,7 @@ const SITE = [
     fnSource('function setRecordsPending(on)'),
     fnSource('function settleFirstView()'),
     fnSource('function firstViewFailed(err)'),
+    fnSource('function startupFailed(err)'),
     // What startup runs once the records are drawn: the deep-link hooks.
     fnSource('function applyRouteFromHash()'),
     fnSource('function sgRouteHooks()')
@@ -693,6 +695,24 @@ test('a failed load after the first view says so in the strip and keeps the rest
     assert.equal(p.run('firstViewShown'), null);
 });
 
+test('a failed load on the loading screen keeps its error: parts still in flight do not write over it', async () => {
+    const p = page();
+    // The loading screen's own writer, as the parts loop calls it.
+    p.run(fnSource("function updateLoadingProgress(percent, statusText, bytesText = '')").replace('function updateLoadingProgress', 'function __writeProgress'));
+    p.run('var loadingSample = { fill() {} };');
+    const overlay = p.el('loading-overlay');
+    const status = p.el('loading-status');
+    p.run('__writeProgress')(40, 'Loading trial records', '60 of 152 MB');
+    assert.equal(status.textContent, 'Loading trial records');
+    p.run('startupFailed')(new Error('Could not load data for latest: Failed to fetch data/demographics.part3.json.gz: HTTP 404'));
+    assert.match(status.textContent, /^Error: .*HTTP 404\. Please refresh the page\.$/);
+    // A part still downloading reports its bytes a frame later.
+    p.run('__writeProgress')(55, 'Loading trial records', '90 of 152 MB');
+    assert.match(status.textContent, /HTTP 404/, 'a part still in flight wrote "Loading trial records" over the error');
+    assert.equal(overlay.getAttribute('data-load-progress'), null);
+    assert.equal(p.run('firstViewClosed'), true, 'a summary that answers later could still paint over the error');
+});
+
 test('a deep-link hook that clicks a waiting control finds it open: ?sgfilters=1 opens the filters', async () => {
     const records = syntheticRecords();
     const p = page({ search: '?sgfilters=1' });
@@ -805,7 +825,8 @@ test('startup wires the first view in, and never through dashboardSummary', () =
     assert.ok(at('settleFirstView();') < at('applyRouteFromHash();') && at('settleFirstView();') < at('sgRouteHooks();'),
         'the deep links run before the page opens');
     const fail = body.slice(body.indexOf('} catch (err) {'));
-    assert.match(fail, /firstViewClosed = true;[\s\S]*if \(firstViewShown\) firstViewFailed\(err\);/);
+    assert.match(fail, /startupFailed\(err\);/);
+    assert.match(fnSource('function startupFailed(err)'), /firstViewClosed = true;[\s\S]*if \(firstViewShown\) firstViewFailed\(err\);/);
     for (const sig of ['function firstViewBlock(summary)', 'function firstViewProblem(summary, run)', 'function overviewOnScreen()',
         'function paintFirstView(summary)', 'async function firstViewOrFigure(summary)', 'function setRecordsPending(on)',
         'function settleFirstView()', 'function firstViewFailed(err)']) {

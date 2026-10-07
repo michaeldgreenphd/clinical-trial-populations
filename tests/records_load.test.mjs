@@ -69,17 +69,19 @@ const gz = (k) => gzipSync(Buffer.from(JSON.stringify({ extracted_at: STAMP, par
 
 /**
  * serve(path, n, init) answers the n-th request (from 1) for a path: a
- * number is that HTTP status, anything else the part's gzipped body.
+ * number is that HTTP status, a Response is sent as it is, anything else is
+ * the part's gzipped body. Frames run at once; progress records each write.
  */
 function harness(serve = () => 'ok') {
     const requests = [];
     const counts = {};
+    const progress = [];
     const ctx = vm.createContext({
         console: { log() {}, warn() {}, error() {} },
         document: { getElementById: () => ({ textContent: '' }) },
         window: {},
-        requestAnimationFrame: () => 0, cancelAnimationFrame() {},
-        updateLoadingProgress() {},
+        requestAnimationFrame: (fn) => { fn(); return 0; }, cancelAnimationFrame() {},
+        updateLoadingProgress: (...args) => progress.push(args),
         Response, TransformStream, DecompressionStream, AbortController,
         fetch: async (url, init = {}) => {
             const path = url.replace(/\?v=.*$/, '');
@@ -88,12 +90,13 @@ function harness(serve = () => 'ok') {
             const k = PARTS.indexOf(path) + 1;
             const answer = serve(path, counts[path], init);
             if (typeof answer === 'number') return new Response('', { status: answer });
+            if (answer instanceof Response) return answer;
             return new Response(gz(k), { status: 200 });
         }
     });
     vm.runInContext(SOURCES + SCAFFOLD, ctx);
     return {
-        requests,
+        requests, progress,
         run: (src) => vm.runInContext(src, ctx),
         of: (path) => requests.filter((r) => r.path === path).map((r) => r.cache)
     };
@@ -143,4 +146,31 @@ test('a snapshot\'s parts are asked for once: a 404 there is a summary-only arch
     assert.equal(asked.length, 8, 'a snapshot part was asked for twice');
     assert.ok(asked.every((r) => r.cache === 'default'));
     assert.equal(h.run('PARTS_PAST_CACHE.size'), 0);
+});
+
+test('when a part fails, the parts still downloading stop, and stop moving the loading screen', async () => {
+    // Part 2 has sent its first bytes and is still coming; part 1 is gone.
+    let slow = null;
+    let signal = null;
+    const h = harness((path, n, init) => {
+        if (path === PARTS[0]) return 404;
+        if (path !== PARTS[1]) return 'ok';
+        signal = init.signal;
+        const body = new ReadableStream({
+            start(c) {
+                slow = c;
+                c.enqueue(new Uint8Array(gz(2).subarray(0, 8)));
+                if (init.signal) init.signal.addEventListener('abort', () => c.error(new DOMException('aborted', 'AbortError')));
+            }
+        });
+        return new Response(body, { status: 200 });
+    });
+    await assert.rejects(h.run('loadData()'), /part1\.json\.gz: HTTP 404/);
+    assert.ok(signal, 'the parts are fetched without a signal to stop them');
+    assert.equal(signal.aborted, true, 'part 2 goes on downloading after the load failed');
+    const writes = h.progress.length;
+    try { slow.enqueue(new Uint8Array(64)); } catch { /* stopped: the stream is closed */ }
+    await new Promise((r) => setImmediate(r));
+    assert.equal(h.progress.length, writes, 'a part still in flight moved the loading screen after the load failed');
+    assert.deepEqual([...h.run('PARTS_PAST_CACHE')], [PARTS[0]], 'a part stopped by the failure is asked for past the cache next time');
 });

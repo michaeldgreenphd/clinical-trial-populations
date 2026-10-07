@@ -1322,19 +1322,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     } catch (err) {
         console.error('Dashboard initialization failed:', err);
-        firstViewClosed = true;
-        // The overlay is gone once the first view painted: say it there.
-        if (firstViewShown) firstViewFailed(err);
-        const overlay = document.getElementById('loading-overlay');
-        if (overlay) {
-            const status = document.getElementById('loading-status');
-            if (status) {
-                status.textContent = `Error: ${err.message}. Please refresh the page.`;
-                status.style.color = '#ef4444';
-            }
-        }
+        startupFailed(err);
     }
 });
+
+// Startup failed: say so. The overlay is gone once the first view painted,
+// so the strip says it there (firstViewFailed). The loading screen stops
+// following the download before it says it: a part still in flight, or a
+// frame it queued, writes its stage to every [data-load-progress] screen
+// (updateLoadingProgress), which would put "Loading trial records" back
+// over the error.
+function startupFailed(err) {
+    firstViewClosed = true;
+    if (firstViewShown) firstViewFailed(err);
+    const overlay = document.getElementById('loading-overlay');
+    if (!overlay) return;
+    overlay.removeAttribute('data-load-progress');
+    const status = document.getElementById('loading-status');
+    if (status) {
+        status.textContent = `Error: ${err.message}. Please refresh the page.`;
+        status.style.color = '#ef4444';
+    }
+}
 
 // Feature-detect DecompressionStream (not available on Safari iOS, older mobile browsers)
 const hasDecompressionStream = typeof DecompressionStream !== 'undefined';
@@ -2660,13 +2669,19 @@ async function loadData(date) {
             const totals = new Array(numParts).fill(undefined);
             const finished = new Array(numParts).fill(false);
             let frame = 0;
+            // When one part fails, the others stop downloading: their bytes
+            // would go on moving the meter (and the stage line) under the
+            // failure's message, and a Try again would fetch them twice.
+            const stop = typeof AbortController === 'function' ? new AbortController() : null;
+            const stopped = () => !!stop && stop.signal.aborted;
             const showProgress = () => {
                 frame = 0;
+                if (stopped()) return;
                 const { fraction, text } = describePartsProgress(loaded, totals, finished);
                 updateLoadingProgress(10 + 60 * fraction, 'Loading trial records', text);
             };
             const queueProgress = () => {
-                if (!frame) frame = requestAnimationFrame(showProgress);
+                if (!frame && !stopped()) frame = requestAnimationFrame(showProgress);
             };
             // The latest parts go through fetchPart (a 4xx is asked for
             // again past the cache). A snapshot's parts are fixed once it is
@@ -2675,18 +2690,25 @@ async function loadData(date) {
             const fetchOne = date ? fetchAndDecompress : fetchPart;
             // No array of the part promises is kept: it would hold the
             // payloads after a stale part is dropped for its refetch.
-            let parts = await Promise.all(strategy.urls.map((url, i) => {
-                return fetchOne(url, (got, total) => {
-                    loaded[i] = got;
-                    totals[i] = total;
-                    queueProgress();
-                }).then(result => {
-                    finished[i] = true;
-                    queueProgress();
-                    return result;
-                });
-            }));
-            if (frame) cancelAnimationFrame(frame);
+            let parts;
+            try {
+                parts = await Promise.all(strategy.urls.map((url, i) => {
+                    return fetchOne(url, (got, total) => {
+                        loaded[i] = got;
+                        totals[i] = total;
+                        queueProgress();
+                    }, stop ? { signal: stop.signal } : undefined).then(result => {
+                        finished[i] = true;
+                        queueProgress();
+                        return result;
+                    });
+                }));
+            } catch (err) {
+                if (stop) stop.abort();
+                throw err;
+            } finally {
+                if (frame) cancelAnimationFrame(frame);
+            }
             // A part from another run is fetched again past the browser cache.
             const expectedStamp = !date || date === 'latest' ? LATEST_RUN_STAMP : null;
             parts = await refetchStaleParts(parts, expectedStamp, (i) => {
