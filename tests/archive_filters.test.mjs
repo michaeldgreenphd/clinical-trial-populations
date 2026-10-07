@@ -47,6 +47,9 @@ const SOURCES = [
     fnSource('function industryActive()'),
     // The Industry sub-view (heatmap, trend or forest) the line describes.
     line("let industryView = 'heatmap';"),
+    // The sponsor data, null until the Industry view loads it: an open end of
+    // the Year Range names its newest results year (industryNewestResultsYear).
+    line('let industryData = null;'),
     // The Year Range helpers the Industry view filters by (yearWindowEnds).
     app.slice(app.indexOf('const YEAR_WINDOW_MIN'), app.indexOf('function initFilters()'))
 ].join('\n');
@@ -246,8 +249,10 @@ test('a phone whose summary did not load gets the desktop archive line and a gre
 // /#industry route and every renderDashboard.
 const ARCHIVE_LINE = '<b>77,176</b> trials · the full dataset, unfiltered · ' +
     'this archive keeps totals only; filters apply to the latest data and the complete snapshots';
+// years is a range, '2009–2027', or an open end, 'from 2009'.
 const industryLine = (years, conditions = 'all conditions') =>
-    `the latest sponsor data · results posted <b>${years}</b> · ` +
+    `the latest sponsor data · results posted ${years.startsWith('from ')
+        ? `from <b>${years.slice(5)}</b>` : `<b>${years}</b>`} · ` +
     `${conditions} · other tabs show this archive's totals, unfiltered`;
 
 // The Year Range as an archive ending in 2026 leaves it (syncYearWindow), and
@@ -266,9 +271,9 @@ test('on an archive with the Industry tab open the line says what the Industry v
     h.el('industry').classList.add('active');
     // The tab click and the route only sync the button: that redraws the line.
     h.run('syncFilterToggle();');
-    assert.equal(h.text(), industryLine('2009–2026'), 'a tab switch onto Industry leaves the archive line');
+    assert.equal(h.text(), industryLine('from 2009'), 'a tab switch onto Industry leaves the archive line');
     h.run('renderFilterSummary(77176, true);');
-    assert.equal(h.text(), industryLine('2009–2026'));
+    assert.equal(h.text(), industryLine('from 2009'));
 
     // The year window and both condition controls, escaped.
     setControls(h, { start: '2015', end: '2020', primary: 'Heart & <Lung>', secondary: 'Breast <Cancer> & more' });
@@ -286,6 +291,10 @@ test('the Industry line names the years the Industry view filters by', () => {
     h.run('renderFilterSummary(77176, true);');
     const ends = JSON.parse(h.run('JSON.stringify(yearWindowEnds())'));
     assert.equal(ends.start, 2012);
+    // Before the sponsor data loads, an open end is said in words; once it
+    // loads, the line names the newest results year in it.
+    assert.match(h.text(), /results posted from <b>2012<\/b>/);
+    h.run('industryData = { trials: [[0, 0, 2026], [0, 0, 2013]] }; renderFilterSummary(77176, true);');
     assert.match(h.text(), /results posted <b>2012–2026<\/b>/);
     // An end thumb below the window's end is a bound the view applies.
     setControls(h, { start: '2012', end: '2019' });
@@ -300,7 +309,7 @@ test('an empty Condition control reads as all conditions, as the Industry view r
     h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
     h.el('industry').classList.add('active');
     h.run('renderFilterSummary(77176, true);');
-    assert.equal(h.text(), industryLine('2009–2026'));
+    assert.equal(h.text(), industryLine('from 2009'));
 });
 
 // The change handlers initFilters attaches call renderDashboard, whose
@@ -335,18 +344,18 @@ test('moving the year on the Industry tab over an archive redraws the Industry l
 
     h.el('industry').classList.add('active');
     h.run('syncFilterToggle();');
-    assert.equal(h.text(), industryLine('2009–2026'));
+    assert.equal(h.text(), industryLine('from 2009'));
 
     const ys = h.el('year-start');
     ys.value = '2015';
     ys.listeners.input({ target: ys });
     ys.listeners.change();
-    assert.equal(h.text(), industryLine('2015–2026'), 'the year change left the old window on the line');
+    assert.equal(h.text(), industryLine('from 2015'), 'the year change left the old window on the line');
 
     const cp = h.el('condition-primary');
     cp.value = 'Oncology';
     cp.listeners.change();
-    assert.equal(h.text(), industryLine('2015–2026', 'condition <b>Oncology</b>'));
+    assert.equal(h.text(), industryLine('from 2015', 'condition <b>Oncology</b>'));
 });
 
 test('leaving the Industry tab over an archive puts the archive line back', () => {
@@ -355,7 +364,7 @@ test('leaving the Industry tab over an archive puts the archive line back', () =
     h.run('initFilterSummary(); dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
     h.el('industry').classList.add('active');
     h.run('syncFilterToggle();');
-    assert.equal(h.text(), industryLine('2015–2026'));
+    assert.equal(h.text(), industryLine('from 2015'));
     h.el('industry').classList.remove('active');
     h.run('syncFilterToggle();');
     assert.equal(h.text(), ARCHIVE_LINE, 'the Industry line stays on an archive tab');
@@ -403,7 +412,7 @@ test('every line completes the Showing label in front of it', () => {
     const p = harness({ mobile: true, summary: ARCHIVE });
     p.run('initFilterSummary(); renderFilterSummary(77176, true);'); lines.push(p.text());
     lines.forEach(opens);
-    assert.equal(lines[1], industryLine('2015–2026', 'condition <b>Oncology</b>'));
+    assert.equal(lines[1], industryLine('from 2015', 'condition <b>Oncology</b>'));
 });
 
 // Not every Industry sub-view applies the Year Range and Condition controls.
@@ -476,7 +485,7 @@ test('the trend view’s line names the years and conditions its rows honour', (
     const h = harness();
     h.run(`let industryRole = 'any', industryDemo = 'sex', industryConditionSelected = new Set(['Nothing']);
         function industryTrialValue() { return 50; }
-        let industryData = { primaries: ['Oncology', 'Cardiology'], secondaries: ['Breast', 'Heart'],
+        industryData = { primaries: ['Oncology', 'Cardiology'], secondaries: ['Breast', 'Heart'],
             trials: [[0, 0, 2012, 2011, 0, 0], [0, 0, 2018, 2017, 0, 0], [0, 0, 2018, 2017, 1, 1]] };
         ${fnSource('function industryFilteredRows()')}`);
     industryArchive(h, 'trend', { start: '2015' });
@@ -489,6 +498,101 @@ test('the trend view’s line names the years and conditions its rows honour', (
     setControls(h, { start: '2015', end: '2020', primary: 'Oncology', secondary: 'Breast' });
     h.run('renderFilterSummary(77176, true);');
     assert.equal(h.text(), industryLine('2015–2020', 'condition <b>Oncology</b> · subcategory <b>Breast</b>'));
+});
+
+// An open end (the end thumb at the window's end, no bound asked for) is no
+// upper bound: yearWindowEnds() returns Infinity and industryFilteredRows()
+// keeps sponsor trials posted after the archive's last year, as after a
+// calendar-year rollover. syncYearWindow() clamps that thumb to the
+// archive's last year, so the line names the end the Industry view reaches:
+// the newest results year in the sponsor data, or, before that data loads,
+// the open end in words. A finite end keeps the thumb's year.
+const SPONSOR_ROWS = `let industryRole = 'any', industryDemo = 'sex';
+    function industryTrialValue() { return 50; }
+    ${fnSource('function industryFilteredRows()')}`;
+const sponsorData = (years) => JSON.stringify({ primaries: ['Oncology'], secondaries: ['Breast'],
+    trials: years.map(y => [0, 0, y, 2011, 0, 0]) });
+const rowYears = (h) => JSON.parse(h.run('JSON.stringify(industryFilteredRows().map(t => t[2]))'));
+
+test('an open end names the newest results year the Industry view includes, not the clamped thumb', () => {
+    const h = harness();
+    h.run(SPONSOR_ROWS);
+    industryArchive(h, 'heatmap');   // an archive window ending 2026, the end thumb at its end
+    h.run(`industryData = ${sponsorData([2012, 2027, null, 0, 2026])};`);
+    h.run('syncFilterToggle();');
+    assert.equal(h.run('yearWindowEnds().end'), Infinity);
+    assert.deepEqual(rowYears(h), [2012, 2027, null, 0, 2026], 'the view leaves out the 2027 trial');
+    assert.equal(h.text(), industryLine('2009–2027'));
+    assert.doesNotMatch(h.text(), /2009–2026/, 'the line names the clamped thumb');
+
+    // The trend draws the same rows and says the same.
+    h.run("industryView = 'trend'; redrawArchiveSummary();");
+    assert.equal(h.text(), industryLine('2009–2027'));
+    // A start thumb is a bound and keeps its year.
+    setControls(h, { start: '2015', primary: 'Oncology' });
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('2015–2027', 'condition <b>Oncology</b>'));
+    assert.deepEqual(rowYears(h), [2027, null, 0, 2026]);
+    // The forest line names no years.
+    h.run("industryView = 'forest'; redrawArchiveSummary();");
+    assert.equal(h.text(), forestLine);
+});
+
+test('an end thumb below the window’s end, or a recorded end at it, keeps the thumb’s year', () => {
+    const h = harness();
+    h.run(SPONSOR_ROWS);
+    industryArchive(h, 'heatmap', { end: '2020' });
+    h.run(`industryData = ${sponsorData([2012, 2027, null, 2026])};`);
+    h.run('syncFilterToggle();');
+    assert.equal(h.run('yearWindowEnds().end'), 2020);
+    assert.equal(h.text(), industryLine('2009–2020'));
+    assert.deepEqual(rowYears(h), [2012, null]);
+    h.run("industryView = 'trend'; redrawArchiveSummary();");
+    assert.equal(h.text(), industryLine('2009–2020'));
+
+    // A shared link's end=2026 is recorded: a bound at the window's last year.
+    setControls(h);
+    h.el('year-end').dataset.chosen = '2026';
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('2009–2026'));
+    assert.deepEqual(rowYears(h), [2012, null, 2026]);
+});
+
+test('before the sponsor data loads, an open end is said in words, never as the clamped year', () => {
+    const h = harness();
+    industryArchive(h, 'heatmap');
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), industryLine('from 2009'));
+    assert.doesNotMatch(h.text(), /2026/, 'the line names the clamped thumb');
+    h.run("industryView = 'trend'; redrawArchiveSummary();");
+    assert.equal(h.text(), industryLine('from 2009'));
+    setControls(h, { start: '2015' });
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('from 2015'));
+
+    // The load redraws the line (loadIndustryView, after it sets industryData).
+    assert.match(fnSource('async function loadIndustryView()'),
+        /industryData = await resp\.json\(\);[\s\S]*?redrawArchiveSummary\(\);/);
+    h.run(`industryData = ${sponsorData([2012, 2027])}; redrawArchiveSummary();`);
+    assert.equal(h.text(), industryLine('2015–2027'));
+    // Each load names its own newest year.
+    h.run(`industryData = ${sponsorData([2028, 2012])}; redrawArchiveSummary();`);
+    assert.equal(h.text(), industryLine('2015–2028'));
+    // No results year, or none at or after the start: no end to name.
+    h.run(`industryData = ${sponsorData([null, 0])}; redrawArchiveSummary();`);
+    assert.equal(h.text(), industryLine('from 2015'));
+    h.run(`industryData = ${sponsorData([2012, 2014])}; redrawArchiveSummary();`);
+    assert.equal(h.text(), industryLine('from 2015'));
+});
+
+test('the latest data keeps its line on the Industry tab whatever the sponsor data reaches', () => {
+    const h = harness();
+    setControls(h);
+    h.run('initFilterSummary();');
+    h.el('industry').classList.add('active');
+    h.run(`industryData = ${sponsorData([2012, 2027])};`);
+    h.run('renderFilterSummary(1234); syncFilterToggle();');
+    assert.equal(h.text(), '<b>1,234</b> trials · results posted <b>2009–2026</b> · all sponsors, purposes and conditions');
 });
 
 // The View switcher's click handler, as app.js attaches it.
@@ -509,16 +613,16 @@ test('switching heatmap → forest → heatmap over an archive redraws the line 
     industryArchive(h, 'heatmap', { start: '2015' });
     const click = viewSwitcher(h);
     h.run('syncFilterToggle();');
-    assert.equal(h.text(), industryLine('2015–2026'));
+    assert.equal(h.text(), industryLine('from 2015'));
     click('forest');
     assert.equal(h.run('industryView'), 'forest');
     assert.equal(h.text(), forestLine, 'the switch to Adjusted Differences left the year claim on the line');
     click('trend');
-    assert.equal(h.text(), industryLine('2015–2026'), 'the switch to the trend left the forest line');
+    assert.equal(h.text(), industryLine('from 2015'), 'the switch to the trend left the forest line');
     click('forest');
     assert.equal(h.text(), forestLine);
     click('heatmap');
-    assert.equal(h.text(), industryLine('2015–2026'), 'the switch back to the heatmap left the forest line');
+    assert.equal(h.text(), industryLine('from 2015'), 'the switch back to the heatmap left the forest line');
     assert.equal(h.run('industryRenders'), 4);
 });
 
@@ -567,11 +671,11 @@ test('the ?view=forest route over an archive draws the forest line', async () =>
     const h = harness();
     industryArchive(h, 'heatmap', { start: '2015' });
     h.run('syncFilterToggle();');
-    assert.equal(h.text(), industryLine('2015–2026'), 'what openIndustryView draws before the load');
+    assert.equal(h.text(), industryLine('from 2015'), 'what openIndustryView draws before the load');
     h.run(`const location = { hash: '#industry?view=forest' };
         let industryDemo = 'sex', industryCat = {}, industryBenchmark = 'cohort', industryRole = 'any',
             industryScope = 'top10', industrySexSpecific = false, industryConditionMode = 'top',
-            industryConditionSelected = new Set(), industryData = null, industrySelected = null;
+            industryConditionSelected = new Set(), industrySelected = null;
         const INDUSTRY_CAT_LABELS = {}, INDUSTRY_SUBTITLES = {};
         document.querySelectorAll = () => [];
         function industryTop10() { return []; } function renderIndustryCatRow() {}
@@ -643,7 +747,7 @@ for (const from of ['faq', 'geography']) {
         assert.equal(h.el('industry').classList.contains('active'), true);
         assert.equal(h.summaryShown(), true, 'the /#industry route leaves the filter line hidden');
         assert.equal(h.filtersShown(), true, 'the /#industry route leaves the filters hidden');
-        assert.equal(h.text(), industryLine('2009–2026'));
+        assert.equal(h.text(), industryLine('from 2009'));
         assert.equal(h.btn.getAttribute('aria-disabled'), null, 'the Filters button is off on the Industry view');
         assert.equal(h.panel.hidden, true, 'the route opened the panel by itself');
         h.btn.click();

@@ -3064,6 +3064,26 @@ function yearWindowEnds() {
     return { start, end: end === null || !ye ? Infinity : parseInt(ye.value, 10) };
 }
 
+// The newest results year (row field t[2]; null and 0 are no year) in the
+// sponsor data the Industry view loaded, or null before it loads. With an
+// open end (yearWindowEnds: Infinity) that view reaches this year, which
+// can be past the window the archive on screen sets the thumbs to, so the
+// Industry line names it (renderFilterSummary). Read once per load.
+const industryNewestYearByLoad = new WeakMap();
+function industryNewestResultsYear() {
+    const d = industryData;
+    if (!d || !Array.isArray(d.trials)) return null;
+    if (!industryNewestYearByLoad.has(d)) {
+        let max = 0;
+        for (const t of d.trials) {
+            const ry = Number(t[2]);
+            if (ry > max) max = ry;
+        }
+        industryNewestYearByLoad.set(d, max || null);
+    }
+    return industryNewestYearByLoad.get(d);
+}
+
 function initFilters() {
     // Populate condition and country dropdowns
     populateConditionsDropdown();
@@ -3692,9 +3712,12 @@ function renderFilterSummary(total, unfiltered) {
         // data under the Year Range and Condition controls whatever archive
         // is on screen, so the line says that, read from the controls
         // industryFilteredRows reads. A thumb at the window's end is no upper
-        // bound there (yearWindowEnds), and names that end, as the Years chip
-        // does. It opens with a noun phrase, as every line here does, since
-        // it follows the fixed "Showing" label (index.html).
+        // bound there (yearWindowEnds): the view then keeps sponsor trials
+        // posted after the archive's last year, where syncYearWindow clamps
+        // that thumb, so the line names the newest results year the sponsor
+        // data reaches, or, before it loads, the open end in words. It opens
+        // with a noun phrase, as every line here does, since it follows the
+        // fixed "Showing" label (index.html).
         if (btn && !btn.hidden && industryActive()) {
             // Only the heatmap and the trend draw industryFilteredRows(). The
             // Adjusted Differences view draws model estimates fitted over the
@@ -3711,7 +3734,10 @@ function renderFilterSummary(total, unfiltered) {
                 return;
             }
             const { start, end } = yearWindowEnds();
-            const last = end === Infinity ? document.getElementById('year-end')?.value : end;
+            const newest = end === Infinity ? industryNewestResultsYear() : null;
+            const years = end !== Infinity ? `<b>${escapeHtml(start + '\u2013' + end)}</b>`
+                : newest && newest >= start ? `<b>${escapeHtml(start + '\u2013' + newest)}</b>`
+                : `from <b>${escapeHtml(String(start))}</b>`;
             const pri = document.getElementById('condition-primary')?.value || 'all';
             const sec = document.getElementById('condition-secondary')?.value || 'all';
             const conditions = [];
@@ -3719,7 +3745,7 @@ function renderFilterSummary(total, unfiltered) {
             if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
             el.innerHTML = [
                 'the latest sponsor data',
-                `results posted <b>${escapeHtml(start + '\u2013' + last)}</b>`,
+                `results posted ${years}`,
                 ...(conditions.length ? conditions : ['all conditions']),
                 "other tabs show this archive's totals, unfiltered"
             ].join(' \u00b7 ');
