@@ -41,7 +41,9 @@ const SOURCES = [
     fnSource('function renderFilterSummary(total, unfiltered)'),
     fnSource('function initFilterSummary()'),
     fnSource('function syncFilterToggle()'),
-    fnSource('function industryActive()')
+    fnSource('function industryActive()'),
+    // The Year Range helpers the Industry view filters by (yearWindowEnds).
+    app.slice(app.indexOf('const YEAR_WINDOW_MIN'), app.indexOf('function initFilters()'))
 ].join('\n');
 
 // What these functions read and write on an element. The title property
@@ -50,7 +52,7 @@ function element(id) {
     const attrs = {};
     const classes = new Set();
     const e = {
-        id, innerHTML: '', hidden: false, listeners: {},
+        id, innerHTML: '', textContent: '', hidden: false, listeners: {}, style: {}, dataset: {},
         classList: {
             add: (c) => classes.add(c), remove: (c) => classes.delete(c), contains: (c) => classes.has(c)
         },
@@ -74,7 +76,7 @@ function harness({ mobile = false, summary = null } = {}) {
     el('filters').hidden = true;
     const context = vm.createContext({
         document: { getElementById: el },
-        escapeHtml: (s) => String(s)
+        escapeHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     });
     vm.runInContext(`const isMobileDevice = ${mobile}; let dashboardSummary = ${JSON.stringify(summary)};\n${SOURCES}`, context);
     const run = (src) => vm.runInContext(src, context);
@@ -225,4 +227,150 @@ test('a phone whose summary did not load gets the desktop archive line and a gre
 
     h.run('dashboardSummary = null; syncFilterToggle();');
     assert.equal(h.btn.getAttribute('aria-disabled'), null, 'off after returning to Latest');
+});
+
+// Over an archive the Industry Sponsors view still applies the Year Range
+// and the two Condition controls to the latest sponsor data
+// (industryFilteredRows), so the line above the panel says that there,
+// rather than "unfiltered … filters apply to the latest data". It reads the
+// same controls the view reads (yearWindowEnds, condition-primary/-secondary
+// values), and is redrawn wherever the button is synced: a tab click, the
+// /#industry route and every renderDashboard.
+const ARCHIVE_LINE = '<b>77,176</b> trials · the full dataset, unfiltered · ' +
+    'this archive keeps totals only; filters apply to the latest data and the complete snapshots';
+const industryLine = (years, conditions = 'all conditions') =>
+    `Industry Sponsors uses the latest sponsor data · results posted <b>${years}</b> · ` +
+    `${conditions} · other tabs show this archive's totals, unfiltered`;
+
+// The Year Range as an archive ending in 2026 leaves it (syncYearWindow), and
+// both Condition controls on "all".
+function setControls(h, { start = '2009', end = '2026', max = '2026', primary = 'all', secondary = 'all' } = {}) {
+    Object.assign(h.el('year-start'), { min: '2009', max, value: start });
+    Object.assign(h.el('year-end'), { min: '2009', max, value: end });
+    h.el('condition-primary').value = primary;
+    h.el('condition-secondary').value = secondary;
+}
+
+test('on an archive with the Industry tab open the line says what the Industry view applies', () => {
+    const h = harness();
+    setControls(h);
+    h.run('initFilterSummary(); dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+    h.el('industry').classList.add('active');
+    // The tab click and the route only sync the button: that redraws the line.
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), industryLine('2009–2026'), 'a tab switch onto Industry leaves the archive line');
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('2009–2026'));
+
+    // The year window and both condition controls, escaped.
+    setControls(h, { start: '2015', end: '2020', primary: 'Heart & <Lung>', secondary: 'Breast <Cancer> & more' });
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('2015–2020',
+        'condition <b>Heart &amp; &lt;Lung&gt;</b> · subcategory <b>Breast &lt;Cancer&gt; &amp; more</b>'));
+    assert.doesNotMatch(h.text(), /\d+,\d+<\/b> trials/, 'the archive total is not the Industry count');
+});
+
+test('the Industry line names the years the Industry view filters by', () => {
+    const h = harness();
+    setControls(h, { start: '2012', end: '2026' });
+    h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+    h.el('industry').classList.add('active');
+    h.run('renderFilterSummary(77176, true);');
+    const ends = JSON.parse(h.run('JSON.stringify(yearWindowEnds())'));
+    assert.equal(ends.start, 2012);
+    assert.match(h.text(), /results posted <b>2012–2026<\/b>/);
+    // An end thumb below the window's end is a bound the view applies.
+    setControls(h, { start: '2012', end: '2019' });
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(JSON.parse(h.run('JSON.stringify(yearWindowEnds())')).end, 2019);
+    assert.match(h.text(), /results posted <b>2012–2019<\/b>/);
+});
+
+test('an empty Condition control reads as all conditions, as the Industry view reads it', () => {
+    const h = harness();
+    setControls(h, { primary: '', secondary: '' });
+    h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+    h.el('industry').classList.add('active');
+    h.run('renderFilterSummary(77176, true);');
+    assert.equal(h.text(), industryLine('2009–2026'));
+});
+
+// The change handlers initFilters attaches call renderDashboard, whose
+// summary path draws the line; the real functions run here.
+const DASHBOARD_STUBS = `
+function populateConditionsDropdown() {} function populateCountriesDropdown() {}
+function populateSecondaryConditionDropdown() {} function updateActiveFilters() {} function updateShareUrl() {}
+function resetFilters() {} function getFilteredData() { return []; }
+function showDashboardSpinner() {} function hideDashboardSpinner() {} function requestAnimationFrame(f) { f(); }
+function renderOverviewFinding() {} function renderOverviewTileContext() {}
+function renderReportingTrends() {} function renderRaceDistribution() {} function renderRaceTrends() {}
+function renderRaceSubcategories() {} function renderRaceReportedParticipants() {} function renderRaceFullDistribution() {}
+function renderEthnicityDistribution() {} function renderEthnicityTrends() {} function renderEthnicitySubcategories() {}
+function renderEthnicityReportedParticipants() {} function renderEthnicityFullDistribution() {}
+function renderSexReportedParticipants() {} function renderSexFullDistribution() {} function renderSexDistribution() {}
+function renderSexTrends() {} function renderGenderReportedParticipants() {} function renderGenderFullDistribution() {}
+function renderGenderDistribution() {} function renderGenderTrends() {} function renderGeographyDashboard() {}
+function renderFdaOversight() {} function refreshStudiesTab() {}
+function sgActive() { return false; } function sgApplyMode() {} function sgAfterRender() {}
+let data = [];
+`;
+const ARCHIVE_YEARS = { totalStudies: 77176, cards: { raceCount: 1, ethCount: 1, bothCount: 1 },
+    byYear: { 2009: {}, 2026: {} } };
+
+test('moving the year on the Industry tab over an archive redraws the Industry line', () => {
+    const h = harness();
+    setControls(h);
+    h.run(DASHBOARD_STUBS + fnSource('function renderDashboard()') + '\n' + fnSource('function initFilters()'));
+    h.run('document.querySelector = () => null; initFilterSummary(); initFilters();');
+    h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE_YEARS) + '; renderDashboard();');
+    assert.equal(h.text(), ARCHIVE_LINE, 'an archive tab shows the archive line');
+
+    h.el('industry').classList.add('active');
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), industryLine('2009–2026'));
+
+    const ys = h.el('year-start');
+    ys.value = '2015';
+    ys.listeners.input({ target: ys });
+    ys.listeners.change();
+    assert.equal(h.text(), industryLine('2015–2026'), 'the year change left the old window on the line');
+
+    const cp = h.el('condition-primary');
+    cp.value = 'Oncology';
+    cp.listeners.change();
+    assert.equal(h.text(), industryLine('2015–2026', 'condition <b>Oncology</b>'));
+});
+
+test('leaving the Industry tab over an archive puts the archive line back', () => {
+    const h = harness();
+    setControls(h, { start: '2015' });
+    h.run('initFilterSummary(); dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+    h.el('industry').classList.add('active');
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), industryLine('2015–2026'));
+    h.el('industry').classList.remove('active');
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), ARCHIVE_LINE, 'the Industry line stays on an archive tab');
+    assert.equal(h.btn.getAttribute('aria-disabled'), 'true');
+});
+
+test('on the latest data the Industry tab keeps today’s line', () => {
+    const h = harness();
+    setControls(h);
+    h.run('initFilterSummary();');
+    h.el('industry').classList.add('active');
+    h.run('renderFilterSummary(1234);');
+    const latest = '<b>1,234</b> trials · results posted <b>2009–2026</b> · all sponsors, purposes and conditions';
+    assert.equal(h.text(), latest);
+    h.run('syncFilterToggle();');
+    assert.equal(h.text(), latest, 'a tab switch on the latest data rewrote the line');
+});
+
+test('the phone summary view keeps its line on the Industry tab', () => {
+    const h = harness({ mobile: true, summary: ARCHIVE });
+    setControls(h);
+    h.run('initFilterSummary();');
+    h.el('industry').classList.add('active');
+    h.run('renderFilterSummary(77176, true); syncFilterToggle();');
+    assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
 });

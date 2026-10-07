@@ -3698,6 +3698,28 @@ function renderFilterSummary(total, unfiltered) {
     // only (the Filters button is off there: syncFilterToggle).
     if (unfiltered) {
         const btn = document.getElementById('filter-summary-toggle');
+        // Except on the Industry Sponsors view: it draws the latest sponsor
+        // data under the Year Range and Condition controls whatever archive
+        // is on screen, so the line says that, read from the controls
+        // industryFilteredRows reads. A thumb at the window's end is no upper
+        // bound there (yearWindowEnds), and names that end, as the Years chip
+        // does.
+        if (btn && !btn.hidden && industryActive()) {
+            const { start, end } = yearWindowEnds();
+            const last = end === Infinity ? document.getElementById('year-end')?.value : end;
+            const pri = document.getElementById('condition-primary')?.value || 'all';
+            const sec = document.getElementById('condition-secondary')?.value || 'all';
+            const conditions = [];
+            if (pri !== 'all') conditions.push(`condition <b>${escapeHtml(pri)}</b>`);
+            if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
+            el.innerHTML = [
+                'Industry Sponsors uses the latest sponsor data',
+                `results posted <b>${escapeHtml(start + '\u2013' + last)}</b>`,
+                ...(conditions.length ? conditions : ['all conditions']),
+                "other tabs show this archive's totals, unfiltered"
+            ].join(' \u00b7 ');
+            return;
+        }
         el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
             'the full dataset, unfiltered \u00b7 ' + (btn && btn.hidden
                 ? 'filters are a desktop feature'
@@ -3784,6 +3806,10 @@ function syncFilterToggle() {
         btn.removeAttribute('aria-describedby');
         btn.removeAttribute('title');
     }
+    // On an archive the line above the panel depends on the tab too (the
+    // Industry view's own line: renderFilterSummary), so a tab change redraws
+    // it here. The latest data and complete snapshots keep theirs.
+    if (dashboardSummary) renderFilterSummary(dashboardSummary.totalStudies || 0, true);
 }
 
 function renderDashboard() {
