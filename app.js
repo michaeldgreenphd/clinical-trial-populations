@@ -1228,6 +1228,12 @@ function firstViewFailed(err) {
     strip.removeAttribute('data-load-progress');
     const text = strip.querySelector('.records-pending-text');
     if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}. Refresh the page to try again.`;
+    // The controls still closed will not open on their own now: their
+    // tooltip says what the strip says, in place of "Opens when the trial
+    // records have loaded". A title the page gave them is left alone.
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.dataset.waitTitle !== undefined) el.title = 'Unavailable: the trial records did not load.';
+    });
 }
 
 // Initialize

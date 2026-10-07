@@ -693,6 +693,17 @@ test('a failed load after the first view says so in the strip and keeps the rest
     assert.match(strip.querySelector('.records-pending-text').textContent, /HTTP 503\. Refresh the page to try again\./);
     assert.ok(p.context.document.querySelector('.tab[data-tab="race"]').disabled);
     assert.equal(p.run('firstViewShown'), null);
+    // The waiting controls no longer promise to open: their tooltip says
+    // what the strip says.
+    let closed = 0;
+    for (const sel of WAITING) {
+        for (const el of p.context.document.querySelectorAll(sel)) {
+            if (!el.disabled) continue;
+            closed++;
+            assert.equal(el.title, 'Unavailable: the trial records did not load.', `${sel} still says it opens when the records load`);
+        }
+    }
+    assert.ok(closed >= 14, `only ${closed} controls stayed closed`);
 });
 
 test('a failed load on the loading screen keeps its error: parts still in flight do not write over it', async () => {
