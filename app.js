@@ -996,6 +996,237 @@ const civicEventLinesPlugin = {
     }
 };
 
+// ── The first view: the Overview from the summary, before the records ──
+// The engine counts the Overview as it opens from the week's full records
+// (dashboard-summary.json "firstView", civicsample-engine src/first_view.py),
+// by this page's own rules; its weekly gate runs this file's Overview code
+// on those records and on the block (scripts/first_view_parity.mjs) and
+// holds the publish when they differ. On a desktop opening the latest data
+// at its default view, the Overview paints from the block as soon as the
+// summary is in, and the records load behind a status strip; every other
+// tab, the Filters button and the snapshot selector wait for them. When the
+// records arrive the Overview is drawn from them as always: the same
+// numbers leave the screen as it was, different ones repaint it without
+// animation and say so in the console. Anything else (a phone, an archive,
+// a link to a filter, another tab or a snapshot, ?firstview=0, a summary
+// without the block, or a block that does not describe this page's default
+// view of this run) takes the ordinary path. The block is never assigned to
+// dashboardSummary: that switches the page into its phone and archive mode.
+const FIRST_VIEW_COUNTS = ['trials', 'trials_reporting_race', 'trials_reporting_ethnicity', 'trials_reporting_race_and_ethnicity'];
+// The Overview as the first view painted it (overviewOnScreen), from the
+// paint until the records' render replaces it; null otherwise.
+let firstViewShown = null;
+// Set once the startup load of the records has ended, either way: a summary
+// that answers after that paints nothing.
+let firstViewClosed = false;
+
+// The summary's firstView block when it is well formed and from the
+// summary's own run, else null. Every count is a whole number, every
+// numerator is out of trials (the only denominator the Overview uses), the
+// years add up to the whole, and every year has trials (a year with none
+// would draw 0 / 0).
+function firstViewBlock(summary) {
+    const b = summary && typeof summary === 'object' ? summary.firstView : null;
+    if (!b || typeof b !== 'object' || Array.isArray(b)) return null;
+    const isCount = (v) => Number.isInteger(v) && v >= 0;
+    const counts = (c) => !!c && typeof c === 'object' && FIRST_VIEW_COUNTS.every(k => isCount(c[k]))
+        && FIRST_VIEW_COUNTS.slice(1).every(k => c[k] <= c.trials) && c.trials > 0;
+    if (!counts(b)) return null;
+    if (!b.denominators || !FIRST_VIEW_COUNTS.slice(1).every(k => b.denominators[k] === 'trials')) return null;
+    const byYear = b.by_results_year;
+    if (!byYear || typeof byYear !== 'object' || Array.isArray(byYear)) return null;
+    const years = Object.keys(byYear);
+    if (!years.length || !years.every(y => /^\d{4}$/.test(y) && counts(byYear[y]))) return null;
+    if (!FIRST_VIEW_COUNTS.every(k => years.reduce((sum, y) => sum + byYear[y][k], 0) === b[k])) return null;
+    const f = b.filter;
+    if (!f || typeof f !== 'object' || typeof f.study_type !== 'string' || !Number.isInteger(f.results_year_from)
+        || f.results_year_to !== null || f.other_filters !== 'none') return null;
+    if (!Number.isInteger(b.newest_results_year) || b.newest_results_year < f.results_year_from) return null;
+    if (years.some(y => +y < f.results_year_from || +y > b.newest_results_year)) return null;
+    if (typeof b.extracted_at !== 'string' || b.extracted_at !== summary.extracted_at) return null;
+    if (b.pipeline_commit === undefined || b.pipeline_commit !== summary.pipeline_commit) return null;
+    return b;
+}
+
+// Why the first view cannot paint from this summary, or null when it can.
+// run is data/run.json when it answered (else null). The controls are read
+// as they are now, so a browser that restored a changed filter on reload
+// takes the ordinary path. The year window is sized to the block's newest
+// results year first (as the records will size it), and must then apply no
+// bound but the block's start.
+function firstViewProblem(summary, run) {
+    if (isMobileDevice) return 'a phone reads the summary itself';
+    if (firstViewClosed || data || dashboardSummary) return 'the records are already in';
+    const params = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH);
+    if (params.get('firstview') === '0') return '?firstview=0';
+    const route = String(SG_INITIAL_HASH || '').replace(/^#/, '');
+    if (route && route !== 'overview') return `the link opens #${route}`;
+    const asked = [...SHARE_FILTERS.map(([, key]) => key), 'sgsnapshot', 'm'].find(k => params.has(k));
+    if (asked) return `the link sets ${asked}`;
+    if (!summary) return 'no summary';
+    const block = firstViewBlock(summary);
+    if (!block) return summary.firstView === undefined ? 'the summary has no firstView' : 'the firstView block is malformed or from another run';
+    if (run && (run.extracted_at !== summary.extracted_at
+        || (run.pipeline_commit !== undefined && run.pipeline_commit !== summary.pipeline_commit))) {
+        return 'the summary is not from the run data/run.json names';
+    }
+    const panel = document.getElementById('filters');
+    const ys = document.getElementById('year-start');
+    const ye = document.getElementById('year-end');
+    const type = document.getElementById('study-type');
+    if (!panel || !ys || !ye || !type) return 'the page has no filter panel';
+    if (type.value !== block.filter.study_type) return 'the study type is not the block’s';
+    syncYearWindow(block.newest_results_year);
+    const win = yearWindowEnds();
+    if (win.start !== block.filter.results_year_from || win.end !== Infinity) return 'the year window is not the block’s';
+    const narrowed = Array.from(panel.querySelectorAll('select, input')).find(el => {
+        if (el.id === 'year-start' || el.id === 'year-end' || el.id === 'study-type') return false;
+        if (el.tagName === 'SELECT') return el.value !== 'all';
+        if (el.type === 'checkbox' || el.type === 'radio') return el.checked;
+        return el.type !== 'range' && el.value !== '';
+    });
+    if (narrowed) return `#${narrowed.id || narrowed.name || narrowed.tagName.toLowerCase()} is set`;
+    return null;
+}
+
+// The Overview's text and chart as they are on screen, for comparing the
+// first view with the records' render.
+function overviewOnScreen() {
+    const ids = ['total-studies', 'race-reporting', 'ethnicity-reporting', 'both-reporting',
+        'stat-sub-total', 'stat-sub-race', 'stat-sub-ethnicity', 'stat-sub-both',
+        'finding-headline', 'finding-context', 'filter-summary-text'];
+    const shown = {};
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        shown[id] = el ? `${el.textContent}|${el.innerHTML}` : null;
+    });
+    const box = document.getElementById('overview-finding');
+    shown.finding_shown = !!box && !box.hidden;
+    shown.chart = charts.reportingTrends ? charts.reportingTrends.civicDrawn || null : null;
+    return JSON.stringify(shown);
+}
+
+// Paint the Overview from the block: the tiles as renderDashboard writes
+// them, then its own finding, tile-context, filter-summary and trend-chart
+// painters with the block's counts. Each percentage is a block count over
+// the count the block names as its denominator.
+function paintFirstView(summary) {
+    const b = summary.firstView;
+    const total = b.trials;
+    const race = b.trials_reporting_race;
+    const eth = b.trials_reporting_ethnicity;
+    const both = b.trials_reporting_race_and_ethnicity;
+    const share = (key) => `${((b[key] / b[b.denominators[key]]) * 100).toFixed(1)}%`;
+    document.getElementById('total-studies').textContent = total.toLocaleString();
+    document.getElementById('race-reporting').textContent = share('trials_reporting_race');
+    document.getElementById('ethnicity-reporting').textContent = share('trials_reporting_ethnicity');
+    document.getElementById('both-reporting').textContent = share('trials_reporting_race_and_ethnicity');
+    renderOverviewFinding(total, race, eth, both);
+    renderOverviewTileContext(total, race, eth, both);
+    renderFilterSummary(total);
+    const byYear = {};
+    for (const [year, c] of Object.entries(b.by_results_year)) {
+        byYear[year] = { total: c.trials, race: c.trials_reporting_race, ethnicity: c.trials_reporting_ethnicity, both: c.trials_reporting_race_and_ethnicity };
+    }
+    renderReportingTrends(null, byYear);
+    document.getElementById('last-updated').textContent = new Date(summary.extracted_at).toLocaleDateString();
+    setDataPulledDate(summary.extracted_at);
+    labelChartsForA11y();
+    firstViewShown = overviewOnScreen();
+    setRecordsPending(true);
+    hideLoadingOverlay();
+}
+
+// The desktop loading screen's summary: the first view when it can paint,
+// else the loading screen's figure. Returns whether the first view painted.
+async function firstViewOrFigure(summary) {
+    const run = LATEST_RUN_STAMP ? await fetchRun() : null;   // answered already: no new request
+    const problem = firstViewProblem(summary, run);
+    if (!problem) {
+        try {
+            paintFirstView(summary);
+            return true;
+        } catch (err) {
+            // The loading screen stays up and the records draw as always.
+            console.warn('The Overview could not paint from the summary:', err);
+            firstViewShown = null;
+            setRecordsPending(false);
+        }
+    }
+    if (summary && summary.firstView !== undefined) console.info(`The Overview waits for the records: ${problem}`);
+    renderLoadingFigure(summary);
+    return false;
+}
+
+// While the records load behind the first view: every tab but the
+// Overview, the Filters button and the snapshot selector are disabled, the
+// status strip says what is loading (updateLoadingProgress drives its
+// meter and stage), and the render spinner stays hidden (styles.css), so
+// the records' render does not flash over a page already drawn. Off again
+// once the records are on screen; the strip says so for a moment.
+const RECORDS_PENDING_CONTROLS = '.tab:not([data-tab="overview"]), #filter-summary-toggle, #history-date';
+function setRecordsPending(on) {
+    const root = document.documentElement;
+    const strip = document.getElementById('records-pending');
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (on && !el.disabled) {
+            el.disabled = true;
+            el.dataset.waitsForRecords = '';
+            el.setAttribute('aria-disabled', 'true');
+            if (!el.title) { el.title = 'Opens when the trial records have loaded'; el.dataset.waitTitle = ''; }
+        } else if (!on && el.dataset.waitsForRecords !== undefined) {
+            el.disabled = false;
+            delete el.dataset.waitsForRecords;
+            el.removeAttribute('aria-disabled');
+            if (el.dataset.waitTitle !== undefined) { el.removeAttribute('title'); delete el.dataset.waitTitle; }
+        }
+    });
+    if (on) {
+        root.classList.add('first-view-pending');
+        if (strip) strip.hidden = false;
+        return;
+    }
+    // After the frame in which renderDashboard hides its spinner.
+    requestAnimationFrame(() => root.classList.remove('first-view-pending'));
+    if (!strip || strip.hidden) return;
+    strip.removeAttribute('data-load-progress');
+    const text = strip.querySelector('.records-pending-text');
+    if (text) text.textContent = 'Trial records loaded. Every tab is open.';
+    strip.classList.add('is-done');
+    setTimeout(() => { strip.hidden = true; }, 2500);
+}
+
+// The records are on screen, drawn by renderDashboard over the first view:
+// note a difference, then open the page.
+function settleFirstView() {
+    const painted = firstViewShown;
+    firstViewShown = null;
+    if (!painted) return;
+    const now = overviewOnScreen();
+    if (now !== painted) {
+        console.warn('The Overview from dashboard-summary.json (firstView) differs from the trial records; it was redrawn from the records.',
+            { firstView: JSON.parse(painted), records: JSON.parse(now) });
+    }
+    setRecordsPending(false);
+}
+
+// Startup failed after the first view painted (the records did not load,
+// or did not draw): the Overview stays, the rest stays closed, and the
+// strip says what happened, since the loading screen that would is gone.
+function firstViewFailed(err) {
+    firstViewShown = null;
+    const strip = document.getElementById('records-pending');
+    if (!strip) return;
+    strip.hidden = false;
+    strip.classList.add('is-failed');
+    strip.setAttribute('role', 'alert');
+    const meter = strip.querySelector('.loading-meter');
+    if (meter) meter.hidden = true;
+    strip.removeAttribute('data-load-progress');
+    const text = strip.querySelector('.records-pending-text');
+    if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}. Refresh the page to try again.`;
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -1025,8 +1256,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
+        // On a desktop that opens the latest data at its default view, the
+        // summary paints the Overview itself (firstViewOrFigure).
         if (isMobileDevice) renderLoadingFigure(null);
-        else fetchLatestSummary().then(renderLoadingFigure, () => renderLoadingFigure(null));
+        else fetchLatestSummary().then(firstViewOrFigure, () => renderLoadingFigure(null));
         updateLoadingProgress(5, isMobileDevice ? 'Starting up' : 'Loading condition categories');
         // Condition ontology is only needed by the desktop filter dropdown.
         // Mobile doesn't render filters, so skip the fetch to save bandwidth.
@@ -1036,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         await keyReady;
         updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
         await loadData();
+        firstViewClosed = true;
         // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
         await sgLoad();
         updateLoadingProgress(78, 'Setting up filters');
@@ -1072,12 +1306,18 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
+        // The first view, if it painted: the records' Overview is up, so
+        // the rest of the page opens.
+        settleFirstView();
 
         if (!dashboardSummary) {
             initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
         }
     } catch (err) {
         console.error('Dashboard initialization failed:', err);
+        firstViewClosed = true;
+        // The overlay is gone once the first view painted: say it there.
+        if (firstViewShown) firstViewFailed(err);
         const overlay = document.getElementById('loading-overlay');
         if (overlay) {
             const status = document.getElementById('loading-status');
@@ -3032,10 +3272,11 @@ function yearWindowRequest() {
 // Size the window to the dataset on screen and put the thumbs at the
 // reader's request, clamped to it. The Years chip names that range, so it
 // is redrawn here: no switch path can leave it naming the old one.
-function syncYearWindow() {
+// latest: the window's end when no dataset is on screen yet (the first
+// view's newest results year, paintFirstView).
+function syncYearWindow(latest = datasetLatestYear()) {
     const ys = document.getElementById('year-start');
     const ye = document.getElementById('year-end');
-    const latest = datasetLatestYear();
     if (!ys || !ye || !latest) return;
     const want = yearWindowRequest();   // before max moves: an unrecorded thumb reads against the old end
     ys.max = ye.max = String(latest);
@@ -5391,12 +5632,18 @@ function formatCountries(countries) {
 }
 
 // Chart rendering functions (keeping existing logic)
-function renderReportingTrends(filtered) {
+// counted: the first view's counts per results year, as the engine counted
+// them (paintFirstView); never recounted here. The chart drawn from them is
+// replaced by the records' one without its draw-in animation, or kept when
+// the records give the same numbers, so the hand-over does not move.
+function renderReportingTrends(filtered, counted) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
 
     let byYear;
-    if (dashboardSummary) {
+    if (counted) {
+        byYear = counted;
+    } else if (dashboardSummary) {
         byYear = {};
         for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
             byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported };
@@ -5415,8 +5662,17 @@ function renderReportingTrends(filtered) {
     }
 
     const years = Object.keys(byYear).sort();
+    const share = (key) => years.map(y => (byYear[y][key] / byYear[y].total) * 100);
+    const race = share('race'), ethnicity = share('ethnicity'), both = share('both');
 
-    if (charts.reportingTrends) charts.reportingTrends.destroy();
+    const previous = charts.reportingTrends;
+    const drawn = JSON.stringify([years, race, ethnicity, both]);
+    const fromFirstView = !!(previous && previous.civicFirstView);
+    if (fromFirstView && !counted && previous.civicDrawn === drawn) {
+        previous.civicFirstView = false;
+        return;
+    }
+    if (previous) previous.destroy();
 
     charts.reportingTrends = new Chart(ctx, {
         type: 'line',
@@ -5425,21 +5681,21 @@ function renderReportingTrends(filtered) {
             datasets: [
                 {
                     label: 'Race',
-                    data: years.map(y => (byYear[y].race / byYear[y].total) * 100),
+                    data: race,
                     borderColor: COLORS.reporting.race,
                     backgroundColor: COLORS.reporting.race + '1a',
                     tension: 0.3
                 },
                 {
                     label: 'Ethnicity',
-                    data: years.map(y => (byYear[y].ethnicity / byYear[y].total) * 100),
+                    data: ethnicity,
                     borderColor: COLORS.reporting.ethnicity,
                     backgroundColor: COLORS.reporting.ethnicity + '1a',
                     tension: 0.3
                 },
                 {
                     label: 'Both',
-                    data: years.map(y => (byYear[y].both / byYear[y].total) * 100),
+                    data: both,
                     borderColor: COLORS.reporting.both,
                     backgroundColor: COLORS.reporting.both + '1a',
                     tension: 0.3
@@ -5447,6 +5703,7 @@ function renderReportingTrends(filtered) {
             ]
         },
         options: {
+            ...(fromFirstView ? { animation: false } : {}),
             responsive: true,
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
@@ -5462,6 +5719,8 @@ function renderReportingTrends(filtered) {
             }
         }
     });
+    charts.reportingTrends.civicDrawn = drawn;
+    charts.reportingTrends.civicFirstView = !!counted;
 }
 
 function renderRaceDistribution(filtered) {

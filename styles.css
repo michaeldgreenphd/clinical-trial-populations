@@ -337,6 +337,74 @@
     animation: spin 0.8s linear infinite;
 }
 
+/* ===== The first view's status strip =====
+   While the trial records load behind an Overview painted from the summary
+   (app.js setRecordsPending): the loading screens' hairline meter along the
+   top edge, and one line saying what is loading and that the rest of the
+   page opens when it arrives. Fixed to the foot of the window, so it moves
+   nothing when it goes. No ring. */
+.records-pending {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 7000;
+    padding: 0.5rem 16px 0.625rem;
+    background: var(--background);
+    font-family: var(--font-mono);
+    font-size: var(--fs-small);
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+}
+
+/* A class selector beats the UA stylesheet's [hidden] rule. */
+.records-pending[hidden] { display: none; }
+
+.records-pending .loading-meter {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    margin-top: 0;
+    border-radius: 0;
+}
+
+.records-pending-line {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.125rem 0.75rem;
+}
+
+/* Done: the meter stays full and the line says so. Failed: the line says
+   what happened, over a plain rule in place of the meter. */
+.records-pending.is-done .loading-status-text,
+.records-pending.is-done .loading-bytes,
+.records-pending.is-failed .loading-status-text,
+.records-pending.is-failed .loading-bytes {
+    display: none;
+}
+
+.records-pending.is-failed {
+    color: var(--text-primary);
+    border-top: 1px solid var(--border-color);
+}
+
+/* What waits for the records reads as waiting, not broken. */
+.first-view-pending .tab:disabled,
+.first-view-pending .filter-summary-toggle:disabled,
+.first-view-pending #history-date:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.first-view-pending .tab:disabled:hover { background: transparent; }
+
+/* The records' render draws over a page already on screen: its spinner
+   would only flash across it. */
+.first-view-pending #dashboard-loading { display: none !important; }
+
 /* AI Studies filter toggle */
 .ai-filter-group {
     display: flex;

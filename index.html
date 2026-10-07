@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261005-reader2">
+    <link rel="stylesheet" href="styles.css?v=20261007-firstview">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
@@ -69,6 +69,20 @@
     <!-- In-app loading indicator for filtering / chart rendering -->
     <div id="dashboard-loading" class="dashboard-loading" style="display: none;">
         <div class="dashboard-loading-spinner"></div>
+    </div>
+
+    <!-- The first view's status strip (app.js setRecordsPending): while the
+         trial records load behind an Overview painted from the summary, it
+         says what is loading and that the rest opens when it arrives. -->
+    <div id="records-pending" class="records-pending" role="status" data-load-progress hidden>
+        <div class="loading-meter" role="progressbar" aria-label="Loading the trial records" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+            <div class="loading-progress-bar"></div>
+        </div>
+        <p class="records-pending-line">
+            <span class="loading-status-text">Loading trial records</span>
+            <span class="loading-bytes" aria-hidden="true"></span>
+            <span class="records-pending-text">The other tabs and the filters open when they arrive.</span>
+        </p>
     </div>
 
     <header>
@@ -1656,6 +1670,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20261007-memcap3"></script>
+    <script defer src="app.js?v=20261007-firstview"></script>
 </body>
 </html>
