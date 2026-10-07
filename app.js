@@ -1012,6 +1012,8 @@ const civicEventLinesPlugin = {
 // without the block, or a block that does not describe this page's default
 // view of this run) takes the ordinary path. The block is never assigned to
 // dashboardSummary: that switches the page into its phone and archive mode.
+// A phone paints its Overview from the same block its own way (phoneOverview,
+// below): it has no records to hand over to.
 const FIRST_VIEW_COUNTS = ['trials', 'trials_reporting_race', 'trials_reporting_ethnicity', 'trials_reporting_race_and_ethnicity'];
 // The Overview as the first view painted it (overviewOnScreen), from the
 // paint until the records' render replaces it; null otherwise.
@@ -1048,6 +1050,21 @@ function firstViewBlock(summary) {
     return b;
 }
 
+// Why this summary's firstView block cannot be used, or null when it can:
+// the summary is there, its block is well formed and from the summary's
+// own run, and the summary is from the run data/run.json names (when that
+// answered: run, else null). The desktop's first view and the phone's
+// Overview (phoneFirstViewFor) both take the block only past this.
+function firstViewSummaryProblem(summary, run) {
+    if (!summary) return 'no summary';
+    if (!firstViewBlock(summary)) return summary.firstView === undefined ? 'the summary has no firstView' : 'the firstView block is malformed or from another run';
+    if (run && (run.extracted_at !== summary.extracted_at
+        || (run.pipeline_commit !== undefined && run.pipeline_commit !== summary.pipeline_commit))) {
+        return 'the summary is not from the run data/run.json names';
+    }
+    return null;
+}
+
 // Why the first view cannot paint from this summary, or null when it can.
 // run is data/run.json when it answered (else null). The controls are read
 // as they are now, so a browser that restored a changed filter on reload
@@ -1063,13 +1080,9 @@ function firstViewProblem(summary, run) {
     if (route && route !== 'overview') return `the link opens #${route}`;
     const asked = [...SHARE_FILTERS.map(([, key]) => key), 'sgsnapshot', 'm'].find(k => params.has(k));
     if (asked) return `the link sets ${asked}`;
-    if (!summary) return 'no summary';
-    const block = firstViewBlock(summary);
-    if (!block) return summary.firstView === undefined ? 'the summary has no firstView' : 'the firstView block is malformed or from another run';
-    if (run && (run.extracted_at !== summary.extracted_at
-        || (run.pipeline_commit !== undefined && run.pipeline_commit !== summary.pipeline_commit))) {
-        return 'the summary is not from the run data/run.json names';
-    }
+    const unusable = firstViewSummaryProblem(summary, run);
+    if (unusable) return unusable;
+    const block = summary.firstView;
     const panel = document.getElementById('filters');
     const ys = document.getElementById('year-start');
     const ye = document.getElementById('year-end');
@@ -1106,12 +1119,13 @@ function overviewOnScreen() {
     return JSON.stringify(shown);
 }
 
-// Paint the Overview from the block: the tiles as renderDashboard writes
-// them, then its own finding, tile-context, filter-summary and trend-chart
-// painters with the block's counts. Each percentage is a block count over
-// the count the block names as its denominator.
-function paintFirstView(summary) {
-    const b = summary.firstView;
+// The Overview from a firstView block: the tiles as renderDashboard writes
+// them, then its own finding, tile-context and trend-chart painters with
+// the block's counts. Each percentage is a block count over the count the
+// block names as its denominator. years: the [first, last] results year
+// the total tile names, on a phone (renderOverviewTileContext); the
+// desktop's names its year controls, as the records' render does.
+function paintOverviewFromBlock(b, years) {
     const total = b.trials;
     const race = b.trials_reporting_race;
     const eth = b.trials_reporting_ethnicity;
@@ -1122,13 +1136,19 @@ function paintFirstView(summary) {
     document.getElementById('ethnicity-reporting').textContent = share('trials_reporting_ethnicity');
     document.getElementById('both-reporting').textContent = share('trials_reporting_race_and_ethnicity');
     renderOverviewFinding(total, race, eth, both);
-    renderOverviewTileContext(total, race, eth, both);
-    renderFilterSummary(total);
+    renderOverviewTileContext(total, race, eth, both, years);
     const byYear = {};
     for (const [year, c] of Object.entries(b.by_results_year)) {
         byYear[year] = { total: c.trials, race: c.trials_reporting_race, ethnicity: c.trials_reporting_ethnicity, both: c.trials_reporting_race_and_ethnicity };
     }
     renderReportingTrends(null, byYear);
+}
+
+// Paint the Overview from the block (paintOverviewFromBlock) and the
+// filter summary from the controls, then open the page over it.
+function paintFirstView(summary) {
+    paintOverviewFromBlock(summary.firstView);
+    renderFilterSummary(summary.firstView.trials);
     document.getElementById('last-updated').textContent = new Date(summary.extracted_at).toLocaleDateString();
     setDataPulledDate(summary.extracted_at);
     labelChartsForA11y();
@@ -1225,6 +1245,90 @@ function firstViewFailed(err) {
     strip.removeAttribute('data-load-progress');
     const text = strip.querySelector('.records-pending-text');
     if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}. Refresh the page to try again.`;
+}
+
+// ── Phones: the desktop's Overview, and each tab's study types ──
+// Owner decision 29b: a phone opens on the desktop's headline numbers. A
+// phone reads dashboard-summary.json, whose aggregates count every study
+// type; the desktop opens on Interventional studies with results posted
+// from 2009, and the engine counts that view as the summary's firstView
+// block. On a phone showing the latest summary, the Overview's tiles,
+// finding, tile context and trend chart paint from the block, with the
+// desktop first view's painter (paintOverviewFromBlock), when the block
+// passes the desktop's checks (firstViewSummaryProblem), ?firstview=0 is
+// not set, and its filter is the desktop's default view. The block carries
+// nothing else, so every other tab stays on the summary's all-study-type
+// aggregates, and the line above the tabs (renderPhoneScope) says which
+// study types the open tab counts. Without the block, or with one that
+// fails, the phone paints as before and that line says "All study types"
+// on the Overview too. The site never counts interventional studies on a
+// phone: the block's counts are the engine's.
+
+// { summary, block, studyType } when the latest summary's block may paint
+// the phone's Overview (studyType: the desktop's name for the block's
+// study type), else null. loadData sets it with the summary, and it holds
+// only while that summary is on screen (phoneFirstViewOnScreen).
+let phoneFirstView = null;
+
+// Why a phone's Overview cannot paint from this summary's block, or null
+// when it can. run is data/run.json when it answered (else null). Phones
+// apply no filters and no filter links, so the desktop's link and control
+// checks become one: the block's filter is the desktop's default view.
+function phoneFirstViewProblem(summary, run) {
+    if (sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH).get('firstview') === '0') return '?firstview=0';
+    const unusable = firstViewSummaryProblem(summary, run);
+    if (unusable) return unusable;
+    const f = summary.firstView.filter;
+    const type = document.getElementById('study-type');
+    if (!type || type.selectedIndex < 0 || type.value !== f.study_type) return 'the block’s study type is not the desktop’s default';
+    if (f.results_year_from !== YEAR_WINDOW_MIN) return 'the block’s first results year is not the desktop’s default';
+    return null;
+}
+
+// phoneFirstView for a phone's latest summary. Never throws: a failure
+// here leaves the phone on the summary's aggregates, never without data.
+async function phoneFirstViewFor(summary) {
+    try {
+        const run = LATEST_RUN_STAMP ? await fetchRun() : null;   // answered already: no new request
+        const problem = phoneFirstViewProblem(summary, run);
+        if (!problem) {
+            const type = document.getElementById('study-type');
+            return { summary, block: summary.firstView, studyType: type.options[type.selectedIndex].text };
+        }
+        if (summary && summary.firstView !== undefined) console.info(`The phone Overview counts all study types: ${problem}`);
+    } catch (err) {
+        console.warn('The phone Overview could not read the firstView block:', err);
+    }
+    return null;
+}
+
+// The phone's Overview source while its summary is on screen, else null.
+function phoneFirstViewOnScreen() {
+    return phoneFirstView && phoneFirstView.summary === dashboardSummary ? phoneFirstView : null;
+}
+
+// The line above the tabs on a phone: the trials the open tab counts, and
+// which study types. The Overview from the block names its view; every
+// other tab, and the Overview without it, counts all study types.
+// (Geography, About, FAQ and the tools hide the line: initTabs.)
+function renderPhoneScope() {
+    if (!isMobileDevice || !dashboardSummary) return;
+    const fv = phoneFirstViewOnScreen();
+    if (fv && document.querySelector('.tab.active')?.dataset.tab === 'overview') {
+        const b = fv.block;
+        renderFilterSummary(b.trials, true, `${fv.studyType} studies, results posted ${b.filter.results_year_from}\u2013${b.newest_results_year}`);
+    } else {
+        renderFilterSummary(dashboardSummary.totalStudies, true, 'All study types, unfiltered');
+    }
+}
+
+// The end of renderDashboard's summary painter on a phone: the Overview
+// from the block when it may, over the summary's, and the scope line.
+function phoneOverview() {
+    if (!isMobileDevice || !dashboardSummary) return;
+    const fv = phoneFirstViewOnScreen();
+    if (fv) paintOverviewFromBlock(fv.block, [fv.block.filter.results_year_from, fv.block.newest_results_year]);
+    renderPhoneScope();
 }
 
 // Initialize
@@ -2562,6 +2666,9 @@ async function loadData(date) {
             console.log('📱 Mobile detected — loading pre-computed dashboard summary');
             const summary = await fetchLatestSummary();
             if (summary) {
+                // The Overview as the desktop opens, when the summary's
+                // firstView block may paint it (phoneFirstViewFor).
+                phoneFirstView = await phoneFirstViewFor(summary);
                 dashboardSummary = summary;
                 // Use the compact recent-studies list so the Studies tab renders
                 // with real rows + horizontal scroll. Full 77K dataset + details
@@ -3072,6 +3179,8 @@ function initTabs() {
             // the panel's `hidden` attribute governs whether they are expanded.
             filtersSection.style.display = hideFilters ? 'none' : '';
             if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
+            // A phone: the line names the study types this tab counts.
+            renderPhoneScope();
 
             // The Studies table draws at once; its extras start loading
             // (prepareStudiesTab).
@@ -3863,14 +3972,19 @@ function hideDashboardSpinner() {
 // Each Overview tile says what its figure counts. The percentages get their
 // own numerator, which is the number a reader reaches for next; the total
 // gets the year window it was drawn from.
-function renderOverviewTileContext(total, raceCount, ethCount, bothCount) {
+// years: the [first, last] results year the total covers, when the caller
+// knows it rather than the controls (a phone's Overview from the firstView
+// block, paintOverviewFromBlock).
+function renderOverviewTileContext(total, raceCount, ethCount, bothCount, years) {
     const set = (id, text) => {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     };
     const y0 = document.getElementById('year-start');
     const y1 = document.getElementById('year-end');
-    set('stat-sub-total', y0 && y1 && !dashboardSummary
+    set('stat-sub-total', years
+        ? `results posted ${years[0]}\u2013${years[1]}`
+        : y0 && y1 && !dashboardSummary
         ? `results posted ${y0.value}\u2013${y1.value}`
         : 'trials with results posted');
     const n = (c) => `${c.toLocaleString()} of ${total.toLocaleString()} trials`;
@@ -3932,16 +4046,17 @@ function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
 // The words above the filter panel. Reads the controls rather than the data,
 // so it says what was ASKED for — which is what a reader needs in order to
 // know what the numbers below it are about.
-function renderFilterSummary(total, unfiltered) {
+function renderFilterSummary(total, unfiltered, scope) {
     const el = document.getElementById('filter-summary-text');
     if (!el) return;
 
     // The phone view renders pre-computed aggregates of the whole dataset and
     // applies no filters, so reading the (desktop) controls here would claim
-    // a narrowing that was never applied.
+    // a narrowing that was never applied. scope: what the numbers count, on
+    // a phone (renderPhoneScope).
     if (unfiltered) {
         el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
-            'the full dataset, unfiltered \u00b7 filters are a desktop feature';
+            (scope ? `${escapeHtml(scope)} \u00b7 ` : 'the full dataset, unfiltered \u00b7 ') + 'filters are a desktop feature';
         return;
     }
     const val = (id) => {
@@ -4043,6 +4158,14 @@ function renderDashboard() {
         // A dataset switch with the Studies tab open: the new dataset's rows
         // and its status row replace the old ones.
         refreshStudiesTab();
+
+        // A phone: the Overview from the summary's firstView block when it
+        // may, and the scope line (phoneOverview). This function also runs
+        // alone, sliced by name: in the engine's weekly gate
+        // (civicsample-engine scripts/first_view_parity.mjs) and the site's
+        // tests. There phoneOverview is not defined and the summary paints
+        // as above.
+        if (typeof phoneOverview === 'function') phoneOverview();
 
         requestAnimationFrame(() => hideDashboardSpinner());
         return;
