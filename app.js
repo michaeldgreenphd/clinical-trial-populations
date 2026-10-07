@@ -40,7 +40,7 @@ const CHART_ASPECT_RATIO = isMobileDevice ? 1 : undefined;
 // A full snapshot costs about 0.75-1 GB of browser memory once parsed, so the
 // page keeps only two: the latest data, which most visits go back to, and the
 // snapshot on screen. Four cached snapshots measured 2.96 GiB of a 4 GiB tab.
-const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, reader }
+const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data, dateLabel, summary, extractedAt, runStamp (parts only), reader }
 
 // Drop every cached dataset but the latest and the one on screen, and with
 // it what its reader loaded (the Studies-tab extras and detail shards ride on
@@ -1421,6 +1421,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
+        // A shared snapshot link (?sgsnapshot=, desktop only) opens that
+        // snapshot in place of the latest data, never after it.
+        const requested = requestedSnapshot();
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
@@ -1435,14 +1438,16 @@ document.addEventListener('DOMContentLoaded', async () => {
             await loadConditionOntology();
         }
         await keyReady;
-        updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
-        await loadStartupRecords();
-        firstViewClosed = true;
-        // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
-        await sgLoad();
+        // The one dataset the page opens with: the link's snapshot, or the
+        // latest data. Null means the latest.
+        const { opened, failed: startupFailure } = await loadStartupDataset(requested);
         updateLoadingProgress(78, 'Setting up filters');
         initTabs();
-        if (!dashboardSummary) {
+        // The phone's summary view. A desktop that opened an aggregate
+        // archive from a link holds a summary too, and still gets the full
+        // desktop set-up, as it does when it switches to one.
+        const summaryMode = isMobileDevice && !!dashboardSummary;
+        if (!summaryMode) {
             // Full desktop mode: initialize filters, table, geography
             initFilters();
             initTable();
@@ -1469,6 +1474,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // anything (a click on a control still waiting does nothing).
         settleFirstView();
 
+        // The selector names the snapshot on screen before the first share
+        // URL is written, so the address keeps naming it.
+        if (opened) selectSnapshotOption(opened);
+
         // Deep links: restore the tab (and desktop filter state) from the
         // hash once the first render is up, then start writing share URLs.
         shareUrlReady = true;
@@ -1478,8 +1487,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Hide loading overlay after everything is initialized and rendered
         hideLoadingOverlay();
+        // A listed snapshot the link named that did not load: said once the
+        // latest data is on screen, so the toast is not lost behind the
+        // overlay.
+        if (startupFailure) reportStartupFailure(startupFailure);
 
-        if (!dashboardSummary) {
+        if (!summaryMode) {
             initHistorySelector();   // populate archive dropdown (non-blocking; runs after first render)
         }
     } catch (err) {
@@ -2963,7 +2976,7 @@ async function loadData(date) {
             // The reader rides on the entry, so the extras it loads are kept
             // with the dataset and go when the entry goes. Nothing is dropped
             // here: retainSnapshots runs once the switch has rendered.
-            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, reader: datasetReader });
+            snapshotCache.set(cacheKey, { data: data, dateLabel: fullDateLabel, summary: null, extractedAt: window.__dataExtractedAt, runStamp: parts[0].extracted_at, reader: datasetReader });
             console.log(`💾 Cached snapshot "${cacheKey}" (${data.length} studies)`);
 
             return; // Success!
@@ -2975,6 +2988,26 @@ async function loadData(date) {
             console.warn(`✗ ${strategy.name} failed:`, error.message);
             lastError = error;
         }
+    }
+
+    // ── The newest date, asked of snapshots/ because data/run.json was late ──
+    // The newest published date is read from data/ only once data/run.json
+    // has dated the run there (servedFromData). When that file missed its
+    // wait at start-up, the run in data/ is undated, the date was taken for
+    // an archive, and the engine no longer writes snapshots/<newest>/, so the
+    // parts are not found. Read run.json again: if data/ holds that date's
+    // run, serve it from there (adoptRecheckedRun); otherwise nothing else
+    // holds it, and the caller falls back (start-up opens the latest data;
+    // the selector reverts). Only an undated data/: a run.json that dated
+    // data/ as another week (a deploy window) keeps the archive fallback
+    // below, so one week's numbers never show under another week's date.
+    if (date && date === NEWEST_PUBLISHED && DATA_RUN_DATE === null && lastError && lastError.status === 404) {
+        const run = await recheckRun();
+        if (runDate(run) === date) {
+            adoptRecheckedRun(run);
+            return loadData(date);
+        }
+        throw new Error(`Could not load data for ${date}: it is not in snapshots/, and data/run.json does not confirm that data/ holds it; refresh in a few minutes`);
     }
 
     // ── Aggregate-archive fallback ──
@@ -3035,6 +3068,112 @@ function datasetStudyCount() {
     return Array.isArray(data) ? data.length : 0;
 }
 
+// The snapshot a shared link asks for (?sgsnapshot=YYYY-MM-DD in the query
+// or in the hash the page opened with, where the routing stubs put it), or
+// null. Desktop only: phones show the latest summary and have no snapshot
+// selector.
+function requestedSnapshot() {
+    if (isMobileDevice) return null;
+    const snap = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH).get('sgsnapshot');
+    return snap && /^\d{4}-\d{2}-\d{2}$/.test(snap) ? snap : null;
+}
+
+// The requested snapshot if history.json still lists it (in "dates", or as
+// the date data/ serves), else null: the latest data opens instead, with no
+// toast. history.json is already in flight for the data key; this waits for
+// it no longer than the key's own wait for it (newestPublishedReady).
+async function startupSnapshot(requested) {
+    if (!requested) return null;
+    const manifest = await Promise.race([fetchHistory(), newestPublishedReady().then(() => null)]);
+    if (!manifest) return null;
+    return publishedDates(manifest).includes(requested) || newestPublishedIn(manifest) === requested ? requested : null;
+}
+
+// Load the dataset the page opens with, and its ?sg=v2 files: the snapshot
+// a link asks for when history.json lists it (startupSnapshot), else the
+// latest data, without a word (owner decision 25b: an unlisted date). A
+// listed snapshot that fails to load also gives way to the latest data, and
+// the failure is returned for reportStartupFailure. Returns { opened: the
+// date opened, or null for the latest data; failed: { date, message } or
+// null }.
+async function loadStartupDataset(requested) {
+    let opened = await startupSnapshot(requested);
+    let failed = null;
+    updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
+    if (opened) {
+        try {
+            await loadData(opened);
+        } catch (e) {
+            console.warn(`Snapshot ${opened} could not be loaded; opening the latest data:`, e.message);
+            failed = { date: opened, message: e.message };
+            opened = null;
+        }
+    }
+    // The latest data, with Try again if it does not load
+    // (loadStartupRecords). A link's snapshot that failed is not retried:
+    // the latest data opens in its place and the failure is reported once
+    // the page is up, so the loading screen shows one failure at a time.
+    if (!opened) await loadStartupRecords();
+    // The records are in: a summary that answers from here on paints
+    // nothing (firstViewProblem). A link's snapshot never had a first view.
+    firstViewClosed = true;
+    // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
+    await sgLoad(opened || undefined);
+    return { opened, failed };
+}
+
+// A listed snapshot a link named did not load, and the latest data is on
+// screen instead: say so, as the selector's switch says it.
+function reportStartupFailure(failed) {
+    showToast(`Snapshot "${failed.date}" unavailable: ${failed.message}. Showing the latest data.`, 'error', 8000);
+}
+
+// Put the snapshot opened at start-up in the selector before its options
+// arrive; initHistorySelector keeps the choice when it fills the list.
+function selectSnapshotOption(date) {
+    const select = document.getElementById('history-date');
+    if (!select) return;
+    if (!Array.from(select.options).some(o => o.value === date)) {
+        const opt = document.createElement('option');
+        opt.value = date;
+        opt.textContent = servedFromData(date) ? `${date} (latest)` : date;
+        select.appendChild(opt);
+    }
+    select.value = date;
+}
+
+// How long a second read of data/run.json may take (recheckRun). It
+// runs only after the first read missed its wait, so it gets twice that.
+const RUN_RECHECK_WAIT_MS = 2 * SMALL_FILE_WAIT_MS;
+
+// data/run.json read again past every cache (not the remembered fetchRun
+// answer), or null if it still does not answer in time.
+async function recheckRun() {
+    const deadline = new Promise(resolve => setTimeout(() => resolve(null), RUN_RECHECK_WAIT_MS));
+    return Promise.race([
+        fetch('data/run.json', { cache: 'no-store' })
+            .then(resp => (resp.ok ? resp.json() : null))
+            .catch(() => null),
+        deadline
+    ]);
+}
+
+// Take the run a second read of data/run.json dated as the newest date: it
+// dates data/ and stamps the latest parts, as a first read on time would
+// have. Latest data cached before it (read with no stamp to check against)
+// is kept only if it is that run's; otherwise it goes, with its ?sg=v2
+// table, so data/ is read again and checked against the stamp.
+function adoptRecheckedRun(run) {
+    DATA_RUN_DATE = runDate(run);
+    const stamp = typeof run.extracted_at === 'string' && !Number.isNaN(Date.parse(run.extracted_at)) ? run.extracted_at : null;
+    if (stamp) LATEST_RUN_STAMP = stamp;
+    const cached = snapshotCache.get('latest');
+    if (cached && (!stamp || cached.runStamp !== stamp)) {
+        snapshotCache.delete('latest');
+        sgCache.delete('latest');
+    }
+}
+
 // Wrapper function to reload with a specific date (called from error recovery buttons)
 async function loadDataAndRender(date) {
     const select = document.getElementById('history-date');
@@ -3072,9 +3211,10 @@ window.loadDataAndRender = loadDataAndRender;
 // with the date as its value: choosing it shows the latest dataset
 // (datasetKey), and a link that names it keeps naming that date once a later
 // run moves it into snapshots/. A date already listed is left as it is, so
-// the first view can list them while the records load
-// (listHistoryWhileWaiting) and initHistorySelector lists them again
-// without doubling.
+// a history.json that names a date twice lists it once. The first view lists
+// them while the records load (listHistoryWhileWaiting); initHistorySelector
+// then lists them again in order after "Latest", keeping the choice (a
+// snapshot a link opened is appended first by selectSnapshotOption).
 function listHistoryDates(select, manifest) {
     noteNewestPublished(manifest);
     const dates = (manifest.dates || []).slice();
@@ -3110,13 +3250,22 @@ async function initHistorySelector() {
             console.log('history.json not available; archive selector disabled.');
             return;
         }
+        // A snapshot opened from a link already has its option
+        // (selectSnapshotOption), appended after "Latest": the list is
+        // rebuilt in order and the choice kept. Rebuilt in the same task, so
+        // a list the first view put up (listHistoryWhileWaiting) keeps its
+        // width.
+        const current = select.value;
+        Array.from(select.options).forEach(o => { if (o.value !== 'latest') o.remove(); });
         listHistoryDates(select, manifest);
+        select.value = Array.from(select.options).some(o => o.value === current) ? current : 'latest';
     } catch (e) {
         console.warn('Could not load history manifest:', e);
     }
 
-    // Initialize tracking so revert-on-error knows the starting state
-    select.dataset.lastValue = 'latest';
+    // Initialize tracking so revert-on-error knows the starting state: the
+    // snapshot a link opened, else Latest.
+    select.dataset.lastValue = select.value || 'latest';
 
     select.addEventListener('change', async () => {
         const chosen = select.value;
@@ -3290,7 +3439,10 @@ function applyRouteFromHash() {
     if (!raw || raw === 'industry' || raw.indexOf('industry?') === 0) return; // industryRoute owns it
     const parts = raw.split('?');
     const tabId = parts[0], query = parts[1];
-    if (query && !isMobileDevice && !dashboardSummary) applyShareParams(query);
+    // Desktop only (a phone has no filter controls). A desktop on an
+    // aggregate archive keeps the link's filters, for when it goes back to
+    // data that has study rows.
+    if (query && !isMobileDevice) applyShareParams(query);
     const btn = tabId && document.querySelector('.tab[data-tab="' + CSS.escape(tabId) + '"]');
     if (btn && !btn.classList.contains('active')) btn.click();
 }
@@ -4263,7 +4415,9 @@ function initFilterSummary() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel) return;
-    if (dashboardSummary) { btn.hidden = true; return; }   // no panel to open
+    // The phone's summary view has no panel to open. A desktop that opened
+    // an aggregate archive from a link keeps the button for the latest data.
+    if (isMobileDevice && dashboardSummary) { btn.hidden = true; return; }
     btn.addEventListener('click', () => {
         const open = panel.hidden;
         panel.hidden = !open;
@@ -11106,18 +11260,8 @@ function sgRouteHooks() {
         on.add('sex'); on.add('gender');
         applyStudyColumns(on);
     }
-    // ?sgsnapshot=YYYY-MM-DD: open that archived snapshot. The history
-    // selector fills after the first render, so wait for its option.
-    const snap = params.get('sgsnapshot');
-    if (snap && /^\d{4}-\d{2}-\d{2}$/.test(snap)) {
-        let tries = 0;
-        const timer = setInterval(() => {
-            const sel = document.getElementById('history-date');
-            const has = !!sel && Array.from(sel.options).some(o => o.value === snap);
-            if (has) { sel.value = snap; sel.dispatchEvent(new Event('change')); }
-            if (has || ++tries > 40) clearInterval(timer);
-        }, 250);
-    }
+    // ?sgsnapshot= is read at start-up (requestedSnapshot), so the snapshot
+    // loads in place of the latest data rather than after it.
 }
 
 // Which v2 tab renderers to run after a dashboard render.

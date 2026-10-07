@@ -306,9 +306,11 @@ const STARTUP = (() => {
 })();
 const STARTUP_TAIL = (() => {
     const a = STARTUP.indexOf("updateLoadingProgress(90, 'Drawing charts');");
-    const b = STARTUP.search(/if \(!dashboardSummary\) \{\s*initHistorySelector\(\);/);
+    const b = STARTUP.search(/if \(!summaryMode\) \{\s*initHistorySelector\(\);/);
     assert.ok(a >= 0 && b > a, 'startup lost its render … history selector tail');
-    return STARTUP.slice(a, b);
+    // What loadStartupDataset hands the tail on a visit with no snapshot
+    // link (PR #256): the latest data, and no failed snapshot to report.
+    return 'var opened = null; var startupFailure = null;\n' + STARTUP.slice(a, b);
 })();
 
 // One page: index.html's controls at their defaults, the app's Overview
@@ -609,6 +611,32 @@ test('the first view paints only the latest default Overview on a desktop', asyn
     for (const [name, [opts, summary = summaryWith(clone(good)), run = null, before]] of Object.entries(no)) {
         const why = problem(opts, summary, run, before);
         assert.equal(typeof why, 'string', `${name}: the first view would paint`);
+    }
+});
+
+// PR #256 opens a link's snapshot in place of the latest data, or the latest
+// data, silently, when history.json does not list the date or it is
+// malformed. Either way the link names sgsnapshot, and the first view stays
+// off: one rule for every form of the link, whatever startup then opens. A
+// late data/run.json changes nothing: the newest date's re-read of it
+// (recheckRun) only runs on such a link, so no first view is up beside it.
+test('any link naming sgsnapshot keeps the first view off, listed or not, with run.json on time or late', async () => {
+    const records = syntheticRecords();
+    const forms = ['2026-08-02', '2026-10-04', '2026-07-05', '2026-7-5', 'latest', ''];
+    for (const runStamp of [RUN.extracted_at, null]) {
+        for (const date of forms) {
+            for (const where of [{ search: `?sgsnapshot=${date}` }, { hash: `#overview?sgsnapshot=${date}` }, { hash: `#overview?sg=v2&sgsnapshot=${date}` }]) {
+                const name = `${JSON.stringify(where)} run.json ${runStamp ? 'on time' : 'late'}`;
+                const p = page({ ...where, runStamp, run: runStamp ? RUN : null });
+                const s = summaryWith(blockFor(records));
+                assert.equal(await p.run('firstViewOrFigure')(s), false, `${name}: the first view painted`);
+                assert.deepEqual(p.figures, [s], `${name}: the loading screen's figure did not draw`);
+                assert.deepEqual(p.infos.map((a) => a.join(' ')), ['The Overview waits for the records: the link sets sgsnapshot'], name);
+                assert.equal(p.trendCharts().length, 0, name);
+                assert.equal(p.el('records-pending').hidden, true, name);
+                assert.equal(p.el('loading-overlay').classList.contains('fade-out'), false, name);
+            }
+        }
     }
 });
 
@@ -1239,8 +1267,11 @@ test('startup wires the first view in, and never through dashboardSummary', () =
         assert.ok(i >= 0, `startup lost ${needle}`);
         return i;
     };
-    assert.ok(at('fetchLatestSummary().then(firstViewOrFigure,') < at('await loadStartupRecords();'));
-    assert.match(body, /await loadStartupRecords\(\);\s*firstViewClosed = true;/, 'the startup load does not close the first view');
+    // The records load in loadStartupDataset (PR #256: a link's snapshot,
+    // else the latest data through loadStartupRecords), which closes the
+    // first view once they are in.
+    assert.ok(at('fetchLatestSummary().then(firstViewOrFigure,') < at('await loadStartupDataset(requested);'));
+    assert.match(fnSource('async function loadStartupDataset(requested)'), /await loadStartupRecords\(\);\s*(\/\/.*\n\s*)*firstViewClosed = true;/, 'the startup load does not close the first view');
     // The page opens right after the records draw, before the deep links run
     // (a hook that clicks a waiting control would find it disabled).
     assert.ok(at('renderDashboard();') < at('settleFirstView();'));

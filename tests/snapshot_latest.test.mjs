@@ -9,7 +9,8 @@
  * ?sgsnapshot=<newest> link must never ask for snapshots/<newest>/.
  *
  * The cache-key block, datasetKey, datasetBase, getUrlStrategies, loadData,
- * initHistorySelector and sgRouteHooks run in a vm with a stub fetch that
+ * initHistorySelector and the start-up's link reader (loadStartupDataset)
+ * run in a vm with a stub fetch that
  * records every request; the parts are served as JSON (fetchAndDecompress is
  * reduced to keyedFetch + json, its own behaviour is study_sidecars'), and
  * everything the selector redraws is a stub. Timers fire only when a test
@@ -55,7 +56,16 @@ const SOURCES = [
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),
     fnSource('function sgQueryParams(hash, search)'),
-    fnSource('function sgRouteHooks()')
+    // A shared ?sgsnapshot= link is read at start-up (snapshot_link.test.mjs).
+    fnSource('function requestedSnapshot()'),
+    fnSource('async function startupSnapshot(requested)'),
+    fnSource('async function loadStartupDataset(requested)'),
+    // Its load of the latest data, with Try again (PR #257).
+    fnSource('async function loadStartupRecords()'),
+    fnSource('function selectSnapshotOption(date)'),
+    app.slice(app.indexOf('const RUN_RECHECK_WAIT_MS ='), app.indexOf('\n', app.indexOf('const RUN_RECHECK_WAIT_MS ='))),
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)')
 ].join('\n');
 
 // What loadData and the selector call around the paths under test.
@@ -91,6 +101,12 @@ function updateShareUrl() {}
 function sgOpenMethods() {}
 function loadStudyColumns() { return new Set(); }
 async function fetchLatestSummary() { return null; }
+// The first view's side of the start-up (PR #257): the startup load closes
+// it. A failed load of the latest data rejects here instead of waiting for
+// Try again (snapshot_link.test.mjs presses it).
+let firstViewClosed = false;
+function startupFailed(err) { throw err; }
+function startupRetrying() {}
 const SG_INITIAL_HASH = '';
 const SG_INITIAL_SEARCH = location.search;
 `;
@@ -124,16 +140,20 @@ function site(history, extra = {}) {
 
 /**
  * files: { path: body | Error | (() => promise) }. A missing path is a 404.
- * search: the query the page opened with (sgRouteHooks reads it).
+ * search: the query the page opened with (requestedSnapshot reads it).
  */
 function harness(files, { search = '' } = {}) {
     const calls = [];
     const timers = [];
-    const intervals = [];
     const els = {};
     const select = {
         id: 'history-date', value: 'latest', dataset: {}, options: [], handlers: [],
-        appendChild(opt) { this.options.push(opt); },
+        // As in the DOM, removing the selected option selects the first one left.
+        appendChild(opt) {
+            const sel = this; const all = this.options;
+            opt.remove = () => { all.splice(all.indexOf(opt), 1); if (sel.value === opt.value) sel.value = all.length ? all[0].value : ''; };
+            all.push(opt);
+        },
         addEventListener(type, fn) { if (type === 'change') this.handlers.push(fn); },
         dispatchEvent() { this.fired = Promise.all(this.handlers.map((fn) => fn())); return true; }
     };
@@ -146,8 +166,6 @@ function harness(files, { search = '' } = {}) {
         isMobileDevice: false,
         document: { getElementById: el, createElement: () => ({}), querySelector: () => null },
         setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
-        setInterval: (fn, ms) => { intervals.push({ fn, ms, live: true }); return intervals.length; },
-        clearInterval: (id) => { if (intervals[id - 1]) intervals[id - 1].live = false; },
         fetch: async (url, init) => {
             calls.push(url);
             const path = url.replace(/\?v=.*$/, '');
@@ -163,8 +181,6 @@ function harness(files, { search = '' } = {}) {
     return {
         calls, timers, select, run,
         fireTimers: () => timers.splice(0).forEach((t) => t.fn()),
-        // One beat of every live setInterval (sgRouteHooks polls the selector).
-        beat: () => intervals.filter((i) => i.live).forEach((i) => i.fn()),
         paths: () => calls.map((u) => u.replace(/\?v=.*$/, '')),
         dataFrom: () => JSON.parse(run('JSON.stringify(data.map(r => r.from))'))
     };
@@ -326,12 +342,8 @@ test('a ?sgsnapshot=<newest> link opens the latest data with no snapshots/ reque
     for (const history of [NEW_HISTORY, OLD_HISTORY]) {
         const h = harness(site(history), { search: '?sgsnapshot=2026-10-04' });
         await h.run('dataKeyReady()');
-        await h.run('loadData()');
-        h.run('sgRouteHooks()');
-        h.beat();                      // the selector has not filled yet
+        await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened && selectSnapshotOption(r.opened))');
         await h.run('initHistorySelector()');
-        h.beat();
-        await h.select.fired;
         assert.equal(h.select.value, '2026-10-04');
         assert.equal(h.select.dataset.lastValue, '2026-10-04', 'the link did not open its date');
         assert.deepEqual(h.paths().filter((p) => p.startsWith('snapshots/')), [], 'the newest date was asked of snapshots/');
@@ -345,11 +357,12 @@ test('a ?sgsnapshot=<newest> link opens the latest data with no snapshots/ reque
 
 test('a ?sgsnapshot link to an older week still opens that week from snapshots/', async () => {
     const h = harness(site(NEW_HISTORY), { search: '?sgsnapshot=2026-08-02' });
-    await startup(h);
-    h.run('sgRouteHooks()');
-    h.beat();
-    await h.select.fired;
+    await h.run('dataKeyReady()');
+    await h.run('loadStartupDataset(requestedSnapshot()).then(r => r.opened && selectSnapshotOption(r.opened))');
+    await h.run('initHistorySelector()');
     assert.equal(h.select.dataset.lastValue, '2026-08-02');
+    assert.deepEqual(h.paths().filter((p) => p.includes('demographics')), Array.from({ length: 8 }, (_, i) => `snapshots/2026-08-02/demographics.part${i + 1}.json.gz`),
+        'the latest parts were fetched too');
     assert.deepEqual(h.dataFrom(), Array(8).fill('snapshots/2026-08-02'));
 });
 
