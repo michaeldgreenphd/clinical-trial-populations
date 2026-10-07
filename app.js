@@ -1067,6 +1067,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         initFilterSummary();
         updateLoadingProgress(90, 'Drawing charts');
         renderDashboard();
+        // A #industry link's route may have drawn the view already, from
+        // the thumbs as they stood before initFilters fitted them.
+        renderIndustryAfterSwitch();
         updateLoadingProgress(100, 'Ready');
 
         // The selector names the snapshot on screen before the first share
@@ -2660,9 +2663,12 @@ function adoptRecheckedRun(run) {
 // end earlier) or put back (Latest again) left its chart and cohort count on
 // the old window while the line above named the new one. Shared by every
 // switch path: the selector's change handler, its revert after a failed
-// switch, and loadDataAndRender. A closed Industry view is drawn when it
-// opens (loadIndustryView), and start-up loads no sponsor data before its
-// first render.
+// switch, loadDataAndRender, and start-up. Start-up too: a #industry link
+// opens the view at DOMContentLoaded, and the sponsor file is small enough
+// to be drawn while the dataset is still loading, from the thumbs as they
+// stood before initFilters fitted them (values a reload restored, say). A
+// closed Industry view is drawn when it opens (loadIndustryView), and one
+// whose sponsor data has not loaded is not drawn (renderIndustry).
 function renderIndustryAfterSwitch() {
     if (industryActive()) renderIndustry();
 }

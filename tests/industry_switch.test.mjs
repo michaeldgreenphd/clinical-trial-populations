@@ -10,17 +10,17 @@
  * above the panel, but renderDashboard never draws the Industry view, so its
  * chart and its cohort count stayed on the old window while the line named
  * the new one. Every switch path (the selector's change handler, Latest
- * included, its revert after a failed switch, and loadDataAndRender, the
- * recovery reload) now calls renderIndustryAfterSwitch right after
- * renderDashboard, which draws an open Industry view once. Start-up needs no
- * call: no sponsor data is loaded before the first render, and
- * loadIndustryView draws the view once it is, from the controls start-up has
- * synced.
+ * included, its revert after a failed switch, loadDataAndRender, the
+ * recovery reload, and start-up) now calls renderIndustryAfterSwitch right
+ * after renderDashboard, which draws an open Industry view once. Start-up
+ * too: a #industry link opens the view at DOMContentLoaded, and its small
+ * sponsor file can be drawn while the dataset is still loading, from the
+ * thumbs as they stood before initFilters fitted them.
  *
  * The real selector handler (initHistorySelector), loadDataAndRender,
  * syncYearWindow and its helpers, renderDashboard, renderFilterSummary,
- * syncFilterToggle, industryFilteredRows and renderIndustry run in a vm with
- * a stub document. loadData, the chart renderers and the Industry view's
+ * syncFilterToggle, industryFilteredRows, renderIndustry and start-up's
+ * drawing steps run in a vm with a stub document. loadData, the chart renderers and the Industry view's
  * three drawings are stubbed; the drawings record the rows they were given.
  */
 import { test } from 'node:test';
@@ -39,6 +39,15 @@ function slice(startMarker, endMarker) {
 }
 const fnSource = (sig) => slice(sig, '\n}\n');
 const line = (start) => slice(start, '\n');
+// The start-up listener, and in it the steps that draw the first screen.
+const init = slice("document.addEventListener('DOMContentLoaded', async () => {", '\n});\n');
+const initDraw = (() => {
+    const from = "updateLoadingProgress(90, 'Drawing charts');";
+    const to = "updateLoadingProgress(100, 'Ready');";
+    const at = init.indexOf(from);
+    assert.ok(at >= 0 && init.indexOf(to, at) > at, 'start-up lost its drawing steps');
+    return init.slice(at, init.indexOf(to, at) + to.length);
+})();
 // The Industry redraw the switch paths share, once it exists: before it they
 // drew the dashboard alone, and the tests below show what that left.
 const optional = (sig) => (app.includes(sig) ? fnSource(sig) : '');
@@ -339,11 +348,38 @@ test('loadDataAndRender, the reload a recovery button runs, redraws the view onc
     assertInStep(h, [2012, 2020, 2024, 2025, null], '2012–2025', 'after the reload of Latest');
 });
 
+test('start-up redraws an Industry view its route drew before the window was fitted', async () => {
+    // A reload of ?sgsnapshot=2026-02-22#industry: the route opens the view
+    // at DOMContentLoaded and its small sponsor file is drawn while the
+    // archive still loads, from the thumbs as the reload restored them
+    // (2025 to the end, nothing recorded) on the page's 2009-2026 slider.
+    const h = await harness();
+    for (const id of ['year-start', 'year-end']) {
+        delete h.el(id).dataset.chosen;
+        h.el(id).max = '2026';
+    }
+    h.el('year-start').value = '2025';
+    h.el('year-end').value = '2026';
+    h.run('renderIndustry();');
+    assert.deepEqual(h.last().years, [2025, 2026, 2027, null]);
+
+    // The archive lands; initFilters fits the window to it, then start-up
+    // draws the first screen.
+    h.run(`dashboardSummary = DATASETS['2026-02-22'].summary; data = null;
+        function updateLoadingProgress() {}
+        syncYearWindow();`);
+    assert.equal(h.thumbs(), '2024-2024');
+    const before = h.draws();
+    h.run(initDraw);
+    assert.equal(h.draws() - before, 1, 'start-up drew the Industry view other than once');
+    assertInStep(h, [2024, 2025, 2026, 2027, null], '2024–2027', 'after start-up');
+});
+
 // Every place that fits the Year Range to a newly loaded dataset draws the
 // dashboard and, as the very next step, an open Industry view
-// (renderIndustryAfterSwitch): the selector's switch and its revert, and
-// loadDataAndRender. initFilters syncs at start-up, before any sponsor data
-// can be loaded (loadIndustryView draws it when it is).
+// (renderIndustryAfterSwitch): the selector's switch and its revert,
+// loadDataAndRender, and start-up, whose initFilters syncs before the first
+// screen is drawn.
 test('every syncYearWindow() after a dataset load draws an open Industry view right after the dashboard', () => {
     const fns = ['async function loadDataAndRender(date)', 'async function initHistorySelector()'];
     let syncs = 0;
@@ -361,9 +397,12 @@ test('every syncYearWindow() after a dataset load draws an open Industry view ri
     }
     assert.equal(syncs, 3, 'the switch, its revert and loadDataAndRender');
     // Outside those functions syncYearWindow() is called only by initFilters,
-    // at start-up.
+    // at start-up, which draws the dashboard and then the Industry view.
     assert.equal(app.split('syncYearWindow();').length - 1 - syncs, 1);
     assert.ok(fnSource('function initFilters()').includes('syncYearWindow();'));
+    assert.ok(init.indexOf('initFilters();') >= 0 && init.indexOf('initFilters();') < init.indexOf(initDraw));
+    assert.match(initDraw, /renderDashboard\(\);\s*(\/\/[^\n]*\s*)*renderIndustryAfterSwitch\(\);/,
+        'start-up draws the dashboard with no Industry redraw right after it');
     assert.match(fnSource('function renderIndustryAfterSwitch()'),
         /\{\s*if \(industryActive\(\)\) renderIndustry\(\);\s*\}/);
 });
