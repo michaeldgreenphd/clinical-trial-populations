@@ -1211,7 +1211,10 @@ function setRecordsPending(on) {
     });
     if (on) {
         root.classList.add('first-view-pending');
-        if (strip) strip.hidden = false;
+        if (strip) {
+            strip.hidden = false;
+            keepPageAboveStrip(strip);
+        }
         return;
     }
     // After the frame in which renderDashboard hides its spinner.
@@ -1222,6 +1225,22 @@ function setRecordsPending(on) {
     if (text) text.textContent = 'Trial records loaded. Every tab is open.';
     strip.classList.add('is-done');
     setTimeout(() => { strip.hidden = true; }, 2500);
+}
+
+// The strip is fixed to the foot of the window, over the foot of the page:
+// while it is up, the page ends above it. Its measured height, as
+// --records-pending-height on the root, pads the bottom of the page and
+// its scroll padding (styles.css), so the footer's last link can be read
+// and clicked and a control that takes focus scrolls clear of it. A
+// ResizeObserver follows the strip as its line wraps (a failure says more;
+// a narrower window wraps it sooner) and back to 0 when it hides.
+function keepPageAboveStrip(strip) {
+    if (strip.dataset.padsPage !== undefined || typeof ResizeObserver === 'undefined') return;
+    strip.dataset.padsPage = '';
+    const root = document.documentElement;
+    new ResizeObserver(() => {
+        root.style.setProperty('--records-pending-height', `${strip.hidden ? 0 : strip.offsetHeight}px`);
+    }).observe(strip);
 }
 
 // Firefox keeps the disabled state of a <button> or <select> across a

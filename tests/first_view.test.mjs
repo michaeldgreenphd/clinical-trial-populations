@@ -199,10 +199,14 @@ function buildDocument() {
         if (!VOID.has(tag) && !m[4]) stack.push(el);
     }
     const rootClasses = new Set();
+    const rootStyle = {};
     focus.active = focus.body;
     const document = {
         get activeElement() { return focus.active; },
-        documentElement: { classList: { add: (c) => rootClasses.add(c), remove: (c) => rootClasses.delete(c), contains: (c) => rootClasses.has(c) } },
+        documentElement: {
+            classList: { add: (c) => rootClasses.add(c), remove: (c) => rootClasses.delete(c), contains: (c) => rootClasses.has(c) },
+            style: { setProperty: (k, v) => { rootStyle[k] = v; } }
+        },
         getElementById: (id) => byId.get(id) ?? null,
         querySelector: (sel) => query(null, sel)[0] ?? null,
         querySelectorAll: (sel) => query(null, sel),
@@ -216,7 +220,7 @@ function buildDocument() {
             };
         }
     };
-    return { document, byId, rootClasses };
+    return { document, byId, rootClasses, rootStyle };
 }
 
 // ── app.js in a vm ─────────────────────────────────────────────────────────
@@ -269,6 +273,7 @@ const SITE = [
     fnSource('async function firstViewOrFigure(summary)'),
     constLine('RECORDS_PENDING_CONTROLS'),
     fnSource('function setRecordsPending(on)'),
+    fnSource('function keepPageAboveStrip(strip)'),
     fnSource('function focusOffClosing(els)'),
     fnSource('function clearRestoredDisabled()'),
     fnSource('function settleFirstView()'),
@@ -301,8 +306,9 @@ const STARTUP_TAIL = (() => {
 // One page: index.html's controls at their defaults, the app's Overview
 // code, and switches for what the first view reads from the page around it.
 function page({ mobile = false, hash = '', search = '', runStamp = null, run = null, history = null, runDate = null } = {}) {
-    const { document, byId, rootClasses } = buildDocument();
+    const { document, byId, rootClasses, rootStyle } = buildDocument();
     const charts = [];
+    const observers = [];
     const frames = [];
     const timers = [];
     const warnings = [];
@@ -320,6 +326,12 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         },
         sgActive: () => false,
         URLSearchParams,
+        // A browser's ResizeObserver: fire() is the browser noticing a new size.
+        ResizeObserver: class {
+            constructor(callback) { this.callback = callback; observers.push(this); }
+            observe(target) { this.target = target; }
+            fire() { this.callback([{ target: this.target }]); }
+        },
         renderLoadingFigure: (s) => figures.push(s),
         hideLoadingOverlay: () => { const o = byId.get('loading-overlay'); if (o) o.classList.add('fade-out'); },
         fetchRun: async () => { sandbox.__runAsked = (sandbox.__runAsked || 0) + 1; return run; },
@@ -346,7 +358,7 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
     const run$ = (code) => vm.runInContext(code, context);
     const flushFrames = () => { while (frames.length) frames.shift()(); };
     return {
-        context, byId, charts, warnings, infos, figures, timers, rootClasses, run: run$, flushFrames,
+        context, byId, charts, warnings, infos, figures, timers, rootClasses, rootStyle, observers, run: run$, flushFrames,
         el: (id) => byId.get(id),
         text: (id) => { const e = byId.get(id); return { text: e.textContent, html: e.innerHTML }; },
         trendCharts: () => charts.filter((c) => c.canvas && c.canvas.id === 'reporting-trends-chart'),
@@ -892,6 +904,40 @@ test('a failed load after the first view says so in the strip and keeps the rest
         }
     }
     assert.ok(closed >= 14, `only ${closed} controls stayed closed`);
+});
+
+test('while the strip is up the page ends above it, so the footer\'s last link is not under it', async () => {
+    const records = syntheticRecords();
+    const p = page();
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    const strip = p.el('records-pending');
+    assert.equal(p.observers.length, 1, 'nothing follows the strip\'s height');
+    assert.equal(p.observers[0].target, strip);
+    strip.offsetHeight = 37;
+    p.observers[0].fire();
+    assert.equal(p.rootStyle['--records-pending-height'], '37px');
+    // A failure says more, and the line wraps.
+    p.run('firstViewFailed')(new Error(HTTP_404), () => {});
+    strip.offsetHeight = 57;
+    p.observers[0].fire();
+    assert.equal(p.rootStyle['--records-pending-height'], '57px');
+    // The strip shown again follows with the same observer.
+    p.run('setRecordsPending(true)');
+    assert.equal(p.observers.length, 1, 'a second observer');
+    // The records arrive and the strip goes after its moment: so does the padding.
+    p.loadRecords(records);
+    p.run('settleFirstView()');
+    p.timers.forEach((fn) => fn());
+    assert.equal(strip.hidden, true);
+    p.observers[0].fire();
+    assert.equal(p.rootStyle['--records-pending-height'], '0px');
+    // styles.css pads the page by it; without it (no first view) by nothing.
+    const css = read('styles.css');
+    assert.match(css, /\nhtml \{ scroll-padding-bottom: var\(--records-pending-height, 0px\); \}/);
+    assert.match(css, /\nbody \{ padding-bottom: var\(--records-pending-height, 0px\); \}/);
+    const q = page();
+    assert.equal(await q.run('firstViewOrFigure')(summaryWith(undefined)), false);
+    assert.equal(q.observers.length, 0);
 });
 
 test('a failed load on the loading screen keeps its error: parts still in flight do not write over it', async () => {
