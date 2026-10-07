@@ -439,7 +439,7 @@ test('the "View snapshot" control exists and loads from snapshots/', () => {
   assert.ok(label, 'index.html has no label for the #history-date snapshot selector');
   assert.equal(label[1].trim(), 'View snapshot:',
     `the docs call it the "View snapshot" control; the label now reads "${label[1].trim()}" — rename in both places or neither`);
-  matches(html, /<select id="history-date">/, 'index.html has no #history-date snapshot selector');
+  matches(html, /<select id="history-date"[^>]*>/, 'index.html has no #history-date snapshot selector');
   matches(read('app.js'), /getElementById\('history-date'\)/, 'app.js no longer drives the #history-date selector');
   matches(read('app.js'), /`snapshots\/\$\{/,
     'the docs say the snapshot control loads snapshots/; app.js no longer fetches from there');

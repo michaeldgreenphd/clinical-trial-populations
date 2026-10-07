@@ -257,6 +257,7 @@ const SITE = [
     constLine('RECORDS_PENDING_CONTROLS'),
     fnSource('function setRecordsPending(on)'),
     fnSource('function focusOffClosing(els)'),
+    fnSource('function clearRestoredDisabled()'),
     fnSource('function settleFirstView()'),
     fnSource('function firstViewFailed(err)'),
     fnSource('function startupFailed(err)'),
@@ -702,6 +703,39 @@ test('controls closed before the first view stay closed after it', async () => {
     p.run('settleFirstView()');
     assert.ok(beta.disabled);
     assert.equal(beta.title, 'Not yet');
+});
+
+test('controls a browser restored disabled across a reload open when the records arrive; ones closed on purpose stay closed', async () => {
+    // Firefox keeps a button's disabled state across a reload: a refresh
+    // during the wait brings the waiting controls back disabled, without
+    // the marks setRecordsPending puts on them.
+    const records = syntheticRecords();
+    const p = page();
+    const doc = p.context.document;
+    const waiting = WAITING.flatMap((sel) => doc.querySelectorAll(sel));
+    for (const el of waiting) el.disabled = true;
+    // One the page means to keep closed, and the filter panel's
+    // subcategory, which the app closes until a category is chosen.
+    const kept = doc.querySelector('.tab[data-tab="approval-queue"]');
+    kept.setAttribute('data-stays-disabled', '');
+    const sub = p.el('condition-secondary');
+    sub.disabled = true;
+    // Startup, as app.js runs it: the restored state is cleared first.
+    assert.ok(STARTUP.indexOf('clearRestoredDisabled();') >= 0 && STARTUP.indexOf('clearRestoredDisabled();') < STARTUP.indexOf('fetchLatestSummary().then(firstViewOrFigure,'),
+        'startup does not clear a restored disabled state before the first view can paint');
+    p.run('clearRestoredDisabled()');
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    p.loadRecords(records);
+    p.run('settleFirstView()');
+    for (const el of waiting) {
+        if (el === kept) continue;
+        assert.ok(!el.disabled, `${el.getAttribute('data-tab') || el.id} stays disabled after the records arrive`);
+    }
+    assert.ok(kept.disabled, 'a control marked data-stays-disabled was opened');
+    assert.ok(sub.disabled, 'the condition subcategory was opened');
+    // And Firefox is told not to keep the state: in the markup, and on
+    // whatever setRecordsPending disables.
+    for (const el of waiting) assert.equal(el.getAttribute('autocomplete'), 'off', `${el.getAttribute('data-tab') || el.id} has no autocomplete="off"`);
 });
 
 test('a failed load after the first view says so in the strip and keeps the rest closed', async () => {

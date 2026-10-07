@@ -1176,6 +1176,9 @@ function setRecordsPending(on) {
     if (on) focusOffClosing(controls);
     controls.forEach(el => {
         if (on && !el.disabled) {
+            // Firefox keeps a disabled state across a reload unless told not
+            // to (index.html says so too; clearRestoredDisabled).
+            el.setAttribute('autocomplete', 'off');
             el.disabled = true;
             el.dataset.waitsForRecords = '';
             el.setAttribute('aria-disabled', 'true');
@@ -1200,6 +1203,27 @@ function setRecordsPending(on) {
     if (text) text.textContent = 'Trial records loaded. Every tab is open.';
     strip.classList.add('is-done');
     setTimeout(() => { strip.hidden = true; }, 2500);
+}
+
+// Firefox keeps the disabled state of a <button> or <select> across a
+// reload (MDN, the disabled attribute), so a refresh while the records were
+// loading, or after they failed ("Refresh the page to try again"), could
+// bring the waiting controls back disabled, without the data-waits-for-
+// records mark setRecordsPending(false) opens them by: most of the page
+// would stay closed for good. index.html turns that off for them
+// (autocomplete="off"); this clears a state restored anyway, at startup,
+// before anything here disables them. None of them is meant to start
+// disabled: the controls the app disables on purpose are elsewhere (the
+// filter panel's on a phone, disableFiltersForMobile; the condition
+// subcategory until a category is chosen; the Industry tab's Gender view,
+// "Coming soon"). A control here that should start disabled carries
+// data-stays-disabled and is kept.
+function clearRestoredDisabled() {
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.disabled && el.dataset.staysDisabled === undefined && el.dataset.waitsForRecords === undefined) {
+            el.disabled = false;
+        }
+    });
 }
 
 // Keyboard focus on one of these controls, about to be disabled or hidden,
@@ -1275,6 +1299,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // (resolveDataCacheVersion); the condition ontology, which carries
         // no key, loads alongside. Every data fetch waits for the key too.
         const keyReady = dataKeyReady();
+        // Controls a browser brought back disabled from before a reload.
+        clearRestoredDisabled();
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
