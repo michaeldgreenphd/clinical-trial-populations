@@ -110,6 +110,7 @@ function populateConditionsDropdown() {}
 function populateCountriesDropdown() {}
 function populatePrimaryConditionDropdown() {}
 function renderDashboard() {}
+function renderIndustryAfterSwitch() {}   // no Industry view open (industry_switch.test.mjs)
 function labelChartsForA11y() {}
 function updateShareUrl() {}
 async function fetchLatestSummary() { return null; }
