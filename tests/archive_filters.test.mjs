@@ -821,8 +821,11 @@ test('the phone summary view: /#industry after FAQ keeps the Filters button hidd
 // (populateSecondaryConditionDropdown) and redrew the line from the reset
 // controls, and nothing redrew the Industry view. The chart and its count
 // kept a subcategory the controls no longer showed, often matching no rows.
-// Both listeners run here, in that order, over a select that resets its
-// value when its options are replaced, as a browser's does.
+// The Industry listener now resets the subcategory itself before it draws.
+// Both listeners run here, in page order (and reversed, and the Industry
+// listener alone, as tests/industry_filter_reset.test.mjs builds it), over a
+// select that resets its value when its options are replaced, as a
+// browser's does.
 const ONTOLOGY = { Oncology: { Breast: {}, Lung: {} }, Cardiology: { Heart: {} } };
 const CONDITION_ROWS = JSON.stringify({ primaries: ['Oncology', 'Cardiology'], secondaries: ['Breast', 'Lung', 'Heart'],
     trials: [[0, 0, 2015, 2011, 0, 0], [0, 0, 2016, 2011, 0, 1], [0, 0, 2017, 2011, 1, 2], [0, 0, 2018, 2011, 1, 2]] });
@@ -832,7 +835,7 @@ function industryListeners() {
     assert.ok(start > 0 && end > start, 'app.js lost the Industry view’s filter listeners');
     return app.slice(start, end);
 }
-function conditionHarness({ archive }) {
+function conditionHarness({ archive, order = 'page' }) {
     const h = harness();
     setControls(h);
     // Every listener a control gets, in the order they were added.
@@ -864,9 +867,11 @@ function conditionHarness({ archive }) {
         ${fnSource('function renderDashboard()')}
         ${fnSource('function initFilters()')}`);
     // DOMContentLoaded: the Industry view's listeners; then the load: initFilters.
+    const wiring = { page: `${industryListeners()}\ninitFilters();`,
+        reversed: `initFilters();\n${industryListeners()}`,
+        industryOnly: industryListeners() }[order];
     h.run(`document.querySelector = () => null; initFilterSummary();
-        ${industryListeners()}
-        initFilters();`);
+        ${wiring}`);
     h.run(`industryData = ${CONDITION_ROWS};`);
     if (archive) h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE_YEARS) + ';');
     h.el('industry').classList.add('active');
@@ -1045,3 +1050,20 @@ test('a step after the sponsor data parsed that throws is not a failed load', as
     assert.equal(h.text(), industryLine('2015–2027'));
     on(h, 'with the sponsor data held');
 });
+
+// Whichever listener runs first, and with only the Industry view's own (the
+// harness tests/industry_filter_reset.test.mjs builds), a new primary draws
+// the view once, with the subcategory at all.
+for (const order of ['reversed', 'industryOnly']) {
+    test(`a new primary condition redraws Industry once, without the old subcategory (${order})`, () => {
+        const h = conditionHarness({ archive: true, order });
+        h.pick('condition-primary', 'Oncology');
+        h.pick('condition-secondary', 'Breast');
+        assert.deepEqual(h.renders().at(-1), { pri: 'Oncology', sec: 'Breast', rows: 1 });
+        h.pick('condition-primary', 'Cardiology');
+        assert.equal(h.el('condition-secondary').value, 'all', 'the subcategory survived a new primary');
+        assert.deepEqual(h.renders(), [{ pri: 'Cardiology', sec: 'all', rows: 2 }],
+            'Industry did not draw the new condition once, with subcategory all');
+        assert.equal(h.run('industryFilteredRows().length'), 2);
+    });
+}

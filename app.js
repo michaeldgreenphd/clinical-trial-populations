@@ -3106,12 +3106,6 @@ function initFilters() {
                     populateSecondaryConditionDropdown(element.value);
                 }
                 renderDashboard();
-                // The Industry view reads both Condition controls too
-                // (industryFilteredRows). It redraws for a new primary here,
-                // once the subcategory has been reset, rather than from its
-                // own listener, which runs before this one and would draw the
-                // new condition with the old subcategory.
-                if (id === 'condition-primary' && industryActive()) renderIndustry();
                 updateActiveFilters();
                 updateShareUrl();   // the address bar is the share link; keep it current
             });
@@ -11813,11 +11807,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (industryActive()) renderIndustry();
         });
     });
-    // Re-render under the global filters this view honors. Not the primary
-    // condition: a new one resets the subcategory (initFilters' handler,
-    // which runs after this one), so that handler redraws the view.
-    ['year-start', 'year-end', 'condition-secondary'].forEach(id => {
+    // Re-render under the global filters this view honors.
+    ['year-start', 'year-end', 'condition-primary', 'condition-secondary'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => {
+            // A new primary condition always resets the subcategory to all
+            // (populateSecondaryConditionDropdown, from initFilters' handler).
+            // That handler is added after this one, so reset it here first:
+            // otherwise the view draws the new condition with the old
+            // subcategory, and nothing redraws it once the reset lands.
+            if (id === 'condition-primary') {
+                const sec = document.getElementById('condition-secondary');
+                if (sec) sec.value = 'all';
+            }
             if (industryActive()) renderIndustry();
         });
     });
