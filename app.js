@@ -3725,6 +3725,17 @@ function renderFilterSummary(total, unfiltered) {
         // with a noun phrase, as every line here does, since it follows the
         // fixed "Showing" label (index.html).
         if (btn && !btn.hidden && industryActive()) {
+            // The sponsor data did not load (loadIndustryView): the view
+            // shows an error, no sponsor data and nothing to filter, and the
+            // Filters button is off (syncFilterToggle). Before the load ends
+            // the line below stands, its open end in words.
+            if (industryLoadFailed) {
+                el.innerHTML = [
+                    'the Industry view without its sponsor data, which did not load',
+                    "other tabs show this archive's totals, unfiltered"
+                ].join(' · ');
+                return;
+            }
             // Only the heatmap and the trend draw industryFilteredRows(). The
             // Adjusted Differences view draws model estimates fitted over the
             // whole cohort, which its footnote says do not respond to the
@@ -3841,7 +3852,11 @@ function showFilterChrome(tabId) {
 // complete snapshot. The Industry Sponsors view is the exception: it always
 // draws the latest data/industry_sponsors.json under the global Year Range
 // and Condition filters, so the button stays on while that tab is open
-// (showFilterChrome calls this on every tab change).
+// (showFilterChrome calls this on every tab change), unless that data did
+// not load: then the controls have nothing to filter there either, and the
+// button is off until a load succeeds (loadIndustryView calls this on both
+// outcomes). On the latest data a failed sponsor load leaves the button on:
+// its controls still filter the dataset the line counts and the other tabs.
 // aria-disabled rather than the disabled attribute: the button stays in the
 // tab order, a screen reader announces it as dimmed, and its description is
 // the summary line that says why. The phone view hides the button altogether
@@ -3851,10 +3866,13 @@ function syncFilterToggle() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel || btn.hidden) return;
-    if (dashboardSummary && !industryActive()) {
+    const onIndustry = industryActive();
+    if (dashboardSummary && (!onIndustry || industryLoadFailed)) {
         btn.setAttribute('aria-disabled', 'true');
         btn.setAttribute('aria-describedby', 'filter-summary-text');
-        btn.title = 'Filters are off: ' + ARCHIVE_FILTERS_NOTE;
+        btn.title = 'Filters are off: ' + (onIndustry
+            ? "the Industry sponsor data did not load, and other tabs show this archive's totals, unfiltered"
+            : ARCHIVE_FILTERS_NOTE);
         if (!panel.hidden) {
             panel.hidden = true;
             btn.setAttribute('aria-expanded', 'false');
@@ -10728,6 +10746,7 @@ const INDUSTRY_GREY = '#6b7280';   // underrepresentation on race/ethnicity tier
 const INDUSTRY_TREND_MIN_N = 5;    // suppress sponsor-year medians under this n
 
 let industryData = null;           // parsed industry_sponsors.json
+let industryLoadFailed = false;    // the last load of it failed (HTTP error or not JSON); cleared by a load that succeeds
 let industrySelected = null;       // Set of selected sponsor names
 let industryView = 'heatmap';
 let industryRole = 'any';      // 'any' = lead & collaborator | 'lead' = lead-sponsored trials only
@@ -11664,14 +11683,16 @@ async function loadIndustryView() {
             const resp = await fetchChecked('data/industry_sponsors.json', d => d.source_extracted_at);
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
             industryData = await resp.json();
+            industryLoadFailed = false;
             industrySelected = new Set(industryTop10());
             renderIndustryCatRow();
             const cellMinInput = document.getElementById('industry-cellmin');
             if (cellMinInput && !cellMinInput.value) cellMinInput.value = industryData.min_cell || 10;
             applyIndustryShareParams();
             // A shared ?view= may have set the sub-view since openIndustryView
-            // drew the archive line.
-            redrawArchiveSummary();
+            // drew the archive line, and after a failed load the Filters
+            // button comes back on: the button and the line, redrawn.
+            syncFilterToggle();
             // After the route parameters, not before: the menu lists the top
             // 10 or every sponsor depending on scope, so a shared scope=all
             // link must build it once the scope is known, summary included.
@@ -11679,6 +11700,13 @@ async function loadIndustryView() {
             updateIndustryShareUrl();
         } catch (e) {
             updateIndustryShareUrl();   // #industry in the bar even if the fetch fails
+            // An HTTP error or a body that is not JSON: no sponsor data, so
+            // over an archive the line says so and the Filters button is off
+            // (renderFilterSummary, syncFilterToggle) until a load succeeds.
+            // Only while no sponsor data is held: a step after the parse that
+            // threw is not a failed load.
+            industryLoadFailed = !industryData;
+            syncFilterToggle();
             document.getElementById('industry-view-heatmap').innerHTML =
                 `<p class="note">Could not load the industry sponsor dataset (${escapeHtml(e.message)}). It is generated by the civicsample-engine pipeline during the weekly extraction.</p>`;
             return;

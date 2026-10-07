@@ -50,6 +50,8 @@ const SOURCES = [
     // The sponsor data, null until the Industry view loads it: an open end of
     // the Year Range names its newest results year (industryNewestResultsYear).
     line('let industryData = null;'),
+    // Whether its last load failed: the line and the button say so.
+    line('let industryLoadFailed = false;'),
     // The Year Range helpers the Industry view filters by (yearWindowEnds).
     app.slice(app.indexOf('const YEAR_WINDOW_MIN'), app.indexOf('function initFilters()'))
 ].join('\n');
@@ -571,8 +573,9 @@ test('before the sponsor data loads, an open end is said in words, never as the 
     assert.equal(h.text(), industryLine('from 2015'));
 
     // The load redraws the line (loadIndustryView, after it sets industryData).
+    // syncFilterToggle() redraws it, and sets the button a failed load turned off.
     assert.match(fnSource('async function loadIndustryView()'),
-        /industryData = await resp\.json\(\);[\s\S]*?redrawArchiveSummary\(\);/);
+        /industryData = await resp\.json\(\);[\s\S]*?syncFilterToggle\(\);/);
     h.run(`industryData = ${sponsorData([2012, 2027])}; redrawArchiveSummary();`);
     assert.equal(h.text(), industryLine('2015–2027'));
     // Each load names its own newest year.
@@ -910,3 +913,135 @@ test('off the Industry tab a primary-condition change draws no Industry view', (
     assert.deepEqual(h.renders(), []);
 });
 
+// The sponsor data failing to load over an archive (an HTTP error or a body
+// that is not JSON). loadIndustryView() leaves industryData null and puts an
+// error in the view; the line said "the latest sponsor data · results posted
+// …" and the Filters button stayed on, though no sponsor data was loaded and
+// the controls changed nothing. Three states now: loading (no data, no
+// failure yet: the line as before), loaded, and failed: a line that says the
+// sponsor data did not load and a greyed-out button that says why, until a
+// load succeeds.
+const FAILED_LINE = 'the Industry view without its sponsor data, which did not load · ' +
+    "other tabs show this archive's totals, unfiltered";
+function loadHarness({ archive = true, view = 'heatmap' } = {}) {
+    const h = harness();
+    if (archive) industryArchive(h, view, { start: '2015' });
+    else {
+        setControls(h, { start: '2015' });
+        h.run(`initFilterSummary(); industryView = '${view}';`);
+        h.el('industry').classList.add('active');
+    }
+    h.run(`const location = { hash: '#industry' };
+        let industryDemo = 'sex', industryCat = {}, industryBenchmark = 'cohort', industryRole = 'any',
+            industryScope = 'top10', industrySexSpecific = false, industryConditionMode = 'top',
+            industryConditionSelected = new Set(), industrySelected = null;
+        const INDUSTRY_CAT_LABELS = {}, INDUSTRY_SUBTITLES = {};
+        document.querySelectorAll = () => [];
+        function industryTop10() { return []; } function renderIndustryCatRow() {}
+        function renderIndustrySponsorMenu() {} function updateIndustryShareUrl() {}
+        let industryRenders = 0; function renderIndustry() { if (industryData) industryRenders++; }
+        let nextResponse = null;
+        async function fetchChecked() { return nextResponse; }
+        ${line('let industryRouteApplied = false;')}
+        ${fnSource('function applyIndustryShareParams()')}
+        ${fnSource('async function loadIndustryView()')}`);
+    const respond = (r) => h.run(`nextResponse = ${r};`);
+    return { ...h, respond, load: () => h.run('loadIndustryView()') };
+}
+const HTTP_500 = '{ ok: false, status: 500, json: async () => ({}) }';
+const BAD_JSON = "{ ok: true, status: 200, json: async () => { throw new SyntaxError('Unexpected token < in JSON at position 0'); } }";
+const GOOD = `{ ok: true, status: 200, json: async () => (${sponsorData([2012, 2027])}) }`;
+const off = (h, why) => {
+    assert.equal(h.btn.getAttribute('aria-disabled'), 'true', `the Filters button is on ${why}`);
+    assert.equal(h.btn.getAttribute('aria-describedby'), 'filter-summary-text', why);
+    assert.match(h.btn.title, /^Filters are off: the Industry sponsor data did not load/, why);
+};
+const on = (h, why) => {
+    assert.equal(h.btn.getAttribute('aria-disabled'), null, `the Filters button is off ${why}`);
+    assert.equal(h.btn.title, '', why);
+};
+
+for (const [name, failure] of [['an HTTP 500', HTTP_500], ['a body that is not JSON', BAD_JSON]]) {
+    test(`over an archive, ${name} for the sponsor data says so and greys out the button until a load succeeds`, async () => {
+        const h = loadHarness();
+        h.run('syncFilterToggle();');
+        // Loading: no data, no failure yet. Unchanged.
+        assert.equal(h.text(), industryLine('from 2015'));
+        on(h, 'while the sponsor data loads');
+
+        h.btn.click();
+        assert.equal(h.panel.hidden, false);
+        h.respond(failure);
+        await h.load();
+        assert.match(h.el('industry-view-heatmap').innerHTML, /Could not load the industry sponsor dataset/);
+        assert.equal(h.text(), FAILED_LINE, 'the line claims sponsor data that did not load');
+        off(h, 'after the sponsor data failed');
+        assert.equal(h.panel.hidden, true, 'the panel stayed open over controls that change nothing');
+        h.btn.click();
+        assert.equal(h.panel.hidden, true, 'the greyed-out button opened the panel');
+
+        // Every redraw keeps it: the forest sub-view, renderDashboard's line.
+        h.run("industryView = 'forest'; redrawArchiveSummary();");
+        assert.equal(h.text(), FAILED_LINE, 'the forest line claims sponsor data that did not load');
+        h.run("industryView = 'heatmap'; renderFilterSummary(77176, true);");
+        assert.equal(h.text(), FAILED_LINE);
+        // Another tab: the archive's own line and reason.
+        h.el('industry').classList.remove('active');
+        h.run('syncFilterToggle();');
+        assert.equal(h.text(), ARCHIVE_LINE);
+        assert.equal(h.btn.title, 'Filters are off: ' + 'this archive keeps totals only; filters apply to the latest data and the complete snapshots');
+
+        // Back on Industry, a failed retry keeps it; a successful one restores both.
+        h.el('industry').classList.add('active');
+        h.run('syncFilterToggle();');
+        assert.equal(h.text(), FAILED_LINE);
+        h.respond(failure);
+        await h.load();
+        assert.equal(h.text(), FAILED_LINE);
+        off(h, 'after a second failure');
+        h.respond(GOOD);
+        await h.load();
+        assert.equal(h.run('industryRenders'), 1);
+        assert.equal(h.text(), industryLine('2015–2027'), 'a successful load left the failure line');
+        on(h, 'after the sponsor data loaded');
+        h.btn.click();
+        assert.equal(h.panel.hidden, false, 'the Filters button does not open the panel after the load');
+    });
+}
+
+test('a failed sponsor load on the latest data keeps the line and the Filters button', async () => {
+    const h = loadHarness({ archive: false });
+    h.run('renderFilterSummary(1234); syncFilterToggle();');
+    const latest = '<b>1,234</b> trials · results posted <b>2015–2026</b> · all sponsors, purposes and conditions';
+    assert.equal(h.text(), latest);
+    h.respond(HTTP_500);
+    await h.load();
+    assert.equal(h.text(), latest);
+    on(h, 'on the latest data: its controls still filter the dataset the line counts');
+    // A later archive with Industry open shows the failure there.
+    h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + '; syncFilterToggle();');
+    assert.equal(h.text(), FAILED_LINE);
+    off(h, 'over an archive after the failure');
+});
+
+test('the phone summary view leaves its hidden button alone when the sponsor data fails', async () => {
+    const h = harness({ mobile: true, summary: ARCHIVE });
+    setControls(h);
+    h.run('initFilterSummary();');
+    h.el('industry').classList.add('active');
+    h.run(`industryLoadFailed = true; syncFilterToggle(); renderFilterSummary(77176, true);`);
+    assert.equal(h.btn.hidden, true);
+    assert.equal(h.btn.getAttribute('aria-disabled'), null);
+    assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
+});
+
+test('a step after the sponsor data parsed that throws is not a failed load', async () => {
+    const h = loadHarness();
+    h.run("renderIndustryCatRow = () => { throw new Error('cat row'); };");
+    h.respond(GOOD);
+    await h.load();
+    assert.match(h.el('industry-view-heatmap').innerHTML, /cat row/);
+    assert.equal(h.run('industryLoadFailed'), false, 'sponsor data that loaded is reported as not loaded');
+    assert.equal(h.text(), industryLine('2015–2027'));
+    on(h, 'with the sponsor data held');
+});

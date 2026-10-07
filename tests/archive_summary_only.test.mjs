@@ -76,6 +76,7 @@ const SOURCES = [
     fnSource('function syncFilterToggle()'),
     fnSource('function redrawArchiveSummary()'),
     fnSource('function industryActive()'),
+    slice('let industryLoadFailed', '\n'),
     fnSource('function refreshStudiesTab()'),
     slice('const ARCHIVE_NO_STUDY_LIST', '\n'),
     fnSource('function prepareStudiesTab()'),
