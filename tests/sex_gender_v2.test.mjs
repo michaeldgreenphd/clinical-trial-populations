@@ -310,7 +310,7 @@ test('the markup carries the v2 filters, the methods section and the anchors the
     // the legacy blocks are wrapped so the v2 blocks can replace them by class
     assert.equal((html.match(/class="sg-legacy"/g) || []).length, 2);
     // and the app wires the flag into the loader, the filters, the table and the tab renders
-    for (const needle of ['await sgLoad()', 'sgV2Filters = sgReadFilters()', 'return sgDimensionReported(study, field)', 'return sgDemographicCell(study, field)', 'return sgShowBreakdown(nctId, categoryName)', 'sgAfterRender(filtered)']) {
+    for (const needle of ['await sgLoad(opened || undefined)', 'sgV2Filters = sgReadFilters()', 'return sgDimensionReported(study, field)', 'return sgDemographicCell(study, field)', 'return sgShowBreakdown(nctId, categoryName)', 'sgAfterRender(filtered)']) {
         assert.ok(app.includes(needle), `app.js lost the hook: ${needle}`);
     }
 });
