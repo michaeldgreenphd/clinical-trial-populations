@@ -3686,12 +3686,16 @@ function renderFilterSummary(total, unfiltered) {
     const el = document.getElementById('filter-summary-text');
     if (!el) return;
 
-    // The phone view renders pre-computed aggregates of the whole dataset and
+    // A summary renders pre-computed aggregates of the whole dataset and
     // applies no filters, so reading the (desktop) controls here would claim
-    // a narrowing that was never applied.
+    // a narrowing that was never applied. On a phone that summary is the
+    // phone view; on desktop it is an aggregate archive, which keeps totals
+    // only (the Filters button is off there: syncFilterToggle).
     if (unfiltered) {
         el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
-            'the full dataset, unfiltered \u00b7 filters are a desktop feature';
+            'the full dataset, unfiltered \u00b7 ' + (isMobileDevice
+                ? 'filters are a desktop feature'
+                : ARCHIVE_FILTERS_NOTE);
         return;
     }
     const val = (id) => {
@@ -3727,22 +3731,55 @@ function renderFilterSummary(total, unfiltered) {
     el.innerHTML = parts.join(' \u00b7 ');
 }
 
+// Why the filters do nothing on a desktop aggregate archive: the summary
+// line says it, and the Filters button's tooltip repeats it.
+const ARCHIVE_FILTERS_NOTE = 'this archive keeps totals only; filters apply to the latest data and the complete snapshots';
+
 function initFilterSummary() {
     const btn = document.getElementById('filter-summary-toggle');
     const panel = document.getElementById('filters');
     if (!btn || !panel) return;
     if (dashboardSummary) { btn.hidden = true; return; }   // no panel to open
     btn.addEventListener('click', () => {
+        // Off while an aggregate archive is on screen (syncFilterToggle).
+        if (btn.getAttribute('aria-disabled') === 'true') return;
         const open = panel.hidden;
         panel.hidden = !open;
         btn.setAttribute('aria-expanded', String(open));
     });
 }
 
+// On desktop an aggregate archive keeps totals only, so the panel's controls
+// would change nothing there: the Filters button is greyed out and the panel
+// closed while one is on screen, and both come back on the latest data and a
+// complete snapshot. aria-disabled rather than the disabled attribute: the
+// button stays in the tab order, a screen reader announces it as dimmed, and
+// its description is the summary line that says why. The phone view hides
+// the button altogether (initFilterSummary).
+function syncFilterToggle() {
+    const btn = document.getElementById('filter-summary-toggle');
+    const panel = document.getElementById('filters');
+    if (!btn || !panel || isMobileDevice) return;
+    if (dashboardSummary) {
+        btn.setAttribute('aria-disabled', 'true');
+        btn.setAttribute('aria-describedby', 'filter-summary-text');
+        btn.title = 'Filters are off: ' + ARCHIVE_FILTERS_NOTE;
+        if (!panel.hidden) {
+            panel.hidden = true;
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    } else {
+        btn.removeAttribute('aria-disabled');
+        btn.removeAttribute('aria-describedby');
+        btn.removeAttribute('title');
+    }
+}
+
 function renderDashboard() {
     if (!data && !dashboardSummary) return;
 
     showDashboardSpinner();
+    syncFilterToggle();
 
     // ── Mobile summary path: use pre-computed aggregates ──
     if (dashboardSummary) {

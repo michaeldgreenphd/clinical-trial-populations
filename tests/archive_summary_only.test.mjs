@@ -17,12 +17,15 @@
  * snapshots/2026-03-29/dashboard-summary.json. Every part request answers
  * 404, as it does on the site; anything else the page asks for is recorded,
  * so a fetch of study records or details for this archive fails the test.
- * Chart drawing and the filter controls are stubbed: they are not under test.
+ * Chart drawing and the filter controls are stubbed: they are not under test,
+ * apart from the Filters button, which is off while an aggregate archive is
+ * on screen (archive_filters.test.mjs).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import vm from 'node:vm';
+import { gzipSync } from 'node:zlib';
 
 const root = new URL('../', import.meta.url);
 const app = readFileSync(new URL('app.js', root), 'utf8');
@@ -67,6 +70,10 @@ const SOURCES = [
     fnSource('function retainSnapshots(onScreen)'),
     fnSource('function setDataPulledDate(iso)'),
     fnSource('function renderDashboard()'),
+    // The Filters button follows the dataset on screen (archive_filters).
+    slice('const ARCHIVE_FILTERS_NOTE', '\n'),
+    fnSource('function initFilterSummary()'),
+    fnSource('function syncFilterToggle()'),
     fnSource('function refreshStudiesTab()'),
     slice('const ARCHIVE_NO_STUDY_LIST', '\n'),
     fnSource('function prepareStudiesTab()'),
@@ -125,6 +132,9 @@ function element(id) {
         querySelector(sel) { return (kids[sel] ||= element(`${id} ${sel}`)); },
         querySelectorAll() { return []; },
         setAttribute(k, v) { this.attrs[k] = String(v); },
+        getAttribute(k) { return k in this.attrs ? this.attrs[k] : null; },
+        removeAttribute(k) { delete this.attrs[k]; },
+        click() { if (this.listeners && this.listeners.click) this.listeners.click(); },
         contains() { return false; },
         focus() {},
         appendChild(o) { this.options.push(o); },
@@ -137,7 +147,7 @@ const FDA_SUBS = ['fda-regulated-sub', 'fda-drug-sub', 'fda-device-sub', 'fda-no
 
 // The page on Latest (two records, cached, as after start-up), with the given
 // tab open and the FDA tiles showing Latest's numbers.
-function harness({ activeTab = 'overview' } = {}) {
+function harness({ activeTab = 'overview', served = {} } = {}) {
     const requests = [];
     const toasts = [];
     const els = {};
@@ -158,7 +168,7 @@ function harness({ activeTab = 'overview' } = {}) {
     };
     const context = vm.createContext({
         console: { log() {}, warn() {}, error() {} },
-        Response, setTimeout, clearTimeout,
+        Response, DecompressionStream, setTimeout, clearTimeout,
         requestAnimationFrame: (fn) => { setImmediate(fn); return 1; }, cancelAnimationFrame() {},
         LATEST_RUN_STAMP: null, SMALL_FILE_WAIT_MS: 50, hasDecompressionStream: true,
         isMobileDevice: false, window: {}, location: { reload() {} }, document,
@@ -168,6 +178,7 @@ function harness({ activeTab = 'overview' } = {}) {
         fetch: async (url) => {
             const path = url.replace(/\?v=.*$/, '');
             requests.push(path);
+            if (served[path]) return new Response(served[path], { status: 200 });
             // The archive keeps no parts; nothing but its summary is served.
             if (/\/demographics\.part\d+\.json\.gz$/.test(path) || path !== SUMMARY_PATH) return new Response('', { status: 404 });
             const file = new URL(path, root);
@@ -298,6 +309,54 @@ test('the error-recovery reload opens 2026-03-29 too', async () => {
     assert.ok(h.calls.render >= 1, 'loadDataAndRender drew nothing for the archive');
     assert.equal(h.calls.syncYearWindow, 1);
     assert.equal(h.el('total-studies').textContent, '77,176');
+});
+
+test('the Filters button is off on the archive and back on the latest data and on a complete snapshot', async () => {
+    // A complete snapshot: eight small parts with no layout (read inline).
+    const COMPLETE = '2026-08-02';
+    assert.ok(history.dates.includes(COMPLETE));
+    const served = {};
+    for (let i = 1; i <= 8; i++) {
+        served[`snapshots/${COMPLETE}/demographics.part${i}.json.gz`] =
+            gzipSync(JSON.stringify({ data: [{ nct_id: `NCT0000010${i}`, race: { reported: true }, sex: { reported: true }, ethnicity: { reported: false } }] }));
+    }
+    const h = harness({ served });
+    const btn = h.el('filter-summary-toggle');
+    const panel = h.el('filters');
+    panel.hidden = true;
+    btn.setAttribute('aria-expanded', 'false');
+    h.run('initFilterSummary()');
+    await h.run('initHistorySelector()');
+    btn.click();
+    assert.equal(panel.hidden, false, 'the button does not open the panel on Latest');
+
+    const off = (where) => {
+        assert.equal(btn.getAttribute('aria-disabled'), 'true', `the button is not off ${where}`);
+        assert.equal(panel.hidden, true, `the panel stays open ${where}`);
+        assert.equal(btn.getAttribute('aria-expanded'), 'false', where);
+        btn.click();
+        assert.equal(panel.hidden, true, `the button opens the panel ${where}`);
+    };
+    const on = (where) => {
+        assert.equal(btn.getAttribute('aria-disabled'), null, `the button is still off ${where}`);
+        btn.click();
+        assert.equal(panel.hidden, false, `the button does not open the panel ${where}`);
+        btn.click();
+    };
+
+    await h.choose(DATE);
+    off(`on ${DATE}`);
+    await h.choose('latest');
+    assert.equal(h.run('dashboardSummary'), null);
+    on('back on Latest');
+    await h.choose(DATE);
+    off(`on ${DATE} again`);
+    await h.choose(COMPLETE);
+    assert.deepEqual(errors(h), []);
+    assert.equal(h.select.value, COMPLETE);
+    assert.equal(h.run('dashboardSummary'), null, `${COMPLETE} did not load from its parts`);
+    assert.equal(h.run('data.length'), 8);
+    on(`on the complete snapshot ${COMPLETE}`);
 });
 
 test('the chart note for an archive without an FDA block is in the page, hidden', () => {
