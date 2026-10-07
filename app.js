@@ -1633,6 +1633,41 @@ async function fetchAndDecompress(url, onProgress, init) {
     return json;
 }
 
+// The parts that did not load (a 4xx after its second request, a 5xx, the
+// connection, a body that could not be read): their next request, a Try
+// again's, goes past the browser cache. A part leaves the set when it loads.
+const PARTS_PAST_CACHE = new Set();
+
+// One part of the latest dataset (loadData). A 4xx is asked for once more past the
+// browser cache before it counts as missing, as fetchSidecar does for the
+// Studies-tab and detail files: Cloudflare sends max-age=14400 with a 404
+// as well, so a part missing for a moment (mid-deploy) would otherwise stay
+// missing in this browser for four hours, through every refresh. A part in
+// PARTS_PAST_CACHE goes past the cache on its first request, and that is its
+// only one. init: the fetch options (loadData's abort signal).
+async function fetchPart(url, onProgress, init) {
+    const pastCache = { ...init, cache: 'reload' };
+    const fresh = PARTS_PAST_CACHE.has(url);
+    let body;
+    try {
+        try {
+            body = await fetchAndDecompress(url, onProgress, fresh ? pastCache : init);
+        } catch (err) {
+            const status = err && err.status;
+            if (fresh || !(status >= 400 && status < 500)) throw err;
+            console.warn(`${url}: HTTP ${status}; fetching it again past the cache`);
+            body = await fetchAndDecompress(url, onProgress, pastCache);
+        }
+    } catch (err) {
+        // A part stopped because another failed (loadData aborts the rest)
+        // did not fail itself: its next request may use the cache.
+        if (!(init && init.signal && init.signal.aborted)) PARTS_PAST_CACHE.add(url);
+        throw err;
+    }
+    PARTS_PAST_CACHE.delete(url);
+    return body;
+}
+
 // ── Study details on demand ─────────────────────────────────────────────
 // A study record's fields come in three classes (tests/record_contract.json):
 // core, read over every record at load; studies_tab, read by the Studies
@@ -2633,10 +2668,15 @@ async function loadData(date) {
             const queueProgress = () => {
                 if (!frame) frame = requestAnimationFrame(showProgress);
             };
+            // The latest parts go through fetchPart (a 4xx is asked for
+            // again past the cache). A snapshot's parts are fixed once it is
+            // listed: one that answers 404 is a summary-only archive, read
+            // below, and is not asked for twice.
+            const fetchOne = date ? fetchAndDecompress : fetchPart;
             // No array of the part promises is kept: it would hold the
             // payloads after a stale part is dropped for its refetch.
             let parts = await Promise.all(strategy.urls.map((url, i) => {
-                return fetchAndDecompress(url, (got, total) => {
+                return fetchOne(url, (got, total) => {
                     loaded[i] = got;
                     totals[i] = total;
                     queueProgress();

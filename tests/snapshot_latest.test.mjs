@@ -42,6 +42,9 @@ const SOURCES = [
     fnSource('function datasetKey(date)'),
     fnSource('function datasetBase(key)'),
     fnSource('function getUrlStrategies(date)'),
+    // loadData's part fetch: a 4xx is asked for again past the cache.
+    'const PARTS_PAST_CACHE = new Set();',
+    fnSource('async function fetchPart(url, onProgress, init)'),
     fnSource('async function loadData(date)'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
