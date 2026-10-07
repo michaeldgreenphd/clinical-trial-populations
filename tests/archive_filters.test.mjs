@@ -327,7 +327,7 @@ function renderEthnicityReportedParticipants() {} function renderEthnicityFullDi
 function renderSexReportedParticipants() {} function renderSexFullDistribution() {} function renderSexDistribution() {}
 function renderSexTrends() {} function renderGenderReportedParticipants() {} function renderGenderFullDistribution() {}
 function renderGenderDistribution() {} function renderGenderTrends() {} function renderGeographyDashboard() {}
-function renderFdaOversight() {} function refreshStudiesTab() {}
+function renderFdaOversight() {} function refreshStudiesTab() {} function renderIndustry() {}
 function sgActive() { return false; } function sgApplyMode() {} function sgAfterRender() {}
 let data = [];
 `;
@@ -809,3 +809,104 @@ test('the phone summary view: /#industry after FAQ keeps the Filters button hidd
     assert.equal(h.panel.hidden, true, 'the phone summary view opened the panel');
     assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
 });
+
+// Changing the primary condition with a subcategory set. The Industry view
+// registers its change listeners at DOMContentLoaded, before the data loads
+// and initFilters() adds its own, so on #condition-primary the Industry
+// listener ran first and drew the chart from the new condition and the old
+// subcategory; initFilters' handler then reset the subcategory to all
+// (populateSecondaryConditionDropdown) and redrew the line from the reset
+// controls, and nothing redrew the Industry view. The chart and its count
+// kept a subcategory the controls no longer showed, often matching no rows.
+// Both listeners run here, in that order, over a select that resets its
+// value when its options are replaced, as a browser's does.
+const ONTOLOGY = { Oncology: { Breast: {}, Lung: {} }, Cardiology: { Heart: {} } };
+const CONDITION_ROWS = JSON.stringify({ primaries: ['Oncology', 'Cardiology'], secondaries: ['Breast', 'Lung', 'Heart'],
+    trials: [[0, 0, 2015, 2011, 0, 0], [0, 0, 2016, 2011, 0, 1], [0, 0, 2017, 2011, 1, 2], [0, 0, 2018, 2011, 1, 2]] });
+function industryListeners() {
+    const start = app.indexOf('    // Re-render under the global filters this view honors.');
+    const end = app.indexOf('    // Leaving via the nav clears the hash');
+    assert.ok(start > 0 && end > start, 'app.js lost the Industry view’s filter listeners');
+    return app.slice(start, end);
+}
+function conditionHarness({ archive }) {
+    const h = harness();
+    setControls(h);
+    // Every listener a control gets, in the order they were added.
+    for (const id of ['year-start', 'year-end', 'condition-primary', 'condition-secondary']) {
+        const e = h.el(id);
+        e.addEventListener = (type, fn) => {
+            const prev = e.listeners[type];
+            e.listeners[type] = prev ? (...a) => { prev(...a); fn(...a); } : fn;
+        };
+    }
+    let secValue = 'all';
+    Object.defineProperty(h.el('condition-secondary'), 'innerHTML', {
+        get: () => '', set: () => { secValue = 'all'; }
+    });
+    Object.defineProperty(h.el('condition-secondary'), 'value', {
+        get: () => secValue, set: (v) => { secValue = String(v); }
+    });
+    h.run(DASHBOARD_STUBS.replace('function populateSecondaryConditionDropdown() {} ', '') +
+        `const CONDITION_ONTOLOGY = ${JSON.stringify(ONTOLOGY)};
+        document.createElement = () => ({}); document.getElementById('condition-secondary').appendChild = () => {};
+        ${fnSource('function populateSecondaryConditionDropdown(selectedPrimary)')}
+        ${SPONSOR_ROWS}
+        const industryRenders = [];
+        function renderIndustry() {
+            if (!industryData) return;
+            industryRenders.push({ pri: document.getElementById('condition-primary').value,
+                sec: document.getElementById('condition-secondary').value, rows: industryFilteredRows().length });
+        }
+        ${fnSource('function renderDashboard()')}
+        ${fnSource('function initFilters()')}`);
+    // DOMContentLoaded: the Industry view's listeners; then the load: initFilters.
+    h.run(`document.querySelector = () => null; initFilterSummary();
+        ${industryListeners()}
+        initFilters();`);
+    h.run(`industryData = ${CONDITION_ROWS};`);
+    if (archive) h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE_YEARS) + ';');
+    h.el('industry').classList.add('active');
+    const pick = (id, v) => { h.el(id).value = v; h.el(id).listeners.change(); };
+    const renders = () => JSON.parse(h.run('JSON.stringify(industryRenders.splice(0))'));
+    return { ...h, pick, renders };
+}
+
+for (const archive of [true, false]) {
+    test(`a new primary condition redraws Industry once, without the old subcategory (${archive ? 'archive' : 'latest data'})`, () => {
+        const h = conditionHarness({ archive });
+        h.pick('condition-primary', 'Oncology');
+        h.pick('condition-secondary', 'Breast');
+        assert.deepEqual(h.renders().at(-1), { pri: 'Oncology', sec: 'Breast', rows: 1 });
+        if (archive) assert.equal(h.text(), industryLine('2009–2018', 'condition <b>Oncology</b> · subcategory <b>Breast</b>'));
+
+        h.pick('condition-primary', 'Cardiology');
+        assert.equal(h.el('condition-secondary').value, 'all', 'the subcategory survived a new primary');
+        const renders = h.renders();
+        assert.equal(renders.length, 1, `Industry drew ${renders.length} times for one change`);
+        assert.deepEqual(renders[0], { pri: 'Cardiology', sec: 'all', rows: 2 },
+            'Industry drew the new condition with the old subcategory');
+        assert.equal(h.run('industryFilteredRows().length'), renders[0].rows);
+        if (archive) assert.equal(h.text(), industryLine('2009–2018', 'condition <b>Cardiology</b>'));
+        else assert.match(h.text(), /condition <b>Cardiology<\/b>$/);
+
+        // Back to all: one draw, both controls at all.
+        h.pick('condition-primary', 'all');
+        assert.deepEqual(h.renders(), [{ pri: 'all', sec: 'all', rows: 4 }]);
+        // The other controls the view honours still redraw it once.
+        h.pick('condition-primary', 'Oncology');
+        h.renders();
+        h.pick('condition-secondary', 'Lung');
+        assert.deepEqual(h.renders(), [{ pri: 'Oncology', sec: 'Lung', rows: 1 }]);
+        h.pick('year-start', '2016');
+        assert.equal(h.renders().length, 1);
+    });
+}
+
+test('off the Industry tab a primary-condition change draws no Industry view', () => {
+    const h = conditionHarness({ archive: true });
+    h.el('industry').classList.remove('active');
+    h.pick('condition-primary', 'Oncology');
+    assert.deepEqual(h.renders(), []);
+});
+
