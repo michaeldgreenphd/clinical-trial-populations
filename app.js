@@ -1433,6 +1433,17 @@ function openRecordFreeTabs() {
 // only while that summary is on screen (phoneFirstViewOnScreen).
 let phoneFirstView = null;
 
+// The study-type option the desktop opens on: the one index.html marks
+// selected (defaultSelected), not the control's live value, which a browser
+// that restores form state on reload may have changed. A phone applies no
+// filters, so this is the view its numbers are of. (The desktop's first
+// view reads the live value: the desktop's records apply it.)
+function defaultStudyTypeOption() {
+    const type = document.getElementById('study-type');
+    if (!type || !type.options.length) return null;
+    return Array.from(type.options).find(o => o.defaultSelected) || type.options[0];
+}
+
 // Why a phone's Overview cannot paint from this summary's block, or null
 // when it can. run is data/run.json when it answered (else null). Phones
 // apply no filters and no filter links, so the desktop's link and control
@@ -1442,8 +1453,8 @@ function phoneFirstViewProblem(summary, run) {
     const unusable = firstViewSummaryProblem(summary, run);
     if (unusable) return unusable;
     const f = summary.firstView.filter;
-    const type = document.getElementById('study-type');
-    if (!type || type.selectedIndex < 0 || type.value !== f.study_type) return 'the block’s study type is not the desktop’s default';
+    const type = defaultStudyTypeOption();
+    if (!type || type.value !== f.study_type) return 'the block’s study type is not the desktop’s default';
     if (f.results_year_from !== YEAR_WINDOW_MIN) return 'the block’s first results year is not the desktop’s default';
     return null;
 }
@@ -1454,10 +1465,7 @@ async function phoneFirstViewFor(summary) {
     try {
         const run = LATEST_RUN_STAMP ? await fetchRun() : null;   // answered already: no new request
         const problem = phoneFirstViewProblem(summary, run);
-        if (!problem) {
-            const type = document.getElementById('study-type');
-            return { summary, block: summary.firstView, studyType: type.options[type.selectedIndex].text };
-        }
+        if (!problem) return { summary, block: summary.firstView, studyType: defaultStudyTypeOption().text };
         if (summary && summary.firstView !== undefined) console.info(`The phone Overview counts all study types: ${problem}`);
     } catch (err) {
         console.warn('The phone Overview could not read the firstView block:', err);

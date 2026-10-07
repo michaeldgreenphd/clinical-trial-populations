@@ -194,7 +194,7 @@ function buildDocument() {
             const options = [...body.matchAll(/<option(\s[^>]*)?>([\s\S]*?)<\/option>/g)].map((o) => {
                 const a = attributes(o[1]);
                 const text = decode(o[2].replace(/<[^>]*>/g, '')).replace(/\s+/g, ' ').trim();
-                return { value: 'value' in a ? a.value : text, text, selected: 'selected' in a };
+                return { value: 'value' in a ? a.value : text, text, selected: 'selected' in a, defaultSelected: 'selected' in a };
             });
             let index = Math.max(options.findIndex((o) => o.selected), options.length ? 0 : -1);
             // As a browser's: an appended <option> joins the list.
@@ -1708,4 +1708,32 @@ test('a desktop paints exactly as before: its first view, and an archive summary
         'function renderPhoneScope()', 'function phoneOverview()', 'function paintOverviewFromBlock(b, years)']) {
         assert.doesNotMatch(fnSource(sig), /dashboardSummary\s*=[^=]/, `${sig} assigns dashboardSummary`);
     }
+});
+
+test('a phone checks the block against the declared default study type, not a restored control', async () => {
+    // A browser that restores form state on reload can bring back a study
+    // type chosen on a desktop-width window (All). A phone applies no
+    // filters, so its Overview is still the default view, and the block,
+    // which counts that view, still paints it.
+    const restored = async (value) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        p.el('study-type').value = value;
+        assert.equal(p.el('study-type').value, value, 'the stub did not restore the control');
+        await p.run('(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = __summary; data = __summary.recentStudies || []; renderDashboard(); })()');
+        p.flushFrames();
+        return p;
+    };
+    for (const value of ['all', 'OBSERVATIONAL']) {
+        const p = await restored(value);
+        assert.equal(p.text('total-studies').text, '75,607', `a restored ${value}`);
+        assert.equal(p.text('race-reporting').text, '58.9%', `a restored ${value}`);
+        assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`, `a restored ${value}`);
+        same(p.infos, [], `a restored ${value}`);
+    }
+    // The declared default is still what the block must match.
+    const p = page({ mobile: true });
+    p.run("document.getElementById('study-type').options.forEach(o => { o.defaultSelected = o.value === 'all'; });");
+    assert.equal(p.run('phoneFirstViewProblem')(phoneSummary(), stampsOf(PHONE_SUMMARY)), 'the block’s study type is not the desktop’s default');
 });
