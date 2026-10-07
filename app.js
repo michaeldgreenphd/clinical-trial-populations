@@ -4093,6 +4093,10 @@ function resetFilters() {
     });
 
     renderDashboard();
+    // The values above are set without a 'change' event, so the listeners
+    // that redraw the Industry view under the Year Range and Condition
+    // filters never fire; redraw it here (the chips' × does the same).
+    if (industryActive()) renderIndustry();
     updateActiveFilters();
     updateShareUrl();
 }
@@ -4234,6 +4238,7 @@ function removeFilter(button, event) {
     if (tag._resetFn) {
         tag._resetFn();
         renderDashboard();
+        if (industryActive()) renderIndustry();   // no 'change' fired (resetFilters)
         updateActiveFilters();
         updateShareUrl();   // the chip is gone; the address must not still carry it
     }
