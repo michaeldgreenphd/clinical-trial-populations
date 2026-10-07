@@ -297,20 +297,26 @@ test('a dropped snapshot’s reader, extras and shards are let go; the latest’
 
 // ── Where the cache is pruned, in app.js itself ──
 
-test('the cache is pruned only by retainSnapshots and the failed switch, never when a dataset is stored', () => {
+test('the cache is pruned only by retainSnapshots, the failed switch and a re-read run.json, never when a dataset is stored', () => {
     const retain = fnSource('function retainSnapshots(onScreen)');
     const selector = fnSource('async function initHistorySelector()');
+    // A second read of data/run.json drops latest data cached from another
+    // run (snapshot_link.test.mjs), so data/ is read again.
+    const adopt = fnSource('function adoptRecheckedRun(run)');
     const all = (re) => [...app.matchAll(re)].map((m) => m.index);
     const inside = (at, src) => { const from = app.indexOf(src); return at >= from && at < from + src.length; };
 
     const deletes = all(/snapshotCache\.delete\(/g);
-    assert.equal(deletes.length, 2, 'snapshotCache is pruned somewhere new');
+    assert.equal(deletes.length, 3, 'snapshotCache is pruned somewhere new');
     assert.equal(deletes.filter((at) => inside(at, retain)).length, 1);
     assert.equal(deletes.filter((at) => inside(at, selector)).length, 1);
+    assert.equal(deletes.filter((at) => inside(at, adopt)).length, 1);
     assert.equal(all(/snapshotCache\.clear\(/g).length, 0);
     const sgDeletes = all(/sgCache\.(delete|clear)\(/g);
-    assert.equal(sgDeletes.length, 1);
-    assert.ok(inside(sgDeletes[0], retain), 'sgCache is pruned outside retainSnapshots');
+    assert.equal(sgDeletes.length, 2);
+    assert.equal(sgDeletes.filter((at) => inside(at, retain)).length, 1, 'sgCache is pruned outside retainSnapshots');
+    assert.equal(sgDeletes.filter((at) => inside(at, adopt)).length, 1);
+    assert.match(adopt, /snapshotCache\.delete\('latest'\);\s*sgCache\.delete\('latest'\);/);
 
     const load = fnSource('async function loadData(date)').replace(/^\s*\/\/.*$/gm, '');
     assert.doesNotMatch(load, /retainSnapshots|\.delete\(/, 'loadData prunes when it stores a dataset');
