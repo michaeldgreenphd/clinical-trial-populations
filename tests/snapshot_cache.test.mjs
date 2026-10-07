@@ -81,6 +81,7 @@ function renderDashboard() {
     if (renderFails === key) throw new Error('render failed');
     renders.push(key);
 }
+function renderIndustryAfterSwitch() {}   // no Industry view open (industry_switch.test.mjs)
 function labelChartsForA11y() {}
 function updateShareUrl() {}
 function showToast() {}

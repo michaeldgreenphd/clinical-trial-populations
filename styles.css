@@ -755,6 +755,13 @@ main {
 .filter-summary-toggle::after { content: ' \25be'; opacity: 0.7; }
 .filter-summary-toggle[aria-expanded="true"]::after { content: ' \25b4'; }
 .filter-summary-toggle:hover { background: var(--surface-sunk); }
+/* Off on a desktop aggregate archive (app.js syncFilterToggle); still
+   focusable, so it keeps its focus ring. */
+.filter-summary-toggle[aria-disabled="true"] {
+    color: var(--text-secondary);
+    cursor: not-allowed;
+}
+.filter-summary-toggle[aria-disabled="true"]:hover { background: none; }
 .filter-summary-toggle:focus-visible {
     outline: 2px solid var(--primary-color);
     outline-offset: 2px;
