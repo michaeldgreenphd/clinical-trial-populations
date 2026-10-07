@@ -39,6 +39,7 @@ function line(start) {
 const SOURCES = [
     line('const ARCHIVE_FILTERS_NOTE'),
     fnSource('function renderFilterSummary(total, unfiltered)'),
+    fnSource('function renderUnfilteredFilterSummary(el, total)'),
     fnSource('function initFilterSummary()'),
     fnSource('function syncFilterToggle()'),
     line('const NO_FILTER_TABS'),

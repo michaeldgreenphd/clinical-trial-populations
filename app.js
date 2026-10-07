@@ -4415,65 +4415,7 @@ function renderFilterSummary(total, unfiltered) {
     // runs the full page, it is an aggregate archive, which keeps totals
     // only (the Filters button is off there: syncFilterToggle).
     if (unfiltered) {
-        const btn = document.getElementById('filter-summary-toggle');
-        // Except on the Industry Sponsors view: it draws the latest sponsor
-        // data under the Year Range and Condition controls whatever archive
-        // is on screen, so the line says that, read from the controls
-        // industryFilteredRows reads. A thumb at the window's end is no upper
-        // bound there (yearWindowEnds): the view then keeps sponsor trials
-        // posted after the archive's last year, where syncYearWindow clamps
-        // that thumb, so the line names the newest results year the sponsor
-        // data reaches, or, before it loads, the open end in words. It opens
-        // with a noun phrase, as every line here does, since it follows the
-        // fixed "Showing" label (index.html).
-        if (btn && !btn.hidden && industryActive()) {
-            // The sponsor data did not load (loadIndustryView): the view
-            // shows an error, no sponsor data and nothing to filter, and the
-            // Filters button is off (syncFilterToggle). Before the load ends
-            // the line below stands, its open end in words.
-            if (industryLoadFailed) {
-                el.innerHTML = [
-                    'the Industry view without its sponsor data, which did not load',
-                    "other tabs show this archive's totals, unfiltered"
-                ].join(' · ');
-                return;
-            }
-            // Only the heatmap and the trend draw industryFilteredRows(). The
-            // Adjusted Differences view draws model estimates fitted over the
-            // whole cohort, which its footnote says do not respond to the
-            // year/condition filters (renderIndustryForest), so its line
-            // claims no narrowing. A sub-view switch redraws the line
-            // (redrawArchiveSummary).
-            if (industryView === 'forest') {
-                el.innerHTML = [
-                    'the latest sponsor data',
-                    'adjusted estimates over all years and conditions',
-                    "other tabs show this archive's totals, unfiltered"
-                ].join(' \u00b7 ');
-                return;
-            }
-            const { start, end } = yearWindowEnds();
-            const newest = end === Infinity ? industryNewestResultsYear() : null;
-            const years = end !== Infinity ? `<b>${escapeHtml(start + '\u2013' + end)}</b>`
-                : newest && newest >= start ? `<b>${escapeHtml(start + '\u2013' + newest)}</b>`
-                : `from <b>${escapeHtml(String(start))}</b>`;
-            const pri = document.getElementById('condition-primary')?.value || 'all';
-            const sec = document.getElementById('condition-secondary')?.value || 'all';
-            const conditions = [];
-            if (pri !== 'all') conditions.push(`condition <b>${escapeHtml(pri)}</b>`);
-            if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
-            el.innerHTML = [
-                'the latest sponsor data',
-                `results posted ${years}`,
-                ...(conditions.length ? conditions : ['all conditions']),
-                "other tabs show this archive's totals, unfiltered"
-            ].join(' \u00b7 ');
-            return;
-        }
-        el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
-            'the full dataset, unfiltered \u00b7 ' + (btn && btn.hidden
-                ? 'filters are a desktop feature'
-                : ARCHIVE_FILTERS_NOTE);
+        renderUnfilteredFilterSummary(el, total);
         return;
     }
     const val = (id) => {
@@ -4507,6 +4449,75 @@ function renderFilterSummary(total, unfiltered) {
     else parts.push('all sponsors, purposes and conditions');
 
     el.innerHTML = parts.join(' \u00b7 ');
+}
+
+// The line over a summary (renderFilterSummary, unfiltered). Its own
+// function, called as a statement: before every weekly publish the
+// engine's first-view gate (civicsample-engine scripts/first_view_parity.mjs)
+// runs renderFilterSummary in a vm with app.js's other functions stubbed
+// and none of its top-level values, and this line reads the Industry
+// view's state and ARCHIVE_FILTERS_NOTE, which would stop the publish.
+// The gate compares the filter line only with no summary on screen.
+function renderUnfilteredFilterSummary(el, total) {
+    const btn = document.getElementById('filter-summary-toggle');
+    // Except on the Industry Sponsors view: it draws the latest sponsor
+    // data under the Year Range and Condition controls whatever archive
+    // is on screen, so the line says that, read from the controls
+    // industryFilteredRows reads. A thumb at the window's end is no upper
+    // bound there (yearWindowEnds): the view then keeps sponsor trials
+    // posted after the archive's last year, where syncYearWindow clamps
+    // that thumb, so the line names the newest results year the sponsor
+    // data reaches, or, before it loads, the open end in words. It opens
+    // with a noun phrase, as every line here does, since it follows the
+    // fixed "Showing" label (index.html).
+    if (btn && !btn.hidden && industryActive()) {
+        // The sponsor data did not load (loadIndustryView): the view
+        // shows an error, no sponsor data and nothing to filter, and the
+        // Filters button is off (syncFilterToggle). Before the load ends
+        // the line below stands, its open end in words.
+        if (industryLoadFailed) {
+            el.innerHTML = [
+                'the Industry view without its sponsor data, which did not load',
+                "other tabs show this archive's totals, unfiltered"
+            ].join(' · ');
+            return;
+        }
+        // Only the heatmap and the trend draw industryFilteredRows(). The
+        // Adjusted Differences view draws model estimates fitted over the
+        // whole cohort, which its footnote says do not respond to the
+        // year/condition filters (renderIndustryForest), so its line
+        // claims no narrowing. A sub-view switch redraws the line
+        // (redrawArchiveSummary).
+        if (industryView === 'forest') {
+            el.innerHTML = [
+                'the latest sponsor data',
+                'adjusted estimates over all years and conditions',
+                "other tabs show this archive's totals, unfiltered"
+            ].join(' \u00b7 ');
+            return;
+        }
+        const { start, end } = yearWindowEnds();
+        const newest = end === Infinity ? industryNewestResultsYear() : null;
+        const years = end !== Infinity ? `<b>${escapeHtml(start + '\u2013' + end)}</b>`
+            : newest && newest >= start ? `<b>${escapeHtml(start + '\u2013' + newest)}</b>`
+            : `from <b>${escapeHtml(String(start))}</b>`;
+        const pri = document.getElementById('condition-primary')?.value || 'all';
+        const sec = document.getElementById('condition-secondary')?.value || 'all';
+        const conditions = [];
+        if (pri !== 'all') conditions.push(`condition <b>${escapeHtml(pri)}</b>`);
+        if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
+        el.innerHTML = [
+            'the latest sponsor data',
+            `results posted ${years}`,
+            ...(conditions.length ? conditions : ['all conditions']),
+            "other tabs show this archive's totals, unfiltered"
+        ].join(' \u00b7 ');
+        return;
+    }
+    el.innerHTML = `<b>${escapeHtml(total.toLocaleString())}</b> trials \u00b7 ` +
+        'the full dataset, unfiltered \u00b7 ' + (btn && btn.hidden
+            ? 'filters are a desktop feature'
+            : ARCHIVE_FILTERS_NOTE);
 }
 
 // Why the filters do nothing on a desktop aggregate archive: the summary

@@ -258,6 +258,7 @@ const SITE = [
     fnSource('function renderOverviewTileContext('),
     fnSource('function renderOverviewFinding('),
     fnSource('function renderFilterSummary('),
+    fnSource('function renderUnfilteredFilterSummary(el, total)'),
     // The Filters button's archive state, which renderDashboard syncs first
     // (PR #255): the real one, so a records render cannot leave the button
     // the first view holds off looking open, or the reverse.
@@ -1330,10 +1331,16 @@ const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 // or true; what it cannot see is a stub that paints an Overview number on
 // the real page. So each is named here, and one added to the pieces fails
 // the tests below until someone has read it and added it:
+//  - renderUnfilteredFilterSummary (PR #255, from renderFilterSummary over
+//    a summary): the filter line over a summary or archive, which the gate
+//    compares only with no summary on screen. It reads the Industry view's
+//    state and ARCHIVE_FILTERS_NOTE, which the gate does not give the
+//    pieces, so it stays out of renderFilterSummary itself.
 //  - syncFilterToggle (PR #255, first in renderDashboard): the Filters
-//    button's archive state, and over a summary the filter line, which the
-//    gate compares only with no summary on screen. No tile, finding or chart.
-const ENGINE_STUBBED = ['syncFilterToggle'];
+//    button's archive state, and over a summary the filter line, as above.
+// Neither paints a tile, the finding or the chart, and each is a lone call
+// statement, so the gate reads no answer from it.
+const ENGINE_STUBBED = ['renderUnfilteredFilterSummary', 'syncFilterToggle'];
 
 // The engine script's own lists, slicers, stub document and runtime, from
 // its text (its `export`s dropped: the slices run as a script).
@@ -1479,8 +1486,8 @@ test('the pieces the engine\'s gate slices are all there and run on their own, i
     assert.deepEqual(blockChart.series.map((d) => d.data), recordsChart.series.map((d) => d.data),
         'the gate would read the records\' chart as the block\'s');
     // What ran as a stub: the gate's fixed list, and of app.js's own only
-    // the ones named above.
-    const ran = s.stubbedRan();
+    // the ones named above (an array of this realm, not the vm's).
+    const ran = Array.from(s.stubbedRan());
     assert.deepEqual(ran.filter((n) => !ENGINE_PARTS.ELSEWHERE.includes(n)), ENGINE_STUBBED,
         'the Overview calls another app.js function the engine\'s gate only stubs: read it, then name it in ENGINE_STUBBED');
 });

@@ -63,6 +63,7 @@ const SOURCES = [
     slice('const YEAR_WINDOW_MIN', 'function initFilters()').slice(0, -'function initFilters()'.length),
     fnSource('function renderDashboard()'),
     fnSource('function renderFilterSummary(total, unfiltered)'),
+    fnSource('function renderUnfilteredFilterSummary(el, total)'),
     line('const ARCHIVE_FILTERS_NOTE'),
     fnSource('function syncFilterToggle()'),
     fnSource('function redrawArchiveSummary()'),
