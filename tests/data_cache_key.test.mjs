@@ -132,7 +132,7 @@ test('startup resolves the key before it fetches any data', () => {
         return i;
     };
     const key = at('const keyReady = dataKeyReady();');
-    assert.ok(key < at('await keyReady;') && at('await keyReady;') < at('await loadData();'), 'data is fetched before the key is set');
+    assert.ok(key < at('await keyReady;') && at('await keyReady;') < at('await loadStartupRecords();'), 'data is fetched before the key is set');
     assert.equal([...app.matchAll(/(?<!function )resolveDataCacheVersion\(\)/g)].length, 1, 'the key is resolved outside the shared promise');
     assert.match(fnSource('function dataKeyReady()'), /dataKeyRequest = resolveDataCacheVersion\(\);/);
 });

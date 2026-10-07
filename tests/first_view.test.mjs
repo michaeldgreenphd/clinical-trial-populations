@@ -133,7 +133,10 @@ function buildDocument() {
             hasAttribute: (name) => name in attrs,
             querySelector: (sel) => query(el, sel)[0] ?? null,
             querySelectorAll: (sel) => query(el, sel),
-            addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
+            listeners: {},
+            addEventListener(type, fn) { (el.listeners[type] ||= []).push(fn); }, removeEventListener() {}, dispatchEvent() { return true; },
+            // As a browser's: nothing on a disabled control.
+            click() { if (el.disabled) return; (el.listeners.click || []).forEach((fn) => fn({ target: el })); if (el.onclick) el.onclick({ target: el }); },
             appendChild: (c) => c, prepend() {}, focus() { if (!el.disabled) focus.active = el; }
         };
         return el;
@@ -259,8 +262,14 @@ const SITE = [
     fnSource('function focusOffClosing(els)'),
     fnSource('function clearRestoredDisabled()'),
     fnSource('function settleFirstView()'),
-    fnSource('function firstViewFailed(err)'),
-    fnSource('function startupFailed(err)'),
+    fnSource('function firstViewFailed(err, retry)'),
+    fnSource('function firstViewRetrying()'),
+    fnSource('function offerRetry(button, retry)'),
+    constLine('RECORD_FREE_TABS'),
+    fnSource('function openRecordFreeTabs()'),
+    fnSource('async function loadStartupRecords()'),
+    fnSource('function startupFailed(err, retry)'),
+    fnSource('function startupRetrying()'),
     // What startup runs once the records are drawn: the deep-link hooks.
     fnSource('function applyRouteFromHash()'),
     fnSource('function sgRouteHooks()')
@@ -781,6 +790,124 @@ test('a failed load on the loading screen keeps its error: parts still in flight
     assert.equal(p.run('firstViewClosed'), true, 'a summary that answers later could still paint over the error');
 });
 
+// loadData for loadStartupRecords: fails with each error in turn, then
+// loads the records.
+function loadDataFailing(p, records, ...errors) {
+    p.context.__loadErrors = errors;
+    p.context.__records = records;
+    p.run('var __loads = 0; loadData = async function () { __loads++; const e = __loadErrors.shift(); if (e) throw e; data = __records; };');
+}
+const tick = () => new Promise((r) => setImmediate(r));
+const HTTP_404 = 'Could not load data for latest: Failed to fetch data/demographics.part3.json.gz: HTTP 404';
+
+test('a failed load under the first view offers Try again, which loads the records and opens the page', async () => {
+    const records = syntheticRecords();
+    const p = page();
+    const doc = p.context.document;
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    loadDataFailing(p, records, new Error(HTTP_404));
+    const loading = p.run('loadStartupRecords()');
+    await tick();
+    const strip = p.el('records-pending');
+    const again = strip.querySelector('.records-pending-retry');
+    assert.ok(again, 'index.html has no Try again button in the strip');
+    assert.ok(strip.classList.contains('is-failed'));
+    assert.equal(again.hidden, false, 'the strip offers no Try again');
+    assert.equal(strip.querySelector('.records-pending-text').textContent, `Loading stopped: ${HTTP_404}.`);
+    assert.equal(p.run('firstViewClosed'), true);
+    assert.ok(p.run('firstViewShown'), 'the first view forgot it is on screen: a retry could not hand it over');
+    const race = doc.querySelector('.tab[data-tab="race"]');
+    assert.ok(race.disabled);
+    assert.equal(race.title, 'Unavailable: the trial records did not load.');
+    // Try again.
+    again.click();
+    await Promise.resolve();   // the load's await hands back to loadStartupRecords
+    assert.equal(again.hidden, true);
+    assert.ok(!strip.classList.contains('is-failed'));
+    assert.equal(strip.getAttribute('role'), 'status');
+    assert.equal(strip.querySelector('.loading-meter').hidden, false);
+    assert.equal(strip.getAttribute('data-load-progress'), '', 'the strip no longer follows the load');
+    assert.equal(strip.querySelector('.records-pending-text').textContent, 'The other tabs and the filters open when they arrive.');
+    assert.equal(race.title, 'Opens when the trial records have loaded');
+    await loading;
+    assert.equal(p.run('__loads'), 2);
+    // Startup goes on from the load: the records draw and the page opens.
+    p.run('initFilters(); renderDashboard(); settleFirstView();');
+    p.flushFrames();
+    for (const sel of WAITING) {
+        for (const el of doc.querySelectorAll(sel)) {
+            assert.ok(!el.disabled, `${sel} stays closed after a retry loaded the records`);
+            assert.equal(el.getAttribute('title'), null, `${sel} keeps a waiting tooltip`);
+        }
+    }
+    assert.ok(strip.classList.contains('is-done'));
+    assert.deepEqual(p.warnings, []);
+});
+
+test('a failed load on the loading screen offers Try again there too', async () => {
+    const records = syntheticRecords();
+    const p = page();
+    loadDataFailing(p, records, new Error(HTTP_404), new Error(HTTP_404));
+    const loading = p.run('loadStartupRecords()');
+    await tick();
+    const overlay = p.el('loading-overlay');
+    const status = p.el('loading-status');
+    const again = p.el('loading-retry');
+    assert.ok(again, 'index.html has no Try again button on the loading screen');
+    assert.equal(status.textContent, `Loading stopped: ${HTTP_404}.`);
+    assert.equal(overlay.getAttribute('data-load-progress'), null);
+    assert.equal(overlay.querySelector('.loading-bytes').textContent, '', 'the megabytes of a stopped load stay on screen');
+    assert.equal(again.hidden, false);
+    again.click();
+    await Promise.resolve();   // the load's await hands back to loadStartupRecords
+    assert.equal(again.hidden, true);
+    assert.equal(overlay.getAttribute('data-load-progress'), '', 'the loading screen no longer follows the load');
+    assert.equal(status.style.color, '');
+    await tick();
+    // Failed again: offered again.
+    assert.equal(again.hidden, false);
+    again.click();
+    await loading;
+    assert.equal(p.run('__loads'), 3);
+    assert.equal(p.run('data.length'), records.length);
+    // A layout the page cannot read is refused, not offered again.
+    const q = page();
+    const refused = Object.assign(new Error('layout 9'), { layoutRefused: true });
+    loadDataFailing(q, records, refused);
+    await assert.rejects(q.run('loadStartupRecords()'), /layout 9/);
+    assert.equal(q.el('loading-retry').hidden, true);
+});
+
+test('after a failed load, About and FAQ open (they need no records), and the Overview tab returns', async () => {
+    const p = page();
+    const doc = p.context.document;
+    await p.run('firstViewOrFigure')(summaryWith(blockFor(syntheticRecords())));
+    const tab = (name) => doc.querySelector(`.tab[data-tab="${name}"]`);
+    tab('about').click();
+    assert.ok(!tab('about').classList.contains('active'), 'About opened while the records were still loading');
+    p.run('firstViewFailed')(new Error(HTTP_404));
+    for (const name of ['about', 'faq']) {
+        assert.ok(!tab(name).disabled, `${name} stays closed after a failed load`);
+        assert.equal(tab(name).getAttribute('aria-disabled'), null);
+        assert.equal(tab(name).getAttribute('title'), null);
+    }
+    assert.ok(tab('race').disabled);
+    tab('about').click();
+    assert.ok(tab('about').classList.contains('active'));
+    assert.ok(!tab('overview').classList.contains('active'));
+    assert.ok(!p.el('overview').classList.contains('active'));
+    assert.equal(p.el('filter-summary').style.display, 'none', 'the filter summary shows on About');
+    tab('faq').click();
+    assert.ok(tab('faq').classList.contains('active') && !tab('about').classList.contains('active'));
+    tab('overview').click();
+    assert.ok(tab('overview').classList.contains('active'));
+    assert.ok(p.el('overview').classList.contains('active'));
+    assert.equal(p.el('filter-summary').style.display, '');
+    // A second failure wires nothing twice.
+    p.run('firstViewFailed')(new Error(HTTP_404));
+    assert.equal(tab('about').listeners.click.length, 1);
+});
+
 test('a deep-link hook that clicks a waiting control finds it open: ?sgfilters=1 opens the filters', async () => {
     const records = syntheticRecords();
     const p = page({ search: '?sgfilters=1' });
@@ -885,8 +1012,8 @@ test('startup wires the first view in, and never through dashboardSummary', () =
         assert.ok(i >= 0, `startup lost ${needle}`);
         return i;
     };
-    assert.ok(at('fetchLatestSummary().then(firstViewOrFigure,') < at('await loadData();'));
-    assert.match(body, /await loadData\(\);\s*firstViewClosed = true;/, 'the startup load does not close the first view');
+    assert.ok(at('fetchLatestSummary().then(firstViewOrFigure,') < at('await loadStartupRecords();'));
+    assert.match(body, /await loadStartupRecords\(\);\s*firstViewClosed = true;/, 'the startup load does not close the first view');
     // The page opens right after the records draw, before the deep links run
     // (a hook that clicks a waiting control would find it disabled).
     assert.ok(at('renderDashboard();') < at('settleFirstView();'));
@@ -894,10 +1021,10 @@ test('startup wires the first view in, and never through dashboardSummary', () =
         'the deep links run before the page opens');
     const fail = body.slice(body.indexOf('} catch (err) {'));
     assert.match(fail, /startupFailed\(err\);/);
-    assert.match(fnSource('function startupFailed(err)'), /firstViewClosed = true;[\s\S]*if \(firstViewShown\) firstViewFailed\(err\);/);
+    assert.match(fnSource('function startupFailed(err, retry)'), /firstViewClosed = true;\s*if \(firstViewShown\) \{\s*firstViewFailed\(err, retry\);/);
     for (const sig of ['function firstViewBlock(summary)', 'function firstViewProblem(summary, run)', 'function overviewOnScreen()',
         'function paintFirstView(summary)', 'async function firstViewOrFigure(summary)', 'function setRecordsPending(on)',
-        'function settleFirstView()', 'function firstViewFailed(err)']) {
+        'function settleFirstView()', 'function firstViewFailed(err, retry)']) {
         assert.doesNotMatch(fnSource(sig), /dashboardSummary\s*=[^=]/, `${sig} assigns dashboardSummary, the phone and archive mode`);
     }
     // The spinner rule the hand-over relies on, and one loader: no ring.

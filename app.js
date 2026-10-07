@@ -1253,8 +1253,11 @@ function settleFirstView() {
 // Startup failed after the first view painted (the records did not load,
 // or did not draw): the Overview stays, the rest stays closed, and the
 // strip says what happened, since the loading screen that would is gone.
-function firstViewFailed(err) {
-    firstViewShown = null;
+// retry: the load can be tried again (loadStartupRecords), and the strip
+// offers it; the first view stays the Overview the records will replace.
+// Without it, a refresh is the way back.
+function firstViewFailed(err, retry) {
+    if (!retry) firstViewShown = null;
     const strip = document.getElementById('records-pending');
     if (!strip) return;
     strip.hidden = false;
@@ -1264,12 +1267,75 @@ function firstViewFailed(err) {
     if (meter) meter.hidden = true;
     strip.removeAttribute('data-load-progress');
     const text = strip.querySelector('.records-pending-text');
-    if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}. Refresh the page to try again.`;
+    if (text) text.textContent = `Loading stopped: ${err && err.message ? err.message : err}.${retry ? '' : ' Refresh the page to try again.'}`;
+    const again = strip.querySelector('.records-pending-retry');
+    if (again) offerRetry(again, retry);
     // The controls still closed will not open on their own now: their
     // tooltip says what the strip says, in place of "Opens when the trial
     // records have loaded". A title the page gave them is left alone.
     document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
         if (el.dataset.waitTitle !== undefined) el.title = 'Unavailable: the trial records did not load.';
+    });
+    openRecordFreeTabs();
+}
+
+// Try again under the first view: the strip follows the new load, and the
+// controls still closed say again that they open when the records arrive.
+function firstViewRetrying() {
+    const strip = document.getElementById('records-pending');
+    if (!strip) return;
+    const again = strip.querySelector('.records-pending-retry');
+    if (again) {
+        focusOffClosing([again]);
+        offerRetry(again, null);
+    }
+    strip.classList.remove('is-failed');
+    strip.setAttribute('role', 'status');
+    const meter = strip.querySelector('.loading-meter');
+    if (meter) meter.hidden = false;
+    strip.setAttribute('data-load-progress', '');
+    const text = strip.querySelector('.records-pending-text');
+    if (text) text.textContent = 'The other tabs and the filters open when they arrive.';
+    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+        if (el.dataset.waitTitle !== undefined) el.title = 'Opens when the trial records have loaded';
+    });
+}
+
+// A Try again button: shown with its action, hidden without one. One click
+// runs it once.
+function offerRetry(button, retry) {
+    button.hidden = !retry;
+    button.onclick = retry ? () => { button.onclick = null; retry(); } : null;
+}
+
+// About and FAQ need no records, so a failed load opens them, and the
+// Overview tab returns from them. Until initTabs wires every tab (once a
+// retry loads the records), these three switch the page themselves, while
+// the page is still waiting on the records (the root's first-view-pending
+// class); after that, initTabs's handler does it.
+const RECORD_FREE_TABS = ['overview', 'about', 'faq'];
+function openRecordFreeTabs() {
+    document.querySelectorAll('.tab').forEach(tab => {
+        const name = tab.dataset.tab;
+        if (!RECORD_FREE_TABS.includes(name)) return;
+        if (tab.dataset.waitsForRecords !== undefined) {
+            tab.disabled = false;
+            delete tab.dataset.waitsForRecords;
+            tab.removeAttribute('aria-disabled');
+            if (tab.dataset.waitTitle !== undefined) { tab.removeAttribute('title'); delete tab.dataset.waitTitle; }
+        }
+        if (tab.dataset.recordFree !== undefined) return;
+        tab.dataset.recordFree = '';
+        tab.addEventListener('click', () => {
+            if (!document.documentElement.classList.contains('first-view-pending')) return;
+            document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t === tab));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === name));
+            // As initTabs does: no filters on About and FAQ.
+            ['filters', 'filter-summary'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = name === 'overview' ? '' : 'none';
+            });
+        });
     });
 }
 
@@ -1319,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
         await keyReady;
         updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records');
-        await loadData();
+        await loadStartupRecords();
         firstViewClosed = true;
         // ?sg=v2: the parser-v2 artifacts for this snapshot (no-op otherwise)
         await sgLoad();
@@ -1371,23 +1437,67 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+// Startup's load of the latest records. When it fails, the page says so
+// where the reader is looking (the strip under the first view, else the
+// loading screen) with a Try again button, and waits for it: the retry asks
+// for the parts that did not load past the browser cache (fetchPart,
+// PARTS_PAST_CACHE), and startup goes on from here once they load. Nothing
+// after the load has run yet, so a retry repeats nothing. A dataset whose
+// layout this page cannot read is refused, not retried.
+async function loadStartupRecords() {
+    for (;;) {
+        try {
+            await loadData();
+            return;
+        } catch (err) {
+            if (err && err.layoutRefused) throw err;
+            console.error('The trial records did not load:', err);
+            await new Promise(resolve => startupFailed(err, resolve));
+            startupRetrying();
+        }
+    }
+}
+
 // Startup failed: say so. The overlay is gone once the first view painted,
 // so the strip says it there (firstViewFailed). The loading screen stops
 // following the download before it says it: a part still in flight, or a
 // frame it queued, writes its stage to every [data-load-progress] screen
 // (updateLoadingProgress), which would put "Loading trial records" back
-// over the error.
-function startupFailed(err) {
+// over the error. retry: what Try again runs (loadStartupRecords); without
+// it (a failure after the records loaded), a refresh is the way back.
+function startupFailed(err, retry) {
     firstViewClosed = true;
-    if (firstViewShown) firstViewFailed(err);
+    if (firstViewShown) {
+        firstViewFailed(err, retry);
+        return;
+    }
     const overlay = document.getElementById('loading-overlay');
     if (!overlay) return;
     overlay.removeAttribute('data-load-progress');
+    const bytes = overlay.querySelector('.loading-bytes');
+    if (bytes) bytes.textContent = '';
     const status = document.getElementById('loading-status');
     if (status) {
-        status.textContent = `Error: ${err.message}. Please refresh the page.`;
+        status.textContent = retry ? `Loading stopped: ${err.message}.` : `Error: ${err.message}. Please refresh the page.`;
         status.style.color = '#ef4444';
     }
+    const again = document.getElementById('loading-retry');
+    if (again) offerRetry(again, retry);
+}
+
+// Try again: the screen that said the load stopped follows the new one.
+function startupRetrying() {
+    if (firstViewShown) {
+        firstViewRetrying();
+    } else {
+        const overlay = document.getElementById('loading-overlay');
+        if (overlay) overlay.setAttribute('data-load-progress', '');
+        const status = document.getElementById('loading-status');
+        if (status) status.style.color = '';
+        const again = document.getElementById('loading-retry');
+        if (again) offerRetry(again, null);
+    }
+    updateLoadingProgress(10, isMobileDevice ? 'Loading the summary' : 'Loading trial records', '');
 }
 
 // Feature-detect DecompressionStream (not available on Safari iOS, older mobile browsers)

@@ -391,6 +391,17 @@
     border-top: 1px solid var(--border-color);
 }
 
+/* Try again, after a failed load: on the strip's line, and under the
+   loading screen's stage line. */
+.records-pending .records-pending-retry {
+    margin-left: 0;
+    align-self: center;
+}
+
+.loading-overlay .loading-retry {
+    margin: 0.75rem 0 0;
+}
+
 /* What waits for the records reads as waiting, not broken. */
 .first-view-pending .tab:disabled,
 .first-view-pending .filter-summary-toggle:disabled,
