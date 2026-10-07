@@ -1610,10 +1610,15 @@ test('a block that fails the desktop\'s checks leaves the phone on all study typ
     }
     // A link to another tab or to filters does not stop it: a phone applies
     // no filters, and its Overview is the same whatever tab a link opens.
-    for (const opts of [{ hash: '#race' }, { search: '?st=all' }]) {
+    // Nor does a snapshot link: a phone ignores it and opens the latest
+    // summary (requestedSnapshot), which is the block's.
+    for (const opts of [{ hash: '#race' }, { search: '?st=all' }, { search: '?sgsnapshot=2026-03-29' }, { hash: '#overview?sgsnapshot=2026-03-29' }]) {
         const p = await phonePage(phoneSummary(), opts);
         assert.equal(p.text('total-studies').text, '75,607', JSON.stringify(opts));
+        assert.equal(p.text('filter-summary-text').html, `<b>75,607</b> trials · Interventional studies, results posted 2009–2026${DESKTOP_ONLY}`, JSON.stringify(opts));
+        same(p.infos, [], JSON.stringify(opts));
     }
+    assert.match(fnSource('function requestedSnapshot()'), /if \(isMobileDevice\) return null;/);
 });
 
 test('a phone keeps the block only while its summary is on screen', async () => {
@@ -1627,6 +1632,33 @@ test('a phone keeps the block only while its summary is on screen', async () => 
     // loadData's phone branch takes the verdict before the summary goes on screen.
     assert.match(fnSource('async function loadData(date)'),
         /if \(summary\) \{[^}]*?phoneFirstView = await phoneFirstViewFor\(summary\);\s*dashboardSummary = summary;/);
+});
+
+test('a phone whose summary failed draws its records as before, with their own line', async () => {
+    // The summary answered and its block passed, then the phone fell back to
+    // the records (loadData: the rest of its summary branch threw, or a
+    // later switch loaded parts): dashboardSummary is null, and the phone
+    // code leaves the records' Overview and line alone, on every tab.
+    const draw = async (today) => {
+        const summary = phoneSummary();
+        const p = page({ mobile: true, runStamp: summary.extracted_at, run: stampsOf(summary) });
+        p.context.__summary = summary;
+        if (today) p.run('phoneOverview = function () {}; renderPhoneScope = function () {};');
+        await p.run('(async () => { phoneFirstView = await phoneFirstViewFor(__summary); dashboardSummary = null; })()');
+        assert.notEqual(p.run('phoneFirstView'), null, 'the block did not pass');
+        p.loadRecords(syntheticRecords());
+        p.flushFrames();
+        const shown = { overview: p.overview(), lines: [] };
+        for (const tab of ['race', 'studies', 'overview']) {
+            openTab(p, tab);
+            shown.lines.push(p.text('filter-summary-text').html);
+        }
+        return shown;
+    };
+    const now = await draw(false), before = await draw(true);
+    same(now, before, 'the phone code changed a phone drawing records');
+    assert.notEqual(now.overview['total-studies'].text, '75,607');
+    for (const line of now.lines) assert.doesNotMatch(line, /All study types|Interventional studies/);
 });
 
 test('a desktop paints exactly as before: its first view, and an archive summary', async () => {
