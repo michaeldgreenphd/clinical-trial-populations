@@ -1153,8 +1153,7 @@ async function firstViewOrFigure(summary) {
         } catch (err) {
             // The loading screen stays up and the records draw as always.
             console.warn('The Overview could not paint from the summary:', err);
-            firstViewShown = null;
-            setRecordsPending(false);
+            withdrawFirstView();
         }
     }
     if (summary && summary.firstView !== undefined) console.info(`The Overview waits for the records: ${problem}`);
@@ -1178,6 +1177,20 @@ function listHistoryWhileWaiting() {
     fetchHistory().then(manifest => {
         if (manifest) listHistoryDates(select, manifest);
     });
+}
+
+// The first view could not finish painting (paintFirstView threw): take
+// back what it did, quietly. The controls it closed open again; the strip,
+// if it was up, goes without saying the records loaded (they have not), and
+// the root's first-view-pending class goes at once, not a frame later, so
+// the records' render shows its spinner under the loading screen as it
+// always has.
+function withdrawFirstView() {
+    firstViewShown = null;
+    const strip = document.getElementById('records-pending');
+    if (strip) strip.hidden = true;   // a hidden strip says nothing (setRecordsPending)
+    setRecordsPending(false);
+    document.documentElement.classList.remove('first-view-pending');
 }
 
 // While the records load behind the first view: every tab but the

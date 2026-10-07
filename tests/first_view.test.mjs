@@ -278,6 +278,7 @@ const SITE = [
     fnSource('function overviewOnScreen()'),
     fnSource('function paintFirstView(summary)'),
     fnSource('async function firstViewOrFigure(summary)'),
+    fnSource('function withdrawFirstView()'),
     constLine('RECORDS_PENDING_CONTROLS'),
     fnSource('function setRecordsPending(on)'),
     fnSource('function keepPageAboveStrip(strip)'),
@@ -694,6 +695,10 @@ test('equal records leave the first view as it is; the rest of the page opens', 
     assert.equal(strip.querySelectorAll('.dashboard-loading-spinner, .spinner').length, 0, 'the strip has a ring');
     assert.match(strip.querySelector('.records-pending-text').textContent, /other tabs and the filters open when they arrive/);
     assert.ok(p.rootClasses.has('first-view-pending'));
+    // Provenance, from the summary's run: the masthead's date as loadData
+    // writes it from the parts, and the footer's pulled date.
+    assert.equal(p.el('last-updated').textContent, new Date(RUN.extracted_at).toLocaleDateString());
+    assert.equal(p.context.window.__dataExtractedAt, RUN.extracted_at.slice(0, 10));
 
     const painted = p.overview();
     assert.equal(p.trendCharts().length, 1);
@@ -840,6 +845,48 @@ test('records that differ only in the chart redraw the chart without animation, 
     assert.equal(p.warnings.length, 1, `${p.warnings.length} warnings`);
     assert.match(String(p.warnings[0][0]), /differs from the trial records/);
     assert.ok(!p.context.document.querySelector('.tab[data-tab="race"]').disabled);
+});
+
+test('a first view that cannot finish painting takes back what it did: the loading screen and the records, as without it', async () => {
+    const records = syntheticRecords();
+    const breaks = {
+        'the masthead has no #last-updated': (p) => { p.byId.delete('last-updated'); },
+        'the finding painter throws once': (p) => {
+            p.run('renderOverviewFinding = function (...args) { renderOverviewFinding = function (...a) { __finding.push(a); return __siteFinding(...a); }; throw new Error(\'finding\'); };');
+        },
+        // After the controls have closed and the strip is up.
+        'the loading screen will not hide': (p) => { p.context.hideLoadingOverlay = () => { throw new Error('overlay'); }; }
+    };
+    for (const [name, breakIt] of Object.entries(breaks)) {
+        const p = page();
+        breakIt(p);
+        const s = summaryWith(blockFor(records));
+        assert.equal(await p.run('firstViewOrFigure')(s), false, `${name}: it says it painted`);
+        assert.deepEqual(p.figures, [s], `${name}: the loading screen's figure did not draw`);
+        assert.match(String(p.warnings[0] && p.warnings[0][0]), /could not paint from the summary/, name);
+        assert.equal(p.run('firstViewShown'), null, name);
+        // At once, not a frame later: the records' render shows its spinner as always.
+        assert.ok(!p.rootClasses.has('first-view-pending'), `${name}: the root keeps first-view-pending`);
+        const strip = p.el('records-pending');
+        assert.equal(strip.hidden, true, `${name}: the strip is up`);
+        assert.ok(!strip.classList.contains('is-done'), `${name}: the strip says the records loaded`);
+        assert.doesNotMatch(strip.querySelector('.records-pending-text').textContent, /loaded/, name);
+        for (const sel of WAITING) {
+            for (const el of p.context.document.querySelectorAll(sel)) {
+                assert.ok(!el.disabled, `${name}: ${sel} is left disabled`);
+                assert.equal(el.getAttribute('aria-disabled'), null, name);
+                assert.equal(el.getAttribute('title'), null, name);
+            }
+        }
+        // The records then draw as they do without a first view: a chart of
+        // their own, animated, and no warning that they differ.
+        p.loadRecords(records);
+        p.run('settleFirstView()');
+        const live = p.trendCharts().filter((c) => !c.destroyed);
+        assert.equal(live.length, 1, name);
+        assert.equal(live[0].config.options.animation, undefined, `${name}: the records' chart does not animate`);
+        assert.equal(p.warnings.length, 1, `${name}: ${p.warnings.map((w) => w[0]).join(' | ')}`);
+    }
 });
 
 test('controls closed before the first view stay closed after it', async () => {
@@ -1199,7 +1246,7 @@ test('startup wires the first view in, and never through dashboardSummary', () =
     assert.match(fnSource('function startupFailed(err, retry)'), /firstViewClosed = true;\s*if \(firstViewShown\) \{\s*firstViewFailed\(err, retry\);/);
     for (const sig of ['function firstViewBlock(summary)', 'function firstViewProblem(summary, run)', 'function overviewOnScreen()',
         'function paintFirstView(summary)', 'async function firstViewOrFigure(summary)', 'function setRecordsPending(on)',
-        'function settleFirstView()', 'function firstViewFailed(err, retry)']) {
+        'function settleFirstView()', 'function firstViewFailed(err, retry)', 'function withdrawFirstView()']) {
         assert.doesNotMatch(fnSource(sig), /dashboardSummary\s*=[^=]/, `${sig} assigns dashboardSummary, the phone and archive mode`);
     }
     // The spinner rule the hand-over relies on, and one loader: no ring.
