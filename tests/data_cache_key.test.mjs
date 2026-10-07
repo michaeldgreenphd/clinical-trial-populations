@@ -132,7 +132,7 @@ test('startup resolves the key before it fetches any data', () => {
         return i;
     };
     const key = at('const keyReady = dataKeyReady();');
-    assert.ok(key < at('await keyReady;') && at('await keyReady;') < at('await loadData();'), 'data is fetched before the key is set');
+    assert.ok(key < at('await keyReady;') && at('await keyReady;') < at('await loadStartupDataset(requested);'), 'data is fetched before the key is set');
     assert.equal([...app.matchAll(/(?<!function )resolveDataCacheVersion\(\)/g)].length, 1, 'the key is resolved outside the shared promise');
     assert.match(fnSource('function dataKeyReady()'), /dataKeyRequest = resolveDataCacheVersion\(\);/);
 });
@@ -266,7 +266,11 @@ test('snapshot files, files without a run stamp to compare, and failures are not
 
 
 test('every reader of history.json shares the one request', () => {
-    assert.deepEqual([...app.matchAll(/fetch\(\s*['"`](?:history\.json|data\/run\.json)/g)], [],
+    // One exception: recheckRun reads run.json again past every cache
+    // when the newest date was not found in snapshots/ (snapshot_link).
+    const recheck = fnSource('async function recheckRun()');
+    assert.match(recheck, /fetch\('data\/run\.json', \{ cache: 'no-store' \}\)/, 'the re-read can be answered from a cache');
+    assert.deepEqual([...app.replace(recheck, '').matchAll(/fetch\(\s*['"`](?:history\.json|data\/run\.json)/g)], [],
         'history.json or data/run.json is fetched outside the shared fetchers');
     assert.match(app, /const fetchHistory = smallJsonOnce\('history\.json'\);/);
     assert.match(app, /const fetchRun = smallJsonOnce\('data\/run\.json'\);/);

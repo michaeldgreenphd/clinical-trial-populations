@@ -61,6 +61,12 @@ const SOURCES = [
     fnSource('function stalePartIndexes(parts, expectedStamp)'),
     fnSource('async function refetchStaleParts(parts, expectedStamp, refetch)'),
     fnSource('async function loadData(date)'),
+    // loadData reads data/run.json again when the newest date is not in
+    // snapshots/ (snapshot_link.test.mjs); not reached here.
+    fnSource('function runDate(run)'),
+    slice('const RUN_RECHECK_WAIT_MS =', '\n'),
+    fnSource('async function recheckRun()'),
+    fnSource('function adoptRecheckedRun(run)'),
     fnSource('function datasetLoaded()'),
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),
