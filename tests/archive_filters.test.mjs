@@ -239,7 +239,7 @@ test('a phone whose summary did not load gets the desktop archive line and a gre
 const ARCHIVE_LINE = '<b>77,176</b> trials · the full dataset, unfiltered · ' +
     'this archive keeps totals only; filters apply to the latest data and the complete snapshots';
 const industryLine = (years, conditions = 'all conditions') =>
-    `Industry Sponsors uses the latest sponsor data · results posted <b>${years}</b> · ` +
+    `the latest sponsor data · results posted <b>${years}</b> · ` +
     `${conditions} · other tabs show this archive's totals, unfiltered`;
 
 // The Year Range as an archive ending in 2026 leaves it (syncYearWindow), and
@@ -373,4 +373,27 @@ test('the phone summary view keeps its line on the Industry tab', () => {
     h.el('industry').classList.add('active');
     h.run('renderFilterSummary(77176, true); syncFilterToggle();');
     assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
+});
+
+// index.html puts a fixed "Showing" label in front of the line on every tab,
+// so each line opens with what is shown: a count of trials or a noun phrase
+// starting "the". A clause there ("Showing Industry Sponsors uses …") reads
+// as a garden-path sentence.
+test('every line completes the Showing label in front of it', () => {
+    assert.match(html, /<span class="filter-summary-label">Showing<\/span>\s*<span class="filter-summary-text" id="filter-summary-text">/,
+        'the label the lines are written to follow moved or changed');
+    const opens = (text) => assert.match(text, /^(<b>[\d,]+<\/b> trials|the )/,
+        `"Showing ${text.split(' · ')[0]}" does not read as a phrase`);
+    const lines = [];
+    const h = harness();
+    setControls(h, { start: '2015', primary: 'Oncology' });
+    h.run('initFilterSummary(); dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+    h.run('renderFilterSummary(77176, true);'); lines.push(h.text());
+    h.el('industry').classList.add('active');
+    h.run('syncFilterToggle();'); lines.push(h.text());
+    h.run('dashboardSummary = null; renderFilterSummary(1234);'); lines.push(h.text());
+    const p = harness({ mobile: true, summary: ARCHIVE });
+    p.run('initFilterSummary(); renderFilterSummary(77176, true);'); lines.push(p.text());
+    lines.forEach(opens);
+    assert.equal(lines[1], industryLine('2015–2026', 'condition <b>Oncology</b>'));
 });

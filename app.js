@@ -3703,7 +3703,8 @@ function renderFilterSummary(total, unfiltered) {
         // is on screen, so the line says that, read from the controls
         // industryFilteredRows reads. A thumb at the window's end is no upper
         // bound there (yearWindowEnds), and names that end, as the Years chip
-        // does.
+        // does. It opens with a noun phrase, as every line here does, since
+        // it follows the fixed "Showing" label (index.html).
         if (btn && !btn.hidden && industryActive()) {
             const { start, end } = yearWindowEnds();
             const last = end === Infinity ? document.getElementById('year-end')?.value : end;
@@ -3713,7 +3714,7 @@ function renderFilterSummary(total, unfiltered) {
             if (pri !== 'all') conditions.push(`condition <b>${escapeHtml(pri)}</b>`);
             if (sec !== 'all') conditions.push(`subcategory <b>${escapeHtml(sec)}</b>`);
             el.innerHTML = [
-                'Industry Sponsors uses the latest sponsor data',
+                'the latest sponsor data',
                 `results posted <b>${escapeHtml(start + '\u2013' + last)}</b>`,
                 ...(conditions.length ? conditions : ['all conditions']),
                 "other tabs show this archive's totals, unfiltered"
