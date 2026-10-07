@@ -1253,6 +1253,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         // (resolveDataCacheVersion); the condition ontology, which carries
         // no key, loads alongside. Every data fetch waits for the key too.
         const keyReady = dataKeyReady();
+        // The nav menus work from the start: the first view leaves the
+        // page clickable while the records load.
+        initNavGroups();
         // The loading screen's figure, from the small summary; it never
         // holds up the load. Desktop only: the mobile wait is too short
         // for it to draw (styles.css hides it on narrow screens too).
@@ -3010,17 +3013,18 @@ function applyRouteFromHash() {
     if (btn && !btn.classList.contains('active')) btn.click();
 }
 
-function initTabs() {
-    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue', 'industry']);
-
-    // Nav groups: a tab inside a menu closes it on the way through, and the
-    // menus behave like menus — Escape closes, and opening one closes the
-    // others. The <details> element supplies the keyboard handling.
-    const navGroups = () => document.querySelectorAll('.nav-group');
-    const closeNavGroups = (except) => navGroups().forEach(g => {
+// Nav groups: a tab inside a menu closes it on the way through (initTabs),
+// and the menus behave like menus — Escape closes, a click outside closes,
+// and opening one closes the others. The <details> element supplies the
+// keyboard handling. Wired at startup, before the first view can paint, so
+// the menus work while the records load too.
+function closeNavGroups(except) {
+    document.querySelectorAll('.nav-group').forEach(g => {
         if (g !== except) g.removeAttribute('open');
     });
-    navGroups().forEach(group => {
+}
+function initNavGroups() {
+    document.querySelectorAll('.nav-group').forEach(group => {
         group.addEventListener('toggle', () => {
             if (group.open) closeNavGroups(group);
         });
@@ -3036,6 +3040,10 @@ function initTabs() {
         const summary = open.querySelector('summary');
         if (summary) summary.focus();
     });
+}
+
+function initTabs() {
+    const BETA_GATED_TABS = new Set(['fda-extraction', 'lit-extraction', 'approval-queue', 'industry']);
 
     document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', async () => {

@@ -707,6 +707,51 @@ test('a deep-link hook that clicks a waiting control finds it open: ?sgfilters=1
     assert.deepEqual(p.warnings, []);
 });
 
+test('the nav menus behave as menus from the start, before the records arrive', () => {
+    const wire = STARTUP.indexOf('initNavGroups();');
+    assert.ok(wire >= 0, 'startup does not wire the nav menus');
+    assert.ok(wire < STARTUP.indexOf('fetchLatestSummary().then(firstViewOrFigure,'), 'the nav menus are wired after the first view can paint');
+    assert.doesNotMatch(fnSource('function initTabs()'), /addEventListener\('(toggle|keydown)'/, 'initTabs wires the nav menus a second time');
+    // Three menus over a stub document: one open at a time, an outside
+    // click closes them, Escape closes the open one and returns focus.
+    const docListeners = {};
+    const focused = [];
+    const groups = ['demographics', 'context', 'tools'].map((id) => {
+        const listeners = {};
+        const summary = { focus: () => focused.push(id) };
+        const g = {
+            id, attrs: {}, listeners,
+            get open() { return 'open' in this.attrs; }, set open(v) { if (v) this.attrs.open = ''; else delete this.attrs.open; },
+            removeAttribute(n) { delete this.attrs[n]; },
+            addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+            querySelector: (sel) => (sel === 'summary' ? summary : null)
+        };
+        return g;
+    });
+    const sandbox = {
+        document: {
+            querySelectorAll: (sel) => (sel === '.nav-group' ? groups : []),
+            querySelector: (sel) => (sel === '.nav-group[open]' ? groups.find((g) => g.open) ?? null : null),
+            addEventListener: (type, fn) => { (docListeners[type] ||= []).push(fn); }
+        }
+    };
+    vm.runInContext([fnSource('function closeNavGroups(except)'), fnSource('function initNavGroups()'), 'initNavGroups();'].join('\n'),
+        vm.createContext(sandbox));
+    const openGroup = (g) => { g.open = true; g.listeners.toggle.forEach((fn) => fn()); };
+    const openOnes = () => groups.filter((g) => g.open).map((g) => g.id);
+    openGroup(groups[0]);
+    openGroup(groups[1]);
+    assert.deepEqual(openOnes(), ['context'], 'opening a menu leaves another open');
+    docListeners.click.forEach((fn) => fn({ target: { closest: () => null } }));
+    assert.deepEqual(openOnes(), [], 'a click outside leaves a menu open');
+    openGroup(groups[2]);
+    docListeners.click.forEach((fn) => fn({ target: { closest: (sel) => (sel === '.nav-group' ? groups[2] : null) } }));
+    assert.deepEqual(openOnes(), ['tools'], 'a click inside a menu closes it');
+    docListeners.keydown.forEach((fn) => fn({ key: 'Escape' }));
+    assert.deepEqual(openOnes(), [], 'Escape leaves the menu open');
+    assert.deepEqual(focused, ['tools'], 'Escape does not return focus to the menu heading');
+});
+
 // ── 4. Off, and without the block: as before ───────────────────────────────
 
 for (const [name, opts, summary] of [
