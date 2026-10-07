@@ -50,6 +50,7 @@ const SOURCES = [
     fnSource('function datasetStudyCount()'),
     fnSource('async function loadDataAndRender(date)'),
     fnSource('async function initHistorySelector()'),
+    fnSource('function listHistoryDates(select, manifest)'),
     // The change handler drops what is not on screen (PR #253).
     'const sgCache = new Map();',
     fnSource('function retainSnapshots(onScreen)'),

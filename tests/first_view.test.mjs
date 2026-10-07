@@ -185,6 +185,8 @@ function buildDocument() {
                 return { value: 'value' in a ? a.value : text, text, selected: 'selected' in a };
             });
             let index = Math.max(options.findIndex((o) => o.selected), options.length ? 0 : -1);
+            // As a browser's: an appended <option> joins the list.
+            el.appendChild = (c) => { options.push({ value: String(c.value), get text() { return c.textContent; }, selected: false }); return c; };
             Object.defineProperties(el, {
                 options: { get: () => options },
                 selectedIndex: { get: () => index, set: (v) => { index = v; } },
@@ -250,6 +252,14 @@ const SITE = [
     fnSource('function renderReportingTrends('),
     fnSource('function setDataPulledDate(iso)'),
     fnSource('function sgQueryParams(hash, search)'),
+    // The archive selector's dates (history.json).
+    fnSource('function publishedDates(manifest)'),
+    fnSource('function newestPublishedIn(manifest)'),
+    fnSource('function noteNewestPublished(manifest)'),
+    fnSource('function servedFromData(date)'),
+    fnSource('function listHistoryDates(select, manifest)'),
+    fnSource('function listHistoryWhileWaiting()'),
+    fnSource('async function initHistorySelector()'),
     between('const SHARE_FILTERS = [', 'function shareFilterDefault('),
     constLine('FIRST_VIEW_COUNTS'),
     fnSource('function firstViewBlock(summary)'),
@@ -290,7 +300,7 @@ const STARTUP_TAIL = (() => {
 
 // One page: index.html's controls at their defaults, the app's Overview
 // code, and switches for what the first view reads from the page around it.
-function page({ mobile = false, hash = '', search = '', runStamp = null, run = null } = {}) {
+function page({ mobile = false, hash = '', search = '', runStamp = null, run = null, history = null, runDate = null } = {}) {
     const { document, byId, rootClasses } = buildDocument();
     const charts = [];
     const frames = [];
@@ -313,8 +323,9 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         renderLoadingFigure: (s) => figures.push(s),
         hideLoadingOverlay: () => { const o = byId.get('loading-overlay'); if (o) o.classList.add('fade-out'); },
         fetchRun: async () => run,
+        fetchHistory: async () => history,
         location: { hash, search },
-        __mobile: mobile, __hash: hash, __search: search, __runStamp: runStamp
+        __mobile: mobile, __hash: hash, __search: search, __runStamp: runStamp, __runDate: runDate
     };
     for (const name of ELSEWHERE) sandbox[name] = () => {};
     for (const name of AWAY_FROM_DEFAULT) sandbox[name] = () => { throw new Error(`${name} ran in the default view`); };
@@ -322,7 +333,7 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
     vm.runInContext([
         'let data = null; let dashboardSummary = null; let charts = {}; let sgV2Filters = null;',
         'const isMobileDevice = __mobile; const SG_INITIAL_HASH = __hash; const SG_INITIAL_SEARCH = __search;',
-        'let LATEST_RUN_STAMP = __runStamp;',
+        'let LATEST_RUN_STAMP = __runStamp; let NEWEST_PUBLISHED = null; let DATA_RUN_DATE = __runDate;',
         "const COLORS = { reporting: { race: '#000000', ethnicity: '#000000', both: '#000000' } };",
         'const CHART_ASPECT_RATIO = undefined;',
         'let firstViewShown = null; let firstViewClosed = false; var shareUrlReady = false;',
@@ -678,6 +689,43 @@ test('keyboard focus on a control the first view closes moves to the Overview ta
     studyType.focus();
     await q.run('firstViewOrFigure')(summaryWith(blockFor(syntheticRecords())));
     assert.equal(q.context.document.activeElement, studyType);
+});
+
+test('the archive selector lists its dates while it waits, as it lists them after: the masthead does not reflow at the swap', async () => {
+    // Between about 905 and 925 px a selector that widened at the swap (from
+    // "Latest" to "YYYY-MM-DD (latest)") wrapped the masthead to a second
+    // row and moved the Overview down 54 px.
+    const history = { dates: ['2026-02-22', '2026-08-02', '2026-10-04'] };
+    const records = syntheticRecords();
+    const p = page({ history, runDate: '2026-10-04' });
+    const select = p.el('history-date');
+    const listed = (el) => el.options.map((o) => [o.value, o.text]);
+    assert.deepEqual(listed(select), [['latest', 'Latest']]);
+    assert.equal(await p.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    await tick();
+    const during = listed(select);
+    assert.deepEqual(during, [['latest', 'Latest'], ['2026-10-04', '2026-10-04 (latest)'], ['2026-08-02', '2026-08-02'], ['2026-02-22', '2026-02-22']],
+        'the selector does not list its dates while it waits: it widens at the swap');
+    assert.ok(select.disabled, 'the selector opened before the records');
+    assert.equal(select.value, 'latest');
+    // The records arrive and startup lists the dates as it always has:
+    // nothing is listed twice.
+    p.loadRecords(records);
+    p.run('settleFirstView()');
+    await p.run('initHistorySelector()');
+    assert.deepEqual(listed(select), during, 'initHistorySelector listed the dates a second time');
+    assert.ok(!select.disabled);
+    assert.equal(select.value, 'latest');
+    // Without the first view, the dates wait for initHistorySelector, as before.
+    const q = page({ history, runDate: '2026-10-04' });
+    assert.equal(await q.run('firstViewOrFigure')(summaryWith(undefined)), false);
+    await tick();
+    assert.deepEqual(listed(q.el('history-date')), [['latest', 'Latest']]);
+    // A history.json that did not answer lists nothing.
+    const r = page({ history: null });
+    assert.equal(await r.run('firstViewOrFigure')(summaryWith(blockFor(records))), true);
+    await tick();
+    assert.deepEqual(listed(r.el('history-date')), [['latest', 'Latest']]);
 });
 
 test('different records repaint the Overview without animation, and warn', async () => {

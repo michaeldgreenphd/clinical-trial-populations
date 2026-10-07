@@ -1148,6 +1148,7 @@ async function firstViewOrFigure(summary) {
     if (!problem) {
         try {
             paintFirstView(summary);
+            listHistoryWhileWaiting();
             return true;
         } catch (err) {
             // The loading screen stays up and the records draw as always.
@@ -1159,6 +1160,24 @@ async function firstViewOrFigure(summary) {
     if (summary && summary.firstView !== undefined) console.info(`The Overview waits for the records: ${problem}`);
     renderLoadingFigure(summary);
     return false;
+}
+
+// The archive selector lists history.json's dates while it waits for the
+// records, as initHistorySelector lists them once they are in: the selector
+// is then as wide as it will stay, and the masthead does not reflow at the
+// swap (between about 905 and 925 px the wider selector wrapped the masthead
+// to a second row and moved the Overview down 54 px). history.json is asked
+// for with the data key (resolveDataCacheVersion), so it is in hand by now
+// and the dates are listed before the browser draws the first view; one
+// that answers later lists them then. The selector stays disabled until the
+// records arrive (setRecordsPending): its change handler is wired by
+// initHistorySelector.
+function listHistoryWhileWaiting() {
+    const select = document.getElementById('history-date');
+    if (!select) return;
+    fetchHistory().then(manifest => {
+        if (manifest) listHistoryDates(select, manifest);
+    });
 }
 
 // While the records load behind the first view: every tab but the
@@ -3016,6 +3035,36 @@ async function loadDataAndRender(date) {
 }
 window.loadDataAndRender = loadDataAndRender;
 
+// List a history.json's dates in the archive selector after its "Latest",
+// newest first. The date data/ serves is listed as "YYYY-MM-DD (latest)",
+// with the date as its value: choosing it shows the latest dataset
+// (datasetKey), and a link that names it keeps naming that date once a later
+// run moves it into snapshots/. A date already listed is left as it is, so
+// the first view can list them while the records load
+// (listHistoryWhileWaiting) and initHistorySelector lists them again
+// without doubling.
+function listHistoryDates(select, manifest) {
+    noteNewestPublished(manifest);
+    const dates = (manifest.dates || []).slice();
+    if (servedFromData(NEWEST_PUBLISHED) && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
+    dates.sort().reverse(); // newest first
+
+    // Trust the manifest — the GitHub Actions workflow only appends a date
+    // after verifying the release and its assets exist.  The loadData()
+    // function already handles failures gracefully (toast + revert), so
+    // we don't need a HEAD-probe gate here.  Previous probes used jsDelivr,
+    // which 403s on files >50 MB, hiding every valid date.
+    const listed = new Set(Array.from(select.options, o => o.value));
+    dates.forEach(d => {
+        if (listed.has(d)) return;
+        listed.add(d);
+        const opt = document.createElement('option');
+        opt.value = d;
+        opt.textContent = servedFromData(d) ? `${d} (latest)` : d;
+        select.appendChild(opt);
+    });
+}
+
 // Fetch history.json, populate the date-selector dropdown, and wire up
 // the change handler so selecting a historical date reloads + re-renders.
 async function initHistorySelector() {
@@ -3029,26 +3078,7 @@ async function initHistorySelector() {
             console.log('history.json not available; archive selector disabled.');
             return;
         }
-        // The date data/ serves is listed as "YYYY-MM-DD (latest)", with the
-        // date as its value: choosing it shows the latest dataset (datasetKey),
-        // and a link that names it keeps naming that date once a later run
-        // moves it into snapshots/.
-        noteNewestPublished(manifest);
-        const dates = (manifest.dates || []).slice();
-        if (servedFromData(NEWEST_PUBLISHED) && !dates.includes(NEWEST_PUBLISHED)) dates.push(NEWEST_PUBLISHED);
-        dates.sort().reverse(); // newest first
-
-        // Trust the manifest — the GitHub Actions workflow only appends a date
-        // after verifying the release and its assets exist.  The loadData()
-        // function already handles failures gracefully (toast + revert), so
-        // we don't need a HEAD-probe gate here.  Previous probes used jsDelivr,
-        // which 403s on files >50 MB, hiding every valid date.
-        dates.forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d;
-            opt.textContent = servedFromData(d) ? `${d} (latest)` : d;
-            select.appendChild(opt);
-        });
+        listHistoryDates(select, manifest);
     } catch (e) {
         console.warn('Could not load history manifest:', e);
     }
