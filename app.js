@@ -2814,18 +2814,8 @@ function initTabs() {
             tab.classList.add('active');
             document.getElementById(tab.dataset.tab).classList.add('active');
 
-            // Hide filters on FAQ, About, and AI Devices tabs
-            const filtersSection = document.getElementById('filters');
-            const filterSummary = document.getElementById('filter-summary');
-            const noFilterTabs = ['faq', 'about', 'ai-devices', 'geography', 'fda-extraction', 'lit-extraction', 'approval-queue'];
-            const hideFilters = noFilterTabs.includes(tab.dataset.tab);
-            // style.display governs whether this tab has filters at all;
-            // the panel's `hidden` attribute governs whether they are expanded.
-            filtersSection.style.display = hideFilters ? 'none' : '';
-            if (filterSummary) filterSummary.style.display = hideFilters ? 'none' : '';
-            // The Filters button is off on an archive except on the Industry
-            // view, which reads the filters whatever snapshot is on screen.
-            syncFilterToggle();
+            // The filters and their line for this tab, and its Filters button.
+            showFilterChrome(tab.dataset.tab);
 
             // The Studies table draws at once; its extras start loading
             // (prepareStudiesTab).
@@ -3792,13 +3782,34 @@ function initFilterSummary() {
     });
 }
 
+// Tabs that apply no dashboard filter: the panel and the line above it are
+// not shown there at all.
+const NO_FILTER_TABS = ['faq', 'about', 'ai-devices', 'geography', 'fda-extraction', 'lit-extraction', 'approval-queue'];
+
+// Shared by both ways onto a tab, a tab click (initTabs) and the /#industry
+// route (openIndustryView), once the tab is active. style.display governs
+// whether the tab has filters at all; the panel's `hidden` attribute governs
+// whether they are expanded, and is left as it is here (syncFilterToggle
+// closes it on an archive tab). On the phone summary view the panel stays
+// collapsed: its Filters button is hidden (initFilterSummary).
+function showFilterChrome(tabId) {
+    const display = NO_FILTER_TABS.includes(tabId) ? 'none' : '';
+    const filtersSection = document.getElementById('filters');
+    const filterSummary = document.getElementById('filter-summary');
+    if (filtersSection) filtersSection.style.display = display;
+    if (filterSummary) filterSummary.style.display = display;
+    // The Filters button is off on an archive except on the Industry view,
+    // which reads the filters whatever snapshot is on screen.
+    syncFilterToggle();
+}
+
 // On desktop an aggregate archive keeps totals only, so the panel's controls
 // would change nothing there: the Filters button is greyed out and the panel
 // closed while one is on screen, and both come back on the latest data and a
 // complete snapshot. The Industry Sponsors view is the exception: it always
 // draws the latest data/industry_sponsors.json under the global Year Range
 // and Condition filters, so the button stays on while that tab is open
-// (initTabs and openIndustryView call this on every tab change).
+// (showFilterChrome calls this on every tab change).
 // aria-disabled rather than the disabled attribute: the button stays in the
 // tab order, a screen reader announces it as dimmed, and its description is
 // the summary line that says why. The phone view hides the button altogether
@@ -11606,9 +11617,9 @@ async function openIndustryView() {
     const navBtn = document.querySelector('.tab[data-tab="industry"]');
     if (navBtn) navBtn.classList.add('active');   // lights the Tools group via :has(.tab.active)
     document.getElementById('industry').classList.add('active');
-    const filtersSection = document.getElementById('filters');
-    if (filtersSection && !dashboardSummary) filtersSection.style.display = '';
-    syncFilterToggle();   // on here even while an archive is on screen
+    // As a tab click does: a tab with no filters (FAQ, Geography …) may have
+    // hidden them, and the Filters button is on here even over an archive.
+    showFilterChrome('industry');
 
     await loadIndustryView();
 }

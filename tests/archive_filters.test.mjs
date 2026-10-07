@@ -41,6 +41,8 @@ const SOURCES = [
     fnSource('function renderFilterSummary(total, unfiltered)'),
     fnSource('function initFilterSummary()'),
     fnSource('function syncFilterToggle()'),
+    line('const NO_FILTER_TABS'),
+    fnSource('function showFilterChrome(tabId)'),
     fnSource('function redrawArchiveSummary()'),
     fnSource('function industryActive()'),
     // The Industry sub-view (heatmap, trend or forest) the line describes.
@@ -202,12 +204,14 @@ test('on the Industry tab the Filters button stays on while an archive is on scr
 test('a tab switch and the /#industry route set the Filters button', () => {
     const tabs = fnSource('function initTabs()');
     const active = tabs.indexOf("document.getElementById(tab.dataset.tab).classList.add('active');");
-    const sync = tabs.indexOf('syncFilterToggle();');
+    // Both go through showFilterChrome, which ends in syncFilterToggle.
+    assert.match(fnSource('function showFilterChrome(tabId)'), /syncFilterToggle\(\);\n\}$/);
+    const sync = tabs.indexOf('showFilterChrome(tab.dataset.tab);');
     assert.ok(active > 0, 'initTabs lost its activation line');
     assert.ok(sync > active, 'a tab click does not set the Filters button after the tab is active');
     const route = fnSource('async function openIndustryView()');
     const routeActive = route.indexOf("document.getElementById('industry').classList.add('active');");
-    const routeSync = route.indexOf('syncFilterToggle();');
+    const routeSync = route.indexOf("showFilterChrome('industry');");
     assert.ok(routeActive > 0, 'openIndustryView lost its activation line');
     assert.ok(routeSync > routeActive, 'the /#industry route does not set the Filters button after the view is active');
 });
@@ -582,4 +586,122 @@ test('the ?view=forest route over an archive draws the forest line', async () =>
     await h.run('loadIndustryView()');
     assert.equal(h.run('industryView'), 'forest');
     assert.equal(h.text(), forestLine, 'the ?view=forest route left the heatmap line');
+});
+
+// /#industry reached after a tab with no filters. Geography, FAQ, About and
+// the other NO_FILTER_TABS set both #filters and #filter-summary to
+// display: none; a tab click onto any other tab shows them again. The hash
+// route (openIndustryView) must do the same, archive or not, or the Industry
+// view's Year Range and Condition controls, and the line saying it applies
+// them, stay invisible though its Filters button is on. The real initTabs and
+// openIndustryView run here, over four tabs.
+const TABS_PAGE = `
+const TAB_IDS = ['overview', 'geography', 'faq', 'industry'];
+document.querySelectorAll = (sel) => sel === '.tab'
+    ? TAB_IDS.map(id => { const t = document.getElementById('tab-' + id); t.dataset.tab = id; return t; })
+    : sel === '.tab-content' ? TAB_IDS.map(id => document.getElementById(id)) : [];
+document.querySelector = (sel) => {
+    const m = /data-tab="([^"]+)"/.exec(sel);
+    return m ? document.getElementById('tab-' + m[1]) : null;
+};
+document.addEventListener = () => {};
+const history = { replaceState() {} };
+const location = { pathname: '/', search: '', hash: '#industry' };
+let data = [];
+function getFilteredData() { return []; }
+async function promptForBetaAccess() { return true; }
+async function loadIndustryView() {}
+function renderGeographyDashboard() {} function updateShareUrl() {} function labelChartsForA11y() {}
+`;
+function tabsHarness(opts) {
+    const h = harness(opts);
+    setControls(h);
+    h.run(TABS_PAGE + fnSource('function initTabs()') + '\n' + fnSource('async function openIndustryView()'));
+    h.run('initFilterSummary(); initTabs();');
+    const shown = (id) => h.el(id).style.display !== 'none';
+    return {
+        ...h,
+        clickTab: (id) => h.el('tab-' + id).listeners.click(),
+        route: () => h.run('openIndustryView()'),
+        filtersShown: () => shown('filters'),
+        summaryShown: () => shown('filter-summary')
+    };
+}
+
+for (const from of ['faq', 'geography']) {
+    test(`over an archive, /#industry after the ${from} tab shows the filters and the Industry line`, async () => {
+        const h = tabsHarness();
+        h.run('dashboardSummary = ' + JSON.stringify(ARCHIVE) + ';');
+        await h.clickTab('overview');
+        h.run('renderFilterSummary(77176, true);');
+        assert.equal(h.text(), ARCHIVE_LINE);
+        await h.clickTab(from);
+        assert.equal(h.filtersShown(), false, `the ${from} tab shows the filters`);
+        assert.equal(h.summaryShown(), false, `the ${from} tab shows the filter line`);
+
+        await h.route();
+        assert.equal(h.el('industry').classList.contains('active'), true);
+        assert.equal(h.summaryShown(), true, 'the /#industry route leaves the filter line hidden');
+        assert.equal(h.filtersShown(), true, 'the /#industry route leaves the filters hidden');
+        assert.equal(h.text(), industryLine('2009–2026'));
+        assert.equal(h.btn.getAttribute('aria-disabled'), null, 'the Filters button is off on the Industry view');
+        assert.equal(h.panel.hidden, true, 'the route opened the panel by itself');
+        h.btn.click();
+        assert.equal(h.panel.hidden, false, 'the Filters button does not open the panel');
+    });
+}
+
+test('on the latest data, /#industry after FAQ shows the filters and keeps the panel as it was', async () => {
+    const h = tabsHarness();
+    await h.clickTab('overview');
+    h.btn.click();
+    assert.equal(h.panel.hidden, false);
+    await h.clickTab('faq');
+    assert.equal(h.filtersShown(), false);
+    assert.equal(h.summaryShown(), false);
+    assert.equal(h.panel.hidden, false, 'a tab with no filters collapsed the panel');
+
+    await h.route();
+    assert.equal(h.summaryShown(), true, 'the /#industry route leaves the filter line hidden');
+    assert.equal(h.filtersShown(), true, 'the /#industry route leaves the filters hidden');
+    assert.equal(h.panel.hidden, false, 'the route collapsed the open panel');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null);
+
+    // Collapsed before FAQ: collapsed after the route.
+    h.btn.click();
+    assert.equal(h.panel.hidden, true);
+    await h.clickTab('faq');
+    await h.route();
+    assert.equal(h.filtersShown(), true);
+    assert.equal(h.panel.hidden, true, 'the route expanded the collapsed panel');
+});
+
+test('the /#industry route shows and hides what a click on the Industry tab does', async () => {
+    for (const opts of [{}, { summary: ARCHIVE }, { mobile: true, summary: ARCHIVE }]) {
+        const viaTab = tabsHarness(opts);
+        await viaTab.clickTab('faq');
+        await viaTab.clickTab('industry');
+        const viaRoute = tabsHarness(opts);
+        await viaRoute.clickTab('faq');
+        await viaRoute.route();
+        const state = (h) => ({
+            filters: h.filtersShown(), summary: h.summaryShown(), panelHidden: h.panel.hidden,
+            btnHidden: h.btn.hidden, disabled: h.btn.getAttribute('aria-disabled'), text: h.text()
+        });
+        assert.deepEqual(state(viaRoute), state(viaTab), `route and tab click differ for ${JSON.stringify(opts)}`);
+    }
+});
+
+test('the phone summary view: /#industry after FAQ keeps the Filters button hidden and the panel closed', async () => {
+    const h = tabsHarness({ mobile: true, summary: ARCHIVE });
+    assert.equal(h.btn.hidden, true);
+    h.run('renderFilterSummary(77176, true);');
+    await h.clickTab('faq');
+    assert.equal(h.summaryShown(), false);
+    await h.route();
+    assert.equal(h.summaryShown(), true, 'the phone keeps the line hidden on Industry, unlike a tab click');
+    assert.equal(h.btn.hidden, true, 'the phone summary view shows a Filters button');
+    assert.equal(h.btn.getAttribute('aria-disabled'), null);
+    assert.equal(h.panel.hidden, true, 'the phone summary view opened the panel');
+    assert.equal(h.text(), '<b>77,176</b> trials · the full dataset, unfiltered · filters are a desktop feature');
 });
