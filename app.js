@@ -1171,7 +1171,10 @@ const RECORDS_PENDING_CONTROLS = '.tab:not([data-tab="overview"]), #filter-summa
 function setRecordsPending(on) {
     const root = document.documentElement;
     const strip = document.getElementById('records-pending');
-    document.querySelectorAll(RECORDS_PENDING_CONTROLS).forEach(el => {
+    const controls = Array.from(document.querySelectorAll(RECORDS_PENDING_CONTROLS));
+    // A browser drops keyboard focus to <body> from a control it disables.
+    if (on) focusOffClosing(controls);
+    controls.forEach(el => {
         if (on && !el.disabled) {
             el.disabled = true;
             el.dataset.waitsForRecords = '';
@@ -1197,6 +1200,16 @@ function setRecordsPending(on) {
     if (text) text.textContent = 'Trial records loaded. Every tab is open.';
     strip.classList.add('is-done');
     setTimeout(() => { strip.hidden = true; }, 2500);
+}
+
+// Keyboard focus on one of these controls, about to be disabled or hidden,
+// moves to the Overview tab (open throughout the wait) instead of falling
+// to <body>, where the next Tab would start again from the top of the page.
+function focusOffClosing(els) {
+    const active = document.activeElement;
+    if (!active || !els.includes(active)) return;
+    const overview = document.querySelector('.tab[data-tab="overview"]');
+    if (overview) overview.focus();
 }
 
 // The records are on screen, drawn by renderDashboard over the first view:

@@ -83,6 +83,7 @@ const camel = (k) => k.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 function buildDocument() {
     const all = [];
     const byId = new Map();
+    const focus = { body: { tagName: 'BODY' }, active: null };
     const stack = [];
     let root = null;
     const matches = (el, simple) => {
@@ -122,7 +123,9 @@ function buildDocument() {
             },
             get id() { return attrs.id ?? ''; },
             get hidden() { return 'hidden' in attrs; }, set hidden(v) { if (v) attrs.hidden = ''; else delete attrs.hidden; },
-            get disabled() { return 'disabled' in attrs; }, set disabled(v) { if (v) attrs.disabled = ''; else delete attrs.disabled; },
+            // As a browser does: focus leaves a control as it is disabled, for <body>.
+            get disabled() { return 'disabled' in attrs; },
+            set disabled(v) { if (v) { attrs.disabled = ''; if (focus.active === el) focus.active = focus.body; } else delete attrs.disabled; },
             get title() { return attrs.title ?? ''; }, set title(v) { attrs.title = String(v); },
             setAttribute(name, value) { attrs[name] = String(value); if (name.startsWith('data-')) dataset[camel(name.slice(5))] = String(value); },
             getAttribute: (name) => (name in attrs ? attrs[name] : name.startsWith('data-') && camel(name.slice(5)) in dataset ? dataset[camel(name.slice(5))] : null),
@@ -131,7 +134,7 @@ function buildDocument() {
             querySelector: (sel) => query(el, sel)[0] ?? null,
             querySelectorAll: (sel) => query(el, sel),
             addEventListener() {}, removeEventListener() {}, dispatchEvent() { return true; },
-            appendChild: (c) => c, prepend() {}, focus() {}
+            appendChild: (c) => c, prepend() {}, focus() { if (!el.disabled) focus.active = el; }
         };
         return el;
     }
@@ -191,7 +194,9 @@ function buildDocument() {
         if (!VOID.has(tag) && !m[4]) stack.push(el);
     }
     const rootClasses = new Set();
+    focus.active = focus.body;
     const document = {
+        get activeElement() { return focus.active; },
         documentElement: { classList: { add: (c) => rootClasses.add(c), remove: (c) => rootClasses.delete(c), contains: (c) => rootClasses.has(c) } },
         getElementById: (id) => byId.get(id) ?? null,
         querySelector: (sel) => query(null, sel)[0] ?? null,
@@ -251,6 +256,7 @@ const SITE = [
     fnSource('async function firstViewOrFigure(summary)'),
     constLine('RECORDS_PENDING_CONTROLS'),
     fnSource('function setRecordsPending(on)'),
+    fnSource('function focusOffClosing(els)'),
     fnSource('function settleFirstView()'),
     fnSource('function firstViewFailed(err)'),
     fnSource('function startupFailed(err)'),
@@ -645,6 +651,23 @@ test('equal records leave the first view as it is; the rest of the page opens', 
     const charts = p.trendCharts();
     assert.equal(charts.length, 2);
     assert.equal(charts[1].config.options.animation, undefined, 'a filter change after the hand-over does not animate');
+});
+
+test('keyboard focus on a control the first view closes moves to the Overview tab, not to <body>', async () => {
+    const p = page();
+    const doc = p.context.document;
+    const race = doc.querySelector('.tab[data-tab="race"]');
+    race.focus();
+    assert.equal(doc.activeElement, race);
+    await p.run('firstViewOrFigure')(summaryWith(blockFor(syntheticRecords())));
+    assert.ok(race.disabled);
+    assert.equal(doc.activeElement, doc.querySelector('.tab[data-tab="overview"]'), `focus went to ${doc.activeElement.tagName}`);
+    // Focus elsewhere stays where it is.
+    const q = page();
+    const studyType = q.el('study-type');
+    studyType.focus();
+    await q.run('firstViewOrFigure')(summaryWith(blockFor(syntheticRecords())));
+    assert.equal(q.context.document.activeElement, studyType);
 });
 
 test('different records repaint the Overview without animation, and warn', async () => {
