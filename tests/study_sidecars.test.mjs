@@ -80,6 +80,7 @@ const SOURCES = [
     fnSource('function deriveFundingSource(study)'),
     fnSource('function formatGenderDisplay(study)'),
     fnSource('function getStudyPediatricStatus(study)'),
+    fnSource('function populationFromAgeRange(study)'),
     fnSource("function renderPublicationsDetail(study, tab = READY, retry = '')"),
     fnSource('function showStudyDetails(nctId)'),
     fnSource('function studyDetailsHtml(fullStudy, states)'),
@@ -1824,30 +1825,42 @@ test("a summary row's lists_locations marks its geography as a full record's lis
     assert.equal(h.run(`studyHasGeography({ countries: [{ country: 'Canada' }], lists_locations: false })`), true);
 });
 
-test('the Population line shows only when the record carries what it is worked out from', T, async () => {
+
+// The pop-up's Population line, or null when it shows none.
+const population = (text) => (text.match(/<strong>Population:<\/strong> ([^<]*)</) || [])[1] ?? null;
+
+test('the Population line shows only when the record carries it or the row\'s ages make it certain', T, async () => {
     // getStudyPediatricStatus reads pediatric_status, then std_ages, and only
     // then guesses from min_age and max_age: a row with no age limits ('N/A')
-    // reads "Not Specified", although its record says "Pediatric Included".
-    // Summary rows (the phone view, aggregate archives) carry neither field.
+    // would read "Not Specified", although its record says "Pediatric
+    // Included". A summary row (the phone view, aggregate archives) published
+    // before the engine copied those two fields onto it carries neither, so
+    // it shows the population only where its age range makes it certain
+    // (populationFromAgeRange), and never the guess.
     const open = { min_age: 'N/A', max_age: 'N/A' };
     const rows = ARCHIVE_ROWS.map((r, i) => (i === 0 ? { ...r, ...open } : r));
     const record = { ...RECORDS[0], ...open, std_ages: ['CHILD', 'ADULT', 'OLDER_ADULT'], pediatric_status: 'Pediatric Included' };
-    const population = (text) => (text.match(/<strong>Population:<\/strong> ([^<]*)</) || [])[1] ?? null;
+    // The fixture's other rows run from 18 to 65 years: adults only, for certain.
+    assert.deepEqual(rows.slice(1).map((r) => [r.min_age, r.max_age]), [['18 Years', '65 Years'], ['18 Years', '65 Years']]);
+    const expected = (row) => (row === rows[0] ? null : 'Adult Only');
     // The phone view.
     const phone = harness({ mobile: true, summary: { extracted_at: STAMP, recentStudies: rows } });
     await phone.run('loadData()');
     for (const row of rows) {
         phone.run(`showStudyDetails('${row.nct_id}')`);
-        assert.equal(population(phone.overlay()), null, `the phone pop-up of ${row.nct_id} (ages ${row.min_age} to ${row.max_age}) states a population its row does not carry`);
+        assert.equal(population(phone.overlay()), expected(row), `the phone pop-up of ${row.nct_id} (ages ${row.min_age} to ${row.max_age})`);
         assert.match(phone.overlay(), /<h5>Enrollment &amp; Eligibility<\/h5>[\s\S]*?<p class="detail-state is-na">Not included in the phone view<\/p>|<h5>Enrollment & Eligibility<\/h5>[\s\S]*?<p class="detail-state is-na">Not included in the phone view<\/p>/);
     }
     // An aggregate archive without a file of its own.
     const later = harness({ files: { 'snapshots/2026-04-26/dashboard-summary.json': archiveSummary('2026-04-26', { recentStudies: rows }) }, history: { dates: ['2026-04-26'] } });
     await later.run("loadData('2026-04-26')");
-    later.run(`showStudyDetails('${rows[0].nct_id}')`);
-    await later.flush();
-    assert.equal(population(later.overlay()), null, 'an aggregate archive states a population its row does not carry');
-    // An archive with its own file: nothing while the file loads, the record's value once it is here.
+    for (const row of rows) {
+        later.run(`showStudyDetails('${row.nct_id}')`);
+        await later.flush();
+        assert.equal(population(later.overlay()), expected(row), `the aggregate archive pop-up of ${row.nct_id}`);
+    }
+    // An archive with its own file: while the file loads, only what the row's
+    // ages make certain; the record's value once it is here.
     const date = '2026-04-26';
     const files = {
         [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date, { recentStudies: rows }),
@@ -1859,11 +1872,17 @@ test('the Population line shows only when the record carries what it is worked o
     const archive = harness({ files, history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } } });
     await archive.run(`loadData('${date}')`);
     archive.hold();
+    archive.run(`showStudyDetails('${rows[1].nct_id}')`);
+    assert.match(archive.overlay(), /Loading eligibility details/);
+    assert.equal(population(archive.overlay()), 'Adult Only', 'the pending archive pop-up left out what the row\'s ages make certain');
     archive.run(`showStudyDetails('${rows[0].nct_id}')`);
     assert.equal(population(archive.overlay()), null, 'the pending archive pop-up guessed a population');
     assert.match(archive.overlay(), /Loading eligibility details/);
     await archive.release();
     assert.equal(population(archive.overlay()), 'Pediatric Included');
+    archive.run(`showStudyDetails('${rows[1].nct_id}')`);
+    await archive.flush();
+    assert.equal(population(archive.overlay()), 'Adult Only');
     // Inline and split records carry pediatric_status: shown as always.
     const h = harness({ files: split() });
     await h.run('loadData()');
@@ -1871,6 +1890,119 @@ test('the Population line shows only when the record carries what it is worked o
     h.run(`showStudyDetails('${IDS[0]}')`);
     assert.equal(population(h.overlay()), 'Adult Only', 'a split record lost its core population while its shard loads');
     await h.release();
+});
+
+// The phone pop-up of each row, one summary at a time: its Population line, or null.
+async function phonePopulations(rows) {
+    const phone = harness({ mobile: true, summary: { extracted_at: STAMP, recentStudies: rows } });
+    await phone.run('loadData()');
+    return rows.map((row) => {
+        phone.run(`showStudyDetails('${row.nct_id}')`);
+        return population(phone.overlay());
+    });
+}
+const summaryRow = (i, fields) => {
+    const { min_age, max_age, ...rest } = ARCHIVE_ROWS[0];
+    return { ...rest, nct_id: `NCT0${String(2000000 + i).padStart(7, '0')}`, ...fields };
+};
+
+test('a summary row that carries pediatric_status or std_ages shows the population they give', T, async () => {
+    // The engine copies both fields onto each summary row unchanged from the
+    // full record, and leaves a key out when the record lacks it. The ages
+    // below would derive nothing (or something else): the fields decide.
+    const rows = [
+        summaryRow(1, { min_age: 'N/A', max_age: 'N/A', std_ages: ['CHILD', 'ADULT', 'OLDER_ADULT'], pediatric_status: 'Pediatric Included' }),
+        summaryRow(2, { min_age: '18 Years', max_age: 'N/A', pediatric_status: 'Pediatric Included' }),
+        summaryRow(3, { min_age: 'N/A', max_age: 'N/A', std_ages: ['CHILD'] }),
+        summaryRow(4, { min_age: '12 Years', max_age: 'N/A', std_ages: ['ADULT', 'OLDER_ADULT'] }),
+        summaryRow(5, { std_ages: ['CHILD', 'ADULT'] })
+    ];
+    assert.deepEqual(await phonePopulations(rows),
+        ['Pediatric Included', 'Pediatric Included', 'Pediatric Only', 'Adult Only', 'Pediatric Included']);
+});
+
+test('a summary row with only its ages shows the population where the range makes it certain, and nothing else', T, async () => {
+    // [min_age, max_age, what the pop-up shows]. The label turns on 18 years
+    // alone (ClinicalTrials.gov: CHILD under 18; ADULT 18-64 and OLDER_ADULT
+    // 65+ both read as adult), so a bound that cannot move the label across
+    // it may be missing.
+    const cases = [
+        ['18 Years', '64 Years', 'Adult Only'],
+        ['18 Years', '65 Years', 'Adult Only'],
+        ['18 Years', 'N/A', 'Adult Only'],
+        ['65 Years', 'N/A', 'Adult Only'],
+        ['N/A', '17 Years', 'Pediatric Only'],
+        ['12 Years', '17 Years', 'Pediatric Only'],
+        ['1 Month', '12 Months', 'Pediatric Only'],
+        ['48 Months', '71 Months', 'Pediatric Only'],
+        ['6 Years', '18 Years', 'Pediatric Included'],
+        ['12 Years', '65 Years', 'Pediatric Included'],
+        ['18 Months', '40 Years', 'Pediatric Included'],
+        ['0 Years', '99 Years', 'Pediatric Included'],
+        ['1 Year', '1 Year', 'Pediatric Only'],
+        ['7 Days', '30 Days', 'Pediatric Only'],
+        // Uncertain: no population.
+        ['N/A', 'N/A', null],            // no limits, or not known: the row cannot say which
+        ['12 Years', 'N/A', null],       // a child lower bound and no upper one
+        ['N/A', '30 Years', null],       // an adult upper bound and no lower one
+        ['', '', null],
+        [null, null, null],
+        [undefined, undefined, null],    // keys absent
+        ['17.5 Years', 'N/A', null],     // not "<n> <unit>"
+        ['18 years', 'N/A', null],
+        ['Adult', 'N/A', null],
+        ['210 Months', '230 Months', null], // near 18 in a unit other than years
+        ['N/A', '216 Months', null],
+        ['N/A', '936 Weeks', null],
+        ['216 Months', 'N/A', null],
+        ['18 Years', '17 Years', null],   // bounds that contradict each other
+        // ...or may, where the other bound is in another unit at 17 years or
+        // more: it decides nothing, and it does not let the bound it may
+        // contradict decide either.
+        ['216 Months', '17 Years', null],  // a lower bound of 18 years in months
+        ['240 Months', '17 Years', null],  // a lower bound of 20 years in months
+        ['6575 Days', '12 Years', null],
+        ['18 Years', '215 Months', null],  // an upper bound just under 18 years
+        ['18 Years', '930 Weeks', null],
+        ['18 Years', '915 Months', 'Adult Only'] // an upper bound well over 18 years: no contradiction
+    ];
+    const rows = cases.map(([min, max], i) => {
+        const fields = {};
+        if (min !== undefined) fields.min_age = min;
+        if (max !== undefined) fields.max_age = max;
+        return summaryRow(i, fields);
+    });
+    const shown = await phonePopulations(rows);
+    cases.forEach(([min, max, want], i) => assert.equal(shown[i], want, `ages ${min} to ${max}`));
+    // The rule alone, on the same ages.
+    const h = harness();
+    for (const [min, max, want] of cases) {
+        assert.equal(h.run(`populationFromAgeRange(${JSON.stringify({ min_age: min, max_age: max })})`), want, `populationFromAgeRange: ${min} to ${max}`);
+    }
+    // It never answers "Not Specified", the guess a summary row must not show.
+    assert.equal(h.run("populationFromAgeRange({})"), null);
+});
+
+test('a full record shows its own population, whatever its ages would derive', T, async () => {
+    // A record whose pediatric_status disagrees with its ages keeps the
+    // field's value: the rule is for rows that carry neither field.
+    const own = { ...RECORDS[0], min_age: '18 Years', max_age: 'N/A', pediatric_status: 'Pediatric Included' };
+    const files = dataset([own, ...RECORDS.slice(1)], { parts: 8, shards: 4, stamp: STAMP, commit: 'abc1234' });
+    const h = harness({ files });
+    await h.run('loadData()');
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    assert.equal(population(h.overlay()), 'Pediatric Included');
+    // And a record with no population fields at all still reads as it always
+    // has, through getStudyPediatricStatus's guess.
+    const bare = { ...RECORDS[1], min_age: 'N/A', max_age: 'N/A' };
+    delete bare.pediatric_status;
+    delete bare.std_ages;
+    const plain = harness({ files: dataset([RECORDS[0], bare, ...RECORDS.slice(2)], { parts: 8, layout: false, stamp: STAMP, commit: 'abc1234' }) });
+    await plain.run('loadData()');
+    plain.run(`showStudyDetails('${IDS[1]}')`);
+    await plain.flush();
+    assert.equal(population(plain.overlay()), 'Not Specified');
 });
 
 // ── What a view shows for fields that are not here ──
