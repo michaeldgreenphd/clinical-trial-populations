@@ -316,6 +316,9 @@ const SITE = [
     // the deep-link hooks.
     fnSource('function renderIndustryAfterSwitch()'),
     fnSource('function applyRouteFromHash()'),
+    // A link's snapshot that gave way to the latest data leaves the address
+    // (address_dataset.test.mjs); with none in the link it writes nothing.
+    fnSource('function keepAddressOnDataset()'),
     fnSource('function sgRouteHooks()')
 ].join('\n');
 
