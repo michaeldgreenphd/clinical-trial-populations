@@ -21,7 +21,8 @@
  * parameters, the share filters, sg=v2) as they were. A phone ignores
  * sgsnapshot and its address is left as the link wrote it.
  *
- * The real updateShareUrl, updateIndustryShareUrl, applyRouteFromHash, the
+ * The real updateShareUrl, updateIndustryShareUrl, openIndustryView (its
+ * gate), applyRouteFromHash, the
  * selector's change handler (initHistorySelector), loadDataAndRender and the
  * start-up's steps from the selector to the deep links run in a vm, over a
  * stub document and a location that history.replaceState rewrites as a
@@ -63,6 +64,7 @@ const SOURCES = [
     fnSource('function industryActive()'),
     fnSource('function renderIndustryAfterSwitch()'),
     fnSource('function updateIndustryShareUrl()'),
+    fnSource('async function openIndustryView()'),
     fnSource('function selectSnapshotOption(date)'),
     fnSource('async function initHistorySelector()'),
     fnSource('async function loadDataAndRender(date)')
@@ -94,6 +96,9 @@ function syncYearWindow() {} function populateConditionsDropdown() {} function p
 function populatePrimaryConditionDropdown() {} function renderDashboard() {} function labelChartsForA11y() {}
 function retainSnapshots() {} function showToast() {} function sgRouteHooks() {}
 function applyShareParams() {}
+// The beta gate in front of the Industry view: granted or not (betaGranted).
+let betaGranted = false;
+async function promptForBetaAccess() { return betaGranted; }
 function yearWindowRequest() { return { start: 0, end: null }; }
 `;
 
@@ -300,4 +305,61 @@ test('a phone, which ignores sgsnapshot, keeps the address the link wrote', asyn
             assert.equal(h.address(), `/${search}${hash}`);
         }
     }
+});
+
+test('an Industry gate turned down keeps the snapshot on screen in the address', async () => {
+    // A #industry link over a snapshot that opened, the gate answered once
+    // the page is up: the address keeps the snapshot (in the query, with no
+    // route left), so a reload reopens it.
+    const h = harness({ hash: '#industry?demo=race&cat=asian&sgsnapshot=2026-08-02' });
+    h.startup('2026-08-02');
+    await h.run('openIndustryView()');
+    assert.equal(h.reloadOpens(), '2026-08-02', `a reload opens another dataset than the one on screen (${h.address()})`);
+    assert.equal(h.address(), '/?sgsnapshot=2026-08-02');
+    // Over the latest data the gate leaves the plain address it always did.
+    const g = harness({ hash: '#industry?demo=race' });
+    g.startup(null);
+    await g.run('openIndustryView()');
+    assert.equal(g.address(), '/');
+    // The view asked for from the address bar while a snapshot is on screen.
+    const k = harness({ hash: '#race?sgsnapshot=2026-08-02', tab: 'race' });
+    k.startup('2026-08-02');
+    k.location.hash = '#industry';
+    await k.run('openIndustryView()');
+    assert.equal(k.reloadOpens(), '2026-08-02', `a reload opens another dataset than the one on screen (${k.address()})`);
+});
+
+test('a change in the Industry view over a snapshot keeps naming it', async () => {
+    const h = harness({ hash: '#industry', tab: 'industry' });
+    await h.ready();
+    await h.choose('2026-08-02');
+    h.run("industryView = 'trend'; renderIndustry();");
+    assert.equal(h.address(), '/#industry?view=trend&sgsnapshot=2026-08-02');
+    assert.equal(h.reloadOpens(), '2026-08-02');
+});
+
+test('the Industry view drawn while a link\'s snapshot still loads keeps the snapshot in the address', () => {
+    // An unlocked #industry link: the small sponsor file draws the view
+    // before the snapshot's records are in (shareUrlReady still false). A
+    // reload then must ask for the same snapshot, not the latest data.
+    const industry = { industryDemo: 'race', industryCat: { race: 'asian', ethnicity: 'hispanic_latino' } };
+    const h = harness({ hash: '#industry?demo=race&cat=asian&sgsnapshot=2026-08-02', tab: 'industry', industry });
+    h.run('renderIndustry();');
+    assert.equal(h.reloadOpens(), '2026-08-02', `a reload mid-load opens another dataset (${h.address()})`);
+    assert.equal(h.address(), '/#industry?demo=race&cat=asian&sgsnapshot=2026-08-02');
+    // Start-up then settles it: kept when it opened, gone when it gave way.
+    h.startup('2026-08-02');
+    assert.equal(h.address(), '/#industry?demo=race&cat=asian&sgsnapshot=2026-08-02');
+    const g = harness({ hash: '#industry?demo=race&cat=asian&sgsnapshot=2026-07-05', tab: 'industry', industry });
+    g.run('renderIndustry();');
+    g.startup(null);
+    assert.equal(g.address(), '/#industry?demo=race&cat=asian');
+    // A link with the snapshot in the query keeps it there as it always did.
+    const k = harness({ search: '?sgsnapshot=2026-08-02', hash: '#industry', tab: 'industry' });
+    k.run('renderIndustry();');
+    assert.equal(k.address(), '/?sgsnapshot=2026-08-02#industry');
+    // A phone's view writes its route as it always has.
+    const m = harness({ hash: '#industry?demo=race&cat=asian&sgsnapshot=2026-08-02', tab: 'industry', industry, mobile: true });
+    m.run('renderIndustry();');
+    assert.equal(m.address(), '/#industry?demo=race&cat=asian');
 });

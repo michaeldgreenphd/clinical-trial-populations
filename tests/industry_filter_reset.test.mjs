@@ -95,6 +95,7 @@ function harness({ active = true } = {}) {
         function renderDashboard() { dashboardRenders++; }
         function updateShareUrl() {}
         function keepAddressOnDataset() {}   // the snapshot in the address (address_dataset.test.mjs)
+        let shareUrlReady = true;   // start-up is done (updateIndustryShareUrl)
         ${between('const YEAR_WINDOW_MIN', 'function initFilters()')}
         ${fnSource('function resetFilters()')}\n${fnSource('function updateActiveFilters()')}\n${fnSource('function removeFilter(')}`, context);
     vm.runInContext(app.slice(app.indexOf('const INDUSTRY_PINK =')), context);

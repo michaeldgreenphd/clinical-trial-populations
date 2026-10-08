@@ -12495,6 +12495,15 @@ function updateIndustryShareUrl() {
     if (industrySexSpecific) p.set('ss', '1');
     if (industryConditionMode !== 'top') p.set('columns', industryConditionMode);
     if (industryConditionMode === 'custom') industryConditionSelected.forEach(c => p.append('condition', c));
+    // Until start-up has settled which dataset opened (shareUrlReady), a
+    // snapshot the link named in this hash stays in it: the sponsor file can
+    // draw the view while the snapshot is still loading, and a reload then
+    // must ask for the same one. keepAddressOnDataset settles it after. A
+    // phone ignores sgsnapshot, and its address is written as it always was.
+    if (!shareUrlReady && !isMobileDevice) {
+        const cut = location.hash.indexOf('?');
+        if (cut >= 0) new URLSearchParams(location.hash.slice(cut + 1)).getAll('sgsnapshot').forEach(d => p.append('sgsnapshot', d));
+    }
     const q = p.toString();
     history.replaceState(null, '', '#industry' + (q ? '?' + q : ''));
     // And the snapshot the view is over: named, or out of the query.
@@ -12574,6 +12583,9 @@ async function openIndustryView() {
     const granted = await promptForBetaAccess();
     if (!granted) {
         history.replaceState(null, '', location.pathname + location.search);
+        // The route went, and with it a snapshot named in its query: the
+        // address names the dataset on screen again (in the query now).
+        keepAddressOnDataset();
         return;
     }
 
