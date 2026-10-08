@@ -700,6 +700,41 @@ function getStudyPediatricStatus(study) {
     return 'Not Specified';
 }
 
+// The population a study's age range alone makes certain, in the words
+// getStudyPediatricStatus uses, else null. For a summary row (the phone view,
+// summary-only archives) published before the engine copied pediatric_status
+// and std_ages onto it; never for a record that carries either (owner
+// decision 5a, 2026-10-07). It formats the row's two fields; it guesses
+// nothing.
+//
+// The label turns on one boundary, 18 years: ClinicalTrials.gov's CHILD is
+// under 18, and ADULT (18-64) and OLDER_ADULT (65+) both read as adult. So a
+// lower bound of 18 years or more is "Adult Only" whatever the upper bound;
+// an upper bound under 18 is "Pediatric Only" whatever the lower; a lower
+// bound under 18 with an upper bound of 18 or more is "Pediatric Included".
+// A bound counts only when it reads "<n> <unit>" exactly; 'N/A', a blank or
+// anything else decides nothing (the row cannot say whether 'N/A' is "no
+// limit" or "not known"). A bound in months, weeks, days, hours or minutes
+// counts only below 17 years, so no unit conversion sits near the boundary.
+// Bounds that contradict each other across 18 decide nothing.
+function populationFromAgeRange(study) {
+    const YEARS = { Year: 1, Month: 1 / 12, Week: 7 / 365.25, Day: 1 / 365.25, Hour: 1 / 8766, Minute: 1 / 525960 };
+    const side = (age) => {
+        const m = typeof age === 'string' ? age.match(/^(\d+) (Year|Month|Week|Day|Hour|Minute)s?$/) : null;
+        if (!m) return null;
+        const n = Number(m[1]);
+        if (m[2] === 'Year') return n < 18 ? 'child' : 'adult';
+        return n * YEARS[m[2]] < 17 ? 'child' : null;
+    };
+    const lower = side(study.min_age);
+    const upper = side(study.max_age);
+    if (lower === 'adult' && upper === 'child') return null;
+    if (lower === 'adult') return 'Adult Only';
+    if (upper === 'child') return 'Pediatric Only';
+    if (lower === 'child' && upper === 'adult') return 'Pediatric Included';
+    return null;
+}
+
 // ── Chart plugins: provenance watermark + event annotations ────────────────
 // Watermark: every canvas carries "civicsample.com · data YYYY-MM-DD" in a
 // reserved strip under the plot, so screenshots keep their provenance.
@@ -6183,8 +6218,11 @@ function studyDetailsHtml(fullStudy, states) {
     // The population is pediatric_status, else std_ages; only a record that
     // carries neither falls back to guessing from min_age and max_age, which
     // reads "Not Specified" for a study with no age limits. A summary row
-    // (phone, archive) carries neither, so it shows no population.
+    // (phone, archive) carries both once the engine copies them onto it; an
+    // older one carries neither, and shows the population only where its age
+    // range makes it certain (populationFromAgeRange), never the guess.
     const populationKnown = 'std_ages' in fullStudy || has('eligibility', 'pediatric_status', 'core');
+    const population = populationKnown ? getStudyPediatricStatus(fullStudy) : populationFromAgeRange(fullStudy);
 
     // An archive read through the frozen March files says so (legacy).
     const provenance = states.detail.from
@@ -6232,7 +6270,7 @@ function studyDetailsHtml(fullStudy, states) {
                     <div class="detail-grid">
                         ${has('eligibility', 'enrollment', 'core') ? `<div><strong>Enrollment:</strong> ${(fullStudy.enrollment || 0).toLocaleString()} ${fullStudy.enrollment_type === 'ANTICIPATED' ? '(Anticipated)' : '(Actual)'}</div>` : ''}
                         ${has('eligibility', 'min_age', 'core') ? `<div><strong>Age Range:</strong> ${fullStudy.min_age || 'N/A'} to ${fullStudy.max_age || 'N/A'}</div>` : ''}
-                        ${populationKnown ? `<div><strong>Population:</strong> ${getStudyPediatricStatus(fullStudy)}</div>` : ''}
+                        ${population ? `<div><strong>Population:</strong> ${population}</div>` : ''}
                         ${has('eligibility', 'gender', 'core') ? `<div><strong>Gender:</strong> ${formatGenderDisplay(fullStudy)}</div>` : ''}
                         ${has('eligibility', 'healthy_volunteers', 'core') ? `<div><strong>Healthy Volunteers:</strong> ${fullStudy.healthy_volunteers ? 'Yes' : 'No'}</div>` : ''}
                     </div>
