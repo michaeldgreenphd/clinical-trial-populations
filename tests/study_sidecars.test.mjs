@@ -1704,6 +1704,9 @@ test('the Population line shows only when the record carries it or the row\'s ag
     const archive = harness({ files, history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } } });
     await archive.run(`loadData('${date}')`);
     archive.hold();
+    archive.run(`showStudyDetails('${rows[1].nct_id}')`);
+    assert.match(archive.overlay(), /Loading eligibility details/);
+    assert.equal(population(archive.overlay()), 'Adult Only', 'the pending archive pop-up left out what the row\'s ages make certain');
     archive.run(`showStudyDetails('${rows[0].nct_id}')`);
     assert.equal(population(archive.overlay()), null, 'the pending archive pop-up guessed a population');
     assert.match(archive.overlay(), /Loading eligibility details/);
@@ -1784,7 +1787,16 @@ test('a summary row with only its ages shows the population where the range make
         ['N/A', '216 Months', null],
         ['N/A', '936 Weeks', null],
         ['216 Months', 'N/A', null],
-        ['18 Years', '17 Years', null]    // bounds that contradict each other
+        ['18 Years', '17 Years', null],   // bounds that contradict each other
+        // ...or may, where the other bound is in another unit at 17 years or
+        // more: it decides nothing, and it does not let the bound it may
+        // contradict decide either.
+        ['216 Months', '17 Years', null],  // a lower bound of 18 years in months
+        ['240 Months', '17 Years', null],  // a lower bound of 20 years in months
+        ['6575 Days', '12 Years', null],
+        ['18 Years', '215 Months', null],  // an upper bound just under 18 years
+        ['18 Years', '930 Weeks', null],
+        ['18 Years', '915 Months', 'Adult Only'] // an upper bound well over 18 years: no contradiction
     ];
     const rows = cases.map(([min, max], i) => {
         const fields = {};

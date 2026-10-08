@@ -716,7 +716,10 @@ function getStudyPediatricStatus(study) {
 // anything else decides nothing (the row cannot say whether 'N/A' is "no
 // limit" or "not known"). A bound in months, weeks, days, hours or minutes
 // counts only below 17 years, so no unit conversion sits near the boundary.
-// Bounds that contradict each other across 18 decide nothing.
+// Bounds that contradict each other across 18 decide nothing, and so do
+// bounds that may: one in such a unit at 17 years or more, where the other
+// bound alone would decide, unless it is clear of 18 (19 years or more as an
+// upper bound).
 function populationFromAgeRange(study) {
     const YEARS = { Year: 1, Month: 1 / 12, Week: 7 / 365.25, Day: 1 / 365.25, Hour: 1 / 8766, Minute: 1 / 525960 };
     const side = (age) => {
@@ -724,11 +727,14 @@ function populationFromAgeRange(study) {
         if (!m) return null;
         const n = Number(m[1]);
         if (m[2] === 'Year') return n < 18 ? 'child' : 'adult';
-        return n * YEARS[m[2]] < 17 ? 'child' : null;
+        const years = n * YEARS[m[2]];
+        if (years < 17) return 'child';
+        return years < 19 ? 'near' : 'over';   // decides nothing; may contradict
     };
     const lower = side(study.min_age);
     const upper = side(study.max_age);
-    if (lower === 'adult' && upper === 'child') return null;
+    if (lower === 'adult' && (upper === 'child' || upper === 'near')) return null;
+    if (upper === 'child' && (lower === 'near' || lower === 'over')) return null;
     if (lower === 'adult') return 'Adult Only';
     if (upper === 'child') return 'Pediatric Only';
     if (lower === 'child' && upper === 'adult') return 'Pediatric Included';
