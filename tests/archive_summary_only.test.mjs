@@ -94,6 +94,7 @@ const SOURCES = [
     slice('const ARCHIVE_NO_STUDY_LIST', '\n'),
     fnSource('function prepareStudiesTab()'),
     fnSource('function renderStudiesTable()'),
+    fnSource('function summaryListsLocations(study)'),
     // The FDA tab's constants, fdaClassOf and renderFdaOversight, which ends
     // where the Geography tab's doc comment starts.
     slice('const FDA_CLASS_ORDER', '\n}\n\n/**').slice(0, -3)
