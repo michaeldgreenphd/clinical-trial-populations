@@ -1638,6 +1638,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         // hash once the first render is up, then start writing share URLs.
         shareUrlReady = true;
         applyRouteFromHash();
+        // A link's snapshot that gave way to the latest data (unlisted,
+        // malformed, or failed to load) leaves the address, so a reload does
+        // not ask for it again; a route the link opened, Industry's included,
+        // keeps the rest of its address.
+        keepAddressOnDataset();
         sgRouteHooks();
         labelChartsForA11y();
 
@@ -3384,6 +3389,7 @@ async function loadDataAndRender(date) {
             await snapshotStage(90, 'Drawing charts');
             renderDashboard();
             renderIndustryAfterSwitch();
+            updateShareUrl();   // the address names the dataset now on screen
             retainSnapshots(date || 'latest');
         }
         await snapshotStage(100, 'Ready');
@@ -3575,7 +3581,9 @@ function updateShareUrl() {
     if (!shareUrlReady) return;
     const active = document.querySelector('.tab.active');
     const tabId = active ? active.dataset.tab : 'overview';
-    if (!tabId || tabId === 'industry') return;
+    // The Industry view writes its own #industry?… (updateIndustryShareUrl);
+    // here only the snapshot it is over is brought into line.
+    if (!tabId || tabId === 'industry') { keepAddressOnDataset(); return; }
     const p = new URLSearchParams();
     SHARE_FILTERS.forEach(([id, key]) => {
         const el = document.getElementById(id);
@@ -3610,6 +3618,45 @@ function updateShareUrl() {
         search = str ? '?' + str : '';
     } catch (e) { search = location.search || ''; }
     history.replaceState(null, '', location.pathname + search + '#' + tabId + (q ? '?' + q : ''));
+}
+
+// The address names the dataset on screen (owner decision 4a): sgsnapshot=
+// <date> for a snapshot, none for the latest data, so a reload or a copied
+// link opens what the reader sees. Only sgsnapshot changes: every other
+// parameter, the route and its own parameters stay as written, and an
+// address that already names the dataset is not touched. Otherwise the date
+// goes in the hash's query when the address has a route, as updateShareUrl
+// writes it, else in the query, and a copy in the other place goes (a reload
+// reads the query first). For what updateShareUrl does not rewrite: the Industry
+// tab's address, and a link's snapshot that gave way to the latest data at
+// start-up. A phone ignores sgsnapshot (requestedSnapshot) and its address is
+// left as the link wrote it.
+function keepAddressOnDataset() {
+    if (!shareUrlReady || isMobileDevice) return;
+    const select = document.getElementById('history-date');
+    const snap = select && select.value && select.value !== 'latest' ? select.value : null;
+    // A query with sgsnapshot set to `want` (null: none), unchanged if it
+    // already is.
+    const withSnapshot = (query, want) => {
+        const p = new URLSearchParams(query);
+        const now = p.getAll('sgsnapshot');
+        if (want ? now.length === 1 && now[0] === want : now.length === 0) return query;
+        p.delete('sgsnapshot');
+        if (want) p.set('sgsnapshot', want);
+        return p.toString();
+    };
+    const hash = location.hash || '';
+    const cut = hash.indexOf('?');
+    const route = cut < 0 ? hash : hash.slice(0, cut);
+    const routed = route.length > 1;
+    const query = (location.search || '').replace(/^\?/, '');
+    const hashQuery = cut < 0 ? '' : hash.slice(cut + 1);
+    const named = [query, hashQuery].flatMap(q => new URLSearchParams(q).getAll('sgsnapshot'));
+    if (snap ? named.length > 0 && named.every(d => d === snap) : named.length === 0) return;
+    const nextQuery = withSnapshot(query, routed ? null : snap);
+    const nextHashQuery = withSnapshot(hashQuery, routed ? snap : null);
+    history.replaceState(null, '', location.pathname + (nextQuery ? '?' + nextQuery : '')
+        + route + (nextHashQuery ? '?' + nextHashQuery : ''));
 }
 
 function applyShareParams(query) {
@@ -12534,8 +12581,19 @@ function updateIndustryShareUrl() {
     if (industrySexSpecific) p.set('ss', '1');
     if (industryConditionMode !== 'top') p.set('columns', industryConditionMode);
     if (industryConditionMode === 'custom') industryConditionSelected.forEach(c => p.append('condition', c));
+    // Until start-up has settled which dataset opened (shareUrlReady), a
+    // snapshot the link named in this hash stays in it: the sponsor file can
+    // draw the view while the snapshot is still loading, and a reload then
+    // must ask for the same one. keepAddressOnDataset settles it after. A
+    // phone ignores sgsnapshot, and its address is written as it always was.
+    if (!shareUrlReady && !isMobileDevice) {
+        const cut = location.hash.indexOf('?');
+        if (cut >= 0) new URLSearchParams(location.hash.slice(cut + 1)).getAll('sgsnapshot').forEach(d => p.append('sgsnapshot', d));
+    }
     const q = p.toString();
     history.replaceState(null, '', '#industry' + (q ? '?' + q : ''));
+    // And the snapshot the view is over: named, or out of the query.
+    keepAddressOnDataset();
 }
 
 // Restore a shared #industry?… state once, before the first render.
@@ -12610,7 +12668,28 @@ async function openIndustryView() {
     // validated (betaExtractionUnlocked in sessionStorage).
     const granted = await promptForBetaAccess();
     if (!granted) {
-        history.replaceState(null, '', location.pathname + location.search);
+        // The route goes. Before start-up has settled which dataset opened
+        // (shareUrlReady: industryRoute can open the gate while the records
+        // still load), a snapshot the link named in the route's query moves
+        // to the query, unless the query names one already (a reload reads
+        // it first), so a reload or a copy meanwhile asks for the same
+        // archive. A phone ignores sgsnapshot and its address goes as it did.
+        let search = location.search;
+        if (!shareUrlReady && !isMobileDevice) {
+            const cut = location.hash.indexOf('?');
+            const named = cut < 0 ? [] : new URLSearchParams(location.hash.slice(cut + 1)).getAll('sgsnapshot');
+            const p = new URLSearchParams(location.search);
+            if (named.length && !p.has('sgsnapshot')) {
+                named.forEach(d => p.append('sgsnapshot', d));
+                search = '?' + p.toString();
+            }
+        }
+        history.replaceState(null, '', location.pathname + search);
+        // Once start-up has settled, the address names the dataset on screen
+        // again (in the query now): kept when the snapshot opened, dropped
+        // when it gave way to the latest data. Before, this waits for
+        // start-up, which does the same.
+        keepAddressOnDataset();
         return;
     }
 

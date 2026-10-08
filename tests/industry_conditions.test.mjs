@@ -12,6 +12,9 @@ function harness() {
     const context = vm.createContext({
         data, URLSearchParams, location: { hash: '#industry' },
         history: { replaceState(_state, _title, hash) { context.location.hash = hash; } },
+        // The snapshot in the address (tests/address_dataset.test.mjs).
+        keepAddressOnDataset() {},
+        shareUrlReady: true,   // start-up is done (updateIndustryShareUrl)
         window: { matchMedia: () => mobile, addEventListener() {} },
         document: { addEventListener() {}, querySelectorAll: () => [], getElementById: () => host },
         escapeHtml: text => String(text).replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;'),
