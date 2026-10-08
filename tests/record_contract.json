@@ -164,7 +164,8 @@
   },
   "not_record_fields": {
     "_isAI": "computed in app.js (isAIStudy) and cached on the record",
-    "reference_count": "carried only by dashboard-summary.json recentStudies rows (mobile and archives); a fallback when references is absent"
+    "reference_count": "carried only by dashboard-summary.json recentStudies rows (mobile and archives); a fallback when references is absent",
+    "lists_locations": "carried only by dashboard-summary.json recentStudies rows (mobile and archives), from the engine's 2026-10 summary-row change; true or false, whether the full record lists a study site or country (studyHasGeography). Absent on every earlier summary, and read then as no answer"
   },
   "layout": {
     "about": [
