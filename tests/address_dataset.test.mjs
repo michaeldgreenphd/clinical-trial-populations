@@ -363,3 +363,35 @@ test('the Industry view drawn while a link\'s snapshot still loads keeps the sna
     m.run('renderIndustry();');
     assert.equal(m.address(), '/#industry?demo=race&cat=asian');
 });
+
+test('an Industry gate turned down before start-up settles keeps the link\'s snapshot in the address', async () => {
+    // A desktop opens #industry?…&sgsnapshot=<date>: industryRoute opens the
+    // gate from its own DOMContentLoaded listener while start-up still loads
+    // the records (shareUrlReady false). Turned down then, the route goes,
+    // and the snapshot it carried moves to the query with the other
+    // parameters, so a reload or a copy asks for the same archive meanwhile.
+    const link = { search: '?ref=mail', hash: '#industry?demo=race&cat=asian&sgsnapshot=2026-08-02' };
+    const h = harness(link);
+    await h.run('openIndustryView()');
+    assert.equal(h.reloadOpens(), '2026-08-02', `a reload before start-up settles opens another dataset (${h.address()})`);
+    assert.equal(h.address(), '/?ref=mail&sgsnapshot=2026-08-02');
+    // Start-up then settles it: kept when the snapshot opened …
+    h.startup('2026-08-02');
+    assert.equal(h.reloadOpens(), '2026-08-02');
+    assert.equal(h.address(), '/?ref=mail&sgsnapshot=2026-08-02');
+    // … gone when it gave way to the latest data.
+    const g = harness(link);
+    await g.run('openIndustryView()');
+    g.startup(null);
+    assert.equal(g.reloadOpens(), null, `a reload asks for the snapshot that gave way (${g.address()})`);
+    assert.equal(g.address(), '/?ref=mail');
+    // A snapshot already in the query, which a reload reads first, stays as
+    // written.
+    const k = harness({ search: '?sgsnapshot=2026-05-31', hash: '#industry?sgsnapshot=2026-08-02' });
+    await k.run('openIndustryView()');
+    assert.equal(k.address(), '/?sgsnapshot=2026-05-31');
+    // A phone ignores sgsnapshot: the gate leaves the address as it always did.
+    const m = harness({ ...link, mobile: true });
+    await m.run('openIndustryView()');
+    assert.equal(m.address(), '/?ref=mail');
+});

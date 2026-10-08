@@ -12582,9 +12582,27 @@ async function openIndustryView() {
     // validated (betaExtractionUnlocked in sessionStorage).
     const granted = await promptForBetaAccess();
     if (!granted) {
-        history.replaceState(null, '', location.pathname + location.search);
-        // The route went, and with it a snapshot named in its query: the
-        // address names the dataset on screen again (in the query now).
+        // The route goes. Before start-up has settled which dataset opened
+        // (shareUrlReady: industryRoute can open the gate while the records
+        // still load), a snapshot the link named in the route's query moves
+        // to the query, unless the query names one already (a reload reads
+        // it first), so a reload or a copy meanwhile asks for the same
+        // archive. A phone ignores sgsnapshot and its address goes as it did.
+        let search = location.search;
+        if (!shareUrlReady && !isMobileDevice) {
+            const cut = location.hash.indexOf('?');
+            const named = cut < 0 ? [] : new URLSearchParams(location.hash.slice(cut + 1)).getAll('sgsnapshot');
+            const p = new URLSearchParams(location.search);
+            if (named.length && !p.has('sgsnapshot')) {
+                named.forEach(d => p.append('sgsnapshot', d));
+                search = '?' + p.toString();
+            }
+        }
+        history.replaceState(null, '', location.pathname + search);
+        // Once start-up has settled, the address names the dataset on screen
+        // again (in the query now): kept when the snapshot opened, dropped
+        // when it gave way to the latest data. Before, this waits for
+        // start-up, which does the same.
         keepAddressOnDataset();
         return;
     }
