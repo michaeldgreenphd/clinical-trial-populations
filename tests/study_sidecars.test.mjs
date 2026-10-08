@@ -66,6 +66,7 @@ const SOURCES = [
     fnSource('function renderFdaCell(value, tooltipText)'),
     fnSource('function renderDemographicCell(study, field, tab = READY)'),
     fnSource('function studyHasGeography(study)'),
+    fnSource('function summaryListsLocations(study)'),
     slice('const REPORTED_DIMENSIONS = [', '];'),
     fnSource('function studyReportsDimension(study, field)'),
     slice('function renderReportedCell(', '\n}\n'),
@@ -1657,6 +1658,89 @@ test("the table's geography cell and pip say what a row does not carry, never no
     assert.match(reported(body), /4 of 5/);
     await h.release();
 });
+
+test("a summary row's lists_locations marks its geography as a full record's lists would, and no key changes nothing", T, async () => {
+    // The engine adds lists_locations to each summary row (true or false,
+    // worked out from the full record with studyHasGeography's rule). A row
+    // that has it is marked from it and counted out of 5; a row without it
+    // (every summary published before) keeps the outlined pip and "of 4".
+    const rowsOf = (body) => body.split('<tr>').slice(1);
+    const geo = (tr) => (tr.match(/<td class="text-center col-geography">([\s\S]*?)<\/td>/) || [])[1].trim();
+    const reported = (tr) => (tr.match(/<td class="text-center col-reported">([\s\S]*?)<\/td>/) || [])[1];
+    const flagged = [
+        { ...ARCHIVE_ROWS[0], lists_locations: true },
+        { ...ARCHIVE_ROWS[1], lists_locations: false },
+        { ...ARCHIVE_ROWS[2] }
+    ];
+    const phone = harness({ mobile: true, summary: { extracted_at: STAMP, recentStudies: flagged } });
+    await phone.run('loadData()');
+    assert.equal(phone.run('datasetReader.mode'), 'summary');
+    phone.run('prepareStudiesTab()');
+    const [yes, no, absent] = rowsOf(phone.el('studies-table-body').innerHTML);
+    // true: reported, a filled pip, 4 of 5; the cell is the check mark.
+    assert.match(reported(yes), /Geography: reported/);
+    assert.match(reported(yes), /<span class="pip pip-on" aria-hidden="true"><\/span><\/span><span class="pip-count">4 of 5<\/span>/);
+    assert.match(geo(yes), /class="demo-badge"/);
+    assert.match(geo(yes), new RegExp(`onclick="showGeographyBreakdown\\('${flagged[0].nct_id}'\\)"`));
+    assert.match(geo(yes), /title="Lists at least one study site or country\. Click to view details\."/);
+    assert.doesNotMatch(geo(yes), /0 sites|0 countr/);
+    // false: not reported, a hollow pip, 3 of 5; the cell is a full record's cross.
+    assert.match(reported(no), /Geography: not reported/);
+    assert.match(reported(no), /<span class="pip pip-off" aria-hidden="true"><\/span><\/span><span class="pip-count">3 of 5<\/span>/);
+    assert.equal(geo(no), '<span class="demo-disabled" title="No geography data">✗</span>');
+    // No key: as before, outlined, out of 4, and never "No geography data".
+    assert.match(reported(absent), /Geography: not included in the phone view/);
+    assert.match(reported(absent), /<span class="pip pip-na" aria-hidden="true"><\/span><\/span><span class="pip-count">3 of 4<\/span>/);
+    assert.equal(geo(absent), '<span class="cell-na" title="Not included in the phone view">not included</span>');
+    assert.doesNotMatch(absent, /No geography data|Geography: not reported/);
+    // The check's pop-up says the list is not in the phone view; it names no sites.
+    phone.run(`showGeographyBreakdown('${flagged[0].nct_id}')`);
+    await phone.flush();
+    assert.match(phone.overlay('breakdown-overlay'), /<p class="detail-state is-na">Not included in the phone view<\/p>/);
+    assert.doesNotMatch(phone.overlay('breakdown-overlay'), /Location data not available/);
+    assert.equal(phone.requests.length, 0, 'the phone view fetched files');
+
+    // An archive with a file of its own: the flag answers while the file
+    // loads, and the record's own lists answer once it is here.
+    const date = '2026-04-26';
+    const noSites = { ...RECORDS[1], study_sites: [], countries: [] };
+    const files = {
+        [`snapshots/${date}/dashboard-summary.json`]: archiveSummary(date, { recentStudies: flagged }),
+        [`snapshots/${date}/archive_records.json.gz`]: {
+            source_extracted_at: `${date}T07:03:36.020045`, source_pipeline_commit: null, class: 'archive',
+            data: Object.fromEntries([RECORDS[0], noSites, RECORDS[2]].map((r) => [r.nct_id, r]))
+        }
+    };
+    const archive = harness({ files, history: { dates: [date], archives: { [date]: { kind: 'aggregate', detail: 'archive_records.json.gz' } } } });
+    await archive.run(`loadData('${date}')`);
+    assert.equal(archive.run('datasetReader.mode'), 'archive');
+    archive.hold();
+    archive.run('prepareStudiesTab()');
+    const pending = rowsOf(archive.el('studies-table-body').innerHTML);
+    assert.match(reported(pending[0]), /Geography: reported.*4 of 5/s);
+    assert.match(reported(pending[1]), /Geography: not reported.*3 of 5/s);
+    assert.match(geo(pending[2]), /class="cell-pending" role="img" aria-label="Loading sites"/);
+    assert.match(reported(pending[2]), /Geography: loading.*3 of 4/s);
+    await archive.release();
+    const loaded = rowsOf(archive.el('studies-table-body').innerHTML);
+    assert.match(geo(loaded[0]), /title="2 sites in 2 countries\. Click to view details\."/);
+    assert.match(geo(loaded[1]), /title="No geography data"/);
+    assert.match(geo(loaded[2]), /title="2 sites in 2 countries\. Click to view details\."/);
+    assert.match(reported(loaded[2]), /Geography: reported.*4 of 5/s);
+
+    // Full records: unchanged, whatever a stray key says.
+    const h = harness({ files: split() });
+    await h.run('loadData()');
+    h.hold();
+    h.run('prepareStudiesTab()');
+    const full = rowsOf(h.el('studies-table-body').innerHTML)[0];
+    assert.match(geo(full), /title="2 sites in 2 countries\. Click to view details\."/);
+    assert.match(reported(full), /Geography: reported.*4 of 5/s);
+    await h.release();
+    assert.equal(h.run(`studyHasGeography({ countries: [], study_sites: [], lists_locations: true })`), false);
+    assert.equal(h.run(`studyHasGeography({ countries: [{ country: 'Canada' }], lists_locations: false })`), true);
+});
+
 
 // The pop-up's Population line, or null when it shows none.
 const population = (text) => (text.match(/<strong>Population:<\/strong> ([^<]*)</) || [])[1] ?? null;
