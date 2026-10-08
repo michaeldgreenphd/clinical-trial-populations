@@ -5222,9 +5222,12 @@ function renderStudiesTable() {
         const tab = states.studies_tab;
         // Geography is core (countries, and each site's country), on every
         // record loaded from parts. A summary row (phone, archive) has
-        // neither list: its Geography cell and pip say where geography stands
-        // (not included, loading, did not load), never "No geography data".
-        const geography = 'study_sites' in study || 'countries' in study || states.core.state === 'ready' ? null : states.core;
+        // neither list. One whose summary carries the engine's
+        // lists_locations is marked from it, as its full record would be
+        // (studyHasGeography); any other says where geography stands (not
+        // included, loading, did not load), never "No geography data".
+        const geography = 'study_sites' in study || 'countries' in study || states.core.state === 'ready'
+            || summaryListsLocations(study) !== null ? null : states.core;
 
         // Format enrollment with type indicator
         const enrollmentText = `${(study.enrollment || 0).toLocaleString()}`;
@@ -5502,7 +5505,8 @@ const STUDY_COLUMNS_KEY = 'civicsample.studyColumns';
 
 // The five dimensions, in a fixed order, as pips. A filled pip is reported;
 // a hollow one is not; an outlined one is a dimension the row does not carry
-// (a summary row's geography), left out of the count. The same five columns
+// (the geography of a summary row published without lists_locations), left
+// out of the count. The same five columns
 // are still available singly.
 const REPORTED_DIMENSIONS = [
     { field: 'race', label: 'Race' },
@@ -5518,8 +5522,26 @@ const REPORTED_DIMENSIONS = [
 // data every record with sites also has countries, so this is a latent
 // disagreement rather than a visible one — which is exactly when it is
 // cheapest to remove.
+//
+// A summary row (phone, aggregate archive) carries neither list. The engine
+// adds lists_locations to each one (2026-10): whether its full record lists
+// at least one study site or country, by this same rule. A study with either
+// list answers from it; one with neither answers from the flag when it has
+// one (a row without it is outlined instead: renderStudiesTable).
 function studyHasGeography(study) {
+    if (!('study_sites' in study) && !('countries' in study)) {
+        const flag = summaryListsLocations(study);
+        if (flag !== null) return flag;
+    }
     return (study.study_sites || []).length > 0 || (study.countries || []).length > 0;
+}
+
+// A summary row's lists_locations: true or false, or null when the row has
+// no answer (every summary published before the engine added it, or a value
+// that is not a JSON boolean). Null is never read as false.
+function summaryListsLocations(study) {
+    const flag = study ? study.lists_locations : undefined;
+    return flag === true || flag === false ? flag : null;
 }
 
 function studyReportsDimension(study, field) {
@@ -5533,7 +5555,8 @@ function studyReportsDimension(study, field) {
 // notHere names the dimensions the row does not carry, each with what to say
 // for it ("not included in the phone view", "loading", ...): those pips are
 // outlined and left out of the count, which then reads "n of 4", never a
-// "not reported" the row cannot know.
+// "not reported" the row cannot know. A summary row with lists_locations
+// carries its geography: nothing is named, and the count is out of 5.
 function renderReportedCell(study, notHere = {}) {
     const flags = REPORTED_DIMENSIONS.map(d => (d.field in notHere
         ? { ...d, note: notHere[d.field] }
@@ -5649,7 +5672,11 @@ function renderGeographyCell(study) {
         ? [...new Set(sites.map(s => s.country).filter(Boolean))].length
         : countries.length;
     const siteCount = sites.length || countries.length;
-    const tooltipText = `${siteCount} site${siteCount !== 1 ? 's' : ''} in ${countryCount} countr${countryCount !== 1 ? 'ies' : 'y'}. Click to view details.`;
+    // A summary row marked by lists_locations carries neither list, so there
+    // is nothing here to count; its pop-up says where the sites stand.
+    const tooltipText = siteCount === 0
+        ? 'Lists at least one study site or country. Click to view details.'
+        : `${siteCount} site${siteCount !== 1 ? 's' : ''} in ${countryCount} countr${countryCount !== 1 ? 'ies' : 'y'}. Click to view details.`;
 
     return `<button class="demo-badge"
                     onclick="showGeographyBreakdown('${study.nct_id}')"
