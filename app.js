@@ -3167,7 +3167,7 @@ async function loadData(date) {
                 setDataPulledDate(summary.extracted_at);
                 snapshotCache.set(cacheKey, { data: data, dateLabel: dateLabel, summary: summary, extractedAt: window.__dataExtractedAt, reader: datasetReader });
                 console.log(`✓ Loaded ${date} as aggregate archive (summary-only snapshot)`);
-                showToast(`${date} is an archived monthly snapshot: charts show its full-dataset aggregates. Filters and the full study table are available on bi-weekly and latest data.`, 'info', 9000);
+                showToast(`${date} is an archived monthly snapshot: charts show its full-dataset aggregates. Filters and the full study table are available on the latest data and the complete snapshots.`, 'info', 9000);
                 return;
             }
         } catch (e) {
