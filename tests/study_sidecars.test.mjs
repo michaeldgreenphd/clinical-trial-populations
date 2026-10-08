@@ -1349,8 +1349,90 @@ test('a phone whose summary failed reads its parts by their layout, not by being
     h.run('prepareStudiesTab()');
     h.run(`showStudyDetails('${IDS[0]}')`);
     await h.flush();
-    assert.equal(h.paths().filter((p) => p.includes('studies_tab')).length, 8);
+    // Its study pop-up reads the study's one detail shard, as on a desktop;
+    // the Studies-tab extras are the phone's to skip (owner decision 7b).
+    assert.deepEqual(h.paths().filter((p) => p.includes('/detail/')), [`data/detail/${shard4(IDS[0])}.json.gz`]);
     assert.match(h.overlay(), /Harbor Clinic/);
+});
+
+// Owner decision 7b: a phone whose summary failed runs the full page, and on
+// a split dataset the Studies-tab extras (studies_tab.partK, about 24 MB of
+// gzip for the latest run) are more than a phone should download for one
+// column and a tooltip. A phone never fetches them: the cells and sections
+// that read them say "Not included in the phone view" (the phone view's
+// words, decision 18a), never the '-' or "none" of a value that is there.
+test('a phone on a split dataset never fetches the Studies-tab extras, and says what it leaves out', T, async () => {
+    const h = harness({ files: split(), mobile: true, summary: null });
+    await h.run('loadData()');
+    assert.equal(h.run('datasetReader.mode'), 'split');
+    assert.equal(h.requests.length, 8);
+    h.run('prepareStudiesTab()');
+    await h.flush();
+    const body = h.el('studies-table-body').innerHTML;
+    const pubs = [...body.matchAll(/<td class="col-publications">([\s\S]*?)<\/td>/g)].map((m) => m[1]);
+    assert.equal(pubs.length, 15);
+    for (const cell of pubs) {
+        assert.equal(cell, '<span class="cell-na" title="Not included in the phone view">not included</span>', 'a phone publications cell does not say it is not included');
+    }
+    assert.doesNotMatch(body, /cell-pending|cell-failed|Category labels are loading|did not load/, 'a phone table waits on extras it never fetches');
+    const tips = [...body.matchAll(/<td class="text-center col-(?:race|ethnicity|sex|gender)">\s*<button class="demo-badge"[^>]*title="([^"]*)"/g)].map((m) => m[1]);
+    assert.ok(tips.length >= 15, 'the table drew no demographic badges');
+    for (const tip of tips) assert.equal(tip, 'Not included in the phone view: category labels. Click to view the breakdown.');
+    assert.equal(h.status().hidden, true, 'the phone showed the extras status row');
+    // The pop-ups that read the extras say so too, and fetch none of them.
+    h.run(`showBreakdown('${IDS[0]}', 'race')`);
+    await h.flush();
+    assert.match(h.overlay('breakdown-overlay'), /Not included in the phone view: original labels, match quality and quarantined labels\./);
+    assert.doesNotMatch(h.overlay('breakdown-overlay'), /Original Label|Caucasian/);
+    h.run(`showPublications('${IDS[0]}')`);
+    await h.flush();
+    assert.match(h.overlay('breakdown-overlay'), /<p class="detail-state is-na">Not included in the phone view<\/p>/);
+    h.run(`showStudyDetails('${IDS[0]}')`);
+    await h.flush();
+    const modal = h.overlay();
+    assert.match(modal, /<h5>Publications<\/h5>\s*<p class="detail-state is-na">Not included in the phone view<\/p>/);
+    assert.match(modal, /Harbor Clinic/, 'the pop-up lost its detail shard');
+    // Healthy volunteers is a core field, and this record's is No.
+    assert.deepEqual(claims(modal).filter((c) => c !== 'Healthy Volunteers:</strong> No'), [], 'the phone pop-up states values it does not have');
+    // The status row's button has nothing to try again.
+    h.run('studiesExtrasAction()');
+    await h.flush();
+    assert.deepEqual(h.paths().filter((p) => p.includes('studies_tab')), [], 'a phone fetched the Studies-tab extras');
+    assert.deepEqual(h.paths().slice(8), [`data/detail/${shard4(IDS[0])}.json.gz`], 'a phone fetched more than its pop-up\'s one shard');
+    // A split snapshot opened on the phone (its history selector) is read the same way.
+    const date = '2026-10-18';
+    const snap = harness({ files: split({ base: `snapshots/${date}` }), mobile: true, summary: null });
+    await snap.run(`loadData('${date}')`);
+    snap.run(`prepareStudiesTab(); showBreakdown('${IDS[1]}', 'race'); showStudyDetails('${IDS[1]}')`);
+    await snap.flush();
+    assert.deepEqual(snap.paths().slice(8), [`snapshots/${date}/detail/${shard4(IDS[1])}.json.gz`]);
+});
+
+test('a desktop on a split dataset still fetches the Studies-tab extras; an inline dataset fetches nothing on either', T, async () => {
+    const desk = harness({ files: split() });
+    await desk.run('loadData()');
+    desk.run('prepareStudiesTab()');
+    await desk.flush();
+    assert.deepEqual(desk.paths().filter((p) => p.includes('studies_tab')), Array.from({ length: 8 }, (_, i) => `data/studies_tab.part${i + 1}.json.gz`));
+    const body = desk.el('studies-table-body').innerHTML;
+    assert.doesNotMatch(body, /Not included/);
+    assert.match(body, /Raw data: ✓ &quot;Caucasian&quot;|Raw data: ✓ "Caucasian"/);
+    assert.match(body, /A randomized trial/);
+    for (const mobile of [false, true]) {
+        const h = harness({ files: inline(), mobile, summary: null });
+        await h.run('loadData()');
+        assert.equal(h.run('datasetReader.mode'), 'inline');
+        h.run('prepareStudiesTab()');
+        h.run(`showBreakdown('${IDS[0]}', 'race'); showStudyDetails('${IDS[0]}')`);
+        await h.flush();
+        assert.equal(h.requests.length, 8, `an inline dataset made requests (${mobile ? 'phone' : 'desktop'}): ${h.paths().slice(8).join(', ')}`);
+        const table = h.el('studies-table-body').innerHTML;
+        assert.doesNotMatch(table, /Not included|cell-na/, `an inline ${mobile ? 'phone' : 'desktop'} table says it leaves out what its records carry`);
+        assert.match(table, /A randomized trial/);
+        assert.match(table, /Raw data: ✓ &quot;Caucasian&quot;|Raw data: ✓ "Caucasian"/);
+        assert.match(h.overlay('breakdown-overlay'), /Caucasian/);
+        assert.match(h.overlay(), /Publications \(1\)/);
+    }
 });
 
 test('the phone view says what its summary rows do not carry', T, async () => {
@@ -1374,6 +1456,8 @@ test('the phone view says what its summary rows do not carry', T, async () => {
     assert.match(breakdown, /Not included in the phone view: original labels, match quality and quarantined labels\./);
     assert.doesNotMatch(breakdown, /Original Label|Not reported<\/td>/);
     assert.match(h.el('studies-table-body').innerHTML, /pubs?<\/span>|<span class="text-muted">-<\/span>/, 'the table lost the rows\' reference counts');
+    // A reported dimension's badge says its labels are left out (decision 7b, in 18a's words).
+    assert.match(h.el('studies-table-body').innerHTML, /<button class="demo-badge"[^>]*title="Not included in the phone view: category labels\. Click to view the breakdown\."/);
 });
 
 // ── Aggregate archives ──

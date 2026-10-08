@@ -2030,7 +2030,11 @@ async function fetchPart(url, onProgress, init) {
 //                contract's layout section). The Studies-tab extras are
 //                studies_tab.part1..N.json.gz, fetched when the Studies tab
 //                opens; a study's details are detail/<n>.json.gz, one shard
-//                per pop-up. Both sit in the dataset's own folder.
+//                per pop-up. Both sit in the dataset's own folder. A phone
+//                (one whose summary did not load) never fetches the extras,
+//                tens of megabytes for one column and a tooltip (owner
+//                decision 7b): they are "Not included in the phone view".
+//                Its pop-ups still read their one shard.
 //   archive      An aggregate archive that history.json says has its own file
 //                of study records (archive_records.json.gz): that one file
 //                carries every field of its recent-studies rows.
@@ -2137,17 +2141,20 @@ function makeReader(fields) {
     return Object.assign({
         mode: 'inline', key: 'latest', base: 'data', rows: null,
         stamp: null, commit: null, layout: null, partSizes: null,
-        archiveFile: null, absentText: null, superseded: null, runCheck: null,
+        archiveFile: null, absentText: null, extrasAbsent: null, superseded: null, runCheck: null,
         extras: { state: 'idle', error: null, map: null, promise: null, settle: null, parts: null, loaded: [], totals: [], finished: [] },
         shards: new Map()
     }, fields);
 }
 
-// The reader of a dataset loaded from its parts, stamped with core part 1's run.
+// The reader of a dataset loaded from its parts, stamped with core part 1's
+// run. extrasAbsent: on a phone, the words for the Studies-tab extras of a
+// split dataset, which it never fetches (decision 7b); null on a desktop.
 function partsReader(key, parts, layout, rows) {
     if (!layout) return makeReader({ mode: 'inline', key, base: datasetBase(key), rows });
     return makeReader({
         mode: 'split', key, base: datasetBase(key), rows, layout,
+        extrasAbsent: isMobileDevice ? ABSENT_PHONE : null,
         stamp: parts[0].extracted_at === undefined ? null : parts[0].extracted_at,
         commit: parts[0].pipeline_commit === undefined ? null : parts[0].pipeline_commit,
         partSizes: parts.map(p => p.data.length)
@@ -2199,7 +2206,10 @@ function classState(r, klass, nctId) {
     if (!r || r.mode === 'inline') return READY;
     if (r.mode === 'split') {
         if (klass === 'core') return READY;
-        if (klass === 'studies_tab') return loadState(r.extras, map => map.get(nctId));
+        if (klass === 'studies_tab') {
+            if (r.extrasAbsent) return { state: 'absent', entry: null, text: r.extrasAbsent };
+            return loadState(r.extras, map => map.get(nctId));
+        }
         const n = shardOf(nctId, r.layout.detail.shards);
         if (n === null) return { state: 'missing', entry: null };
         return loadState(r.shards.get(n), map => map[nctId]);
@@ -2363,10 +2373,11 @@ function loadProblem(err) {
 
 // The files of a dataset's Studies-tab extras, each with its check: the
 // studies_tab parts (split), the archive's own file (archive), or the frozen
-// March files (legacy; they carry no stamps). None for inline and summary.
+// March files (legacy; they carry no stamps). None for inline and summary,
+// and none for a split dataset on a phone (extrasAbsent).
 function extrasFiles(r) {
     if (!r) return [];
-    if (r.mode === 'split') {
+    if (r.mode === 'split' && !r.extrasAbsent) {
         return Array.from({ length: r.layout.studies_tab.files }, (_, i) => ({
             url: `${r.base}/studies_tab.part${i + 1}.json.gz`,
             problemOf: body => studiesTabPartProblem(r, body, i + 1)
@@ -5685,6 +5696,10 @@ function renderDemographicCell(study, field, tab = READY) {
         tooltipText = 'Category labels are loading. Click to view the breakdown.';
     } else if (!('raw_categories' in fieldData) && (tab.state === 'failed' || tab.state === 'missing')) {
         tooltipText = 'Category labels did not load. Click to view the breakdown.';
+    } else if (!('raw_categories' in fieldData) && tab.state === 'absent' && isMobileDevice) {
+        // A phone says it leaves the labels out, in the phone view's words
+        // (18a). A desktop archive's tooltip is as it was.
+        tooltipText = `${tab.text}: category labels. Click to view the breakdown.`;
     } else if (rawCategories.length > 0) {
         const summaries = rawCategories.slice(0, 3).map(rc => {
             const confidence = rc.confidence === 'high' ? '✓' :
