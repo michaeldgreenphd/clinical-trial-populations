@@ -1306,7 +1306,7 @@
                 <details class="faq-section">
                     <summary><h4>How far back does the historical snapshot log go?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note">Snapshots follow a tiered retention schedule: the <strong>latest extraction and three earlier ones about two weeks apart</strong> (reaching back five to six weeks) are kept as complete datasets, and beyond that <strong>one snapshot per calendar month</strong> is kept as an aggregate archive &mdash; every chart renders exactly as extracted on that date, and aggregate archives made from October 2026 on also keep the records of their 500 most recent studies for the study pop-ups, while the interactive filters and the full study-level table require a complete (bi-weekly or latest) dataset. The live dashboard always reflects the newest weekly extraction regardless of retention.</p>
+                        <p class="note">Snapshots follow a tiered retention schedule: the <strong>latest extraction and three earlier ones about two weeks apart</strong> (reaching back five to six weeks) are kept as complete datasets, and beyond that <strong>one snapshot per calendar month</strong> is kept as an aggregate archive &mdash; every chart renders exactly as extracted on that date, and aggregate archives made from October 2026 on also keep the records of their 500 most recent studies for the study pop-ups, while the interactive filters and the full study-level table are available only on the latest data and the complete snapshots. The live dashboard always reflects the newest weekly extraction regardless of retention.</p>
                         <p class="note" style="margin-top: 0.5rem;">The pruning runs automatically alongside the weekly extraction, and the "View snapshot" selector lists exactly the retained dates. We keep the log tiered rather than unlimited because each snapshot is roughly 140&nbsp;MB and the dashboard is served as a static site: an unbounded archive makes deployments slow and unreliable long before it adds analytical value. If you need a specific historical extraction that has aged out of the log, <a href="mailto:info@civicsample.com">email us</a> &mdash; full weekly extractions are kept in the site&rsquo;s history, and from 2026-08-28 on as releases of the data pipeline.</p>
                     </div>
                 </details>
@@ -1677,6 +1677,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20261008-phones4"></script>
+    <script defer src="app.js?v=20261008-snapwording"></script>
 </body>
 </html>
