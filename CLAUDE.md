@@ -3,6 +3,9 @@
 Read `AGENTS.md` first — it is the source of truth; nothing is repeated here so
 the files cannot drift.
 
+Consult applicable nested instructions and [verify.md](verify.md) when
+selecting checks and before declaring work complete.
+
 ## Claude Code specifics
 
 - After opening a pull request, subscribe to its activity
