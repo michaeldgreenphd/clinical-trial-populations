@@ -19,9 +19,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { assertPythonInventory } from './repository_python_inventory.mjs';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(repo, p), 'utf8');
@@ -334,19 +335,8 @@ test('npm test is exactly what the docs say it is, and is the only runner', () =
 // 8. No Python, no build, no deployment workflow
 // ---------------------------------------------------------------------------
 
-function walk(dir, out = []) {
-  for (const d of readdirSync(dir, { withFileTypes: true })) {
-    if (d.name === '.git' || d.name === 'node_modules') continue;
-    const p = join(dir, d.name);
-    if (d.isDirectory()) walk(p, out); else out.push(relative(repo, p));
-  }
-  return out;
-}
-
 test('the only Python file is scripts/geo/advance_run.py and no workflow runs it', () => {
-  const py = walk(repo).filter((f) => f.endsWith('.py')).sort();
-  assert.deepEqual(py, ['scripts/geo/advance_run.py'],
-    'AGENTS.md says advance_run.py is the single exception to "no Python"; found: ' + py.join(', '));
+  assertPythonInventory(repo);
   for (const wf of readdirSync(join(repo, '.github/workflows'))) {
     const yml = read(join('.github/workflows', wf));
     assert.ok(!/\bpython3?\b|advance_run/.test(yml),
