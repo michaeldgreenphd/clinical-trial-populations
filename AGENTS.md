@@ -17,6 +17,54 @@ repository computes them and pushes the published files here. A change to how
 the dashboard *looks or behaves* belongs in this repo; a change to what the
 numbers *are* belongs in the engine.
 
+## Start here
+
+Read this file, applicable ancestor and nested instructions, and
+[verify.md](verify.md) before choosing checks and again before declaring work
+complete. Codex instruction filenames are case-sensitive: AGENTS.override.md
+takes precedence over AGENTS.md in the same directory; deeper instructions
+apply to their subtree. Any override must retain this instruction to consult
+the applicable nested instructions and verification guide. CLAUDE.md is a
+linked companion, not a substitute for the effective Codex instructions.
+
+| Source | Responsibility |
+|---|---|
+| [README.md](README.md) | Product overview and repository map |
+| [verify.md](verify.md) | Canonical setup, check selection, browser evidence, and cross-repository readiness |
+| `index.html`, `app.js`, `styles.css` | Hash routes, startup/mobile/snapshot loading, filters, charts and study details |
+| `geo/`, [data/geo/README.md](data/geo/README.md) | Geography reader/render boundary and deliberate run-advance procedure |
+| `data/geo/active_run.json`, `tests/run_expectations.json` | Pinned geography input and matching acceptance expectations; the run's CONTRACT.md defines its semantics |
+| `beta/approval-queue.jsx` | Isolated React review UI; its ledger is in-memory, not a backend write |
+| `data/`, `snapshots/`, `history.json`, `condition_ontology.json` | Engine-published inputs; historical readers remain a compatibility obligation |
+| [tests/record_contract.json](tests/record_contract.json), [tests/data_budget.json](tests/data_budget.json) | Site-owned field/layout contract and size budgets consumed by the engine; split layout is an explicit owner switch |
+| `tests/`, `.github/workflows/geo-contract-tests.yml`, `package.json` | Executable checks and CI gate; the suite covers more than geography |
+
+The frontend/backend interface is static artifacts, not a running API.
+The engine owns extraction, parser/attribution rules and artifact production;
+this repository owns readers and browser compatibility. Geography is a
+separate frozen contract. The site owns tests/record_contract.json and
+tests/data_budget.json; the engine consumes both before publishing. The reader accepts inline and v1 split
+records, but layout.enabled is false: the supported production path is inline.
+Do not enable split layout as a verification workaround. Do not infer
+compatibility from two independently green suites; see [the integration checks](verify.md#cross-repository-verification).
+
+## Working on a change
+
+1. Inspect branch, working tree and applicable instructions; preserve unrelated
+   changes and coordinate one editor per branch. For new PR work use the
+   branch-from-main workflow below; do not switch an active checkout blindly.
+2. Read the relevant implementation, published inputs and tests. State the
+   acceptance criteria, affected consumers and any unresolved assumptions.
+3. Make a focused change in the repository that owns the behavior. Keep
+   session results out of durable instructions.
+4. Consult [verify.md](verify.md), run its quick path and relevant targeted,
+   browser or cross-repository checks. Existing required gates still apply.
+5. Inspect the complete diff, including new files, cache keys and snapshot
+   compatibility; run `git diff --check`.
+6. Before declaring completion, recheck the applicable nested instructions and
+   verification guide. Report exact commands, observed results and limitations;
+   distinguish fixtures, served-browser checks and an actual engine-to-site run.
+
 ## Repository workflow
 
 Every pull request in this repository is independently reviewed by Codex
@@ -76,8 +124,8 @@ request. The script that performs it, `scripts/geo/advance_run.py`, belongs
 in this repository rather than in the engine, because every path it writes
 resolves from its own repository root. If it is missing, that is the bug;
 `tests/repo_wiring.test.mjs` checks that it stays here, and
-`tests/docs_wiring.test.mjs` checks that every path and command this file
-and `CLAUDE.md` name still resolves.
+`tests/docs_wiring.test.mjs` checks named paths and selected claims in this
+file and `CLAUDE.md`, plus local Markdown references in the workflow docs.
 
 **Asset cache keys.** `index.html` pins `styles.css` and `app.js` with `?v=`
 query strings. A change to either file that does not bump its key ships new

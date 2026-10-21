@@ -46,12 +46,14 @@ keeps the tab current in perpetuity.
    sentence in `index.html` must be updated by hand — the prose-tripwire test
    fails until the named states are actually absent in the pinned run.
 5. **PR, gated.** `npm test` locally, then a PR; the `geo-contract-tests`
-   workflow re-runs the 13 acceptance tests on the new pin. Remove the
+   workflow re-runs the full suite, including the geography acceptance tests,
+   on the new pin. Use [the root verification guide](../../verify.md) for
+   browser and broader checks. Remove the
    previous run directory in the same PR unless both should be retained.
 
 ## Which repository owns which step
 
-The pipeline moved to
+The scheduled extraction and publishing pipeline moved to
 [`civicsample-engine`](https://github.com/michaeldgreenphd/civicsample-engine)
 in the 2026 frontend/backend split, but this loop deliberately stayed split
 across both repos along the line of *what each step writes*:
@@ -62,6 +64,13 @@ across both repos along the line of *what each step writes*:
 | 2. Run the pipeline (`refresh.R`) | neither | Every run directory ships its own complete pipeline; that is what makes an old run reproducible |
 | 3. Advance the pin (`advance_run.py`) | **this repo** | Every path it writes is a site path — the staged run directory, the pin, and the expectations file. A copy living elsewhere would stage into the wrong working tree |
 | 4. Review, PR, merge | this repo | `geo-contract-tests` is the gate |
+
+The geography pipeline in step 2 is supplied by the complete external run
+bundle, not by this repository's staged contract subset. A pin advance needs
+that bundle's `RUN_INFO.csv` (status `final`), `MANIFEST.csv`, pipeline and
+contract files. Do not point `advance_run.py` at the already-staged subset:
+it lacks the manifest and run metadata. The script writes files and has no
+dry-run mode; it is not part of routine documentation verification.
 
 `tests/repo_wiring.test.mjs` asserts step 3's script is actually present and
 that the paths naming it resolve, so a future repository reshuffle cannot

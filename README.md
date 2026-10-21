@@ -26,16 +26,18 @@ engine.
 | `data/pilot_trials_manuscripts/` | Trial manuscript PDFs the site serves directly — manuscript links fall back to these when a paper has no DOI |
 | `snapshots/` + `history.json` | Dated point-in-time copies powering the "View snapshot" selector (the latest week from `data/`, three earlier weeks about two weeks apart in full, then one summary per month, with its recent studies' records from October 2026 on). The newest date in `history.json` (its `latest`, else the newest of `dates`) is read from `data/`, not `snapshots/` |
 | `condition_ontology.json` | Condition category tree the app loads at startup (canonical copy lives in the engine, published here) |
-| `tests/` + `package.json` | Geography contract tests (`npm ci && npm test`), run by CI on any push touching geo code or data |
+| `tests/` + `package.json` | Geography contracts, repository/docs wiring, Industry and Sex/Gender checks; CI runs on every push and pull request |
+| [AGENTS.md](AGENTS.md), [verify.md](verify.md) | Contributor constraints and the canonical setup, verification and integration guide |
 | `CNAME`, `.nojekyll`, `og-preview.png` | GitHub Pages plumbing and the social-share image |
 
 ## How the data gets here
 
 Every Sunday 06:00 UTC, the engine's weekly workflow extracts from
-ClinicalTrials.gov, packages the artifacts, and pushes a single data commit
-to this repo (you'll see them as "Update demographics data YYYY-MM-DD" from
-github-actions). Each data file records when it was extracted
-(`extracted_at`) and which engine commit produced it (`pipeline_commit`).
+ClinicalTrials.gov, packages the artifacts, and publishes data plus follow-up
+audit/bridge commits to this repo. Read provenance from the artifact headers or companion
+metadata (`extracted_at`, `pipeline_commit` or `source_pipeline_commit`);
+the geography run has its own explicit pin. These are not one synchronized
+dataset: the verification guide describes the separate inputs and boundaries.
 Nothing in this repo runs the pipeline anymore.
 
 ## Local development
@@ -43,15 +45,25 @@ Nothing in this repo runs the pipeline anymore.
 It's a static site — serve the folder and open it:
 
 ```bash
-python3 -m http.server 8000
-# then http://localhost:8000
+python3 -m http.server 8000 --bind 127.0.0.1
+# then http://127.0.0.1:8000
 ```
 
-Geography tab changes should keep the contract tests green:
+Use Node 22, matching CI. From the repository root, the quick verification is:
 
 ```bash
-npm ci && npm test
+npm ci
+DOCS_WIRING_BASE="$(git rev-parse --verify 'origin/main^{commit}')"
+export DOCS_WIRING_BASE
+git merge-base "$DOCS_WIRING_BASE" HEAD
+npm test
+git diff --check
 ```
+
+[verify.md](verify.md) explains prerequisites, targeted checks, known test
+limits, browser flows, and the engine-to-site contract readiness gate. Read it
+before selecting checks or claiming a change is complete. There is no build
+step or backend service to start.
 
 ## Known quirks (so reviews don't rediscover them)
 
@@ -86,5 +98,5 @@ npm ci && npm test
 
 Until August 2026 this repo also contained the extraction pipeline. That
 moved to `civicsample-engine`; the complete pre-split repo is preserved on
-the [`pre-split-archive`](../../tree/pre-split-archive) branch and in git
+the [`pre-split-archive`](https://github.com/michaeldgreenphd/clinical-trial-populations/tree/pre-split-archive) branch and in git
 history.

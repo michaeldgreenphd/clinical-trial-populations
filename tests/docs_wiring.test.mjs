@@ -19,9 +19,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname, relative } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
+import { localReferenceProblems } from './docs_references.mjs';
+import { assertPythonInventory } from './repository_python_inventory.mjs';
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(join(repo, p), 'utf8');
@@ -91,6 +93,11 @@ test('every backticked path in AGENTS.md and CLAUDE.md resolves', () => {
   const stale = Object.keys(PATH_EXEMPTIONS).filter((tok) => !used.has(tok));
   assert.deepEqual(stale, [],
     `PATH_EXEMPTIONS lists tokens the documents no longer name — remove them: ${stale.join(', ')}`);
+});
+
+test('local Markdown references in the workflow docs resolve with exact case', () => {
+  const problems = localReferenceProblems(repo, [...DOCS, 'README.md', 'verify.md']);
+  assert.deepEqual(problems, [], problems.join('\n'));
 });
 
 test('the app never follows geo_rep_LATEST.txt, which the docs say must stay unfollowed', () => {
@@ -199,8 +206,8 @@ test('the geo/ scripts index.html loads are cache-keyed too', () => {
 // docs actually make: a change to the asset comes with a change to its key.
 // It needs a base revision to compare against, which exists on a pull request
 // (GITHUB_BASE_REF, with fetch-depth 0) or when a developer sets
-// DOCS_WIRING_BASE=main locally. Anywhere else it skips and says why, rather
-// than passing vacuously.
+// DOCS_WIRING_BASE to the verified PR-base SHA locally (see verify.md).
+// Anywhere else it skips and says why, rather than passing vacuously.
 const KEYED_ASSETS = ['styles.css', 'app.js', 'geo/geo_reader.js', 'geo/geo_render.js', 'geo/geo_data.js', 'geo/geo_ui.js'];
 
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
@@ -223,7 +230,7 @@ function baseRevision() {
 test('a change to a cache-keyed asset comes with a change to its ?v= key', (t) => {
   const base = baseRevision();
   if (!base) {
-    t.skip('no base revision: set DOCS_WIRING_BASE=main to compare against main (CI sets GITHUB_BASE_REF on pull requests)');
+    t.skip('no base revision: export DOCS_WIRING_BASE as the verified PR-base SHA (see verify.md; CI sets GITHUB_BASE_REF on pull requests)');
     return;
   }
   const changed = git('diff', '--name-only', base, 'HEAD').split('\n').filter(Boolean);
@@ -334,19 +341,8 @@ test('npm test is exactly what the docs say it is, and is the only runner', () =
 // 8. No Python, no build, no deployment workflow
 // ---------------------------------------------------------------------------
 
-function walk(dir, out = []) {
-  for (const d of readdirSync(dir, { withFileTypes: true })) {
-    if (d.name === '.git' || d.name === 'node_modules') continue;
-    const p = join(dir, d.name);
-    if (d.isDirectory()) walk(p, out); else out.push(relative(repo, p));
-  }
-  return out;
-}
-
 test('the only Python file is scripts/geo/advance_run.py and no workflow runs it', () => {
-  const py = walk(repo).filter((f) => f.endsWith('.py')).sort();
-  assert.deepEqual(py, ['scripts/geo/advance_run.py'],
-    'AGENTS.md says advance_run.py is the single exception to "no Python"; found: ' + py.join(', '));
+  assertPythonInventory(repo);
   for (const wf of readdirSync(join(repo, '.github/workflows'))) {
     const yml = read(join('.github/workflows', wf));
     assert.ok(!/\bpython3?\b|advance_run/.test(yml),
