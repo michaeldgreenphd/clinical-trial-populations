@@ -18,3 +18,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Gemini CLI local state and temporary Google authentication credentials
+.gemini/
+gha-creds-*.json

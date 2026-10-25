@@ -80,6 +80,24 @@ Practical consequences:
   backed by something observable, not by inspection alone.
 - Say plainly what you did *not* do, and why, rather than leaving it implied.
 
+## Dual-AI PR Review Architecture
+
+- **Codex** audits hunk-level diff logic, local edge cases, syntax/types and
+  isolated code correctness.
+- **Gemini CLI** follows [GEMINI.md](GEMINI.md) to audit whole-repository blast
+  radius, untouched downstream callers, data provenance, and contract sync
+  between civicsample-engine and clinical-trial-populations. It reports only
+  regressions supported by both a changed line and an untouched consumer.
+
+These roles complement the review rules below; Gemini does not repeat Codex's
+local checks. The [Gemini workflow](.github/workflows/gemini-pr-review.yml)
+runs automatically on non-draft same-repository PRs, including when marked
+ready, and accepts an `@gemini-cli` PR comment from a collaborator with write
+access even on drafts. It maintains one sticky review comment. Fork and
+Dependabot PRs are skipped because this job needs a secret and a comment-writing
+token. Comment triggers become available once the workflow is on the default
+branch.
+
 ## Code Review Rules
 
 - Flag changes that could corrupt, silently alter, or irreversibly delete
@@ -149,17 +167,17 @@ branches, no deletions of published history.
 1. Branch from `main` and open a pull request against `main`. Never push to
    `main` directly unless the owner explicitly says to.
 2. Immediately after opening the PR, post a comment containing exactly
-   "@codex review". Do this for every PR, without being asked, and again
+   `@codex review`. Do this for every PR, without being asked, and again
    after any push that changes the diff so the new head is reviewed.
 3. Address every Codex finding before the PR is considered done: verify it
    against the diff, push a fix for anything real, and reply on the thread
    saying what changed. Resolve the threads you addressed.
 4. Ask before disputing. When a finding is unclear or looks wrong, do not
-   argue with it or ignore it — post a comment addressed to @codex with the
+   argue with it or ignore it — post a comment addressed to `@codex` with the
    specific question, then act on the answer: fix, or reply with the reason
    it should not be taken. Codex answers direct questions; it does not
    respond to ordinary thread replies.
-5. One editor per branch. Never use "@codex address that feedback", or
+5. One editor per branch. Never use `@codex address that feedback`, or
    otherwise ask Codex to push commits, while an agent or session is working
    on the branch. Asking Codex questions is fine at any time.
 6. Keep the PR title and description accurate as the branch changes.

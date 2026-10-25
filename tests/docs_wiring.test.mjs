@@ -36,6 +36,27 @@ const matches = (text, re, msg) => assert.ok(re.test(text), msg);
 const DOCS = ['AGENTS.md', 'CLAUDE.md'];
 const docs = Object.fromEntries(DOCS.map((d) => [d, read(d)]));
 
+test('Gemini context imports resolve without importing bot mentions', () => {
+  // Gemini ignores backtick code spans/blocks when resolving imports:
+  // https://geminicli.com/docs/reference/memport/#code-region-detection
+  // A bare bot mention in imported AGENTS.md otherwise becomes a file import.
+  const importsByDoc = new Map();
+  const missing = [];
+  for (const doc of ['GEMINI.md', ...DOCS]) {
+    const prose = read(doc).replace(/(`+)[\s\S]*?\1/g, '');
+    const imports = [...prose.matchAll(/(?<!\S)@([A-Za-z./][^\s]*)/g)].map(m => m[1]);
+    importsByDoc.set(doc, imports);
+    for (const target of imports) {
+      if (!exists(target) || !statSync(join(repo, target)).isFile()) {
+        missing.push(`${doc}: @${target}`);
+      }
+    }
+  }
+  assert.ok(importsByDoc.get('GEMINI.md').includes('AGENTS.md'), 'keep the baseline import active');
+  assert.deepEqual(missing, [],
+    'Gemini context imports must resolve; wrap literal bot mentions in backticks');
+});
+
 const pin = JSON.parse(read('data/geo/active_run.json'));
 const runDir = pin.run_dir;
 
