@@ -505,6 +505,8 @@ test('the layout section says what the split spec says, word for word', () => {
         { nct_id: 'NCT01174160', shards: 128, shard: 16 }
     ]);
     assert.deepEqual(layout.optional_class, {
+        sex_gender_analysis: 'core',
+        enrichment: 'detail',
         official_title: 'core',
         'references[].title': 'studies_tab',
         'references[].journal': 'studies_tab',

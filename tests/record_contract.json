@@ -4,7 +4,7 @@
     "A path is a key ('status'), a key inside an object ('race.reported'), or a key on every item of a list ('study_sites[].country'). The contract asks that the key be present; its value may be null or empty, which is how a record says 'none'.",
     "Classes say what reads the field. core: the dashboard, its filters (including the population filter's age fallback) and share links, over every record at load. studies_tab: the Studies table, its tooltips and the publications and breakdown views. detail: the study and geography-breakdown pop-ups only (status and why_stopped included: the table does not show them). A field read in more than one place takes the earliest class.",
     "Where the classes live is the layout section below. A dataset whose core part 1 carries no layout key is inline: every class is on the records of data/demographics.partN.json.gz, as in every file published before the split and every existing snapshot. A split dataset keeps core in the parts and studies_tab and detail in their own files, which app.js fetches when the Studies tab or a pop-up needs them.",
-    "optional lists paths the site reads when a record carries them but that the records need not carry: a fallback chain such as a publication's title before its citation, official_title when brief_title is empty, or a raw category's omb_category before its category. The parts need not have them; a projection that keeps the listed fields keeps these too when they appear.",
+    "optional lists paths the site reads when a record carries them but that the records need not carry: a fallback chain such as a publication's title before its citation, official_title when brief_title is empty, or a raw category's omb_category before its category. The parts need not have them; a projection that keeps the listed fields keeps these too when they appear. Two optional paths are whole objects the engine added after the records' first contract: sex_gender_analysis (the versioned analytical layer beside the parser row, sex_gender_analysis/1.0; read on the Sex and Gender tabs and in the sex/gender pop-up, so it rides with core) and enrichment (approved, released evidence joined beside the canonical fields, enrichment/1.0; read by the study pop-up only, so it rides with detail). A record published before either existed has no such key, and the site says the newer analysis or evidence is unavailable rather than deriving it from the legacy fields.",
     "item_names maps a list, by its full path, to the variable names app.js uses for its items (study.references.map(ref => ...), rawCategories.filter(rc => ...)). Every member read through one of those names must be listed, as a class path or optional, on every list that name serves: one variable read across race, ethnicity, sex and gender items needs each field it reads on all four.",
     "The engine reads this file and data_budget.json: its weekly publish refuses to push files that drop a listed field, and its split may write the layout section's files only while layout.enabled is true. tests/study_record_contract.test.mjs keeps the contract honest against app.js and checks the published files against it, inline or split."
   ],
@@ -122,6 +122,8 @@
     ]
   },
   "optional": [
+    "sex_gender_analysis",
+    "enrichment",
     "official_title",
     "references[].title",
     "references[].journal",
@@ -258,6 +260,8 @@
       ]
     },
     "optional_class": {
+      "sex_gender_analysis": "core",
+      "enrichment": "detail",
       "official_title": "core",
       "references[].title": "studies_tab",
       "references[].journal": "studies_tab",
