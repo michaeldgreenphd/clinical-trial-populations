@@ -6319,6 +6319,44 @@ function studyDetailsHtml(fullStudy, states) {
     const populationKnown = 'std_ages' in fullStudy || has('eligibility', 'pediatric_status', 'core');
     const population = populationKnown ? getStudyPediatricStatus(fullStudy) : populationFromAgeRange(fullStudy);
 
+    // Additional reviewed evidence: the engine's enrichment namespace
+    // (enrichment/1.0), approved and released exports joined beside the
+    // canonical fields, which they never replace. Shown only when the record
+    // carries it; a proposed label or review lead is not an accepted
+    // classification, and an unassessed label is not a negative.
+    let enrichmentHtml = '';
+    if (!has('enrichment', 'enrichment', 'detail')) {
+        enrichmentHtml = `
+            <div class="detail-section">
+                <h5>Additional reviewed evidence</h5>
+                ${ends('enrichment', 'reviewed evidence')}
+            </div>`;
+    } else if (fullStudy.enrichment && fullStudy.enrichment.schema_version === 'enrichment/1.0' && fullStudy.enrichment.fields) {
+        const items = Object.entries(fullStudy.enrichment.fields).map(([field, f]) => {
+            const method = f.method || {};
+            const coverage = method.run_coverage === 'partial'
+                ? `; partial run (${Number(method.units_completed).toLocaleString()} of ${Number(method.units_planned).toLocaleString()} planned units; a label the run did not reach is unassessed, not negative)`
+                : '';
+            const prov = `${escapeHtml(method.kind || '—')}${method.model_id ? `, ${escapeHtml(method.model_id)}` : ''}` +
+                `${method.taxonomy_version ? `, ${escapeHtml(method.taxonomy_version)}` : ''}; decision ${escapeHtml(f.decision_ref || '—')}; ${escapeHtml(f.release_status || '')}${escapeHtml(coverage)}`;
+            let value;
+            if (f.value_state !== 'present' || !f.value) {
+                value = `<em>${escapeHtml(f.value_state || '—')}${f.state_reason ? `: ${escapeHtml(f.state_reason)}` : ''}</em>`;
+            } else if (Array.isArray(f.value.labels)) {
+                value = f.value.labels.map(l => `${escapeHtml(l.id)} <span class="badge">${escapeHtml(l.status)}${l.lead_kind ? ` (${escapeHtml(l.lead_kind)} lead)` : ''}</span>`).join(', ');
+            } else {
+                value = escapeHtml(JSON.stringify(f.value));
+            }
+            return `<li><strong>${escapeHtml(field)}:</strong> ${value}<br><small>${prov}</small></li>`;
+        });
+        enrichmentHtml = `
+            <div class="detail-section">
+                <h5>Additional reviewed evidence</h5>
+                <p class="note">Approved, released evidence attached beside the registry fields, which it never replaces. A proposed label or review lead is not an accepted classification; an unassessed label is not a negative.</p>
+                <ul class="collaborators-list">${items.join('')}</ul>
+            </div>`;
+    }
+
     // An archive read through the frozen March files says so (legacy).
     const provenance = states.detail.from
         ? `<p class="note detail-provenance">Sites, outcomes and descriptions shown here are ${states.detail.from}, not from this archive's own run.</p>`
@@ -6392,6 +6430,8 @@ function studyDetailsHtml(fullStudy, states) {
                     ${has('status', 'why_stopped', 'detail') && fullStudy.why_stopped ? `<p class="alert"><strong>Why Stopped:</strong> ${escapeHtml(fullStudy.why_stopped)}</p>` : ''}
                     ${ends('status', 'status details')}
                 </div>
+
+                ${enrichmentHtml}
 
                 ${renderPublicationsDetail(fullStudy, states.studies_tab, retry)}
 
@@ -11100,6 +11140,7 @@ function sgRenderSexTab(filtered) {
                 : '')).join('');
     }
     sgRenderQuality(agg, filtered);
+    sgRenderAnalysisTable(filtered);
     sgRenderPercentFemale(filtered);
     sgRenderSexDonut(agg);
     // Only when open: the panel fetches a whole dashboard-summary.json.
@@ -11309,6 +11350,7 @@ function sgRenderGenderTab(filtered) {
         if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
         charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
     }
+    sgRenderGenderCategories(filtered);
     const labelsBox = document.getElementById('sg-gender-labels');
     if (labelsBox) {
         labelsBox.innerHTML = SG_LABEL_TRAILS.map(t => {
@@ -11438,6 +11480,7 @@ function sgShowBreakdown(nctId, field) {
     } else if (!sgTable) {
         html += `<p class="note">Source labels need the parsed table, which did not load.</p>`;
     }
+    html += sgAnalysisDetailHtml(study);
     html += `<p class="modal-note">Parser rules: ${escapeHtml(r.parser_rules_version || sgRulesVersion() || '—')}. ` +
         `Percent female for this trial: ${sgPercentFemale(r) != null ? sgPercentFemale(r).toFixed(1) + '%'
             : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
@@ -11735,6 +11778,167 @@ function sgAfterRender(filtered) {
     if (tab === 'sex') sgRenderSexTab(filtered);
     if (tab === 'gender') sgRenderGenderTab(filtered);
 }
+// ── The newer analysis layer (sex_gender_analysis/1.0) ─────────────────
+// The engine's analytical block beside the parser row (civicsample-engine
+// src/sex_gender_analysis.py): the reporting dimension (sex only, both,
+// gender only, neither) and the reason for neither, whether an explicit
+// Unknown stands beside reported values, whether the trial enters the
+// composition figures, and the detailed gender-identity categories (D3 and
+// the strict D5 bound) with their status. It is read, never derived: a
+// record without the block (every pull before the layer, every pre-cutover
+// archive, a summary row the engine did not fill) is "unavailable", and
+// nothing is manufactured from the legacy buckets in its place. Every number
+// below is a count of records by a published field, or a sum of a published
+// per-trial value over the trials the engine says carry it, with that
+// denominator named.
+const SG_ANALYSIS_SCHEMA = 'sex_gender_analysis/1.0';
+const SG_ANALYSIS_DIMENSIONS = ['sex_only', 'both', 'gender_only', 'neither', 'parse_error'];
+const SG_ANALYSIS_DIMENSION_LABELS = {
+    sex_only: 'Sex only', both: 'Both sex and gender', gender_only: 'Gender only', neither: 'Neither', parse_error: 'Parse error'
+};
+const SG_ANALYSIS_NEITHER_LABELS = {
+    explicit_unknown_or_not_collected: 'recorded only as unknown or not reported, or sex stated as not collected',
+    measure_absent: 'no sex or gender measure',
+    measure_present_no_usable_breakdown: 'measure present without a usable breakdown'
+};
+const SG_ANALYSIS_GC_LABELS = {
+    derived: 'derived', not_applicable: 'no gender-identity category posted', excluded: 'excluded by an exclusion rule',
+    not_evaluated: 'not evaluated', parse_error: 'parse error'
+};
+
+// The block a record carries, or null: a block of another schema version is
+// not this reader's to interpret.
+function sgAnalysis(study) {
+    const b = study && study.sex_gender_analysis;
+    return (b && b.schema_version === SG_ANALYSIS_SCHEMA) ? b : null;
+}
+
+function sgAnalysisEmptyAggregate() {
+    return {
+        available: 0, unavailable: 0,
+        dimensions: Object.fromEntries(SG_ANALYSIS_DIMENSIONS.map(d => [d, 0])),
+        neither: {}, explicitUnknownWithValues: 0, compositionEligible: 0, gc: {},
+        d3: { participants: 0, trials: 0, present: false }, d5: { participants: 0, trials: 0, present: false }
+    };
+}
+
+// Desktop: over the filtered records. unavailable counts the records that
+// carry no block, so a partial-coverage snapshot never reads as whole.
+function sgAnalysisAggregate(studies) {
+    const agg = sgAnalysisEmptyAggregate();
+    for (const s of studies) {
+        const b = sgAnalysis(s);
+        if (!b) { agg.unavailable++; continue; }
+        agg.available++;
+        if (b.reporting_dimension in agg.dimensions) agg.dimensions[b.reporting_dimension]++;
+        if (b.neither_reason) agg.neither[b.neither_reason] = (agg.neither[b.neither_reason] || 0) + 1;
+        if (b.explicit_unknown_with_values === true) agg.explicitUnknownWithValues++;
+        if (b.composition_eligible === true) agg.compositionEligible++;
+        const g = b.gender_categories_status || 'unknown';
+        agg.gc[g] = (agg.gc[g] || 0) + 1;
+        // D3 and D5 are summed over derived trials only, as the engine's own
+        // summary sums them; an excluded trial's counts stay on its record.
+        if (g === 'derived') {
+            for (const [key, field] of [['d3', 'd3_total'], ['d5', 'd5_strict']]) {
+                const v = Number(b[field]);
+                if (b[field] != null && Number.isFinite(v)) { agg[key].participants += v; agg[key].trials++; agg[key].present = true; }
+            }
+        }
+    }
+    return agg;
+}
+
+// Mobile and aggregate archives: the engine's sexGenderAnalysis block, same shape.
+function sgAnalysisFromSummary(blk) {
+    if (!blk || blk.schema_version !== SG_ANALYSIS_SCHEMA) return null;
+    const agg = sgAnalysisEmptyAggregate();
+    agg.available = Number(blk.trials || 0);
+    agg.unavailable = Math.max(0, Number(blk.recordsInDataset || 0) - agg.available);
+    SG_ANALYSIS_DIMENSIONS.forEach(d => { agg.dimensions[d] = Number((blk.reportingDimension || {})[d] || 0); });
+    agg.neither = Object.assign({}, blk.neitherReason || {});
+    agg.explicitUnknownWithValues = Number(blk.explicitUnknownWithValues || 0);
+    agg.compositionEligible = Number(blk.compositionEligible || 0);
+    agg.gc = Object.assign({}, blk.genderCategoriesStatus || {});
+    for (const key of ['d3', 'd5']) {
+        const v = blk[key] || {};
+        agg[key].trials = Number(v.trials || 0);
+        if (v.participants != null) { agg[key].participants = Number(v.participants); agg[key].present = true; }
+    }
+    return agg;
+}
+
+function sgAnalysisUnavailableHtml(what) {
+    return `<p class="note sg-analysis-unavailable"><strong>Newer analysis unavailable.</strong> ${what} The parser v2 states above are the older definition; nothing is recomputed from them.</p>`;
+}
+
+// The reporting-dimension table: counts of records by the published
+// dimension, with an Unavailable row for records that carry no block.
+function sgAnalysisTableHtml(agg) {
+    if (!agg) return sgAnalysisUnavailableHtml(`This snapshot publishes no <code>${SG_ANALYSIS_SCHEMA}</code> block.`);
+    if (agg.available === 0) return sgAnalysisUnavailableHtml(`No record in this selection carries a <code>${SG_ANALYSIS_SCHEMA}</code> block (${agg.unavailable.toLocaleString()} records predate the layer).`);
+    const total = agg.available + agg.unavailable;
+    const pct = (c) => total > 0 ? (100 * c / total).toFixed(1) + '%' : '—';
+    const rows = SG_ANALYSIS_DIMENSIONS.map(d => [SG_ANALYSIS_DIMENSION_LABELS[d], agg.dimensions[d]]);
+    rows.push(['Unavailable (record predates the analysis layer)', agg.unavailable]);
+    const reasons = Object.entries(agg.neither).sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `<li><span class="sg-sub-key">${escapeHtml(SG_ANALYSIS_NEITHER_LABELS[k] || k)}</span> <span class="sg-sub-n">${Number(n).toLocaleString()}</span></li>`);
+    return `<p class="note sg-sub-title">Reporting dimension (newer analysis, <code>${SG_ANALYSIS_SCHEMA}</code>), per record in the selection; the denominator is every record in the selection, blocks or not.</p>` +
+        `<div class="sg-table-scroll"><table class="breakdown-table sg-analysis-table"><thead><tr><th>Dimension</th><th>Trials</th><th>Share of selection</th></tr></thead><tbody>` +
+        rows.map(([l, c]) => `<tr><th scope="row">${escapeHtml(l)}</th><td>${Number(c).toLocaleString()}</td><td>${pct(c)}</td></tr>`).join('') +
+        `</tbody></table></div>` +
+        (reasons.length ? `<p class="note sg-sub-title">Neither, by reason</p><ul class="sg-sub-list">${reasons.join('')}</ul>` : '') +
+        `<p class="note">Explicit Unknown beside reported values: ${agg.explicitUnknownWithValues.toLocaleString()} trials. In the composition denominator: ${agg.compositionEligible.toLocaleString()} trials. Incomplete composition is not evaluated in this version of the layer. Layer: as run (the manuscript's final states include manual reconciliation this layer does not reproduce).</p>`;
+}
+
+function sgRenderAnalysisTable(filtered) {
+    const box = document.getElementById('sg-analysis-table');
+    if (!box) return;
+    const agg = dashboardSummary ? sgAnalysisFromSummary(dashboardSummary.sexGenderAnalysis) : sgAnalysisAggregate(filtered);
+    box.innerHTML = sgAnalysisTableHtml(agg);
+}
+
+// The gender-identity categories: D3 and D5 participants summed over the
+// derived trials, with that count named; a figure no trial published is
+// absent, never zero.
+function sgGenderCategoriesHtml(agg) {
+    if (!agg) return sgAnalysisUnavailableHtml(`This snapshot publishes no <code>${SG_ANALYSIS_SCHEMA}</code> block, so the detailed categories are not shown.`);
+    if (agg.available === 0) return sgAnalysisUnavailableHtml(`No record in this selection carries a <code>${SG_ANALYSIS_SCHEMA}</code> block.`);
+    const fig = (x) => x.present ? Math.round(x.participants).toLocaleString() : '&mdash;';
+    const statuses = Object.entries(agg.gc).sort((a, b) => b[1] - a[1])
+        .map(([k, n]) => `<li><span class="sg-sub-key">${escapeHtml(SG_ANALYSIS_GC_LABELS[k] || k)}</span> <span class="sg-sub-n">${Number(n).toLocaleString()}</span></li>`);
+    return `<div class="sg-table-scroll"><table class="breakdown-table sg-gc-table"><thead><tr><th>Measure</th><th>Participants</th><th>Over trials</th></tr></thead><tbody>` +
+        `<tr><th scope="row">D3: gender-identity categories (transgender, non-binary or gender-expansive, questioning, combined gender-minority, another or self-described)</th><td>${fig(agg.d3)}</td><td>${agg.d3.trials.toLocaleString()} derived</td></tr>` +
+        `<tr><th scope="row">D5: strict lower bound (D3 without another or self-described)</th><td>${fig(agg.d5)}</td><td>${agg.d5.trials.toLocaleString()} derived</td></tr>` +
+        `</tbody></table></div>` +
+        `<p class="note sg-sub-title">Trials by category status</p><ul class="sg-sub-list">${statuses.join('')}</ul>` +
+        `<p class="note">Each category is counted once per trial at its largest value across the trial's count-driving tables: an aggregate rule, not person-level deduplication. Intersex, cisgender-labelled and explicit unknown rows are kept separately on each record and never enter D3. D3 and D5 are implementation choices open to revision; the parser's gender-diverse bucket above is not a validated gender-diverse population count.</p>`;
+}
+
+function sgRenderGenderCategories(filtered) {
+    const box = document.getElementById('sg-gender-categories');
+    if (!box) return;
+    const agg = dashboardSummary ? sgAnalysisFromSummary(dashboardSummary.sexGenderAnalysis) : sgAnalysisAggregate(filtered);
+    box.innerHTML = sgGenderCategoriesHtml(agg);
+}
+
+// One record's block, for the sex/gender pop-up.
+function sgAnalysisDetailHtml(study) {
+    const b = sgAnalysis(study);
+    if (!b) return `<p class="note sg-analysis-detail"><strong>Newer analysis (${escapeHtml(SG_ANALYSIS_SCHEMA)}):</strong> unavailable for this record. It predates the analysis layer, or this view does not carry it; the states above are the parser's older definition and nothing is recomputed from them.</p>`;
+    const dim = SG_ANALYSIS_DIMENSION_LABELS[b.reporting_dimension] || b.reporting_dimension || '—';
+    const neither = b.neither_reason ? ` (${SG_ANALYSIS_NEITHER_LABELS[b.neither_reason] || b.neither_reason})` : '';
+    const tri = (v, yes, no) => v === true ? yes : (v === false ? no : '—');
+    const eu = tri(b.explicit_unknown_with_values, 'yes', 'no');
+    const comp = tri(b.composition_eligible, 'in the composition denominator', 'outside the composition denominator');
+    const ic = b.incomplete_composition_evaluated ? tri(b.incomplete_composition, 'yes', 'no') : 'not evaluated';
+    const gcs = b.gender_categories_status;
+    const gc = SG_ANALYSIS_GC_LABELS[gcs] || gcs || '—';
+    const n = (v) => (v != null && Number.isFinite(Number(v))) ? Number(v).toLocaleString() : '—';
+    const counts = (gcs === 'derived' || gcs === 'excluded') ? ` (D3 ${n(b.d3_total)}, D5 ${n(b.d5_strict)}${gcs === 'excluded' ? ', kept for audit, not summed' : ''})` : '';
+    const open = (b.unresolved || []).length ? b.unresolved.join(', ') : 'none';
+    return `<p class="note sg-analysis-detail"><strong>Newer analysis (${escapeHtml(SG_ANALYSIS_SCHEMA)}, as run):</strong> reporting ${escapeHtml(dim)}${escapeHtml(neither)}; explicit Unknown beside reported values: ${eu}; ${comp}; incomplete composition: ${escapeHtml(ic)}; gender-identity categories: ${escapeHtml(gc)}${escapeHtml(counts)}; rules left open on this record: ${escapeHtml(open)}.</p>`;
+}
+
 // ── end sg=v2 ────────────────────────────────────────────────────────────
 
 const INDUSTRY_PINK = '#C26C8E';   // above baseline / more women (sex tier)

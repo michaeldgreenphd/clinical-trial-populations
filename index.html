@@ -534,6 +534,7 @@
                         <canvas id="sg-quality-chart"></canvas>
                         <div id="sg-quality-table" class="sg-sub"></div>
                         <div id="sg-quality-sub" class="sg-sub"></div>
+                        <div id="sg-analysis-table" class="sg-sub"></div>
                         <p class="chart-footnote"><a href="#faq" onclick="return sgOpenMethods('states')">Methods: the five states, what changed, and the fidelity ceiling</a></p>
                     </div>
                     <div class="chart-container">
@@ -604,6 +605,13 @@
                         <h3>Source labels behind the buckets</h3>
                         <p class="note">The registry labels the parser mapped into each bucket, with the number of trials carrying each. Transgender and Non-binary appear here as labels, not as tiles.</p>
                         <div id="sg-gender-labels"></div>
+                    </div>
+                </div>
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h3>Gender-identity categories (newer analysis)</h3>
+                        <p class="note">The engine's analysis layer (<code>sex_gender_analysis/1.0</code>) derives the manuscript's detailed gender-identity categories per trial; this table sums the published per-trial figures over the trials the engine marks as derived and names that count. A snapshot without the layer says so.</p>
+                        <div id="sg-gender-categories"></div>
                     </div>
                 </div>
                 <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('gender_rule')">Sex and gender methods (parser v2, paper rules)</a></p>
@@ -1677,6 +1685,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20261008-address6"></script>
+    <script defer src="app.js?v=20261028-sganalysis1"></script>
 </body>
 </html>
