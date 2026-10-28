@@ -7,9 +7,9 @@
  * Pinned: a record without the block is "unavailable", never a value derived
  * from the legacy buckets; a block of another schema version is not read;
  * the reporting-dimension table counts records by the published field with
- * the Unavailable row in the denominator; D3 and D5 are sums of the
- * published per-trial figures over derived trials only, named as such, and
- * absent when none published them; the summary block gives the same shape
+ * the Unavailable row in the denominator; the detailed gender-identity
+ * categories (D3, D5) are neither read nor shown, by the owner's decision
+ * R-GC-05 (held until their vocabulary is checked); the summary block gives the same shape
  * for phones and aggregate archives; the pop-up names the open rules; the
  * enrichment section shows only what a record carries and labels proposed
  * leads as proposals. The v2 block is evaluated in a vm as
@@ -111,21 +111,16 @@ test('the reporting-dimension table counts records by the published field, Unava
     assert.deepEqual(agg.dimensions, { sex_only: 1, both: 2, gender_only: 0, neither: 2, parse_error: 0 });
     assert.deepEqual(agg.neither, { measure_absent: 1, explicit_unknown_or_not_collected: 1 });
     assert.equal(agg.compositionEligible, 3);
-    // D3 and D5 sum derived trials only: E is excluded and its 20 stays on its record
-    assert.deepEqual(agg.d3, { participants: 10, trials: 1, present: true });
-    assert.deepEqual(agg.d5, { participants: 9, trials: 1, present: true });
+    assert.equal(agg.d3, undefined, 'the D3/D5 sums came back (R-GC-05 holds them off the site)');
     const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
     assert.match(table, /Unavailable \(record predates the analysis layer\)<\/th><td>1<\/td><td>16\.7%/);
     assert.match(table, /Sex only<\/th><td>1<\/td><td>16\.7%/);
     assert.match(table, /no sex or gender measure/);
     assert.match(table, /Incomplete composition is not evaluated/);
-    const gc = h.run(`sgGenderCategoriesHtml(${JSON.stringify(agg)})`);
-    assert.match(gc, /<td>10<\/td><td>1 derived<\/td>/);
-    assert.match(gc, /<td>9<\/td><td>1 derived<\/td>/);
-    assert.match(gc, /excluded by an exclusion rule<\/span> <span class="sg-sub-n">1/);
+    assert.ok(!/D3|D5/.test(table), 'the reporting-dimension table mentions D3/D5');
 });
 
-test('no block in the selection is said so; a figure no trial published is absent, not zero', () => {
+test('no block in the selection is said so, never shown as zeros', () => {
     const h = harness();
     const agg = h.run(`sgAnalysisAggregate(${JSON.stringify([{ nct_id: 'F', sex_gender: row() }, { nct_id: 'G', sex_gender: row() }])})`);
     const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
@@ -133,10 +128,6 @@ test('no block in the selection is said so; a figure no trial published is absen
     assert.match(table, /2 records predate the layer/);
     assert.ok(!/<td>0<\/td>/.test(table), 'zeros were shown for a selection with no block');
     assert.match(h.run('sgAnalysisTableHtml(null)'), /publishes no/);
-    const only = h.run(`sgAnalysisAggregate(${JSON.stringify([{ nct_id: 'A', sex_gender_analysis: lean() }])})`);
-    const gc = h.run(`sgGenderCategoriesHtml(${JSON.stringify(only)})`);
-    assert.match(gc, /&mdash;<\/td><td>0 derived/);
-    assert.ok(!/<td>0<\/td><td>0 derived/.test(gc), 'an unpublished D3 rendered as 0');
 });
 
 test('the summary block gives the same shape for phones and aggregate archives', () => {
@@ -151,25 +142,23 @@ test('the summary block gives the same shape for phones and aggregate archives',
     const agg = h.run(`sgAnalysisFromSummary(${JSON.stringify(blk)})`);
     assert.equal(agg.available, 4);
     assert.equal(agg.unavailable, 2);
-    assert.deepEqual(agg.d3, { participants: 7, trials: 1, present: true });
-    assert.deepEqual(agg.d5, { participants: 0, trials: 0, present: false });
+    assert.equal(agg.d3, undefined, 'the summary reader took the D3/D5 block (R-GC-05 holds it off the site)');
     assert.equal(h.run('sgAnalysisFromSummary(null)'), null);
     assert.equal(h.run(`sgAnalysisFromSummary(${JSON.stringify({ ...blk, schema_version: 'other' })})`), null);
     const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
     assert.match(table, /Unavailable \(record predates the analysis layer\)<\/th><td>2<\/td><td>33\.3%/);
 });
 
-test('the pop-up names the block as read, with the open rules, and labels an excluded trial', () => {
+test('the pop-up names the block as read, with the open rules, and shows no D3/D5 count', () => {
     const h = harness();
     const study = { nct_id: 'NCT1', sex_gender: row(), sex_gender_analysis: lean({ reporting_dimension: 'both', gender_categories_status: 'derived', d3_total: 10, d5_strict: 9, explicit_unknown_with_values: true, unresolved: ['R-FS-01', 'R-IC-01', 'R-PO-01', 'R-GC-05'] }) };
     const detail = h.run(`sgAnalysisDetailHtml(${JSON.stringify(study)})`);
     assert.match(detail, /Both sex and gender/);
     assert.match(detail, /explicit Unknown beside reported values: yes/);
     assert.match(detail, /incomplete composition: not evaluated/);
-    assert.match(detail, /D3 10, D5 9/);
+    assert.match(detail, /gender-identity categories: not shown until their vocabulary is checked \(R-GC-05\)/);
+    assert.ok(!/D3|D5|\b10\b|\b9\b/.test(detail.replace(/R-[A-Z]+-\d+/g, '')), 'the pop-up shows a D3/D5 count');
     assert.match(detail, /R-FS-01, R-IC-01, R-PO-01, R-GC-05/);
-    const excluded = h.run(`sgAnalysisDetailHtml(${JSON.stringify({ sex_gender_analysis: lean({ gender_categories_status: 'excluded', d3_total: 20, d5_strict: 20 }) })})`);
-    assert.match(excluded, /kept for audit, not summed/);
     const neither = h.run(`sgAnalysisDetailHtml(${JSON.stringify({ sex_gender_analysis: lean({ reporting_dimension: 'neither', neither_reason: 'measure_present_no_usable_breakdown', composition_eligible: false }) })})`);
     assert.match(neither, /Neither \(measure present without a usable breakdown\)/);
     assert.match(neither, /outside the composition denominator/);
@@ -179,15 +168,17 @@ test('the pop-up names the block as read, with the open rules, and labels an exc
     assert.match(h.els['breakdown-overlay'].innerHTML, /Newer analysis \(sex_gender_analysis\/1\.0, as run\)/);
 });
 
-test('the markup carries the two containers and the tabs render into them', () => {
+test('the Sex tab renders the reporting-dimension table; the Gender tab has no D3/D5 table (R-GC-05)', () => {
     assert.ok(html.includes('id="sg-analysis-table"'), 'the Sex tab has no container for the reporting-dimension table');
-    assert.ok(html.includes('id="sg-gender-categories"'), 'the Gender tab has no container for the categories');
-    assert.ok(block.includes('sgRenderAnalysisTable(filtered)') && block.includes('sgRenderGenderCategories(filtered)'));
+    assert.ok(!html.includes('sg-gender-categories') && !/Gender-identity categories \(newer analysis\)/.test(html),
+        'the Gender tab shows the D3/D5 table the owner held back');
+    assert.ok(block.includes('sgRenderAnalysisTable(filtered)'));
+    for (const name of ['sgGenderCategoriesHtml', 'sgRenderGenderCategories', 'd3_total', 'd5_strict', 'gender_categories_status']) {
+        assert.ok(!block.includes(name), `the site reads or renders ${name} (held off the site by R-GC-05)`);
+    }
     const h = harness();
     h.run(`sgTable = null; dashboardSummary = null; sgAvailable = true; sgRenderAnalysisTable([${JSON.stringify({ nct_id: 'A', sex_gender_analysis: lean() })}]);`);
     assert.match(h.els['sg-analysis-table'].innerHTML, /Sex only<\/th><td>1<\/td>/);
-    h.run("dashboardSummary = { sexGender: {}, sexGenderAnalysis: null }; sgRenderGenderCategories([]);");
-    assert.match(h.els['sg-gender-categories'].innerHTML, /publishes no/);
 });
 
 test('the analysis reader derives nothing from the legacy buckets', () => {

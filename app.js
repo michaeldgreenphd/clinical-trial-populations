@@ -11350,7 +11350,6 @@ function sgRenderGenderTab(filtered) {
         if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
         charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
     }
-    sgRenderGenderCategories(filtered);
     const labelsBox = document.getElementById('sg-gender-labels');
     if (labelsBox) {
         labelsBox.innerHTML = SG_LABEL_TRAILS.map(t => {
@@ -11783,8 +11782,10 @@ function sgAfterRender(filtered) {
 // src/sex_gender_analysis.py): the reporting dimension (sex only, both,
 // gender only, neither) and the reason for neither, whether an explicit
 // Unknown stands beside reported values, whether the trial enters the
-// composition figures, and the detailed gender-identity categories (D3 and
-// the strict D5 bound) with their status. It is read, never derived: a
+// composition figures. The engine also publishes the detailed
+// gender-identity categories (D3 and the strict D5 bound); the site does not
+// show them until their label vocabulary is checked against the manuscript's
+// A20 derivation (owner decision R-GC-05, 2026-10-28). It is read, never derived: a
 // record without the block (every pull before the layer, every pre-cutover
 // archive, a summary row the engine did not fill) is "unavailable", and
 // nothing is manufactured from the legacy buckets in its place. Every number
@@ -11801,10 +11802,6 @@ const SG_ANALYSIS_NEITHER_LABELS = {
     measure_absent: 'no sex or gender measure',
     measure_present_no_usable_breakdown: 'measure present without a usable breakdown'
 };
-const SG_ANALYSIS_GC_LABELS = {
-    derived: 'derived', not_applicable: 'no gender-identity category posted', excluded: 'excluded by an exclusion rule',
-    not_evaluated: 'not evaluated', parse_error: 'parse error'
-};
 
 // The block a record carries, or null: a block of another schema version is
 // not this reader's to interpret.
@@ -11817,8 +11814,7 @@ function sgAnalysisEmptyAggregate() {
     return {
         available: 0, unavailable: 0,
         dimensions: Object.fromEntries(SG_ANALYSIS_DIMENSIONS.map(d => [d, 0])),
-        neither: {}, explicitUnknownWithValues: 0, compositionEligible: 0, gc: {},
-        d3: { participants: 0, trials: 0, present: false }, d5: { participants: 0, trials: 0, present: false }
+        neither: {}, explicitUnknownWithValues: 0, compositionEligible: 0
     };
 }
 
@@ -11834,16 +11830,6 @@ function sgAnalysisAggregate(studies) {
         if (b.neither_reason) agg.neither[b.neither_reason] = (agg.neither[b.neither_reason] || 0) + 1;
         if (b.explicit_unknown_with_values === true) agg.explicitUnknownWithValues++;
         if (b.composition_eligible === true) agg.compositionEligible++;
-        const g = b.gender_categories_status || 'unknown';
-        agg.gc[g] = (agg.gc[g] || 0) + 1;
-        // D3 and D5 are summed over derived trials only, as the engine's own
-        // summary sums them; an excluded trial's counts stay on its record.
-        if (g === 'derived') {
-            for (const [key, field] of [['d3', 'd3_total'], ['d5', 'd5_strict']]) {
-                const v = Number(b[field]);
-                if (b[field] != null && Number.isFinite(v)) { agg[key].participants += v; agg[key].trials++; agg[key].present = true; }
-            }
-        }
     }
     return agg;
 }
@@ -11858,12 +11844,6 @@ function sgAnalysisFromSummary(blk) {
     agg.neither = Object.assign({}, blk.neitherReason || {});
     agg.explicitUnknownWithValues = Number(blk.explicitUnknownWithValues || 0);
     agg.compositionEligible = Number(blk.compositionEligible || 0);
-    agg.gc = Object.assign({}, blk.genderCategoriesStatus || {});
-    for (const key of ['d3', 'd5']) {
-        const v = blk[key] || {};
-        agg[key].trials = Number(v.trials || 0);
-        if (v.participants != null) { agg[key].participants = Number(v.participants); agg[key].present = true; }
-    }
     return agg;
 }
 
@@ -11897,30 +11877,6 @@ function sgRenderAnalysisTable(filtered) {
     box.innerHTML = sgAnalysisTableHtml(agg);
 }
 
-// The gender-identity categories: D3 and D5 participants summed over the
-// derived trials, with that count named; a figure no trial published is
-// absent, never zero.
-function sgGenderCategoriesHtml(agg) {
-    if (!agg) return sgAnalysisUnavailableHtml(`This snapshot publishes no <code>${SG_ANALYSIS_SCHEMA}</code> block, so the detailed categories are not shown.`);
-    if (agg.available === 0) return sgAnalysisUnavailableHtml(`No record in this selection carries a <code>${SG_ANALYSIS_SCHEMA}</code> block.`);
-    const fig = (x) => x.present ? Math.round(x.participants).toLocaleString() : '&mdash;';
-    const statuses = Object.entries(agg.gc).sort((a, b) => b[1] - a[1])
-        .map(([k, n]) => `<li><span class="sg-sub-key">${escapeHtml(SG_ANALYSIS_GC_LABELS[k] || k)}</span> <span class="sg-sub-n">${Number(n).toLocaleString()}</span></li>`);
-    return `<div class="sg-table-scroll"><table class="breakdown-table sg-gc-table"><thead><tr><th>Measure</th><th>Participants</th><th>Over trials</th></tr></thead><tbody>` +
-        `<tr><th scope="row">D3: gender-identity categories (transgender, non-binary or gender-expansive, questioning, combined gender-minority, another or self-described)</th><td>${fig(agg.d3)}</td><td>${agg.d3.trials.toLocaleString()} derived</td></tr>` +
-        `<tr><th scope="row">D5: strict lower bound (D3 without another or self-described)</th><td>${fig(agg.d5)}</td><td>${agg.d5.trials.toLocaleString()} derived</td></tr>` +
-        `</tbody></table></div>` +
-        `<p class="note sg-sub-title">Trials by category status</p><ul class="sg-sub-list">${statuses.join('')}</ul>` +
-        `<p class="note">Each category is counted once per trial at its largest value across the trial's count-driving tables: an aggregate rule, not person-level deduplication. Intersex, cisgender-labelled and explicit unknown rows are kept separately on each record and never enter D3. D3 and D5 are implementation choices open to revision; the parser's gender-diverse bucket above is not a validated gender-diverse population count.</p>`;
-}
-
-function sgRenderGenderCategories(filtered) {
-    const box = document.getElementById('sg-gender-categories');
-    if (!box) return;
-    const agg = dashboardSummary ? sgAnalysisFromSummary(dashboardSummary.sexGenderAnalysis) : sgAnalysisAggregate(filtered);
-    box.innerHTML = sgGenderCategoriesHtml(agg);
-}
-
 // One record's block, for the sex/gender pop-up.
 function sgAnalysisDetailHtml(study) {
     const b = sgAnalysis(study);
@@ -11931,12 +11887,8 @@ function sgAnalysisDetailHtml(study) {
     const eu = tri(b.explicit_unknown_with_values, 'yes', 'no');
     const comp = tri(b.composition_eligible, 'in the composition denominator', 'outside the composition denominator');
     const ic = b.incomplete_composition_evaluated ? tri(b.incomplete_composition, 'yes', 'no') : 'not evaluated';
-    const gcs = b.gender_categories_status;
-    const gc = SG_ANALYSIS_GC_LABELS[gcs] || gcs || '—';
-    const n = (v) => (v != null && Number.isFinite(Number(v))) ? Number(v).toLocaleString() : '—';
-    const counts = (gcs === 'derived' || gcs === 'excluded') ? ` (D3 ${n(b.d3_total)}, D5 ${n(b.d5_strict)}${gcs === 'excluded' ? ', kept for audit, not summed' : ''})` : '';
     const open = (b.unresolved || []).length ? b.unresolved.join(', ') : 'none';
-    return `<p class="note sg-analysis-detail"><strong>Newer analysis (${escapeHtml(SG_ANALYSIS_SCHEMA)}, as run):</strong> reporting ${escapeHtml(dim)}${escapeHtml(neither)}; explicit Unknown beside reported values: ${eu}; ${comp}; incomplete composition: ${escapeHtml(ic)}; gender-identity categories: ${escapeHtml(gc)}${escapeHtml(counts)}; rules left open on this record: ${escapeHtml(open)}.</p>`;
+    return `<p class="note sg-analysis-detail"><strong>Newer analysis (${escapeHtml(SG_ANALYSIS_SCHEMA)}, as run):</strong> reporting ${escapeHtml(dim)}${escapeHtml(neither)}; explicit Unknown beside reported values: ${eu}; ${comp}; incomplete composition: ${escapeHtml(ic)}; gender-identity categories: not shown until their vocabulary is checked (R-GC-05); rules left open on this record: ${escapeHtml(open)}.</p>`;
 }
 
 // ── end sg=v2 ────────────────────────────────────────────────────────────
