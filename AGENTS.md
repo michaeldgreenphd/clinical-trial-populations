@@ -91,12 +91,17 @@ Practical consequences:
 
 These roles complement the review rules below; Gemini does not repeat Codex's
 local checks. The [Gemini workflow](.github/workflows/gemini-pr-review.yml)
-runs automatically on non-draft same-repository PRs, including when marked
-ready, and accepts an `@gemini-cli` PR comment from a collaborator with write
-access even on drafts. It maintains one sticky review comment. Fork and
-Dependabot PRs are skipped because this job needs a secret and a comment-writing
-token. Comment triggers become available once the workflow is on the default
-branch.
+runs on non-draft same-repository PRs when they are opened, pushed to or marked
+ready. It also runs on a PR comment containing `@codex review` or `@gemini-cli`
+from a collaborator with write access, drafts included, so the `@codex review`
+comment that opens every review requests both reviews and no separate Gemini
+comment is needed. Each head is reviewed once: a later event or `@codex review`
+comment for an already reviewed head is skipped, and `@gemini-cli` forces a
+rerun. It maintains one sticky review comment. If the model fails or times out,
+that comment records the reason for the head, a completed review of the same
+head is kept, and the check fails. Fork and Dependabot PRs are skipped because
+this job needs a secret and a comment-writing token. Comment triggers become
+available once the workflow is on the default branch.
 
 ## Code Review Rules
 
@@ -168,7 +173,9 @@ branches, no deletions of published history.
    `main` directly unless the owner explicitly says to.
 2. Immediately after opening the PR, post a comment containing exactly
    `@codex review`. Do this for every PR, without being asked, and again
-   after any push that changes the diff so the new head is reviewed.
+   after any push that changes the diff so the new head is reviewed. The
+   same comment requests the Gemini cross-file review (see Dual-AI PR Review
+   Architecture); post `@gemini-cli` only to force a Gemini rerun.
 3. Address every Codex finding before the PR is considered done: verify it
    against the diff, push a fix for anything real, and reply on the thread
    saying what changed. Resolve the threads you addressed.
