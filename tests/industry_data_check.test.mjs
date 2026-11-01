@@ -14,7 +14,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
@@ -36,6 +36,19 @@ const problem = (d) => {
 
 const LATEST = readJson('data/industry_sponsors.json');
 
+// Every sponsor file a snapshot still holds. The engine's retention
+// (civicsample-engine scripts/prune_snapshots.py) slims older snapshots into
+// monthly aggregates that keep only dashboard-summary.json and
+// archive_records.json.gz, so which dated folders hold industry_sponsors.json
+// changes from week to week: naming dates here broke this test on 2026-11-01,
+// when 2026-08-02 became an aggregate. Older formats stay covered by
+// firstFormat() below.
+const SNAPSHOT_FILES = readdirSync(new URL('../snapshots/', import.meta.url), { withFileTypes: true })
+    .filter(d => d.isDirectory())
+    .map(d => `snapshots/${d.name}/industry_sponsors.json`)
+    .filter(p => existsSync(new URL('../' + p, import.meta.url)))
+    .sort();
+
 // The first published format (scripts/generate_industry_sponsors.py at
 // 132ffa8, July 2026), rebuilt from today's file: the top 10 plus a pooled
 // "Other Industry" bucket, 7-field rows, and no company_n, top_n, lead-only
@@ -53,8 +66,8 @@ function firstFormat() {
 
 test('every sponsor file the engine published passes, and so does the first format', () => {
     assert.equal(problem(LATEST), null, 'data/industry_sponsors.json');
-    for (const date of ['2026-08-02', '2026-10-04']) {
-        assert.equal(problem(readJson(`snapshots/${date}/industry_sponsors.json`)), null, date);
+    for (const path of SNAPSHOT_FILES) {
+        assert.equal(problem(readJson(path)), null, path);
     }
     const first = firstFormat();
     assert.equal(problem(first), null, 'the first format, which the view still reads');
