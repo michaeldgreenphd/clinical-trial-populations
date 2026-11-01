@@ -8,9 +8,10 @@
     "2026-08-02",
     "2026-10-04",
     "2026-10-11",
-    "2026-10-25"
+    "2026-10-25",
+    "2026-11-01"
   ],
-  "latest": "2026-10-25",
+  "latest": "2026-11-01",
   "archives": {
     "2026-02-22": {
       "kind": "aggregate"
@@ -26,6 +27,10 @@
       "detail": "archive_records.json.gz"
     },
     "2026-06-14": {
+      "kind": "aggregate",
+      "detail": "archive_records.json.gz"
+    },
+    "2026-08-02": {
       "kind": "aggregate",
       "detail": "archive_records.json.gz"
     }

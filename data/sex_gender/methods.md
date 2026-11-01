@@ -1,6 +1,6 @@
 # Sex and gender: methods
 
-Parser rules version `parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14` (module 1.1.0); snapshot 2026-10-25; generated 2026-10-25T11:21:50.558847+00:00.
+Parser rules version `parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14` (module 1.1.0); snapshot 2026-11-01; generated 2026-11-01T13:17:34.659421+00:00.
 
 ## Where the sex and gender numbers come from
 
@@ -12,7 +12,7 @@ Every trial with posted results is in exactly one state. Reported: at least one 
 
 ## How many trials have no sex or gender table
 
-On the 2026-10-25 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry.
+On the 2026-11-01 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry.
 
 ## What counts as reporting gender
 
@@ -50,7 +50,11 @@ Snapshots published before the parser cutover were produced by the retired rule,
 
 The Race and Ethnicity tabs keep the earlier pipeline, including denominator balancing, in this release; their quality charts therefore still derive the missing layer from enrollment. The same three-state separation is scheduled for those dimensions separately.
 
+## The newer analysis layer (sex_gender_analysis)
+
+Beside the parser's five states, each trial now carries a versioned analysis block (schema sex_gender_analysis/1.0, rules analysis@2026-10-28 decided (R-IC-01, R-PO-01, R-FS-01, R-GC-04; R-GC-05 open) / manuscript 2026-10-26 supp1 (eMethods 2, eTable 1, eTable 5)) that follows the manuscript's reporting layer as far as the as-run parser output allows: whether the trial reports sex only, both, gender only or neither; for neither, whether participants were recorded only as unknown or not collected, the measure is absent, or the measure is present without a usable breakdown; whether an explicit Unknown count stands beside reported values; whether the trial enters the composition figures; and the detailed gender-identity categories (transgender with or without a sex term, non-binary or gender-expansive, questioning, a combined gender-minority group, another or self-described gender) with intersex, cisgender-labelled and explicit unknown as separate rows. Incomplete composition and the patients-only rule are carried as not evaluated, never as a value; a record published before this layer has no block and is shown as unavailable, never recomputed from the old counts. The block is the as-run layer: the manuscript's final states include manual reconciliation that no automated run reproduces.
+
 ## Version
 
-Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 79,823, explicit_unknown_only 66, uninformative 725, not_reported 0, parse_error 0.
+Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 79,975, explicit_unknown_only 66, uninformative 726, not_reported 0, parse_error 0.
 
