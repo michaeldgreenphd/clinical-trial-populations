@@ -104,7 +104,7 @@ function updateActiveFilters() {}
 function getFilteredData() { return data ? [...data] : []; }
 function showDashboardSpinner() { calls.dashboards++; } function hideDashboardSpinner() {}
 function requestAnimationFrame(f) { f(); }
-function renderOverviewFinding() {} function renderOverviewTileContext() {}
+function renderOverviewFinding() {} function renderOverviewTileContext() {} function renderOverviewSexGender() {}
 function renderReportingTrends() {} function renderRaceDistribution() {} function renderRaceTrends() {}
 function renderRaceSubcategories() {} function renderRaceReportedParticipants() {} function renderRaceFullDistribution() {}
 function renderEthnicityDistribution() {} function renderEthnicityTrends() {} function renderEthnicitySubcategories() {}

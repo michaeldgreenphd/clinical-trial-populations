@@ -116,7 +116,7 @@ function syncYearWindow() { calls.syncYearWindow++; }
 function populateConditionsDropdown() {} function populateCountriesDropdown() {} function populatePrimaryConditionDropdown() {}
 function labelChartsForA11y() {} function updateShareUrl() {}
 function showDashboardSpinner() { calls.render++; } function hideDashboardSpinner() {}
-function renderOverviewFinding() {} function renderOverviewTileContext() {} function renderFilterSummary() {}
+function renderOverviewFinding() {} function renderOverviewTileContext() {} function renderOverviewSexGender() {} function renderFilterSummary() {}
 function renderReportingTrends() {} function renderRaceDistribution() {} function renderRaceTrends() {}
 function renderRaceSubcategories() {} function renderRaceReportedParticipants() {} function renderRaceFullDistribution() {}
 function renderEthnicityDistribution() {} function renderEthnicityTrends() {} function renderEthnicitySubcategories() {}
