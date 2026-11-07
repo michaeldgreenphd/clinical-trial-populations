@@ -1,7 +1,7 @@
 {
-  "about": "tests/engine_first_view_parity.mjs is civicsample-engine's scripts/first_view_parity.mjs, byte for byte, at the commit below (engine main after PR #36 merged, which adds the Overview's sex/gender rows to firstView and checks them once this app.js declares renderOverviewSexGender; the script is the same as at #36's head, 817e195): the check the engine's weekly publish runs on this site's app.js and index.html, over the staged data parts, before it publishes a firstView block. tests/first_view.test.mjs runs it on this checkout and reads its stub document and runtime from it. Refresh both files together when the engine changes the script; never edit the copy.",
+  "about": "tests/engine_first_view_parity.mjs is civicsample-engine's scripts/first_view_parity.mjs, byte for byte, at the commit below (engine main after PR #37 merged: the Overview's sex/gender checks of #36, and syncFilterToggle, renderUnfilteredFilterSummary and phoneOverview stubbed by name in ELSEWHERE): the check the engine's weekly publish runs on this site's app.js and index.html, over the staged data parts, before it publishes a firstView block. tests/first_view.test.mjs runs it on this checkout and reads its stub document and runtime from it. Refresh both files together when the engine changes the script; never edit the copy.",
   "repository": "michaeldgreenphd/civicsample-engine",
   "path": "scripts/first_view_parity.mjs",
-  "commit": "0a5b5d92b2edb027d2efe4401d8fa5e40d1a5b9b",
-  "sha256": "d7f83924ecd891b8fdc61939fc219e836c9dbeac8bffa151c2f4a4dda36ded83"
+  "commit": "7167dc903df1ec63b4b33b02eb66e736893a3928",
+  "sha256": "60fa53b3038306e0c7eaeeff327ed66d931b82eecedc61e04a42592ea1243097"
 }
