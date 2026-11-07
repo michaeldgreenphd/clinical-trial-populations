@@ -6734,11 +6734,17 @@ function renderReportingTrends(filtered, counted) {
 
     // Straight segments, one colour per series, and each line named at its
     // end with its last value (no legend to decode); on a narrow canvas the
-    // names would crowd the plot, so the legend comes back instead.
+    // names would crowd the plot, so a key above it names them instead.
     const narrow = (ctx.parentElement && ctx.parentElement.clientWidth ? ctx.parentElement.clientWidth : 800) < 600;
     const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+    // On a narrow canvas the lines are named by a key above the chart, not
+    // at their ends, so each line also has its own dash (and its key the
+    // same dash): no series is told apart by colour alone. Wide canvases name
+    // every line at its end and keep solid strokes.
+    const DASH = { Race: [], Ethnicity: [7, 4], 'Race and ethnicity': [2, 3], Sex: [12, 4], Gender: [8, 3, 2, 3] };
     const line = (label, data, color) => ({
         label, data, borderColor: color, backgroundColor: color, borderWidth: 2, tension: 0, fill: false,
+        borderDash: narrow ? DASH[label] : [],
         pointRadius: (c) => (c.dataIndex === data.length - 1 ? 4 : 0), pointHoverRadius: 4,
         pointBorderColor: '#ffffff', pointBorderWidth: 1.5
     });
@@ -6748,6 +6754,16 @@ function renderReportingTrends(filtered, counted) {
         line('Race and ethnicity', both, COLORS.reporting.both),
         ...(withSg ? [line('Sex', sex, COLORS.reporting.sex), line('Gender', gender, COLORS.reporting.gender)] : [])
     ];
+    // The narrow canvas's key, in the page rather than on the canvas: each
+    // series' name beside a short stroke in its colour and dash. It wraps
+    // with the text, so no entry can fall off the canvas, and it reads as text.
+    const key = document.getElementById('reporting-trends-key');
+    if (key) {
+        key.hidden = !narrow;
+        key.innerHTML = narrow ? datasets.map(d => `<span class="trend-key"><svg width="28" height="8" aria-hidden="true">`
+            + `<line x1="0" y1="4" x2="28" y2="4" stroke="${d.borderColor}" stroke-width="2.5"`
+            + `${d.borderDash && d.borderDash.length ? ` stroke-dasharray="${d.borderDash.join(' ')}"` : ''}></line></svg>${d.label}</span>`).join('') : '';
+    }
     const endLabels = {
         id: 'overviewEndLabels',
         afterDatasetsDraw(chart) {
@@ -6804,7 +6820,7 @@ function renderReportingTrends(filtered, counted) {
                 }
             },
             plugins: {
-                legend: { display: narrow, position: 'top', labels: { font: { family: serif, size: 13 }, boxWidth: 12, boxHeight: 2, padding: 8 } },
+                legend: { display: false },
                 tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${Number(c.parsed.y).toFixed(1)}%` } }
             }
         }

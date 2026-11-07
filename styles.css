@@ -5553,6 +5553,8 @@ footer p {
 #overview .rate-scale > span:nth-child(5) { right: 0; }
 
 #overview .overview-trends h3 { font-family: inherit; font-size: 24px; line-height: 1.3; font-weight: 600; margin: 0 0 0.25rem; }
+#overview .overview-trends-key:not([hidden]) { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0.2rem 0 0.4rem; font-size: 16px; color: var(--ov-ink-2); }
+#overview .trend-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 #overview .overview-trends .chart-footnote { font-family: inherit; font-size: 16px; line-height: 1.4; color: var(--ov-muted); margin-top: 0.4rem; }
 
 /* Narrow windows and phones: each row stacks its name and value over its
