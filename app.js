@@ -208,12 +208,23 @@ const COLORS = {
         other: CHART_COLORS.c5,
         unknown: CHART_COLORS.notReported
     },
-    // Reporting-trend series (Race / Ethnicity / Both), shared by the
-    // Overview trend line and the FDA regulatory-status bars.
+    // Reporting series, shared by the Overview's rows and trend lines, the
+    // loading-screen figure and the FDA regulatory-status bars. A combined
+    // series is the mix of its parts' hues (race + ethnicity: olive; sex +
+    // gender: plum; all four: mauve). Checked with the dataviz palette
+    // validator (light mode): race, ethnicity, sex, gender and plum pass every
+    // check; the olive sits under the separation floors against green and
+    // amber, as any green-amber mix must, and the mauve under the chroma
+    // floor, so every series is also named in text (row labels, line-end
+    // labels, the legend on narrow screens), never by colour alone.
     reporting: {
-        race: CHART_COLORS.c1,
-        ethnicity: CHART_COLORS.c4,
-        both: CHART_COLORS.c3
+        race: CHART_COLORS.c1,          // #0F7A4F
+        ethnicity: CHART_COLORS.c4,     // #C77A0A
+        both: '#6D6600',                // race and ethnicity
+        sex: CHART_COLORS.c2,           // #C2477E
+        gender: CHART_COLORS.c5,        // #7A4FCF
+        sexGender: '#842270',
+        allFour: '#906C79'
     }
 };
 
@@ -972,7 +983,8 @@ function donutConfig(totals, colors, noun) {
 // behind the data. Charts opt in via options.plugins.eventLines or by
 // canvas id below — regulatory context rendered as data, not prose.
 const CHART_EVENT_LINES = {
-    'reporting-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    'reporting-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective', above: true,
+        font: "italic 15px 'Source Serif 4', Georgia, serif" }],
     'race-trends-chart':      [{ x: '2017', label: 'FDAAA Final Rule effective' }],
     'ethnicity-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective' }],
     'sex-trends-chart':       [{ x: '2017', label: 'FDAAA Final Rule effective' }],
@@ -1013,9 +1025,15 @@ const civicEventLinesPlugin = {
             ctx.lineTo(px, chartArea.bottom);
             ctx.stroke();
             ctx.setLineDash([]);
-            ctx.font = "9px 'DM Mono', ui-monospace, monospace";
             ctx.fillStyle = '#6b7280';
-            const y = chartArea.top + 9 + i * 11;
+            // ev.above: the label sits in the chart's top padding, clear of
+            // a series that runs along the top (the Overview's sex line at
+            // about 99%), when the chart leaves room for it there and shows
+            // no legend in that space (on a narrow screen it does).
+            const above = ev.above && chartArea.top >= 22 && chart.options.plugins?.legend?.display === false;
+            // Inside the plot, such a label drops below the top line.
+            const y = above ? chartArea.top - 10 : chartArea.top + (ev.above ? 22 : 9) + i * 11;
+            ctx.font = (above && ev.font) || "9px 'DM Mono', ui-monospace, monospace";
             const fitsRight = px + 16 + ctx.measureText(ev.label).width < chartArea.right;
             const dir = fitsRight ? 1 : -1;
             // Leader arrow from the label to its line — with several
@@ -1151,6 +1169,8 @@ function firstViewProblem(summary, run) {
 function overviewOnScreen() {
     const ids = ['total-studies', 'race-reporting', 'ethnicity-reporting', 'both-reporting',
         'stat-sub-total', 'stat-sub-race', 'stat-sub-ethnicity', 'stat-sub-both',
+        'sex-reporting', 'gender-reporting', 'sex-gender-reporting', 'all-four-reporting',
+        'stat-sub-sex', 'stat-sub-gender', 'stat-sub-sex-gender', 'stat-sub-all-four',
         'finding-headline', 'finding-context', 'filter-summary-text'];
     const shown = {};
     ids.forEach(id => {
@@ -1181,9 +1201,18 @@ function paintOverviewFromBlock(b, years) {
     document.getElementById('both-reporting').textContent = share('trials_reporting_race_and_ethnicity');
     renderOverviewFinding(total, race, eth, both);
     renderOverviewTileContext(total, race, eth, both, years);
+    // The parser's counts, when the block has them (all four, each a count of
+    // its trials); a block without them (one from before the engine wrote
+    // them, or a week whose trials do not all have the parser's row) paints
+    // the rows as absent.
+    const sgKeys = ['trials_reporting_sex', 'trials_reporting_gender', 'trials_reporting_sex_and_gender',
+        'trials_reporting_race_ethnicity_sex_and_gender'];
+    const sgOk = sgKeys.every(k => Number.isInteger(b[k]) && b[k] >= 0 && b[k] <= total);
+    renderOverviewSexGender(total, ...sgKeys.map(k => (sgOk ? b[k] : null)));
     const byYear = {};
     for (const [year, c] of Object.entries(b.by_results_year)) {
-        byYear[year] = { total: c.trials, race: c.trials_reporting_race, ethnicity: c.trials_reporting_ethnicity, both: c.trials_reporting_race_and_ethnicity };
+        byYear[year] = { total: c.trials, race: c.trials_reporting_race, ethnicity: c.trials_reporting_ethnicity, both: c.trials_reporting_race_and_ethnicity,
+            ...(sgOk ? { sex: c.trials_reporting_sex, gender: c.trials_reporting_gender } : {}) };
     }
     renderReportingTrends(null, byYear);
 }
@@ -1355,7 +1384,22 @@ function settleFirstView() {
     firstViewShown = null;
     if (!painted) return;
     const now = overviewOnScreen();
-    if (now !== painted) {
+    const first = JSON.parse(painted), drawn = JSON.parse(now);
+    // A block from before the parser's sex/gender counts paints those rows as
+    // absent and draws no sex/gender line (paintOverviewFromBlock); the records
+    // filling them in is the hand-over, not a difference. Everything the block
+    // did paint is still compared, the first three trend lines included.
+    if (String(first['sex-reporting'] || '').startsWith('\u2014|')) {
+        for (const id of ['sex-reporting', 'gender-reporting', 'sex-gender-reporting', 'all-four-reporting',
+            'stat-sub-sex', 'stat-sub-gender', 'stat-sub-sex-gender', 'stat-sub-all-four']) {
+            delete first[id];
+            delete drawn[id];
+        }
+        const firstLines = (c) => (c ? JSON.stringify(JSON.parse(c).slice(0, 4)) : c);
+        first.chart = firstLines(first.chart);
+        drawn.chart = firstLines(drawn.chart);
+    }
+    if (JSON.stringify(first) !== JSON.stringify(drawn)) {
         console.warn('The Overview from dashboard-summary.json (firstView) differs from the trial records; it was redrawn from the records.',
             { firstView: JSON.parse(painted), records: JSON.parse(now) });
     }
@@ -4574,6 +4618,43 @@ function renderOverviewTileContext(total, raceCount, ethCount, bothCount, years)
     set('stat-sub-race', total ? n(raceCount) : '\u2014');
     set('stat-sub-ethnicity', total ? n(ethCount) : '\u2014');
     set('stat-sub-both', total ? n(bothCount) : '\u2014');
+    // Each row's bar: its rate, drawn (a nonzero count is never a zero-width bar).
+    for (const [bar, c] of [['race', raceCount], ['ethnicity', ethCount], ['both', bothCount]]) {
+        const fill = document.getElementById(`rate-bar-${bar}`);
+        if (!fill) continue;
+        fill.style.width = total ? `${(c / total) * 100}%` : '0';
+        fill.style.minWidth = total && c > 0 ? '3px' : '0';
+    }
+}
+
+// The Overview's sex and gender rows. The counts are the manuscript parser's
+// flags (sex_gender.reported_sex and reported_gender, counted only when
+// exactly true, as the Sex and Gender tabs read them; a "Gender" table with
+// only Female and Male is sex, not gender), over the same trials as the rows
+// above, so each rate is a count over the total beside it. Every count is
+// null when the trials on screen do not all carry the parser's row (an
+// archive from before it, a summary without these counts): the row then
+// shows a dash and says so, never 0%. The engine's firstView counts the same
+// rows by the same rule (civicsample-engine src/first_view.py).
+function renderOverviewSexGender(total, sex, gender, sexGender, allFour) {
+    const rows = [['sex', 'sex-reporting', 'stat-sub-sex', sex], ['gender', 'gender-reporting', 'stat-sub-gender', gender],
+        ['sex-gender', 'sex-gender-reporting', 'stat-sub-sex-gender', sexGender],
+        ['all-four', 'all-four-reporting', 'stat-sub-all-four', allFour]];
+    for (const [bar, valueId, subId, n] of rows) {
+        const absent = !Number.isInteger(n);
+        const value = document.getElementById(valueId);
+        const sub = document.getElementById(subId);
+        const fill = document.getElementById(`rate-bar-${bar}`);
+        if (value) value.textContent = absent ? '\u2014' : total > 0 ? `${((n / total) * 100).toFixed(1)}%` : '0%';
+        if (sub) {
+            sub.textContent = absent ? 'not in this dataset'
+                : total ? `${n.toLocaleString()} of ${total.toLocaleString()} trials` : '\u2014';
+        }
+        if (fill) {
+            fill.style.width = !absent && total > 0 ? `${(n / total) * 100}%` : '0';
+            fill.style.minWidth = !absent && n > 0 ? '3px' : '0';
+        }
+    }
 }
 
 // ── The Overview finding, and the filter selection in words ───────────────
@@ -4589,6 +4670,10 @@ function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
     const ctx = document.getElementById('finding-context');
     if (!box || !head || !ctx) return;
 
+    // The context line is shown where it carries the answer (no trials, too
+    // few for a rate); with a rate, the rows below already give each number
+    // it repeats, so it stays in the page for screen readers' order but hidden.
+    ctx.hidden = false;
     if (!total) {
         box.hidden = false;
         head.textContent = 'No trials match these filters.';
@@ -4623,6 +4708,7 @@ function renderOverviewFinding(total, raceCount, ethCount, bothCount) {
         `but only <strong>${both.toFixed(1)}%</strong> report race and ethnicity together.`;
     ctx.textContent = `${total.toLocaleString()} trials · ` +
         `${gap.toFixed(1)}-point gap · ethnicity reported by ${eth.toFixed(1)}%`;
+    ctx.hidden = true;
     box.hidden = false;
 }
 
@@ -4863,6 +4949,11 @@ function renderDashboard() {
             t > 0 ? `${((s.cards.bothCount / t) * 100).toFixed(1)}%` : '0%';
         renderOverviewFinding(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
         renderOverviewTileContext(t, s.cards.raceCount, s.cards.ethCount, s.cards.bothCount);
+        // The parser's counts over the same studies, when this summary has them
+        // (scripts/generate_mobile_data.py writes all four or none).
+        const sgCards = ['sgSexCount', 'sgGenderCount', 'sgSexGenderCount', 'allFourCount'];
+        const sgOk = sgCards.every(k => Number.isInteger(s.cards[k]) && s.cards[k] >= 0 && s.cards[k] <= t);
+        renderOverviewSexGender(t, ...sgCards.map(k => (sgOk ? s.cards[k] : null)));
         renderFilterSummary(t, true);
 
         // All chart functions check dashboardSummary internally
@@ -4937,6 +5028,16 @@ function renderDashboard() {
         filtered.length > 0 ? `${((bothCount / filtered.length) * 100).toFixed(1)}%` : '0%';
     renderOverviewFinding(filtered.length, raceCount, ethCount, bothCount);
     renderOverviewTileContext(filtered.length, raceCount, ethCount, bothCount);
+    // The parser's flags, === true, and only when every trial here has its row.
+    const sgRows = filtered.every(s => !!s.sex_gender && typeof s.sex_gender === 'object' && !Array.isArray(s.sex_gender));
+    const sgSex = (s) => s.sex_gender?.reported_sex === true;
+    const sgGender = (s) => s.sex_gender?.reported_gender === true;
+    renderOverviewSexGender(filtered.length, ...(sgRows ? [
+        filtered.filter(sgSex).length,
+        filtered.filter(sgGender).length,
+        filtered.filter(s => sgSex(s) && sgGender(s)).length,
+        filtered.filter(s => s.race?.reported && s.ethnicity?.reported && sgSex(s) && sgGender(s)).length,
+    ] : [null, null, null, null]));
     renderFilterSummary(filtered.length);
 
     // Render only the Overview tab chart immediately (the visible tab).
@@ -6587,33 +6688,43 @@ function renderReportingTrends(filtered, counted) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
 
+    // byYear[year]: { total, race, ethnicity, both } and, where the parser's
+    // counts exist for every year drawn, { sex, gender } (its flags, === true,
+    // over trials that all carry its row; see renderOverviewSexGender).
     let byYear;
     if (counted) {
         byYear = counted;
     } else if (dashboardSummary) {
         byYear = {};
         for (const [yr, v] of Object.entries(dashboardSummary.byYear)) {
-            byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported };
+            byYear[yr] = { total: v.total, race: v.race_reported, ethnicity: v.eth_reported, both: v.both_reported,
+                sex: v.sg_sex_reported, gender: v.sg_gender_reported };
         }
     } else {
+        const sgRows = filtered.every(s => !!s.sex_gender && typeof s.sex_gender === 'object' && !Array.isArray(s.sex_gender));
         byYear = {};
         filtered.forEach(study => {
             const year = study.results_date?.substring(0, 4);
             if (!year) return;
-            if (!byYear[year]) byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0 };
+            if (!byYear[year]) byYear[year] = { total: 0, race: 0, ethnicity: 0, both: 0, ...(sgRows ? { sex: 0, gender: 0 } : {}) };
             byYear[year].total++;
             if (study.race?.reported) byYear[year].race++;
             if (study.ethnicity?.reported) byYear[year].ethnicity++;
             if (study.race?.reported && study.ethnicity?.reported) byYear[year].both++;
+            if (sgRows && study.sex_gender.reported_sex === true) byYear[year].sex++;
+            if (sgRows && study.sex_gender.reported_gender === true) byYear[year].gender++;
         });
     }
 
     const years = Object.keys(byYear).sort();
     const share = (key) => years.map(y => (byYear[y][key] / byYear[y].total) * 100);
     const race = share('race'), ethnicity = share('ethnicity'), both = share('both');
+    // Sex and gender are drawn only when every year has the parser's counts.
+    const withSg = years.length > 0 && years.every(y => Number.isInteger(byYear[y].sex) && Number.isInteger(byYear[y].gender));
+    const sex = withSg ? share('sex') : null, gender = withSg ? share('gender') : null;
 
     const previous = charts.reportingTrends;
-    const drawn = JSON.stringify([years, race, ethnicity, both]);
+    const drawn = JSON.stringify([years, race, ethnicity, both, sex, gender]);
     const fromFirstView = !!(previous && previous.civicFirstView);
     if (fromFirstView && !counted && previous.civicDrawn === drawn) {
         previous.civicFirstView = false;
@@ -6621,48 +6732,96 @@ function renderReportingTrends(filtered, counted) {
     }
     if (previous) previous.destroy();
 
+    // Straight segments, one colour per series, and each line named at its
+    // end with its last value (no legend to decode); on a narrow canvas the
+    // names would crowd the plot, so a key above it names them instead.
+    const narrow = (ctx.parentElement && ctx.parentElement.clientWidth ? ctx.parentElement.clientWidth : 800) < 600;
+    const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+    // On a narrow canvas the lines are named by a key above the chart, not
+    // at their ends, so each line also has its own dash (and its key the
+    // same dash): no series is told apart by colour alone. Wide canvases name
+    // every line at its end and keep solid strokes.
+    const DASH = { Race: [], Ethnicity: [7, 4], 'Race and ethnicity': [2, 3], Sex: [12, 4], Gender: [8, 3, 2, 3] };
+    const line = (label, data, color) => ({
+        label, data, borderColor: color, backgroundColor: color, borderWidth: 2, tension: 0, fill: false,
+        borderDash: narrow ? DASH[label] : [],
+        pointRadius: (c) => (c.dataIndex === data.length - 1 ? 4 : 0), pointHoverRadius: 4,
+        pointBorderColor: '#ffffff', pointBorderWidth: 1.5
+    });
+    const datasets = [
+        line('Race', race, COLORS.reporting.race),
+        line('Ethnicity', ethnicity, COLORS.reporting.ethnicity),
+        line('Race and ethnicity', both, COLORS.reporting.both),
+        ...(withSg ? [line('Sex', sex, COLORS.reporting.sex), line('Gender', gender, COLORS.reporting.gender)] : [])
+    ];
+    // The narrow canvas's key, in the page rather than on the canvas: each
+    // series' name beside a short stroke in its colour and dash. It wraps
+    // with the text, so no entry can fall off the canvas, and it reads as text.
+    const key = document.getElementById('reporting-trends-key');
+    if (key) {
+        key.hidden = !narrow;
+        key.innerHTML = narrow ? datasets.map(d => `<span class="trend-key"><svg width="28" height="8" aria-hidden="true">`
+            + `<line x1="0" y1="4" x2="28" y2="4" stroke="${d.borderColor}" stroke-width="2.5"`
+            + `${d.borderDash && d.borderDash.length ? ` stroke-dasharray="${d.borderDash.join(' ')}"` : ''}></line></svg>${d.label}</span>`).join('') : '';
+    }
+    const endLabels = {
+        id: 'overviewEndLabels',
+        afterDatasetsDraw(chart) {
+            const g = chart.ctx, area = chart.chartArea;
+            const items = chart.data.datasets.map((d, i) => {
+                const pts = chart.getDatasetMeta(i).data;
+                const pt = pts[pts.length - 1];
+                const v = d.data[d.data.length - 1];
+                return pt && Number.isFinite(v) ? { y: pt.y, label: d.label, value: v.toFixed(1) } : null;
+            }).filter(Boolean).sort((a, b) => a.y - b.y);
+            // Labels at least 20px apart, pushed down in order, then back up
+            // as a block if the last would fall below the plot.
+            for (let i = 1; i < items.length; i++) items[i].y = Math.max(items[i].y, items[i - 1].y + 20);
+            const over = items.length ? items[items.length - 1].y - (area.bottom + 4) : 0;
+            if (over > 0) items.forEach(it => { it.y -= over; });
+            g.save();
+            g.textBaseline = 'middle';
+            for (const it of items) {
+                g.font = `16px ${serif}`;
+                g.fillStyle = '#1d2420';
+                g.fillText(it.label, area.right + 12, it.y);
+                const w = g.measureText(`${it.label} `).width;
+                g.fillStyle = '#6b756f';
+                g.fillText(it.value, area.right + 12 + w, it.y);
+            }
+            g.font = `15px ${serif}`;
+            g.fillStyle = '#6b756f';
+            g.textBaseline = 'bottom';
+            g.fillText('% of Studies', area.left, area.top - 8);
+            g.restore();
+        }
+    };
+    const tickFont = { family: serif, size: 15 };
+
     charts.reportingTrends = new Chart(ctx, {
         type: 'line',
-        data: {
-            labels: years,
-            datasets: [
-                {
-                    label: 'Race',
-                    data: race,
-                    borderColor: COLORS.reporting.race,
-                    backgroundColor: COLORS.reporting.race + '1a',
-                    tension: 0.3
-                },
-                {
-                    label: 'Ethnicity',
-                    data: ethnicity,
-                    borderColor: COLORS.reporting.ethnicity,
-                    backgroundColor: COLORS.reporting.ethnicity + '1a',
-                    tension: 0.3
-                },
-                {
-                    label: 'Both',
-                    data: both,
-                    borderColor: COLORS.reporting.both,
-                    backgroundColor: COLORS.reporting.both + '1a',
-                    tension: 0.3
-                }
-            ]
-        },
+        data: { labels: years, datasets },
+        plugins: narrow ? [] : [endLabels],
         options: {
             ...(fromFirstView ? { animation: false } : {}),
             responsive: true,
             maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO,
+            aspectRatio: CHART_ASPECT_RATIO || (narrow ? 1.3 : 2.9),
+            layout: { padding: narrow ? { top: 4, right: 4 } : { top: 28, right: 200 } },
+            interaction: { mode: 'index', intersect: false },
             scales: {
+                x: { ticks: { font: tickFont, color: '#6b756f', maxRotation: 0, autoSkipPadding: 18 } },
                 y: {
                     beginAtZero: true,
                     max: 100,
-                    title: { display: true, text: '% of Studies' }
+                    ticks: { font: tickFont, color: '#6b756f', stepSize: 25, callback: (v) => (v === 100 ? '100%' : v) },
+                    grid: { color: '#e8ebe7' },
+                    title: { display: narrow, text: '% of Studies', font: tickFont }
                 }
             },
             plugins: {
-                legend: { position: 'top' }
+                legend: { display: false },
+                tooltip: { callbacks: { label: (c) => `${c.dataset.label}: ${Number(c.parsed.y).toFixed(1)}%` } }
             }
         }
     });
@@ -8111,7 +8270,7 @@ function renderFdaOversight(filtered) {
     if (!ctx) return;
     if (charts.fdaReporting) charts.fdaReporting.destroy();
 
-    const demoColors = { sex: COLORS.reporting.both, race: COLORS.reporting.race,
+    const demoColors = { sex: COLORS.reporting.sex, race: COLORS.reporting.race,
         ethnicity: COLORS.reporting.ethnicity };
     let labels, keyCounts, datasets;
     if (legacy) {

@@ -261,6 +261,7 @@ const SITE = [
     fnSource('function showDashboardSpinner()'),
     fnSource('function hideDashboardSpinner()'),
     fnSource('function renderOverviewTileContext('),
+    fnSource('function renderOverviewSexGender('),
     fnSource('function renderOverviewFinding('),
     fnSource('function renderFilterSummary('),
     fnSource('function renderUnfilteredFilterSummary(el, total, scope)'),
@@ -400,8 +401,11 @@ function page({ mobile = false, hash = '', search = '', runStamp = null, run = n
         // finding shows, and the trend chart's years and series.
         overview() {
             const ids = ['total-studies', 'race-reporting', 'ethnicity-reporting', 'both-reporting', 'stat-sub-total',
-                'stat-sub-race', 'stat-sub-ethnicity', 'stat-sub-both', 'finding-headline', 'finding-context', 'filter-summary-text'];
+                'stat-sub-race', 'stat-sub-ethnicity', 'stat-sub-both', 'finding-headline', 'finding-context', 'filter-summary-text',
+                'sex-reporting', 'gender-reporting', 'sex-gender-reporting', 'all-four-reporting',
+                'stat-sub-sex', 'stat-sub-gender', 'stat-sub-sex-gender', 'stat-sub-all-four'];
             const shown = Object.fromEntries(ids.map((id) => [id, this.text(id)]));
+            shown.contextShown = !byId.get('finding-context').hidden;
             shown.findingShown = !byId.get('overview-finding').hidden;
             const live = this.trendCharts().filter((c) => !c.destroyed);
             assert.equal(live.length, 1, 'one trend chart on screen');
@@ -430,6 +434,29 @@ function syntheticRecords() {
         for (let i = 0; i < 12; i++) out.push(rec(y, 'INTERVENTIONAL', i % 2 === 0, i % 3 === 0));
         out.push(rec(y, 'OBSERVATIONAL', true, true));
     }
+    return out;
+}
+// The same records, each with the manuscript parser's row: a mix of its two
+// flags, with a truthy string that the === true rule does not count.
+function syntheticRecordsWithSg() {
+    const flags = [[true, false], [true, true], [false, false], [true, false], ['true', true], [null, null]];
+    return syntheticRecords().map((r, i) => ({ ...r, sex_gender: { reported_sex: flags[i % flags.length][0], reported_gender: flags[i % flags.length][1] } }));
+}
+// The block's sex/gender counts (engine PR #36), added to blockFor's when
+// every counted record has the parser's row: the flags exactly true.
+function withSgCounts(block, records) {
+    const sex = (r) => r.sex_gender?.reported_sex === true, gender = (r) => r.sex_gender?.reported_gender === true;
+    const keys = { trials_reporting_sex: (r) => sex(r), trials_reporting_gender: (r) => gender(r),
+        trials_reporting_sex_and_gender: (r) => sex(r) && gender(r),
+        trials_reporting_race_ethnicity_sex_and_gender: (r) => r.race?.reported && r.ethnicity?.reported && sex(r) && gender(r) };
+    const counted = records.filter((r) => r.study_type === 'INTERVENTIONAL' && /^\d{4}$/.test(String(r.results_date || '').slice(0, 4))
+        && +String(r.results_date).slice(0, 4) >= 2009);
+    const out = { ...block, denominators: { ...block.denominators }, by_results_year: {} };
+    for (const [y, c] of Object.entries(block.by_results_year)) {
+        const inYear = counted.filter((r) => String(r.results_date).startsWith(y));
+        out.by_results_year[y] = { ...c, ...Object.fromEntries(Object.entries(keys).map(([k, f]) => [k, inYear.filter(f).length])) };
+    }
+    for (const [k, f] of Object.entries(keys)) { out[k] = counted.filter(f).length; out.denominators[k] = 'trials'; }
     return out;
 }
 // The block the engine would write for records, by its rule (src/first_view.py).
@@ -525,25 +552,42 @@ test('painted from the real block, the Overview is the one the real records pain
     assert.deepEqual(counted, [block.trials, block.trials_reporting_race, block.trials_reporting_ethnicity,
         block.trials_reporting_race_and_ethnicity], 'the records count other totals than the block');
     const drawn = fromRecords.overview();
-    for (const id of Object.keys(drawn).filter((k) => k !== 'chart')) {
+    // The sex/gender rows and their two trend lines: a block with the
+    // parser's counts (engine PR #36 on) paints them as the records do; one
+    // from before them paints each row as absent, never 0%, and draws no
+    // sex/gender line, and the records then fill them in.
+    const SG_IDS = ['sex-reporting', 'gender-reporting', 'sex-gender-reporting', 'all-four-reporting',
+        'stat-sub-sex', 'stat-sub-gender', 'stat-sub-sex-gender', 'stat-sub-all-four'];
+    const blockHasSg = 'trials_reporting_sex' in block;
+    for (const id of Object.keys(drawn).filter((k) => k !== 'chart' && (blockHasSg || !SG_IDS.includes(k)))) {
         assert.deepEqual(painted[id], drawn[id], `#${id} differs`);
     }
+    if (!blockHasSg) {
+        for (const id of SG_IDS.slice(0, 4)) assert.equal(painted[id].text, '\u2014', `#${id} is not absent`);
+        for (const id of SG_IDS.slice(4)) assert.equal(painted[id].text, 'not in this dataset');
+        assert.match(drawn['sex-reporting'].text, /^\d+\.\d%$/, 'the records do not fill the sex row');
+    }
     assert.deepEqual(painted.chart.labels, drawn.chart.labels, 'the trend chart\'s years differ');
-    drawn.chart.series.forEach((s, i) => {
-        assert.equal(painted.chart.series[i].label, s.label);
-        assert.ok(s.data.every((v, k) => Object.is(v, painted.chart.series[i].data[k])), `the ${s.label} series differs`);
+    assert.equal(painted.chart.series.length, drawn.chart.series.length - (blockHasSg ? 0 : 2));
+    painted.chart.series.forEach((s, i) => {
+        assert.equal(drawn.chart.series[i].label, s.label);
+        assert.ok(s.data.every((v, k) => Object.is(v, drawn.chart.series[i].data[k])), `the ${s.label} series differs`);
     });
     // What the reader sees, for the record.
     assert.equal(drawn['total-studies'].text, block.trials.toLocaleString());
     assert.match(drawn['filter-summary-text'].html, new RegExp(`results posted <b>2009–${block.newest_results_year}</b>`));
 
     // And the hand-over on the same page: the records' render keeps the
-    // block's chart, warns of nothing, and opens the page.
+    // block's chart, warns of nothing, and opens the page. A block from before
+    // the parser's counts hands over to a chart with the two sex/gender lines
+    // added, and to the rows the records fill in.
     fromBlock.loadRecords(records);
     fromBlock.run('settleFirstView()');
-    assert.equal(fromBlock.trendCharts().length, 1, 'the records rebuilt a chart with the same numbers');
+    assert.equal(fromBlock.trendCharts().length, blockHasSg ? 1 : 2,
+        blockHasSg ? 'the records rebuilt a chart with the same numbers' : 'the records did not add the sex/gender lines');
     assert.deepEqual(fromBlock.warnings, []);
-    assert.deepEqual(fromBlock.overview(), painted);
+    // (drawn is another page's: compared by value.)
+    assert.equal(JSON.stringify(fromBlock.overview()), JSON.stringify(blockHasSg ? painted : drawn));
 });
 
 // ── 2. Where the first view paints ─────────────────────────────────────────
@@ -1387,11 +1431,11 @@ const INDEX_PATH = fileURLToPath(new URL('../index.html', import.meta.url));
 // (demographics.partN.json.gz), each a container of the run's stamps and
 // its share of the records, as repeated --records.
 const ENGINE_PARTS_COUNT = 8;
-function runEngineGate(appPath = APP_PATH) {
+function runEngineGate(appPath = APP_PATH, { withSg = false } = {}) {
     const dir = mkdtempSync(join(tmpdir(), 'first-view-gate-'));
     try {
-        const records = syntheticRecords();
-        const block = blockFor(records);
+        const records = withSg ? syntheticRecordsWithSg() : syntheticRecords();
+        const block = withSg ? withSgCounts(blockFor(records), records) : blockFor(records);
         const size = Math.ceil(records.length / ENGINE_PARTS_COUNT);
         const parts = [];
         for (let i = 0; i < ENGINE_PARTS_COUNT; i++) {
@@ -1415,6 +1459,18 @@ test('the engine\'s gate is the pinned copy of its script', () => {
         'tests/engine_first_view_parity.mjs is not the engine script tests/engine_first_view_parity.json pins');
     assert.equal(ENGINE_PIN.path, 'scripts/first_view_parity.mjs');
     assert.match(ENGINE_PIN.commit, /^[0-9a-f]{40}$/);
+});
+
+test('the engine\'s gate checks the sex/gender rows this app.js paints, from records that carry the parser\'s row', () => {
+    const { status, stderr, report } = runEngineGate(APP_PATH, { withSg: true });
+    assert.equal(status, 0, `the gate would hold the publish (exit ${status}): ${stderr || JSON.stringify(report && report.mismatches, null, 1)}`);
+    assert.equal(report.sex_gender_checked, true);
+    assert.deepEqual(report.mismatches, []);
+    // 216 counted trials; the flags cycle six ways, so 108 report sex (exactly true) and 72 gender.
+    assert.equal(report.site.trials_reporting_sex, 108);
+    assert.equal(report.site.trials_reporting_gender, 72);
+    assert.equal(report.site.painted['sex-reporting'], '50.0%');
+    assert.equal(report.site.painted['stat-sub-gender'], '72 of 216 trials');
 });
 
 test('the engine\'s gate passes on this app.js and index.html, run as the weekly publish runs it', () => {
@@ -1457,7 +1513,10 @@ test('the pieces the engine\'s gate slices are all there and run on their own, i
     // name app.js does not declare as a function (a top-level value, a
     // let) is a ReferenceError there, which holds the publish.
     const site = ENGINE_PARTS.readSite(APP_PATH, INDEX_PATH);
-    assert.equal(site.pieces.length, ENGINE_PARTS.APP_PIECES.length);
+    // Every fixed piece, and the optional one this app.js declares (the
+    // sex/gender rows), which turns on the gate's sex/gender checks.
+    assert.equal(site.pieces.length, ENGINE_PARTS.APP_PIECES.length + 1);
+    assert.equal(site.sexGender, true);
     assert.ok(site.markup.startsWith('<header>') && site.markup.endsWith('</section>'));
     for (const name of ENGINE_STUBBED) assert.ok(site.stubs.some((s) => s.name === name), `the gate no longer stubs ${name}`);
     const s = ENGINE_PARTS.siteRuntime(site, new Set());
@@ -1574,7 +1633,8 @@ test('a phone opens on the desktop\'s first-view Overview: 75,607 trials, 58.9% 
     // The trend chart: each year's ratio from by_results_year, over its trials.
     const years = Object.keys(b.by_results_year).sort();
     same(onPhone.chart.labels, years);
-    const want = { Race: 'trials_reporting_race', Ethnicity: 'trials_reporting_ethnicity', Both: 'trials_reporting_race_and_ethnicity' };
+    // (This summary is from before the parser's counts: no Sex or Gender line.)
+    const want = { Race: 'trials_reporting_race', Ethnicity: 'trials_reporting_ethnicity', 'Race and ethnicity': 'trials_reporting_race_and_ethnicity' };
     for (const s of onPhone.chart.series) {
         const key = want[s.label];
         assert.ok(key, `an unexpected series ${s.label}`);

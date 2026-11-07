@@ -22,10 +22,10 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261008-archfilters2">
+    <link rel="stylesheet" href="styles.css?v=20261107-overview3">
     <!-- Non-render-blocking font loading -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
-    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap"></noscript>
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
     <!-- Chart.js loaded defer: non-render-blocking, executes in order before DOMContentLoaded -->
     <!-- Pinned to an exact version and file, with Subresource Integrity: a new
          release reaches visitors only through a reviewed change here, and the
@@ -417,32 +417,53 @@
                 <p class="finding-context" id="finding-context"></p>
             </div>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>Total Studies</h3>
-                    <p class="stat-value" id="total-studies">-</p>
-                    <p class="stat-sub" id="stat-sub-total">&nbsp;</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Report Race</h3>
-                    <p class="stat-value" id="race-reporting">-</p>
-                    <p class="stat-sub" id="stat-sub-race">&nbsp;</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Report Ethnicity</h3>
-                    <p class="stat-value" id="ethnicity-reporting">-</p>
-                    <p class="stat-sub" id="stat-sub-ethnicity">&nbsp;</p>
-                </div>
-                <div class="stat-card">
-                    <h3>Report Both</h3>
-                    <p class="stat-value" id="both-reporting">-</p>
-                    <p class="stat-sub" id="stat-sub-both">&nbsp;</p>
-                </div>
+            <!-- The reporting rates: one row per dimension, grouped. Each value
+                 is a published count over the row's own denominator (named in
+                 its count line); a row the data cannot fill shows "—".
+                 Bars are drawn from the same counts (renderOverviewTileContext,
+                 renderOverviewSexGender) and carry no meaning of their own. -->
+            <div class="overview-rates num" role="group" aria-label="Reporting rates">
+                <span class="rate-group-spacer"></span>
+                <span class="rate-label rate-top">Total Studies</span>
+                <span class="rate-value rate-top" id="total-studies">-</span>
+                <span class="rate-count rate-top" id="stat-sub-total">&nbsp;</span>
+                <span class="rate-bar rate-scale rate-top" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span></span>
+                <span class="rate-group rate-start">Race/Ethnicity</span>
+                <span class="rate-label rate-start">Report Race</span>
+                <span class="rate-value rate-start" id="race-reporting">-</span>
+                <span class="rate-count rate-start" id="stat-sub-race">&nbsp;</span>
+                <span class="rate-bar rate-start" aria-hidden="true"><span class="rate-fill rate-fill-race" id="rate-bar-race"></span></span>
+                <span class="rate-label">Report Ethnicity</span>
+                <span class="rate-value" id="ethnicity-reporting">-</span>
+                <span class="rate-count" id="stat-sub-ethnicity">&nbsp;</span>
+                <span class="rate-bar" aria-hidden="true"><span class="rate-fill rate-fill-ethnicity" id="rate-bar-ethnicity"></span></span>
+                <span class="rate-label">Report Race and Ethnicity</span>
+                <span class="rate-value" id="both-reporting">-</span>
+                <span class="rate-count" id="stat-sub-both">&nbsp;</span>
+                <span class="rate-bar" aria-hidden="true"><span class="rate-fill rate-fill-both" id="rate-bar-both"></span></span>
+                <span class="rate-group rate-start">Sex/Gender</span>
+                <span class="rate-label rate-start">Report Sex</span>
+                <span class="rate-value rate-start" id="sex-reporting">-</span>
+                <span class="rate-count rate-start" id="stat-sub-sex">&nbsp;</span>
+                <span class="rate-bar rate-start" aria-hidden="true"><span class="rate-fill rate-fill-sex" id="rate-bar-sex"></span></span>
+                <span class="rate-label">Report Gender</span>
+                <span class="rate-value" id="gender-reporting">-</span>
+                <span class="rate-count" id="stat-sub-gender">&nbsp;</span>
+                <span class="rate-bar" aria-hidden="true"><span class="rate-fill rate-fill-gender" id="rate-bar-gender"></span></span>
+                <span class="rate-label">Report Sex and Gender</span>
+                <span class="rate-value" id="sex-gender-reporting">-</span>
+                <span class="rate-count" id="stat-sub-sex-gender">&nbsp;</span>
+                <span class="rate-bar" aria-hidden="true"><span class="rate-fill rate-fill-sex-gender" id="rate-bar-sex-gender"></span></span>
+                <span class="rate-label rate-start rate-all">Report Race, Ethnicity, Sex, and Gender</span>
+                <span class="rate-value rate-start rate-all" id="all-four-reporting">-</span>
+                <span class="rate-count rate-start rate-all" id="stat-sub-all-four">&nbsp;</span>
+                <span class="rate-bar rate-start rate-all" aria-hidden="true"><span class="rate-fill rate-fill-all-four" id="rate-bar-all-four"></span></span>
             </div>
 
-            <div class="chart-container">
+            <div class="chart-container overview-trends">
                 <h3>Reporting Trends Over Time</h3>
-                <canvas id="reporting-trends-chart"></canvas>
+                <p class="overview-trends-key" id="reporting-trends-key" hidden></p>
+                <div class="overview-trends-canvas"><canvas id="reporting-trends-chart"></canvas></div>
                 <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
             </div>
         </section>
@@ -1678,6 +1699,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20261028-sganalysis2"></script>
+    <script defer src="app.js?v=20261107-overview3"></script>
 </body>
 </html>
