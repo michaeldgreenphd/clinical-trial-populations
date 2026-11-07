@@ -1386,7 +1386,9 @@ const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 // with them, with a note, when the numbers agree whether they answer nothing
 // or true; what it cannot see is a stub that paints an Overview number on
 // the real page. So each is named here, and one added to the pieces fails
-// the tests below until someone has read it and added it:
+// the tests below until someone has read it and added it. None today: the
+// three below, read and named here before, are in the gate's ELSEWHERE since
+// engine PR #37 (ENGINE_ELSEWHERE, checked below), for the same reasons:
 //  - renderUnfilteredFilterSummary (PR #255, from renderFilterSummary over
 //    a summary): the filter line over a summary or archive, which the gate
 //    compares only with no summary on screen. It reads the Industry view's
@@ -1400,7 +1402,8 @@ const ENGINE = readFileSync(ENGINE_FILE, 'utf8');
 //    phone it paints the block's own counts, never the records'.
 // None paints a desktop tile, the finding or the chart, and each is a lone
 // call statement, so the gate reads no answer from it.
-const ENGINE_STUBBED = ['phoneOverview', 'renderUnfilteredFilterSummary', 'syncFilterToggle'];
+const ENGINE_STUBBED = [];
+const ENGINE_ELSEWHERE = ['phoneOverview', 'renderUnfilteredFilterSummary', 'syncFilterToggle'];
 
 // The engine script's own lists, slicers, stub document and runtime, from
 // its text (its `export`s dropped: the slices run as a script).
@@ -1487,7 +1490,11 @@ test('the engine\'s gate passes on this app.js and index.html, run as the weekly
     assert.deepEqual(report.answer_matters_for, []);
     assert.deepEqual(report.site_functions_stubbed, ENGINE_STUBBED,
         'the Overview calls another app.js function the engine\'s gate only stubs: read it, then name it in ENGINE_STUBBED');
-    assert.match(stderr, new RegExp(`note: the Overview now calls ${ENGINE_STUBBED.join(', ')}, which the parity does not run`));
+    if (ENGINE_STUBBED.length) {
+        assert.match(stderr, new RegExp(`note: the Overview now calls ${ENGINE_STUBBED.join(', ')}, which the parity does not run`));
+    } else {
+        assert.doesNotMatch(stderr, /note: the Overview now calls/, 'the gate stubbed an app.js function it does not name');
+    }
     assert.doesNotMatch(stderr, /could not run faithfully/);
     // And it holds the publish for what the site's own stub lets by: one of
     // its pieces asking for an attribute selector.
@@ -1519,6 +1526,7 @@ test('the pieces the engine\'s gate slices are all there and run on their own, i
     assert.equal(site.sexGender, true);
     assert.ok(site.markup.startsWith('<header>') && site.markup.endsWith('</section>'));
     for (const name of ENGINE_STUBBED) assert.ok(site.stubs.some((s) => s.name === name), `the gate no longer stubs ${name}`);
+    for (const name of ENGINE_ELSEWHERE) assert.ok(ENGINE_PARTS.ELSEWHERE.includes(name), `the gate's ELSEWHERE no longer names ${name}`);
     const s = ENGINE_PARTS.siteRuntime(site, new Set());
     assert.throws(() => s.run('document.querySelector(\'.tab[data-tab="overview"]\')'), /class selectors only/,
         'the engine\'s document answers more than class selectors');
