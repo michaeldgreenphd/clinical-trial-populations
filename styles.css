@@ -5493,8 +5493,10 @@ footer p {
 
 #overview .overview-rates {
     display: grid;
-    grid-template-columns: 150px minmax(240px, 1.3fr) minmax(84px, 0.4fr) minmax(190px, 0.9fr) minmax(180px, 1.8fr);
-    column-gap: 24px;
+    /* At least 786px (columns 120 + 200 + 76 + 170 + 140, gaps 4 x 20); the
+       rows stack below 900px, where the page has less than that to give. */
+    grid-template-columns: minmax(120px, 150px) minmax(200px, 1.3fr) minmax(76px, 0.4fr) minmax(170px, 0.9fr) minmax(140px, 1.8fr);
+    column-gap: 20px;
     align-items: stretch;       /* every cell spans its row, so the rules line up */
     margin: 0 0 2rem;
     border-bottom: 1px solid var(--ov-rule);
@@ -5553,11 +5555,10 @@ footer p {
 #overview .overview-trends h3 { font-family: inherit; font-size: 24px; line-height: 1.3; font-weight: 600; margin: 0 0 0.25rem; }
 #overview .overview-trends .chart-footnote { font-family: inherit; font-size: 16px; line-height: 1.4; color: var(--ov-muted); margin-top: 0.4rem; }
 
-/* Phones and narrow windows: each row stacks its name and value over its
-   count and bar; the group names become row headings. */
-@media (max-width: 720px) {
-    #overview { font-size: 18px; }
-    #overview .finding-headline { font-size: 28px; }
+/* Narrow windows and phones: each row stacks its name and value over its
+   count and bar; the group names become row headings. The breakpoint is
+   where the five columns' minimum (786px) no longer fits the page. */
+@media (max-width: 900px) {
     #overview .overview-rates { grid-template-columns: 1fr auto; column-gap: 12px; }
     #overview .overview-rates .rate-group-spacer { display: none; }
     #overview .rate-group, #overview .rate-label.rate-all { grid-column: 1 / -1; grid-row: auto; }
@@ -5565,4 +5566,8 @@ footer p {
     #overview .overview-rates .rate-bar { grid-column: 1 / -1; border-top: 0; padding-top: 0; }
     #overview .rate-label.rate-all + .rate-value { grid-column: 1 / -1; border-top: 0; padding-top: 0; }
     #overview .rate-scale { display: none; }
+}
+@media (max-width: 720px) {
+    #overview { font-size: 18px; }
+    #overview .finding-headline { font-size: 28px; }
 }
