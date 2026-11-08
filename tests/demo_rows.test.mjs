@@ -89,3 +89,23 @@ test('a single series named by its end label keeps a legend on a narrow panel', 
     assert.equal(run(true, {}, 1), false);
     assert.equal(run(true, { endLabels: true }, 3), true);
 });
+
+test('a stacked series with an empty last bar is named in the legend', () => {
+    const run = (sets) => {
+        const context = vm.createContext({
+            demoNarrow: () => false, demoPattern: () => '#000', demoCompact: (v) => String(v), demoInkPlugin: {},
+        });
+        vm.runInContext(lineAt('const DEMO_SERIF =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
+            + fnAt('function demoConfig(config, spec = {})'), context);
+        context.cfg = { type: 'bar', data: { datasets: sets.map(([label, data]) => ({ label, data })) }, options: {} };
+        const legend = vm.runInContext('demoConfig(cfg, { endLabels: true }).options.plugins.legend', context);
+        const shown = sets.map((_, i) => i).filter((i) => !legend.labels.filter || legend.labels.filter({ datasetIndex: i }));
+        return { display: legend.display, shown: shown.map((i) => sets[i][0]) };
+    };
+    // Asian in the first year only, White in both: only White has an end label
+    assert.deepEqual(run([['White', [5, 7]], ['Asian', [3, 0]]]), { display: true, shown: ['Asian'] });
+    // every series ends above zero: the end labels name them all, no legend
+    assert.equal(run([['White', [5, 7]], ['Asian', [3, 2]]]).display, false);
+    // a series that never had participants is not added to the legend
+    assert.equal(run([['White', [5, 7]], ['Asian', [0, 0]]]).display, false);
+});

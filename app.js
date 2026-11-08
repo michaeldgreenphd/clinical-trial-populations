@@ -1102,9 +1102,16 @@ function demoConfig(config, spec = {}) {
     else if (spec.yTicks === 'compact') y.ticks.callback = (v) => demoCompact(v);
     o.plugins = o.plugins || {};
     const ends = !!spec.endLabels && !narrow;
+    // The end labels skip a stacked series whose last bar is empty (demoInk),
+    // so one with participants in an earlier year would be named nowhere; the
+    // legend names exactly those series.
+    const lastValue = (d) => { for (let j = d.data.length - 1; j >= 0; j--) if (Number.isFinite(d.data[j])) return d.data[j]; return null; };
+    const unlabelled = new Set(ends && config.type === 'bar'
+        ? ds.map((d, i) => i).filter(i => !(lastValue(ds[i]) > 0) && ds[i].data.some(v => Number(v) > 0))
+        : []);
     // A series named only by its end label keeps a legend when a narrow panel
     // turns the end labels off, even when it is the only series.
-    const legendOn = spec.legend === true || (!ends && (ds.length > 1 || !!spec.endLabels));
+    const legendOn = spec.legend === true || (!ends && (ds.length > 1 || !!spec.endLabels)) || unlabelled.size > 0;
     // Above the plot the title would sit under a legend, so with a legend
     // it goes back to the axis, turned.
     const titleAbove = !!spec.yTitle && !legendOn;
@@ -1112,7 +1119,8 @@ function demoConfig(config, spec = {}) {
     o.plugins.legend = {
         display: legendOn,
         position: 'top', align: 'start',
-        labels: { font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false }
+        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false },
+            spec.legend !== true && ends && unlabelled.size ? { filter: (item) => unlabelled.has(item.datasetIndex) } : {})
     };
     o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, {
         titleFont: { family: DEMO_SERIF, size: 14, weight: '600' }, bodyFont: { family: DEMO_SERIF, size: 14 }
