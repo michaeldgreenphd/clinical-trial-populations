@@ -5573,3 +5573,141 @@ footer p {
     #overview { font-size: 18px; }
     #overview .finding-headline { font-size: 28px; }
 }
+
+/* ===== Demographics tabs: the Overview's ink on paper =====
+   Race, Ethnicity, Sex and Gender in the Overview's type (the redesign on
+   the design canvas, 2026-11-08): Source Serif 4 at 24 / 20 / 16 px, lining
+   tabular figures, rules instead of cards, compositions as labelled rows.
+   Scoped to .demo-ink so no other tab moves. The bar colours come from
+   DEMO_COLORS in app.js; the absence textures below match demoPattern(). */
+.demo-ink {
+    --dm-ink: #1d2420;
+    --dm-ink-2: #4b5650;
+    --dm-muted: #6b756f;
+    --dm-rule: #e4e7e3;
+    --dm-rule-soft: #ebeeea;
+    --dm-rule-strong: #9aa39d;
+    --dm-paper: #fcfbf8;
+    --dm-absent: #8A968F;
+    font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    color: var(--dm-ink);
+    font-variant-numeric: lining-nums tabular-nums;
+}
+.demo-ink .chart-row { gap: 1.5rem 3rem; }
+.demo-ink .chart-container > h3 {
+    font-family: inherit;
+    font-size: 20px;
+    line-height: 1.25;
+    font-weight: 600;
+    letter-spacing: 0;
+    padding-bottom: 0;
+    border-bottom: 0;
+    margin: 0 0 0.2rem;
+    color: var(--dm-ink);
+}
+.demo-ink .chart-container > .note,
+.demo-ink .chart-footnote,
+.demo-ink .sg-provenance {
+    font-family: inherit;
+    font-size: 16px;
+    line-height: 1.4;
+    color: var(--dm-muted);
+}
+.demo-ink .chart-container > .note { margin: 0 0 0.6rem; }
+.demo-ink .demo-footnote { margin: 0.25rem 0 1.5rem; max-width: 88ch; }
+.demo-ink .demo-footnote a,
+.demo-ink .sg-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.demo-ink .methodology-disclaimer { font-family: inherit; }
+
+/* A composition as rows: name, bar, share, count. */
+.demo-rows { margin-top: 0.2rem; container-type: inline-size; }
+@container (max-width: 560px) {
+    .demo-ticks > span.demo-tick-odd { display: none; }
+}
+.demo-scale,
+.demo-row {
+    display: grid;
+    grid-template-columns: minmax(100px, 200px) minmax(0, 1fr) 60px minmax(80px, 100px);
+    column-gap: 14px;
+    align-items: center;
+}
+.demo-scale {
+    font-size: 16px;
+    color: var(--dm-muted);
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--dm-ink);
+}
+.demo-ticks { position: relative; height: 22px; }
+.demo-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
+.demo-ticks > span.demo-tick-start { transform: none; }
+.demo-ticks > span.demo-tick-end { transform: translateX(-100%); }
+.demo-row { min-height: 34px; border-bottom: 1px solid var(--dm-rule-soft); }
+.demo-row.demo-first-absent { border-top: 1px solid var(--dm-ink); margin-top: 10px; }
+.demo-label { font-size: 18px; line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
+.demo-pct { font-size: 18px; text-align: right; }
+.demo-n { font-size: 16px; color: var(--dm-muted); text-align: right; white-space: nowrap; }
+.demo-absent .demo-label,
+.demo-absent .demo-pct { font-style: italic; color: var(--dm-ink-2); }
+.demo-bar {
+    position: relative;
+    height: 12px;
+    background: linear-gradient(to right, var(--dm-rule) 0 1px, transparent 1px) 0 0 / var(--demo-step, 25%) 100% repeat-x;
+}
+.demo-fill {
+    position: absolute;
+    left: 0; top: 0;
+    height: 12px;
+    min-width: 3px;
+    border-radius: 0 2px 2px 0;
+}
+.demo-tex-hatch {
+    background: repeating-linear-gradient(135deg, var(--dm-absent) 0 2px, var(--dm-paper) 2px 5px);
+    box-shadow: inset 0 0 0 1px var(--dm-absent);
+}
+.demo-tex-dots {
+    background: radial-gradient(var(--dm-absent) 1.2px, var(--dm-paper) 1.3px) 0 0 / 5px 5px;
+    box-shadow: inset 0 0 0 1px var(--dm-absent);
+}
+.demo-tex-grid {
+    background:
+        linear-gradient(var(--dm-absent) 1px, transparent 1px) 0 0 / 5px 5px,
+        linear-gradient(90deg, var(--dm-absent) 1px, var(--dm-paper) 1px) 0 0 / 5px 5px;
+    box-shadow: inset 0 0 0 1px var(--dm-absent);
+}
+/* A zero is a zero: no sliver for a state no trial is in. */
+.demo-fill[style*="width:0.00%"] { min-width: 0; box-shadow: none; }
+
+/* The source labels behind the gender buckets: short bars, trial counts. */
+.demo-list-head { font-size: 18px; font-weight: 600; margin: 0.6rem 0 0.2rem; }
+.demo-list-head span { font-size: 16px; font-weight: 400; color: var(--dm-muted); }
+.demo-list-row {
+    display: grid;
+    grid-template-columns: minmax(110px, 260px) minmax(0, 1fr) 48px;
+    column-gap: 12px;
+    align-items: center;
+    min-height: 26px;
+    border-bottom: 1px solid var(--dm-rule-soft);
+    font-size: 16px;
+}
+.demo-list-label { overflow-wrap: anywhere; }
+.demo-list-bar { position: relative; height: 10px; }
+.demo-list-bar > span { position: absolute; left: 0; top: 0; height: 10px; min-width: 2px; background: #7A4FCF; border-radius: 0 2px 2px 0; }
+.demo-list-n { text-align: right; color: var(--dm-muted); }
+.demo-ink details.demo-table { margin-top: 0.6rem; }
+.demo-ink details.demo-table > summary,
+.demo-ink #sg-gender-labels details > summary { font-size: 16px; color: var(--dm-ink-2); cursor: pointer; }
+.demo-ink #sg-gender-counts { font-size: 18px; font-style: normal; color: var(--dm-ink); max-width: none; }
+.demo-ink #sg-gender-counts .text-muted { color: var(--dm-muted); }
+
+/* Phones: the share and count sit on the name's line, the bar under it. */
+@media (max-width: 600px) {
+    .demo-scale { display: none; }
+    .demo-row {
+        grid-template-columns: minmax(0, 1fr) auto auto;
+        row-gap: 2px;
+        padding: 6px 0;
+    }
+    .demo-row .demo-bar { grid-column: 1 / -1; grid-row: 2; }
+    .demo-label, .demo-pct { font-size: 17px; }
+    .demo-list-row { grid-template-columns: minmax(0, 1fr) 70px 40px; }
+}

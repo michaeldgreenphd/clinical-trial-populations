@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261107-overview3">
+    <link rel="stylesheet" href="styles.css?v=20261108-demographics1">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -469,7 +469,18 @@
         </section>
 
         <!-- Race Tab -->
-        <section id="race" class="tab-content">
+        <section id="race" class="tab-content demo-ink">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Race Distribution (NIH/OMB Categories)</h3>
+                    <div id="race-distribution-chart" class="demo-rows"></div>
+                </div>
+                <div class="chart-container">
+                    <h3>Race Over Time</h3>
+                    <p class="note">Proportion among studies that reported race (excludes missing and unknown).</p>
+                    <canvas id="race-trends-chart"></canvas>
+                </div>
+            </div>
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Total Participants with Reported Race Data</h3>
@@ -482,22 +493,23 @@
                     <canvas id="race-full-distribution-chart"></canvas>
                 </div>
             </div>
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Race Distribution (NIH/OMB Categories)</h3>
-                    <canvas id="race-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Race Over Time</h3>
-                    <p class="note">Proportion among studies that reported race (excludes missing and unknown).</p>
-                    <canvas id="race-trends-chart"></canvas>
-                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
-                </div>
-            </div>
+            <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
         </section>
 
         <!-- Ethnicity Tab -->
-        <section id="ethnicity" class="tab-content">
+        <section id="ethnicity" class="tab-content demo-ink">
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Ethnicity Distribution</h3>
+                    <p class="note">Note: The "Unknown or Not Reported" category is large because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
+                    <div id="ethnicity-distribution-chart" class="demo-rows"></div>
+                </div>
+                <div class="chart-container">
+                    <h3>Ethnicity Over Time</h3>
+                    <p class="note">Proportion among studies that reported ethnicity (excludes missing and unknown).</p>
+                    <canvas id="ethnicity-trends-chart"></canvas>
+                </div>
+            </div>
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Total Participants with Reported Ethnicity Data</h3>
@@ -510,23 +522,11 @@
                     <canvas id="ethnicity-full-distribution-chart"></canvas>
                 </div>
             </div>
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Ethnicity Distribution</h3>
-                    <p class="note">Note: The "Unknown or Not Reported" category is large because many studies do not collect ethnicity data or participants decline to report. This reflects limitations in data collection practices across clinical trials.</p>
-                    <canvas id="ethnicity-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Ethnicity Over Time</h3>
-                    <p class="note">Proportion among studies that reported ethnicity (excludes missing and unknown).</p>
-                    <canvas id="ethnicity-trends-chart"></canvas>
-                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
-                </div>
-            </div>
+            <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
         </section>
 
         <!-- Sex Tab -->
-        <section id="sex" class="tab-content">
+        <section id="sex" class="tab-content demo-ink">
             <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
                  absent); the legacy blocks below render under this banner. -->
             <div id="sg-retired-banner" class="sg-banner sg-retired-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
@@ -537,30 +537,30 @@
                 <div class="stats-grid" id="sg-sex-tiles"></div>
                 <div class="chart-row">
                     <div class="chart-container">
+                        <h3>Sex composition</h3>
+                        <p class="note">Female, Male and Explicit Unknown participants, over trials with reported sex and a participant-count table (reported_sex AND is_participant_count): the same denominator set as the tiles. Explicit Unknown is the hatched grey row below the rule.</p>
+                        <div id="sg-sex-donut" class="demo-rows"></div>
+                    </div>
+                    <div class="chart-container">
                         <h3>Percent female over time (two series)</h3>
                         <p class="note" id="sg-pf-subtitle"></p>
                         <canvas id="sg-pf-chart"></canvas>
                         <p class="chart-footnote" id="sg-pf-footnote"></p>
                     </div>
-                    <div class="chart-container">
-                        <h3>Sex composition (parser v2)</h3>
-                        <p class="note">Female, Male and Explicit Unknown participants over the same denominator set as the tiles. Each bucket carries a texture as well as a colour: Female is solid, Male is diagonal stripes, Gender diverse is dots, Cis/trans-qualified is a grid, Explicit Unknown is horizontal lines.</p>
-                        <canvas id="sg-sex-donut"></canvas>
-                    </div>
                 </div>
                 <div class="chart-row">
                     <div class="chart-container">
-                        <h3>Reporting status (parser v2)</h3>
+                        <h3>Reporting status</h3>
                         <p class="note">Four states from the parser's <code>sex_report_status</code>, per trial in the current selection. Not Reported (Missing) is a state of its own and is never derived from enrollment arithmetic; a zero shows as a zero bar. Each state's texture matches the chart beside it.</p>
-                        <canvas id="sg-quality-chart"></canvas>
-                        <div id="sg-quality-table" class="sg-sub"></div>
+                        <div id="sg-quality-chart" class="demo-rows"></div>
+                        <details class="sg-labels demo-table"><summary>The four states as a table</summary><div id="sg-quality-table" class="sg-sub"></div></details>
                         <div id="sg-quality-sub" class="sg-sub"></div>
                         <div id="sg-analysis-table" class="sg-sub"></div>
                         <p class="chart-footnote"><a href="#faq" onclick="return sgOpenMethods('states')">Methods: the five states, what changed, and the fidelity ceiling</a></p>
                     </div>
                     <div class="chart-container">
                         <h3>Reporting status by results-posted year</h3>
-                        <p class="note">Trials per year, stacked by state; the same four states, so a year with no Not Reported trials shows none. Each state carries a texture as well as a colour: Reported is solid, Explicit Unknown is diagonal stripes, Uninformative is dots, Not Reported (Missing) is a grid.</p>
+                        <p class="note">Trials per year in the three states that are not a report, stacked; a year with no Not Reported trials shows none. Reported trials, most of every year, are in the tooltip and in the rows beside this. Each state carries a texture: Explicit Unknown is diagonal stripes, Uninformative is dots, Not Reported (Missing) is a grid.</p>
                         <canvas id="sg-quality-year-chart"></canvas>
                     </div>
                 </div>
@@ -569,11 +569,23 @@
                     <div id="sg-beta-body"><p class="note">Open to load.</p></div>
                 </details>
                 <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('source')">Sex and gender methods (parser v2, paper rules)</a></p>
+                <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
             </div>
 
             <div class="sg-legacy">
             <div class="methodology-disclaimer">
                 <p><strong>Disclaimer:</strong> This is currently an unstructured approach to wrangling this data, presented for demonstration purposes. We are refining this approach and expect to have a preprint detailing our methodology available by June 2026.</p>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
+                    <h3>Sex Distribution</h3>
+                    <div id="sex-distribution-chart" class="demo-rows"></div>
+                </div>
+                <div class="chart-container">
+                    <h3>Sex Ratio Over Time</h3>
+                    <p class="note">Proportion among studies that reported sex (excludes missing and unknown).</p>
+                    <canvas id="sex-trends-chart"></canvas>
+                </div>
             </div>
             <div class="chart-row">
                 <div class="chart-container">
@@ -587,23 +599,12 @@
                     <canvas id="sex-full-distribution-chart"></canvas>
                 </div>
             </div>
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Sex Distribution</h3>
-                    <canvas id="sex-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Sex Ratio Over Time</h3>
-                    <p class="note">Proportion among studies that reported sex (excludes missing and unknown).</p>
-                    <canvas id="sex-trends-chart"></canvas>
-                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
-                </div>
-            </div>
+            <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
             </div>
         </section>
 
         <!-- Gender Tab -->
-        <section id="gender" class="tab-content">
+        <section id="gender" class="tab-content demo-ink">
             <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
                  absent); the legacy blocks below render under this banner. The
                  Sex section carries the same notice: only the active tab's
@@ -618,9 +619,9 @@
                 <p class="note" id="sg-gender-counts"></p>
                 <div class="chart-row">
                     <div class="chart-container">
-                        <h3>Gender buckets (parser v2)</h3>
-                        <p class="note">Participants in the five buckets over trials with reported sex and a participant-count table. A trial reports gender only if it posted a gender-diverse or cis/trans-qualified category with a non-zero count; a "Gender" table holding only Female/Male (or Woman/Man) is sex data and is counted as sex. Each bucket carries a texture as well as a colour: Female is solid, Male is diagonal stripes, Gender diverse is dots, Cis/trans-qualified is a grid, Explicit Unknown is horizontal lines.</p>
-                        <canvas id="sg-gender-donut"></canvas>
+                        <h3>Gender buckets</h3>
+                        <p class="note">Participants in the five buckets over trials with reported sex and a participant-count table. A trial reports gender only if it posted a gender-diverse or cis/trans-qualified category with a non-zero count; a "Gender" table holding only Female/Male (or Woman/Man) is sex data and is counted as sex. Explicit Unknown is the hatched grey row below the rule.</p>
+                        <div id="sg-gender-donut" class="demo-rows"></div>
                     </div>
                     <div class="chart-container">
                         <h3>Source labels behind the buckets</h3>
@@ -637,6 +638,18 @@
             </div>
             <div class="chart-row">
                 <div class="chart-container">
+                    <h3>Gender Distribution</h3>
+                    <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
+                    <div id="gender-distribution-chart" class="demo-rows"></div>
+                </div>
+                <div class="chart-container">
+                    <h3>Gender Over Time</h3>
+                    <p class="note">Proportion of reported gender identities across years (excludes missing and unknown).</p>
+                    <canvas id="gender-trends-chart"></canvas>
+                </div>
+            </div>
+            <div class="chart-row">
+                <div class="chart-container">
                     <h3>Total Participants with Reported Gender Data</h3>
                     <p class="note">Shows the total number of participants with explicitly reported gender identity data per year (excludes "Unknown" and studies without gender data).</p>
                     <canvas id="gender-reported-participants-chart"></canvas>
@@ -647,19 +660,7 @@
                     <canvas id="gender-full-distribution-chart"></canvas>
                 </div>
             </div>
-            <div class="chart-row">
-                <div class="chart-container">
-                    <h3>Gender Distribution</h3>
-                    <p class="note">Note: Gender identity is rarely reported separately from biological sex in clinical trials.</p>
-                    <canvas id="gender-distribution-chart"></canvas>
-                </div>
-                <div class="chart-container">
-                    <h3>Gender Over Time</h3>
-                    <p class="note">Proportion of reported gender identities across years (excludes missing and unknown).</p>
-                    <canvas id="gender-trends-chart"></canvas>
-                <p class="chart-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see the FAQ entry on FDAAA for the policy history.</p>
-                </div>
-            </div>
+            <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
             </div>
         </section>
 
@@ -1629,7 +1630,7 @@
                     </div>
                 </details>
 
-                <details class="faq-section">
+                <details class="faq-section" id="faq-fdaaa">
                     <summary><h4>What is FDAAA, and what changed in 2017?</h4></summary>
                     <div class="faq-answer">
                         <p class="note">The <a href="https://www.fda.gov/regulatory-information/selected-amendments-fdc-act/food-and-drug-administration-amendments-act-fdaaa-2007" target="_blank" rel="noopener">Food and Drug Administration Amendments Act of 2007 (FDAAA)</a> is the law behind most of the data on this dashboard. Its Section 801 created the legal requirement that "applicable clinical trials" of drugs, biologics, and devices be registered on ClinicalTrials.gov and — for the first time — that sponsors submit <strong>basic results</strong>, including participant demographics, generally within 12 months of the trial's primary completion date.</p>
@@ -1699,6 +1700,6 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="app.js?v=20261107-overview3"></script>
+    <script defer src="app.js?v=20261108-demographics1"></script>
 </body>
 </html>

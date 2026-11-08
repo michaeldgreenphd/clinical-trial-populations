@@ -290,12 +290,17 @@ test("desktop ranks the published top lists' labels in the published order", () 
     }
 });
 
-test('the flag: ?sg=v2 turns the beta on and is remembered; ?sg=v1 turns it off', () => {
+test('the flag: parser v2 is the default; ?sg=v1 turns it off and is remembered, ?sg=v2 back on', () => {
     assert.equal(harness({ search: '?sg=v2' }).run('SG_V2'), true);
-    assert.equal(harness({ search: '' }).run('SG_V2'), false);
+    assert.equal(harness({ search: '' }).run('SG_V2'), true, 'a reader who chose nothing sees parser v2');
     const h = harness({ search: '?sg=v2' });
     assert.equal(h.run("localStorage.getItem('civicsample.sg')"), 'v2');
     assert.equal(harness({ search: '?sg=v1' }).run('SG_V2'), false);
+    // a remembered opt-out outlives the default
+    const out = harness({ search: '?sg=v1' });
+    out.run("location.search = '';");
+    assert.equal(out.run("localStorage.getItem('civicsample.sg')"), 'v1');
+    assert.equal(out.run('sgReadFlag()'), false, 'a remembered ?sg=v1 was overridden by the default');
 });
 
 test('the markup carries the v2 filters, the methods section and the anchors the tabs link to', () => {
@@ -348,7 +353,7 @@ test('the flag survives the routing stubs, which move the query into the hash', 
     assert.equal(harness({ search: '', hash: '#sex?sg=v2' }).run('SG_V2'), true);
     assert.equal(harness({ search: '', hash: '#sex?ys=2015&sg=v2' }).run('SG_V2'), true);
     assert.equal(harness({ search: '', hash: '#sex?sg=v1' }).run('SG_V2'), false);
-    assert.equal(harness({ search: '', hash: '#sex' }).run('SG_V2'), false);
+    assert.equal(harness({ search: '', hash: '#sex' }).run('SG_V2'), true, 'no flag anywhere: the default, parser v2');
     // location.search still wins when both carry it
     assert.equal(harness({ search: '?sg=v1', hash: '#sex?sg=v2' }).run('SG_V2'), false);
     // and the deep-link hooks read the same merged params
@@ -914,31 +919,45 @@ test('the stacked states carry a texture as well as a colour', () => {
     // both status charts ask for them, so a state looks the same in each
     const render = block.slice(block.indexOf('function sgRenderQualityByYear'), block.indexOf('function sgRenderPercentFemale'));
     assert.ok(render.includes('sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st])'), 'the stacked bars are painted with flat colour');
+    // the reporting-status rows name the same texture as CSS classes
     const horizontal = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
-    assert.ok(horizontal.includes('sgTexture(ctx, r.color, SG_STATE_TEXTURES[r.key])'), 'the horizontal bars use a different encoding from the stacked ones');
+    assert.ok(horizontal.includes('texture: SG_ROW_TEXTURES[SG_STATE_TEXTURES[r.key]]'), 'the status rows use a different encoding from the stacked bars');
+    const rowTex = h.run('SG_VISIBLE_STATES.map(s => SG_ROW_TEXTURES[SG_STATE_TEXTURES[s]])');
+    assert.equal(new Set(rowTex).size, 4, 'two status rows share a texture');
+    for (const t of rowTex.filter((x) => x !== 'solid')) assert.ok(styles.includes(`.demo-tex-${t}`), `styles.css has no .demo-tex-${t}`);
     // and a context-less environment degrades to the colour rather than throwing
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'dots')"), '#0F7A4F');
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'solid')"), '#0F7A4F');
     // the note tells the reader what the textures mean
     const note = html.slice(html.indexOf('Reporting status by results-posted year'));
-    assert.match(note.slice(0, 700), /Reported is solid, Explicit Unknown is diagonal stripes, Uninformative is dots/);
+    assert.match(note.slice(0, 900), /Explicit Unknown is diagonal stripes, Uninformative is dots, Not Reported \(Missing\) is a grid/);
 });
 
-test('the doughnut arcs carry a texture as well as a colour', () => {
-    // donutConfig() turns arc labels off on mobile, so without a texture the
-    // legend swatch is the only thing identifying an arc.
+test('the bucket compositions are named rows, with Explicit Unknown set apart as absence', () => {
+    // The doughnuts became labelled rows (the design canvas, 2026-11-08):
+    // every bucket is named in text, so colour never carries identity alone,
+    // and Explicit Unknown keeps the hatched absence grey, never a hue.
     const h = harness();
-    const textures = h.run('SG_BUCKETS.map(b => SG_BUCKET_TEXTURES[b.key])');
-    assert.equal(textures.length, 5);
-    assert.equal(new Set(textures).size, 5, 'two buckets share a texture, so colour is still the only thing separating them');
+    const agg = { totals: { female: 60, male: 30, gender_diverse: 4, ambiguous: 1, explicit_unknown: 5 }, totalsPresent: {} };
+    const rows = h.run(`sgBucketRows(${JSON.stringify(agg)}, SG_BUCKETS.map(b => b.key), SG_GENDER_SHADES)`);
+    assert.deepEqual(rows.map((r) => r.label), ['Female', 'Male', 'Gender diverse', 'Cis/trans-qualified', 'Explicit Unknown']);
+    const unknown = rows.find((r) => r.label === 'Explicit Unknown');
+    assert.equal(unknown.absent, true);
+    assert.equal(unknown.texture, 'hatch');
+    assert.ok(rows.filter((r) => !r.absent).every((r) => r.texture === 'solid'));
+    // an absent bucket is left out of the rows, as it was out of the doughnut
+    const missing = h.run(`sgBucketRows(${JSON.stringify({ ...agg, totalsPresent: { explicit_unknown: false } })}, SG_SEX_TILE_KEYS, SG_SEX_SHADES)`);
+    assert.deepEqual(missing.map((r) => r.label), ['Female', 'Male']);
+    // each tab draws Female and Male in its own shade
+    assert.notEqual(h.run('SG_SEX_SHADES.female'), h.run('SG_GENDER_SHADES.female'));
+    assert.notEqual(h.run('SG_SEX_SHADES.male'), h.run('SG_GENDER_SHADES.male'));
     for (const fn of ['sgRenderSexDonut', 'sgRenderGenderTab']) {
         const src = block.slice(block.indexOf(`function ${fn}`), block.indexOf(`function ${fn}`) + 1400);
-        assert.ok(src.includes('sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key])'), `${fn} paints its arcs with flat colour`);
+        assert.ok(src.includes('demoRowsHtml(sgBucketRows('), `${fn} no longer draws named rows`);
     }
-    // the fifth texture is real, and a context-less environment keeps the colour
+    // the textures still degrade to the colour without a canvas
     assert.equal(h.run("sgTexture(null, '#C2477E', 'horizontal')"), '#C2477E');
-    // and the note tells the reader the mapping
-    assert.ok(html.includes('Female is solid, Male is diagonal stripes, Gender diverse is dots'));
+    assert.ok(styles.includes('.demo-tex-hatch'));
 });
 
 test('an unavailable F/M-only flag is not read as a negative', () => {
