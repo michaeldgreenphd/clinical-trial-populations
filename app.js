@@ -895,6 +895,344 @@ const DONUT_COLORS = {
 // magnitude ramp.
 const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported']);
 
+// ── Demographics tabs: the Overview's ink on paper ──────────────────────
+// Race, Ethnicity, Sex and Gender take the Overview's type and palette (the
+// redesign agreed on the design canvas, 2026-11-08). Presentation only:
+// every renderer still computes exactly what it computed before, then
+// demoConfig() restyles the finished Chart.js config and demoRowsHtml()
+// draws a composition as labelled rows instead of a doughnut. No figure is
+// added, dropped or recomputed here.
+const DEMO_SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const DEMO_INK = {
+    ink: '#1d2420', ink2: '#4b5650', muted: '#6b756f',
+    rule: '#e4e7e3', ruleStrong: '#9aa39d', paper: '#fcfbf8',
+    absent: CHART_COLORS.notReported
+};
+// Sex and Gender each have their own pink and blue, so the two tabs read as
+// related but are never mistaken for one another (the investigator's choice
+// on the canvas). Race keeps its one-hue ramp, Ethnicity its amber.
+const DEMO_COLORS = {
+    race: { white: RACE_RAMP[0], black: RACE_RAMP[2], asian: RACE_RAMP[4], other: RACE_RAMP[6], bars: RACE_RAMP[2] },
+    ethnicity: { hispanic: '#C77A0A', notHispanic: '#8A5206', bars: '#C77A0A' },
+    sex: { female: '#C2477E', male: '#2E6DB4', bars: '#C2477E' },
+    gender: { female: '#A8346A', male: '#2A88B8', diverse: '#7A4FCF', diverse2: '#9C7BDD', diverse3: '#5B3A9E', bars: '#7A4FCF' }
+};
+
+// Absence keeps one grey and is told apart by texture, never by hue:
+// Explicit Unknown is diagonal hatching, Uninformative is dots, Not Reported
+// (Missing) is a grid. The same three textures are CSS classes on the rows.
+function demoPattern(canvas, kind, color) {
+    const ink = color || DEMO_INK.absent;
+    if (!kind || kind === 'solid') return ink;
+    try {
+        const target = canvas && canvas.getContext && canvas.getContext('2d');
+        const tile = document.createElement('canvas');
+        tile.width = tile.height = 6;
+        const g = tile.getContext('2d');
+        if (!target || !g) return ink;
+        g.fillStyle = DEMO_INK.paper;
+        g.fillRect(0, 0, 6, 6);
+        g.strokeStyle = ink;
+        g.fillStyle = ink;
+        if (kind === 'hatch') {
+            g.lineWidth = 1.6;
+            g.beginPath();
+            g.moveTo(-1, 7); g.lineTo(7, -1);
+            g.moveTo(-1, 1); g.lineTo(1, -1);
+            g.moveTo(5, 7); g.lineTo(7, 5);
+            g.stroke();
+        } else if (kind === 'dots') {
+            g.beginPath(); g.arc(3, 3, 1.3, 0, Math.PI * 2); g.fill();
+        } else if (kind === 'grid') {
+            g.lineWidth = 1;
+            g.beginPath();
+            g.moveTo(0, 0.5); g.lineTo(6, 0.5);
+            g.moveTo(0.5, 0); g.lineTo(0.5, 6);
+            g.stroke();
+        }
+        return target.createPattern(tile, 'repeat') || ink;
+    } catch (e) { return ink; }
+}
+
+// Is this chart drawn narrow? End labels need about 190px beside the plot;
+// below 560px of panel the lines are named by the legend instead.
+function demoNarrow(canvas) {
+    // A hidden tab measures 0: fall back to the window, so a phone that
+    // builds a tab before showing it still gets the narrow layout.
+    const w = (canvas && canvas.parentElement && canvas.parentElement.clientWidth)
+        || (typeof window !== 'undefined' && window.innerWidth) || 800;
+    return w < 560;
+}
+
+// 2.8M / 950k / 400: the participant axes and their two value labels.
+function demoCompact(v) {
+    const n = Number(v);
+    if (!Number.isFinite(n)) return '';
+    if (Math.abs(n) >= 1e6) return (n / 1e6).toFixed(n % 1e6 === 0 ? 0 : 1) + 'M';
+    if (Math.abs(n) >= 1e3) return (n / 1e3).toFixed(n % 1e3 === 0 ? 0 : 1) + 'k';
+    return n.toLocaleString();
+}
+
+// Names each series at its right end with its last value (a line's last
+// point, or the middle of a stacked bar's last segment), and puts the y-axis
+// title above the plot rather than turned on its side. Peak and last values
+// on a single-series bar chart. Drawn only where demoConfig left room.
+const demoInkPlugin = {
+    id: 'demoInk',
+    afterDatasetsDraw(chart, args, opts) {
+        if (!opts || !opts.on) return;
+        const g = chart.ctx, area = chart.chartArea;
+        if (!area) return;
+        g.save();
+        if (opts.yTitle) {
+            g.font = `${opts.small ? 13 : 15}px ${DEMO_SERIF}`;
+            g.fillStyle = DEMO_INK.muted;
+            g.textAlign = 'left';
+            g.textBaseline = 'bottom';
+            g.fillText(opts.yTitle, area.left, area.top - 8);
+        }
+        if (opts.endLabels) {
+            const stacked = chart.config.type === 'bar';
+            const items = chart.data.datasets.map((d, i) => {
+                if (!chart.isDatasetVisible(i)) return null;
+                const pts = chart.getDatasetMeta(i).data;
+                let j = d.data.length - 1;
+                while (j >= 0 && !Number.isFinite(d.data[j])) j--;
+                const pt = j >= 0 ? pts[j] : null;
+                if (!pt) return null;
+                const v = d.data[j];
+                if (stacked && !(v > 0)) return null;
+                const y = stacked ? (pt.y + pt.base) / 2 : pt.y;
+                const name = (opts.names && opts.names[d.label]) || d.label;
+                return { y, name, value: opts.format ? opts.format(v) : v.toFixed(1) };
+            }).filter(Boolean).sort((a, b) => a.y - b.y);
+            for (let i = 1; i < items.length; i++) items[i].y = Math.max(items[i].y, items[i - 1].y + 19);
+            const over = items.length ? items[items.length - 1].y - (area.bottom + 4) : 0;
+            if (over > 0) items.forEach(it => { it.y -= over; });
+            g.textAlign = 'left';
+            g.textBaseline = 'middle';
+            g.font = `15px ${DEMO_SERIF}`;
+            for (const it of items) {
+                g.fillStyle = DEMO_INK.ink;
+                g.fillText(it.name, area.right + 10, it.y);
+                const w = g.measureText(`${it.name} `).width;
+                g.fillStyle = DEMO_INK.muted;
+                g.fillText(it.value, area.right + 10 + w, it.y);
+            }
+        }
+        if (opts.peakLabels && chart.data.datasets.length) {
+            const d = chart.data.datasets[0];
+            const pts = chart.getDatasetMeta(0).data;
+            const vals = d.data.map(Number);
+            const marks = new Set();
+            if (vals.length) {
+                marks.add(vals.indexOf(Math.max(...vals)));
+                marks.add(vals.length - 1);
+            }
+            g.textAlign = 'center';
+            g.textBaseline = 'bottom';
+            g.font = `${opts.small ? 13 : 15}px ${DEMO_SERIF}`;
+            g.fillStyle = DEMO_INK.ink;
+            for (const j of marks) {
+                const pt = pts[j];
+                if (pt && Number.isFinite(vals[j])) g.fillText(demoCompact(vals[j]), pt.x, pt.y - 4);
+            }
+        }
+        g.restore();
+    }
+};
+
+/**
+ * Restyle a finished Chart.js config in the Demographics tabs' type.
+ *
+ * spec.canvas      the canvas, for its width and the absence textures
+ * spec.colors      {dataset label: colour}
+ * spec.dashes      {dataset label: dash array}, lines only
+ * spec.textures    {dataset label: 'hatch' | 'dots' | 'grid'}, grey bars
+ * spec.order       dataset labels, bottom of the stack first
+ * spec.endLabels   name each series at its right end (wide panels only)
+ * spec.names       {dataset label: shorter name for the end label}
+ * spec.format      value -> text for the end labels
+ * spec.yTitle      the y-axis title, set above the plot
+ * spec.yTicks      'pct' (100%) or 'compact' (2M)
+ * spec.peakLabels  value labels on the peak and the last bar
+ * spec.legend      true to keep the legend beside end labels (textures)
+ *
+ * The data, the tooltips' figures and the scale limits are left as the
+ * renderer built them.
+ */
+function demoConfig(config, spec = {}) {
+    const narrow = demoNarrow(spec.canvas);
+    const o = config.options || (config.options = {});
+    const font = { family: DEMO_SERIF, size: narrow ? 13 : 15 };
+    const ds = config.data.datasets;
+    if (spec.order) {
+        const rank = (d) => { const i = spec.order.indexOf(d.label); return i < 0 ? spec.order.length : i; };
+        ds.sort((a, b) => rank(a) - rank(b));
+    }
+    ds.forEach((d) => {
+        const color = spec.colors && spec.colors[d.label];
+        const tex = spec.textures && spec.textures[d.label];
+        if (config.type === 'line') {
+            const c = color || d.borderColor;
+            const last = d.data.length - 1;
+            Object.assign(d, {
+                borderColor: c, backgroundColor: c, tension: 0, borderWidth: 2, fill: false,
+                borderDash: (spec.dashes && spec.dashes[d.label]) || [],
+                pointRadius: (p) => (p.dataIndex === last ? 4 : 0), pointHoverRadius: 4,
+                pointStyle: 'circle', pointBorderColor: '#ffffff', pointBorderWidth: 1.5
+            });
+        } else if (tex) {
+            Object.assign(d, { backgroundColor: demoPattern(spec.canvas, tex), borderColor: DEMO_INK.absent, borderWidth: 0.6 });
+        } else if (color) {
+            Object.assign(d, { backgroundColor: color, borderColor: color, borderWidth: 0 });
+        }
+    });
+    o.scales = o.scales || {};
+    for (const key of ['x', 'y']) {
+        const s = o.scales[key] || (o.scales[key] = {});
+        s.ticks = Object.assign({}, s.ticks, { font, color: DEMO_INK.muted });
+        s.grid = Object.assign({}, s.grid, key === 'x' ? { display: false } : { color: DEMO_INK.rule });
+        if (key === 'x') Object.assign(s.ticks, { maxRotation: 0, autoSkipPadding: 18 });
+        // The y title is drawn above the plot; the x axis is years and says so.
+        s.title = Object.assign({}, s.title, { display: false });
+    }
+    const y = o.scales.y;
+    if (spec.yTicks === 'pct') y.ticks.callback = (v) => (v === (y.max || 100) ? `${v}%` : v);
+    else if (spec.yTicks === 'compact') y.ticks.callback = (v) => demoCompact(v);
+    o.plugins = o.plugins || {};
+    const ends = !!spec.endLabels && !narrow;
+    // The end labels skip a stacked series whose last bar is empty (demoInk),
+    // so one with participants in an earlier year would be named nowhere; the
+    // legend names exactly those series.
+    const lastValue = (d) => { for (let j = d.data.length - 1; j >= 0; j--) if (Number.isFinite(d.data[j])) return d.data[j]; return null; };
+    const unlabelled = new Set(ends && config.type === 'bar'
+        ? ds.map((d, i) => i).filter(i => !(lastValue(ds[i]) > 0) && ds[i].data.some(v => Number(v) > 0))
+        : []);
+    // A series named only by its end label keeps a legend when a narrow panel
+    // turns the end labels off, even when it is the only series.
+    const legendOn = spec.legend === true || (!ends && (ds.length > 1 || !!spec.endLabels)) || unlabelled.size > 0;
+    // Above the plot the title would sit under a legend, so with a legend
+    // it goes back to the axis, turned.
+    const titleAbove = !!spec.yTitle && !legendOn;
+    if (spec.yTitle && !titleAbove) y.title = { display: true, text: spec.yTitle, font, color: DEMO_INK.muted };
+    o.plugins.legend = {
+        display: legendOn,
+        position: 'top', align: 'start',
+        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false },
+            spec.legend !== true && ends && unlabelled.size ? { filter: (item) => unlabelled.has(item.datasetIndex) } : {})
+    };
+    o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, {
+        titleFont: { family: DEMO_SERIF, size: 14, weight: '600' }, bodyFont: { family: DEMO_SERIF, size: 14 }
+    });
+    o.plugins.demoInk = {
+        on: true, small: narrow, yTitle: titleAbove ? spec.yTitle : '', endLabels: ends,
+        names: spec.names || null, format: spec.format || null, peakLabels: !!spec.peakLabels
+    };
+    // Room for the longest end label at its widest value; the bottom keeps
+    // the 12px the source line under every chart is drawn in.
+    let endRoom = spec.endPad || 0;
+    if (ends) {
+        try {
+            const m = document.createElement('canvas').getContext('2d');
+            m.font = `15px ${DEMO_SERIF}`;
+            const sample = spec.format ? spec.format(100) : '100.0';
+            ds.forEach(d => {
+                const name = (spec.names && spec.names[d.label]) || d.label;
+                endRoom = Math.max(endRoom, Math.ceil(m.measureText(`${name} ${sample}`).width) + 22);
+            });
+        } catch (e) { endRoom = Math.max(endRoom, 220); }
+        endRoom = Math.min(endRoom || 200, 320);
+    }
+    const pad = { top: titleAbove ? 26 : 8, right: ends ? endRoom : (spec.peakLabels ? 22 : 4), bottom: 12, left: 0 };
+    if (spec.peakLabels) pad.top = Math.max(pad.top, 30);
+    o.layout = Object.assign({}, o.layout, { padding: pad });
+    config.plugins = (config.plugins || []).filter(p => p !== demoInkPlugin).concat([demoInkPlugin]);
+    return config;
+}
+
+// A composition as rows: name, bar, share, count. Categories by size, then
+// absence below a rule, in italics and textured. Each share is the row's
+// count over the sum of the rows given, as the doughnut it replaces showed.
+//
+// rows   [{ label, value, color, texture?, absent? }]
+// opts   { noun: 'participants', total?: denominator when it is not the
+//          sum of the rows (the reporting states count parse errors too),
+//          keepOrder?: true to keep the order given,
+//          empty?: the sentence shown when there are no rows }
+// No rows is a state of its own: the selection reported nothing, which is
+// said in words rather than drawn as a list of zeros.
+function demoScale(maxPct) {
+    if (maxPct <= 20) return { max: 20, step: 5 };
+    if (maxPct <= 40) return { max: 40, step: 10 };
+    if (maxPct <= 60) return { max: 60, step: 20 };
+    return { max: 100, step: 25 };
+}
+function demoRowsHtml(rows, opts = {}) {
+    const noun = opts.noun || 'participants';
+    if (!rows.length) return `<p class="demo-empty">${escapeHtml(opts.empty || `No ${noun} reported in this selection.`)}</p>`;
+    const list = rows.map(r => Object.assign({}, r, { value: Number(r.value) || 0 }));
+    const sum = list.reduce((a, r) => a + r.value, 0);
+    const total = opts.total != null ? Number(opts.total) : sum;
+    const pct = (v) => (total > 0 ? (100 * v) / total : 0);
+    const ordered = opts.keepOrder ? list : list.filter(r => !r.absent).sort((a, b) => b.value - a.value)
+        .concat(list.filter(r => r.absent));
+    const scale = demoScale(Math.max(0, ...ordered.map(r => pct(r.value))));
+    const ticks = [];
+    for (let t = 0; t <= scale.max; t += scale.step) ticks.push(t);
+    const tickHtml = ticks.map((t, i) => {
+        const at = (100 * t) / scale.max;
+        // Odd inner ticks drop out on a narrow bar (styles.css), so two
+        // labels never run together.
+        const cls = i === 0 ? 'demo-tick-start' : (i === ticks.length - 1 ? 'demo-tick-end' : (i % 2 ? 'demo-tick-odd' : ''));
+        return `<span class="${cls}" style="left:${at.toFixed(2)}%">${t}${i === ticks.length - 1 ? '%' : ''}</span>`;
+    }).join('');
+    const step = `${((100 * scale.step) / scale.max).toFixed(3)}%`;
+    let ruled = false;
+    const body = ordered.map(r => {
+        const share = pct(r.value);
+        const width = Math.min(100, (100 * share) / scale.max);
+        const first = r.absent && !ruled && !opts.keepOrder;
+        if (r.absent) ruled = true;
+        const tex = r.texture && r.texture !== 'solid' ? ` demo-tex-${r.texture}` : '';
+        const fill = tex ? '' : ` style="width:${width.toFixed(2)}%;background:${r.color}"`;
+        const fillTex = tex ? ` style="width:${width.toFixed(2)}%"` : '';
+        const shareText = total > 0 ? `${share.toFixed(1)}%` : '—';
+        return `<div class="demo-row${r.absent ? ' demo-absent' : ''}${first ? ' demo-first-absent' : ''}" role="listitem">` +
+            `<span class="demo-label">${escapeHtml(r.label)}</span>` +
+            `<span class="demo-bar" aria-hidden="true" style="--demo-step:${step}"><span class="demo-fill${tex}"${fill || fillTex}></span></span>` +
+            `<span class="demo-pct">${shareText}</span>` +
+            `<span class="demo-n">${Math.round(r.value).toLocaleString()}<span class="sr-only"> ${escapeHtml(noun)}</span></span>` +
+            `</div>`;
+    }).join('');
+    return `<div class="demo-scale" aria-hidden="true"><span></span><span class="demo-ticks">${tickHtml}</span><span></span><span></span></div>` +
+        `<div role="list">${body}</div>`;
+}
+
+// The doughnut's {label: value} totals as rows, in one tab's colours.
+// Like the doughnut, a category with no participants is left out: the legacy
+// totals start every category at 0, so a 0 here can mean that no study in the
+// selection reported it, and it is not shown as an observed zero.
+function demoRowsFromTotals(totals, colors) {
+    return Object.entries(totals).filter(([, value]) => Number(value) > 0).map(([label, value]) => {
+        const absent = DONUT_ABSENT_LABELS.has(label);
+        return { label, value, absent, texture: absent ? 'hatch' : 'solid', color: absent ? DEMO_INK.absent : (colors[label] || colors.default) };
+    });
+}
+
+// Opens the FAQ tab at one entry (the FDAAA footnotes link here).
+function openFaqEntry(id) {
+    const faq = document.querySelector('.tab[data-tab="faq"]');
+    if (faq && !faq.classList.contains('active')) faq.click();
+    const det = document.getElementById(id);
+    if (det) {
+        det.open = true;
+        setTimeout(() => det.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
+    return false;
+}
+window.openFaqEntry = openFaqEntry;
+
 /**
  * Build a Chart.js doughnut config that labels its own arcs.
  *
@@ -985,10 +1323,17 @@ function donutConfig(totals, colors, noun) {
 const CHART_EVENT_LINES = {
     'reporting-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective', above: true,
         font: "italic 15px 'Source Serif 4', Georgia, serif" }],
-    'race-trends-chart':      [{ x: '2017', label: 'FDAAA Final Rule effective' }],
-    'ethnicity-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective' }],
-    'sex-trends-chart':       [{ x: '2017', label: 'FDAAA Final Rule effective' }],
-    'gender-trends-chart':    [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+    // The Demographics tabs draw the 2017 marker without a caption: the
+    // tab's footnote names it and links the FAQ entry, as on the canvas.
+    'race-trends-chart':      [{ x: '2017', label: '' }],
+    'ethnicity-trends-chart': [{ x: '2017', label: '' }],
+    'sex-trends-chart':       [{ x: '2017', label: '' }],
+    'gender-trends-chart':    [{ x: '2017', label: '' }],
+    'race-reported-participants-chart':      [{ x: '2017', label: '' }],
+    'ethnicity-reported-participants-chart': [{ x: '2017', label: '' }],
+    'sex-reported-participants-chart':       [{ x: '2017', label: '' }],
+    'gender-reported-participants-chart':    [{ x: '2017', label: '' }],
+    'sg-quality-year-chart':                 [{ x: '2017', label: '' }],
     'ai-timeline-chart': [
         { x: '2017', label: 'Digital Health Action Plan' },
         { x: '2019', label: 'AI/ML SaMD framework' }
@@ -1025,6 +1370,7 @@ const civicEventLinesPlugin = {
             ctx.lineTo(px, chartArea.bottom);
             ctx.stroke();
             ctx.setLineDash([]);
+            if (!ev.label) { ctx.restore(); return; }
             ctx.fillStyle = '#6b7280';
             // ev.above: the label sits in the chart's top padding, clear of
             // a series that runs along the top (the Overview's sex line at
@@ -6863,9 +7209,10 @@ function renderRaceDistribution(filtered) {
         });
     }
 
-    if (charts.raceDistribution) charts.raceDistribution.destroy();
-
-    charts.raceDistribution = new Chart(ctx, donutConfig(totals, null, 'participants'));
+    if (charts.raceDistribution) { charts.raceDistribution.destroy(); charts.raceDistribution = null; }
+    // One hue for every race: the rows name the categories, so the bar
+    // length is the only thing the colour has to carry.
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white }), { empty: 'No participants with reported race in this selection.' });
 }
 
 function renderRaceTrends(filtered) {
@@ -6899,7 +7246,7 @@ function renderRaceTrends(filtered) {
 
     if (charts.raceTrends) charts.raceTrends.destroy();
 
-    charts.raceTrends = new Chart(ctx, {
+    charts.raceTrends = new Chart(ctx, demoConfig({
         type: 'line',
         data: {
             labels: years,
@@ -6942,7 +7289,7 @@ function renderRaceTrends(filtered) {
                 legend: { position: 'top' }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'White': DEMO_COLORS.race.white, 'Black/African American': DEMO_COLORS.race.black, 'Asian': DEMO_COLORS.race.asian }, dashes: { 'Black/African American': [6, 4], 'Asian': [2, 3] }, endLabels: true, yTitle: 'Average % per Study', yTicks: 'pct' }));
 }
 
 function renderRaceSubcategories(category) {
@@ -6987,7 +7334,7 @@ function renderRaceSubcategories(category) {
 
     if (charts.raceSubcategory) charts.raceSubcategory.destroy();
 
-    charts.raceSubcategory = new Chart(ctx, {
+    charts.raceSubcategory = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: labels,
@@ -7010,7 +7357,7 @@ function renderRaceSubcategories(category) {
                 legend: { display: false }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Count': DEMO_COLORS.race.bars } }));
 }
 
 function renderEthnicityDistribution(filtered) {
@@ -7032,9 +7379,8 @@ function renderEthnicityDistribution(filtered) {
         });
     }
 
-    if (charts.ethnicityDistribution) charts.ethnicityDistribution.destroy();
-
-    charts.ethnicityDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.ethnicity, 'participants'));
+    if (charts.ethnicityDistribution) { charts.ethnicityDistribution.destroy(); charts.ethnicityDistribution = null; }
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.ethnicity.hispanic }), { empty: 'No participants with reported ethnicity in this selection.' });
 }
 
 function renderEthnicityTrends(filtered) {
@@ -7063,7 +7409,7 @@ function renderEthnicityTrends(filtered) {
 
     if (charts.ethnicityTrends) charts.ethnicityTrends.destroy();
 
-    charts.ethnicityTrends = new Chart(ctx, {
+    charts.ethnicityTrends = new Chart(ctx, demoConfig({
         type: 'line',
         data: {
             labels: years,
@@ -7090,7 +7436,7 @@ function renderEthnicityTrends(filtered) {
                 legend: { position: 'top' }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Hispanic/Latino': DEMO_COLORS.ethnicity.hispanic }, endLabels: true, yTitle: 'Average % per Study', yTicks: 'pct' }));
 }
 
 function renderEthnicitySubcategories(filtered) {
@@ -7128,7 +7474,7 @@ function renderEthnicitySubcategories(filtered) {
 
     if (charts.ethnicitySubcategory) charts.ethnicitySubcategory.destroy();
 
-    charts.ethnicitySubcategory = new Chart(ctx, {
+    charts.ethnicitySubcategory = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: labels,
@@ -7151,7 +7497,7 @@ function renderEthnicitySubcategories(filtered) {
                 legend: { display: false }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Count': DEMO_COLORS.ethnicity.bars } }));
 }
 
 /**
@@ -7187,7 +7533,7 @@ function renderRaceReportedParticipants(filtered) {
 
     if (charts.raceReportedParticipants) charts.raceReportedParticipants.destroy();
 
-    charts.raceReportedParticipants = new Chart(ctx, {
+    charts.raceReportedParticipants = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7220,7 +7566,7 @@ function renderRaceReportedParticipants(filtered) {
                 }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Participants with Known Race': DEMO_COLORS.race.bars }, yTitle: 'Total Participants', yTicks: 'compact', peakLabels: true }));
 }
 
 /**
@@ -7309,7 +7655,7 @@ function renderRaceFullDistribution(filtered) {
 
     if (charts.raceFullDistribution) charts.raceFullDistribution.destroy();
 
-    charts.raceFullDistribution = new Chart(ctx, {
+    charts.raceFullDistribution = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7403,7 +7749,7 @@ function renderRaceFullDistribution(filtered) {
                 intersect: false
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'White': DEMO_COLORS.race.white, 'Black/African American': DEMO_COLORS.race.black, 'Asian': DEMO_COLORS.race.asian, 'Other Races': DEMO_COLORS.race.other, 'Explicitly Unknown': DEMO_INK.absent }, textures: { 'Not Reported (Missing)': 'hatch' }, order: ['White', 'Black/African American', 'Asian', 'Other Races', 'Explicitly Unknown', 'Not Reported (Missing)'], names: { 'Explicitly Unknown': 'Explicit unknown', 'Unknown or Not Reported': 'Explicit unknown', 'Not Reported (Missing)': 'Not reported' }, endLabels: true, format: (v) => `${Math.round(v)}%`, endPad: 190, yTitle: '% of enrollment', yTicks: 'pct' }));
 }
 
 /**
@@ -7437,7 +7783,7 @@ function renderEthnicityReportedParticipants(filtered) {
 
     if (charts.ethnicityReportedParticipants) charts.ethnicityReportedParticipants.destroy();
 
-    charts.ethnicityReportedParticipants = new Chart(ctx, {
+    charts.ethnicityReportedParticipants = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7470,7 +7816,7 @@ function renderEthnicityReportedParticipants(filtered) {
                 }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Participants with Known Ethnicity': DEMO_COLORS.ethnicity.bars }, yTitle: 'Total Participants', yTicks: 'compact', peakLabels: true }));
 }
 
 /**
@@ -7546,7 +7892,7 @@ function renderEthnicityFullDistribution(filtered) {
 
     if (charts.ethnicityFullDistribution) charts.ethnicityFullDistribution.destroy();
 
-    charts.ethnicityFullDistribution = new Chart(ctx, {
+    charts.ethnicityFullDistribution = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7624,7 +7970,7 @@ function renderEthnicityFullDistribution(filtered) {
                 intersect: false
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Hispanic/Latino': DEMO_COLORS.ethnicity.hispanic, 'Not Hispanic/Latino': DEMO_COLORS.ethnicity.notHispanic, 'Explicitly Unknown': DEMO_INK.absent }, textures: { 'Not Reported (Missing)': 'hatch' }, order: ['Hispanic/Latino', 'Not Hispanic/Latino', 'Explicitly Unknown', 'Not Reported (Missing)'], names: { 'Explicitly Unknown': 'Explicit unknown', 'Unknown or Not Reported': 'Explicit unknown', 'Not Reported (Missing)': 'Not reported' }, endLabels: true, format: (v) => `${Math.round(v)}%`, endPad: 190, yTitle: '% of enrollment', yTicks: 'pct' }));
 }
 
 function renderSexDistribution(filtered) {
@@ -7645,9 +7991,8 @@ function renderSexDistribution(filtered) {
         });
     }
 
-    if (charts.sexDistribution) charts.sexDistribution.destroy();
-
-    charts.sexDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.sex, 'participants'));
+    if (charts.sexDistribution) { charts.sexDistribution.destroy(); charts.sexDistribution = null; }
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Female: DEMO_COLORS.sex.female, Male: DEMO_COLORS.sex.male, default: DEMO_COLORS.sex.female }), { empty: 'No participants with reported sex in this selection.' });
 }
 
 function renderSexTrends(filtered) {
@@ -7676,7 +8021,7 @@ function renderSexTrends(filtered) {
 
     if (charts.sexTrends) charts.sexTrends.destroy();
 
-    charts.sexTrends = new Chart(ctx, {
+    charts.sexTrends = new Chart(ctx, demoConfig({
         type: 'line',
         data: {
             labels: years,
@@ -7703,7 +8048,7 @@ function renderSexTrends(filtered) {
                 legend: { position: 'top' }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Female': DEMO_COLORS.sex.female }, endLabels: true, yTitle: 'Average % Female per Study', yTicks: 'pct' }));
 }
 
 function renderGenderDistribution(filtered) {
@@ -7728,9 +8073,8 @@ function renderGenderDistribution(filtered) {
         });
     }
 
-    if (charts.genderDistribution) charts.genderDistribution.destroy();
-
-    charts.genderDistribution = new Chart(ctx, donutConfig(totals, DONUT_COLORS.gender, 'participants'));
+    if (charts.genderDistribution) { charts.genderDistribution.destroy(); charts.genderDistribution = null; }
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Woman: DEMO_COLORS.gender.female, Man: DEMO_COLORS.gender.male, default: DEMO_COLORS.gender.diverse }), { empty: 'No participants with reported gender in this selection.' });
 }
 
 /**
@@ -7760,7 +8104,7 @@ function renderSexReportedParticipants(filtered) {
 
     if (charts.sexReportedParticipants) charts.sexReportedParticipants.destroy();
 
-    charts.sexReportedParticipants = new Chart(ctx, {
+    charts.sexReportedParticipants = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7793,7 +8137,7 @@ function renderSexReportedParticipants(filtered) {
                 }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Participants with Known Sex': DEMO_COLORS.sex.bars }, yTitle: 'Total Participants', yTicks: 'compact', peakLabels: true }));
 }
 
 /**
@@ -7846,7 +8190,7 @@ function renderSexFullDistribution(filtered) {
 
     if (charts.sexFullDistribution) charts.sexFullDistribution.destroy();
 
-    charts.sexFullDistribution = new Chart(ctx, {
+    charts.sexFullDistribution = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7877,7 +8221,7 @@ function renderSexFullDistribution(filtered) {
             },
             interaction: { mode: 'index', intersect: false }
         }
-    });
+    }, { canvas: ctx, colors: { 'Female': DEMO_COLORS.sex.female, 'Male': DEMO_COLORS.sex.male, 'Explicitly Unknown': DEMO_INK.absent }, textures: { 'Not Reported (Missing)': 'hatch' }, order: ['Female', 'Male', 'Explicitly Unknown', 'Not Reported (Missing)'], names: { 'Explicitly Unknown': 'Explicit unknown', 'Unknown or Not Reported': 'Explicit unknown', 'Not Reported (Missing)': 'Not reported' }, endLabels: true, format: (v) => `${Math.round(v)}%`, endPad: 190, yTitle: '% of enrollment', yTicks: 'pct' }));
 }
 
 /**
@@ -7908,7 +8252,7 @@ function renderGenderReportedParticipants(filtered) {
 
     if (charts.genderReportedParticipants) charts.genderReportedParticipants.destroy();
 
-    charts.genderReportedParticipants = new Chart(ctx, {
+    charts.genderReportedParticipants = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -7941,7 +8285,7 @@ function renderGenderReportedParticipants(filtered) {
                 }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Participants with Known Gender': DEMO_COLORS.gender.bars }, yTitle: 'Total Participants', yTicks: 'compact', peakLabels: true }));
 }
 
 /**
@@ -7998,7 +8342,7 @@ function renderGenderFullDistribution(filtered) {
 
     if (charts.genderFullDistribution) charts.genderFullDistribution.destroy();
 
-    charts.genderFullDistribution = new Chart(ctx, {
+    charts.genderFullDistribution = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels: years,
@@ -8032,7 +8376,7 @@ function renderGenderFullDistribution(filtered) {
             },
             interaction: { mode: 'index', intersect: false }
         }
-    });
+    }, { canvas: ctx, colors: { 'Woman': DEMO_COLORS.gender.female, 'Man': DEMO_COLORS.gender.male, 'Non-binary': DEMO_COLORS.gender.diverse, 'Transgender': DEMO_COLORS.gender.diverse2, 'Other': DEMO_COLORS.gender.diverse3, 'Unknown or Not Reported': DEMO_INK.absent }, textures: { 'Not Reported (Missing)': 'hatch' }, order: ['Woman', 'Man', 'Non-binary', 'Transgender', 'Other', 'Unknown or Not Reported', 'Not Reported (Missing)'], names: { 'Explicitly Unknown': 'Explicit unknown', 'Unknown or Not Reported': 'Explicit unknown', 'Not Reported (Missing)': 'Not reported' }, endLabels: true, format: (v) => `${Math.round(v)}%`, endPad: 190, yTitle: '% of enrollment', yTicks: 'pct' }));
 }
 
 /**
@@ -8070,7 +8414,7 @@ function renderGenderTrends(filtered) {
 
     if (charts.genderTrends) charts.genderTrends.destroy();
 
-    charts.genderTrends = new Chart(ctx, {
+    charts.genderTrends = new Chart(ctx, demoConfig({
         type: 'line',
         data: {
             labels: years,
@@ -8120,7 +8464,7 @@ function renderGenderTrends(filtered) {
                 legend: { position: 'top' }
             }
         }
-    });
+    }, { canvas: ctx, colors: { 'Woman': DEMO_COLORS.gender.female, 'Man': DEMO_COLORS.gender.male, 'Non-binary': DEMO_COLORS.gender.diverse, 'Transgender': DEMO_COLORS.gender.diverse3 }, dashes: { 'Man': [6, 4], 'Non-binary': [2, 3], 'Transgender': [8, 3, 2, 3] }, endLabels: true, yTitle: 'Average % per Study', yTicks: 'pct' }));
 }
 
 // ===== Geography tab =====
@@ -10629,10 +10973,13 @@ const SG_STATE_LABELS = {
     not_reported: 'Not Reported (Missing)',
     parse_error: 'Parse error'
 };
+// Reported takes the Sex tab's pink; the three states that are not a report
+// share the absence grey and are told apart by texture (SG_STATE_TEXTURES),
+// as on the design canvas, so no absence reads as a category.
 const SG_STATE_COLORS = {
-    reported: CHART_COLORS.c1,
-    explicit_unknown_only: CHART_COLORS.c5,
-    uninformative: CHART_COLORS.c4,
+    reported: CHART_COLORS.c2,
+    explicit_unknown_only: CHART_COLORS.notReported,
+    uninformative: CHART_COLORS.notReported,
     not_reported: CHART_COLORS.notReported,
     parse_error: '#b91c1c'
 };
@@ -10678,10 +11025,11 @@ function sgTexture(canvas, color, kind) {
         tile.width = tile.height = 8;
         const g = tile.getContext('2d');
         if (!target || !g) return color;
-        g.fillStyle = color;
+        // Ink on paper: the marks carry the colour, the ground is the page.
+        g.fillStyle = '#fcfbf8';
         g.fillRect(0, 0, 8, 8);
-        g.strokeStyle = 'rgba(255,255,255,0.9)';
-        g.fillStyle = 'rgba(255,255,255,0.9)';
+        g.strokeStyle = color;
+        g.fillStyle = color;
         g.lineWidth = 1.5;
         if (kind === 'diagonal') {
             g.beginPath();
@@ -10723,15 +11071,19 @@ function sgQueryParams(hash, search) {
     return out;
 }
 
-// The flag: ?sg=v2 turns the beta on and remembers it; ?sg=v1 turns it off.
+// The flag: parser v2 is the default (the investigator's decision,
+// 2026-11-08). ?sg=v1 turns it off and is remembered; ?sg=v2 turns it back on.
 const SG_STORAGE_KEY = 'civicsample.sg';
+const SG_DEFAULT_V2 = true;
 function sgReadFlag() {
     let q = null;
     try { q = sgQueryParams().get('sg') || null; } catch (e) { q = null; }
     try {
         if (q === 'v2' || q === 'v1') { localStorage.setItem(SG_STORAGE_KEY, q); return q === 'v2'; }
-        return localStorage.getItem(SG_STORAGE_KEY) === 'v2';
-    } catch (e) { return q === 'v2'; }
+        const stored = localStorage.getItem(SG_STORAGE_KEY);
+        if (stored === 'v2' || stored === 'v1') return stored === 'v2';
+        return SG_DEFAULT_V2;
+    } catch (e) { return q ? q === 'v2' : SG_DEFAULT_V2; }
 }
 const SG_V2 = sgReadFlag();
 
@@ -10750,7 +11102,8 @@ function sgShareFlag() {
     let stored = null;
     try { stored = localStorage.getItem(SG_STORAGE_KEY); } catch (e) { stored = null; }
     if (stored === 'v1' || stored === 'v2') return stored;
-    return SG_V2 ? 'v2' : null;
+    // Nothing chosen: the sender saw the default, which a link need not carry.
+    return SG_V2 === SG_DEFAULT_V2 ? null : (SG_V2 ? 'v2' : 'v1');
 }
 
 // State for the loaded snapshot.
@@ -11204,6 +11557,21 @@ function sgLabelTableHtml(pairs, distinct) {
         `</tbody></table></div>`;
 }
 
+// The top labels of one bucket as bars, longest first; the bar is the
+// label's trial count against the bucket's most common label. The full list
+// (up to 60) stays in the table under it.
+const SG_LABEL_BARS = 12;
+function sgLabelBarsHtml(heading, pairs, distinct, color) {
+    const head = `<p class="demo-list-head">${escapeHtml(heading)} <span>${Number(distinct).toLocaleString()} distinct label${distinct === 1 ? '' : 's'}${pairs.length ? `; top ${Math.min(pairs.length, SG_LABEL_BARS)} by trials` : ''}</span></p>`;
+    if (!pairs.length) return head + '<p class="note">No source labels in this selection.</p>';
+    const shown = pairs.slice(0, SG_LABEL_BARS);
+    const top = Math.max(1, ...shown.map(([, n]) => Number(n) || 0));
+    return head + '<div class="demo-list" role="list">' + shown.map(([l, n]) =>
+        `<div class="demo-list-row" role="listitem"><span class="demo-list-label">${escapeHtml(l)}</span>` +
+        `<span class="demo-list-bar" aria-hidden="true"><span style="width:${(100 * (Number(n) || 0) / top).toFixed(1)}%${color ? `;background:${color}` : ''}"></span></span>` +
+        `<span class="demo-list-n">${Number(n).toLocaleString()}<span class="sr-only"> trials</span></span></div>`).join('') + '</div>';
+}
+
 // ── Provenance line ──────────────────────────────────────────────────────
 function sgRulesVersion() {
     if (sgMeta && sgMeta.parser_rules_version) return sgMeta.parser_rules_version;
@@ -11293,7 +11661,7 @@ function sgRenderSexTab(filtered) {
     const agg = dashboardSummary ? sgAggregateFromSummary(dashboardSummary.sexGender) : sgAggregate(filtered);
     const tiles = document.getElementById('sg-sex-tiles');
     if (tiles) {
-        tiles.innerHTML = sgTiles(agg, SG_SEX_TILE_KEYS).map(t => sgTileHtml(t,
+        tiles.innerHTML = sgTiles(agg, SG_SEX_TILE_KEYS).map(t => Object.assign(t, { color: SG_SEX_SHADES[t.key] || t.color })).map(t => sgTileHtml(t,
             t.key === 'explicit_unknown'
                 ? `<br><span class="sg-tile-note">Registrant-reported Unknown categories only. <a href="#faq" onclick="return sgOpenMethods('unknown_tile')">See methods for what changed.</a></span>`
                 : '')).join('');
@@ -11307,33 +11675,27 @@ function sgRenderSexTab(filtered) {
     if (beta && beta.open) sgRenderBetaPanel().catch(e => console.warn('sg=v2: beta panel:', e.message));
 }
 
+// The texture names the rows use (CSS classes) for the chart textures above.
+const SG_ROW_TEXTURES = { solid: 'solid', diagonal: 'hatch', dots: 'dots', grid: 'grid', horizontal: 'hatch' };
+
 function sgRenderQuality(agg, filtered) {
     const rows = sgQualityRows(agg.statusCounts);
-    const ctx = document.getElementById('sg-quality-chart');
-    if (ctx) {
-        if (charts.sgQuality) charts.sgQuality.destroy();
-        charts.sgQuality = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: rows.map(r => r.label),
-                // The same texture per state as the stacked chart beside it, so a
-                // state looks the same in both.
-                datasets: [{ label: 'Trials', data: rows.map(r => r.count), backgroundColor: rows.map(r => sgTexture(ctx, r.color, SG_STATE_TEXTURES[r.key])), borderWidth: 0, minBarLength: 2 }]
-            },
-            options: {
-                indexAxis: 'y',
-                responsive: true, maintainAspectRatio: true, aspectRatio: isMobileDevice ? 1.2 : 2.2,
-                scales: { x: { beginAtZero: true, title: { display: true, text: 'Trials' } }, y: { ticks: { autoSkip: false } } },
-                plugins: {
-                    legend: { display: false },
-                    datalabels: { anchor: 'end', align: 'end', color: '#212529', font: { size: 11, weight: '600' },
-                                  formatter: (v) => Number(v).toLocaleString() },
-                    tooltip: { callbacks: { label: (c) => ` ${c.parsed.x.toLocaleString()} trials` } }
-                },
-                layout: { padding: { right: 56 } }
-            },
-            plugins: [ChartDataLabels]
-        });
+    const box = document.getElementById('sg-quality-chart');
+    if (box) {
+        if (charts.sgQuality) { charts.sgQuality.destroy(); charts.sgQuality = null; }
+        // The same denominator as the table below: every trial in the
+        // selection, parse errors included. Fixed state order; a zero state
+        // is a zero row. Each state keeps the texture of the chart beside it.
+        const counts = agg.statusCounts || {};
+        const total = SG_V2_STATES.reduce((a, k) => a + Number(counts[k] || 0), 0);
+        box.innerHTML = demoRowsHtml(rows.map(r => ({
+            label: r.label, value: r.count, color: r.color, absent: r.key !== 'reported',
+            texture: SG_ROW_TEXTURES[SG_STATE_TEXTURES[r.key]] || 'solid'
+        })), { noun: 'trials', total, keepOrder: true });
+        // The table that says this sits in a closed <details> now, so the
+        // rows repeat it: their shares are over these trials too.
+        const errors = Number(counts.parse_error || 0);
+        if (errors > 0) box.insertAdjacentHTML('beforeend', `<p class="note">${errors.toLocaleString()} ${errors === 1 ? 'trial' : 'trials'} in this selection could not be parsed. They are in the denominator above and are counted on the methods page, not listed here.</p>`);
     }
     const table = document.getElementById('sg-quality-table');
     if (table) table.innerHTML = sgQualityTableHtml(rows, agg.statusCounts);
@@ -11367,12 +11729,17 @@ function sgRenderQualityByYear(filtered) {
     if (!ctx) return;
     const years = sgStatusByYear(filtered);
     const labels = Object.keys(years).sort();
+    // Reported trials are most of every year and would flatten the other
+    // three to a line, so the bars show the three states that are not a
+    // report; each year's Reported count is in the tooltip, and the total in
+    // the Reporting status rows.
+    const shown = SG_VISIBLE_STATES.filter(st => st !== 'reported');
     if (charts.sgQualityYear) charts.sgQualityYear.destroy();
-    charts.sgQualityYear = new Chart(ctx, {
+    charts.sgQualityYear = new Chart(ctx, demoConfig({
         type: 'bar',
         data: {
             labels,
-            datasets: SG_VISIBLE_STATES.map(st => ({
+            datasets: shown.map(st => ({
                 label: SG_STATE_LABELS[st], data: labels.map(y => years[y][st]),
                 backgroundColor: sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st]),
                 borderColor: '#ffffff', borderWidth: 0.5
@@ -11384,11 +11751,15 @@ function sgRenderQualityByYear(filtered) {
                       y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Trials' } } },
             plugins: {
                 legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, padding: 12 } },
-                tooltip: { callbacks: { label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString()} trials` } }
+                tooltip: { callbacks: {
+                    label: (c) => ` ${c.dataset.label}: ${c.parsed.y.toLocaleString()} trials`,
+                    footer: (items) => (items.length && years[items[0].label]
+                        ? `Reported: ${years[items[0].label].reported.toLocaleString()} trials` : '')
+                } }
             },
             interaction: { mode: 'index', intersect: false }
         }
-    });
+    }, { canvas: ctx, yTitle: 'Trials not in the Reported state', legend: true }));
 }
 
 function sgRenderPercentFemale(filtered) {
@@ -11410,17 +11781,19 @@ function sgRenderPercentFemale(filtered) {
         ? `Mean of within-trial % female is unavailable for this selection: ${pts.missing.toLocaleString()} of ${pts.eligible.toLocaleString()} trials in the denominator do not carry the engine's published percent female, because sex_gender_parsed.csv.gz did not load. It is read, never recomputed here. `
         : '') + (mobile
         ? 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is named only where the engine publishes it.'
-        : 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is an engine-published annotation for the full dataset; it is not computed here for a selection. Dashed 2017 marker: FDAAA Final Rule effective.');
+        : 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is an engine-published annotation for the full dataset; it is not computed here for a selection.');
     if (charts.sgPf) charts.sgPf.destroy();
-    charts.sgPf = new Chart(ctx, {
+    const aLabel = aMissing ? 'Mean of within-trial % female (unavailable: not published for every trial here)' : 'Mean of within-trial % female (each trial counts once)';
+    const bLabel = 'Participant-weighted % female (sum female / sum female + male)';
+    charts.sgPf = new Chart(ctx, demoConfig({
         type: 'line',
         data: {
             labels: pts.labels,
             datasets: [
-                { label: aMissing ? 'Mean of within-trial % female (unavailable: not published for every trial here)' : 'Mean of within-trial % female (each trial counts once)',
+                { label: aLabel,
                   data: aMissing ? pts.labels.map(() => null) : pts.a,
                   borderColor: CHART_COLORS.c2, backgroundColor: CHART_COLORS.c2 + '20', tension: 0.3, borderWidth: 2.5, pointRadius: 3 },
-                { label: 'Participant-weighted % female (sum female / sum female + male)', data: pts.b,
+                { label: bLabel, data: pts.b,
                   borderColor: CHART_COLORS.c5, backgroundColor: CHART_COLORS.c5 + '20', tension: 0.3, borderWidth: 1.5,
                   borderDash: [5, 4], pointRadius: 3, pointStyle: 'triangle' }
             ]
@@ -11431,7 +11804,7 @@ function sgRenderPercentFemale(filtered) {
                       x: { title: { display: true, text: 'Results-posted year' } } },
             plugins: {
                 legend: { position: 'bottom', labels: { usePointStyle: true, padding: 12 } },
-                eventLines: [{ x: '2017', label: 'FDAAA Final Rule effective' }],
+                eventLines: [{ x: '2017', label: '' }],
                 tooltip: {
                     callbacks: {
                         label: (c) => {
@@ -11454,7 +11827,9 @@ function sgRenderPercentFemale(filtered) {
             },
             interaction: { mode: 'nearest', intersect: false }
         }
-    });
+    }, { canvas: ctx, colors: { [aLabel]: DEMO_COLORS.sex.female, [bLabel]: DEMO_COLORS.sex.female }, dashes: { [bLabel]: [6, 4] },
+         names: { [aLabel]: 'Mean of within-trial % female', [bLabel]: 'Participant-weighted' },
+         endLabels: true, endPad: 290, yTitle: '% female', yTicks: 'pct' }));
     // Screenshot hook for the report: ?sghover=YYYY opens series (b)'s tooltip.
     let hover = null;
     try { hover = sgQueryParams().get('sghover'); } catch (e) { hover = null; }
@@ -11473,14 +11848,27 @@ function sgRenderPercentFemale(filtered) {
     }
 }
 
+// Composition rows, in one tab's shades. A bucket no trial in the selection
+// published is left out, as the doughnut did, rather than drawn as a zero;
+// the tiles above say it is absent. Each share is over the buckets shown.
+// The rows name every bucket, so colour is never the only thing telling two
+// apart; Explicit Unknown is the absence grey with hatching.
+function sgBucketRows(agg, keys, shades) {
+    return sgTiles(agg, keys).filter(t => t.present !== false).map(t => ({
+        label: t.label, value: Math.round(t.value),
+        color: shades[t.key] || t.color,
+        absent: t.key === 'explicit_unknown',
+        texture: t.key === 'explicit_unknown' ? 'hatch' : 'solid'
+    }));
+}
+const SG_SEX_SHADES = { female: '#C2477E', male: '#2E6DB4' };
+const SG_GENDER_SHADES = { female: '#A8346A', male: '#2A88B8', gender_diverse: '#7A4FCF', ambiguous: '#7A4FCF' };
+
 function sgRenderSexDonut(agg) {
-    const ctx = document.getElementById('sg-sex-donut');
-    if (!ctx) return;
-    const totals = {}, colors = {};
-    sgTiles(agg, SG_SEX_TILE_KEYS).filter(t => t.present !== false)
-        .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key]); });
-    if (charts.sgSexDonut) charts.sgSexDonut.destroy();
-    charts.sgSexDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
+    const box = document.getElementById('sg-sex-donut');
+    if (!box) return;
+    if (charts.sgSexDonut) { charts.sgSexDonut.destroy(); charts.sgSexDonut = null; }
+    box.innerHTML = demoRowsHtml(sgBucketRows(agg, SG_SEX_TILE_KEYS, SG_SEX_SHADES));
 }
 
 // ── Gender tab ───────────────────────────────────────────────────────────
@@ -11493,7 +11881,7 @@ function sgRenderGenderTab(filtered) {
     if (!sgActive()) return;
     const agg = dashboardSummary ? sgAggregateFromSummary(dashboardSummary.sexGender) : sgAggregate(filtered);
     const tiles = document.getElementById('sg-gender-tiles');
-    if (tiles) tiles.innerHTML = sgTiles(agg, SG_BUCKETS.map(b => b.key)).map(t => sgTileHtml(t, '')).join('');
+    if (tiles) tiles.innerHTML = sgTiles(agg, SG_BUCKETS.map(b => b.key)).map(t => Object.assign(t, { color: SG_GENDER_SHADES[t.key] || t.color })).map(t => sgTileHtml(t, '')).join('');
     const counts = document.getElementById('sg-gender-counts');
     if (counts) {
         const glb = sgGlbSentence(agg);
@@ -11501,13 +11889,10 @@ function sgRenderGenderTab(filtered) {
             `<span class="text-muted">(a gender-diverse or cis/trans-qualified category with a non-zero count)</span>` +
             (glb ? ` &middot; <strong>${escapeHtml(glb)}</strong>` : '');
     }
-    const ctx = document.getElementById('sg-gender-donut');
-    if (ctx) {
-        const totals = {}, colors = {};
-        sgTiles(agg, SG_BUCKETS.map(b => b.key)).filter(t => t.present !== false)
-            .forEach(t => { totals[t.label] = Math.round(t.value); colors[t.label] = sgTexture(ctx, t.color, SG_BUCKET_TEXTURES[t.key]); });
-        if (charts.sgGenderDonut) charts.sgGenderDonut.destroy();
-        charts.sgGenderDonut = new Chart(ctx, donutConfig(totals, colors, 'participants'));
+    const box = document.getElementById('sg-gender-donut');
+    if (box) {
+        if (charts.sgGenderDonut) { charts.sgGenderDonut.destroy(); charts.sgGenderDonut = null; }
+        box.innerHTML = demoRowsHtml(sgBucketRows(agg, SG_BUCKETS.map(b => b.key), SG_GENDER_SHADES));
     }
     const labelsBox = document.getElementById('sg-gender-labels');
     if (labelsBox) {
@@ -11521,7 +11906,10 @@ function sgRenderGenderTab(filtered) {
             } else {
                 return `<details class="sg-labels"><summary>${escapeHtml(t.heading)}</summary><p class="note">Source labels need the parsed table (data/sex_gender_parsed.csv.gz), which did not load.</p></details>`;
             }
-            return `<details class="sg-labels"><summary>${escapeHtml(t.heading)}</summary>${sgLabelTableHtml(pairs, distinct)}</details>`;
+            // Explicit Unknown's labels are absence, so they keep its grey.
+            const color = t.bucket === 'explicit_unknown' ? CHART_COLORS.notReported : (SG_GENDER_SHADES[t.bucket] || null);
+            return sgLabelBarsHtml(t.heading, pairs, distinct, color) +
+                (pairs.length > SG_LABEL_BARS ? `<details class="sg-labels"><summary>${pairs.length > 60 ? 'The top 60' : `All ${pairs.length.toLocaleString()}`} labels as a table</summary>${sgLabelTableHtml(pairs, distinct)}</details>` : '');
         }).join('');
     }
 }

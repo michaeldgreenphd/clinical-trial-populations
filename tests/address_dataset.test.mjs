@@ -60,6 +60,7 @@ const SOURCES = [
     fnSource('function applyRouteFromHash()'),
     fnSource('function sgQueryParams(hash, search)'),
     "const SG_STORAGE_KEY = 'civicsample.sg';",
+    "const SG_DEFAULT_V2 = true;",
     fnSource('function sgShareFlag()'),
     fnSource('function industryActive()'),
     fnSource('function renderIndustryAfterSwitch()'),
@@ -71,7 +72,8 @@ const SOURCES = [
 ].join('\n');
 
 const SCAFFOLD = `
-const SG_V2 = false;
+// Parser v2 is the default: a reader who chose nothing sees it.
+const SG_V2 = SG_DEFAULT_V2;
 let industryData = {};
 let industryDemo = 'sex';
 let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
