@@ -612,6 +612,8 @@ function studyMatchesConditionFilter(study, primaryFilter, secondaryFilter) {
     return false;
 }
 
+const NO_DISEASE_AREA = 'No disease area';
+
 /**
  * Populate the primary condition dropdown from the ontology.
  */
@@ -626,12 +628,18 @@ function populatePrimaryConditionDropdown() {
     select.innerHTML = '<option value="all">All Categories</option>';
 
     const primaries = Object.keys(CONDITION_ONTOLOGY).sort();
+    // "No disease area" is not an ontology category: the engine places trials
+    // in it (healthy-volunteer, device, pharmacokinetic and cosmetic studies)
+    // from reviewed placements, and only the Industry view's data carries it so
+    // far, so its label says where it applies. It is always listed, so a shared
+    // link that selects it restores before the Industry data loads.
+    primaries.push(NO_DISEASE_AREA);
     primaries.push('Other'); // Always include "Other" at the end
 
     for (const primary of primaries) {
         const opt = document.createElement('option');
         opt.value = primary;
-        opt.textContent = primary;
+        opt.textContent = primary === NO_DISEASE_AREA ? `${NO_DISEASE_AREA} (Industry view)` : primary;
         select.appendChild(opt);
     }
 
