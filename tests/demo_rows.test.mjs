@@ -70,3 +70,22 @@ test('every legacy composition renderer names its own empty state', () => {
         assert.ok(src.includes(`No participants with reported ${dim} in this selection.`), `${fn} lost its empty-state sentence`);
     }
 });
+
+test('a single series named by its end label keeps a legend on a narrow panel', () => {
+    const run = (narrow, spec, n) => {
+        const context = vm.createContext({
+            demoNarrow: () => narrow, demoPattern: () => '#000', demoCompact: (v) => String(v), demoInkPlugin: {},
+        });
+        vm.runInContext(lineAt('const DEMO_SERIF =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
+            + fnAt('function demoConfig(config, spec = {})'), context);
+        context.cfg = { type: 'line', data: { datasets: Array.from({ length: n }, (_, i) => ({ label: 'S' + i, data: [1, 2] })) }, options: {} };
+        context.spec = spec;
+        return vm.runInContext('demoConfig(cfg, spec).options.plugins.legend.display', context);
+    };
+    // Ethnicity Over Time: one series, end labels requested
+    assert.equal(run(true, { endLabels: true }, 1), true, 'a phone lost the only series name');
+    assert.equal(run(false, { endLabels: true }, 1), false, 'the end label already names it on a wide panel');
+    // a single bar series without end labels stays without a legend, as before
+    assert.equal(run(true, {}, 1), false);
+    assert.equal(run(true, { endLabels: true }, 3), true);
+});

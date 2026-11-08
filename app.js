@@ -1102,7 +1102,9 @@ function demoConfig(config, spec = {}) {
     else if (spec.yTicks === 'compact') y.ticks.callback = (v) => demoCompact(v);
     o.plugins = o.plugins || {};
     const ends = !!spec.endLabels && !narrow;
-    const legendOn = spec.legend === true || (!ends && ds.length > 1);
+    // A series named only by its end label keeps a legend when a narrow panel
+    // turns the end labels off, even when it is the only series.
+    const legendOn = spec.legend === true || (!ends && (ds.length > 1 || !!spec.endLabels));
     // Above the plot the title would sit under a legend, so with a legend
     // it goes back to the axis, turned.
     const titleAbove = !!spec.yTitle && !legendOn;
