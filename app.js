@@ -1148,7 +1148,10 @@ function demoConfig(config, spec = {}) {
 // rows   [{ label, value, color, texture?, absent? }]
 // opts   { noun: 'participants', total?: denominator when it is not the
 //          sum of the rows (the reporting states count parse errors too),
-//          keepOrder?: true to keep the order given }
+//          keepOrder?: true to keep the order given,
+//          empty?: the sentence shown when there are no rows }
+// No rows is a state of its own: the selection reported nothing, which is
+// said in words rather than drawn as a list of zeros.
 function demoScale(maxPct) {
     if (maxPct <= 20) return { max: 20, step: 5 };
     if (maxPct <= 40) return { max: 40, step: 10 };
@@ -1157,6 +1160,7 @@ function demoScale(maxPct) {
 }
 function demoRowsHtml(rows, opts = {}) {
     const noun = opts.noun || 'participants';
+    if (!rows.length) return `<p class="demo-empty">${escapeHtml(opts.empty || `No ${noun} reported in this selection.`)}</p>`;
     const list = rows.map(r => Object.assign({}, r, { value: Number(r.value) || 0 }));
     const sum = list.reduce((a, r) => a + r.value, 0);
     const total = opts.total != null ? Number(opts.total) : sum;
@@ -1196,8 +1200,11 @@ function demoRowsHtml(rows, opts = {}) {
 }
 
 // The doughnut's {label: value} totals as rows, in one tab's colours.
+// Like the doughnut, a category with no participants is left out: the legacy
+// totals start every category at 0, so a 0 here can mean that no study in the
+// selection reported it, and it is not shown as an observed zero.
 function demoRowsFromTotals(totals, colors) {
-    return Object.entries(totals).map(([label, value]) => {
+    return Object.entries(totals).filter(([, value]) => Number(value) > 0).map(([label, value]) => {
         const absent = DONUT_ABSENT_LABELS.has(label);
         return { label, value, absent, texture: absent ? 'hatch' : 'solid', color: absent ? DEMO_INK.absent : (colors[label] || colors.default) };
     });
@@ -7195,7 +7202,7 @@ function renderRaceDistribution(filtered) {
     if (charts.raceDistribution) { charts.raceDistribution.destroy(); charts.raceDistribution = null; }
     // One hue for every race: the rows name the categories, so the bar
     // length is the only thing the colour has to carry.
-    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white }));
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white }), { empty: 'No participants with reported race in this selection.' });
 }
 
 function renderRaceTrends(filtered) {
@@ -7363,7 +7370,7 @@ function renderEthnicityDistribution(filtered) {
     }
 
     if (charts.ethnicityDistribution) { charts.ethnicityDistribution.destroy(); charts.ethnicityDistribution = null; }
-    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.ethnicity.hispanic }));
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.ethnicity.hispanic }), { empty: 'No participants with reported ethnicity in this selection.' });
 }
 
 function renderEthnicityTrends(filtered) {
@@ -7975,7 +7982,7 @@ function renderSexDistribution(filtered) {
     }
 
     if (charts.sexDistribution) { charts.sexDistribution.destroy(); charts.sexDistribution = null; }
-    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Female: DEMO_COLORS.sex.female, Male: DEMO_COLORS.sex.male, default: DEMO_COLORS.sex.female }));
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Female: DEMO_COLORS.sex.female, Male: DEMO_COLORS.sex.male, default: DEMO_COLORS.sex.female }), { empty: 'No participants with reported sex in this selection.' });
 }
 
 function renderSexTrends(filtered) {
@@ -8057,7 +8064,7 @@ function renderGenderDistribution(filtered) {
     }
 
     if (charts.genderDistribution) { charts.genderDistribution.destroy(); charts.genderDistribution = null; }
-    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Woman: DEMO_COLORS.gender.female, Man: DEMO_COLORS.gender.male, default: DEMO_COLORS.gender.diverse }));
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { Woman: DEMO_COLORS.gender.female, Man: DEMO_COLORS.gender.male, default: DEMO_COLORS.gender.diverse }), { empty: 'No participants with reported gender in this selection.' });
 }
 
 /**

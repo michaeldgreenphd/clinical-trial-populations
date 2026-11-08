@@ -5646,6 +5646,7 @@ footer p {
 .demo-label { font-size: 18px; line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
 .demo-pct { font-size: 18px; text-align: right; }
 .demo-n { font-size: 16px; color: var(--dm-muted); text-align: right; white-space: nowrap; }
+.demo-empty { font-size: 18px; font-style: italic; color: var(--dm-ink-2); margin: 0.6rem 0; }
 .demo-absent .demo-label,
 .demo-absent .demo-pct { font-style: italic; color: var(--dm-ink-2); }
 .demo-bar {
