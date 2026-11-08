@@ -1,6 +1,6 @@
 # Sex and gender: methods
 
-Parser rules version `parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14` (module 1.1.0); snapshot 2026-11-01; generated 2026-11-01T13:17:34.659421+00:00.
+Parser rules version `parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14` (module 1.1.0); snapshot 2026-11-08; generated 2026-11-08T13:22:30.408854+00:00.
 
 ## Where the sex and gender numbers come from
 
@@ -12,7 +12,7 @@ Every trial with posted results is in exactly one state. Reported: at least one 
 
 ## How many trials have no sex or gender table
 
-On the 2026-11-01 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry.
+On the 2026-11-08 pull, 0 studies with posted results carried no sex- or gender-titled baseline measure. This is a measured property of that pull, re-measured every week, not a rule of the registry.
 
 ## What counts as reporting gender
 
@@ -56,5 +56,5 @@ Beside the parser's five states, each trial now carries a versioned analysis blo
 
 ## Version
 
-Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 79,975, explicit_unknown_only 66, uninformative 726, not_reported 0, parse_error 0.
+Parser rules version: parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14. Parser module version: 1.1.0. Current snapshot reporting states: reported 80,097, explicit_unknown_only 66, uninformative 727, not_reported 0, parse_error 0.
 

@@ -1,24 +1,24 @@
 {
   "written_back": {
     "path": "data/demographics.json",
-    "records": 80767,
-    "updated": 80767,
+    "records": 80890,
+    "updated": 80890,
     "coverage_ok": true,
     "rows_without_id": 0,
     "duplicate_ids": [],
     "records_without_row": [],
     "rows_without_record": []
   },
-  "generated_at": "2026-11-01T13:16:15.503997+00:00",
-  "pipeline_commit": "db660b47923d0b045ceef34168bad7e2dc81b0c9",
-  "source_pipeline_commit": "db660b47923d0b045ceef34168bad7e2dc81b0c9",
-  "source_extracted_at": "2026-11-01T13:03:08.000022+00:00",
-  "snapshot_date": "2026-11-01",
+  "generated_at": "2026-11-08T13:21:09.246760+00:00",
+  "pipeline_commit": "f6a2e7b74790c6f11982376441fb90c80d2c611e",
+  "source_pipeline_commit": "f6a2e7b74790c6f11982376441fb90c80d2c611e",
+  "source_extracted_at": "2026-11-08T13:07:45.318831+00:00",
+  "snapshot_date": "2026-11-08",
   "source": "re-parsed from data/sex_gender_raw_measures.jsonl.gz",
   "n_parse_errors": 0,
   "parser_rules_version": "parsers.R@2026-08-17 / outcomes@2026-09-10 / units@2026-09-14",
   "parser_module_version": "1.1.0",
-  "n_rows": 80767,
+  "n_rows": 80890,
   "n_records_without_row": 0,
   "records_without_row": [],
   "columns": [
@@ -73,49 +73,49 @@
     "parser_module_version"
   ],
   "status_counts": {
-    "n_rows": 80767,
+    "n_rows": 80890,
     "status": {
-      "reported": 79975,
+      "reported": 80097,
       "explicit_unknown_only": 66,
-      "uninformative": 726,
+      "uninformative": 727,
       "not_reported": 0,
       "parse_error": 0
     },
     "outcomes": {
-      "reported_sex": 79923,
-      "reported_gender": 688,
-      "reported_both": 636,
-      "reported_any": 79975,
-      "gender_labeled_binary_only": 2984
+      "reported_sex": 80045,
+      "reported_gender": 690,
+      "reported_both": 638,
+      "reported_any": 80097,
+      "gender_labeled_binary_only": 2994
     },
     "count_of_units_primary": 107,
     "is_participant_count_false": 135,
-    "declared_not_collected": 531,
-    "refetched": 440,
+    "declared_not_collected": 533,
+    "refetched": 441,
     "uninformative_reason": {
-      "no_measurements": 440,
+      "no_measurements": 441,
+      "no_mapped_labels": 36,
       "all_values_zero": 143,
-      "other": 4,
       "all_values_na": 103,
-      "no_mapped_labels": 36
+      "other": 4
     }
   },
   "structural_checks": {
     "reported_any_ge_reported_sex": {
       "pass": true,
-      "detail": "79975 >= 79923"
+      "detail": "80097 >= 80045"
     },
     "reported_any_ge_reported_gender": {
       "pass": true,
-      "detail": "79975 >= 688"
+      "detail": "80097 >= 690"
     },
     "reported_both_le_min": {
       "pass": true,
-      "detail": "636 <= min(79923, 688)"
+      "detail": "638 <= min(80045, 690)"
     },
     "status_counts_sum_to_rows": {
       "pass": true,
-      "detail": "80767 == 80767"
+      "detail": "80890 == 80890"
     },
     "every_row_has_one_status": {
       "pass": true,
@@ -155,15 +155,15 @@
     "path": "tests/sex_gender/fixtures/snapshot_baseline_2026-06-09.json",
     "is_baseline_data": false,
     "drift": [
-      "trials_with_measure: got 80767, baseline 66210 (+14557)",
-      "status.reported: got 79975, baseline 65849 (+14126)",
-      "status.uninformative: got 726, baseline 315 (+411)",
+      "trials_with_measure: got 80890, baseline 66210 (+14680)",
+      "status.reported: got 80097, baseline 65849 (+14248)",
+      "status.uninformative: got 727, baseline 315 (+412)",
       "status.explicit_unknown_only: got 66, baseline 45 (+21)",
       "status.not_reported: got 0, baseline 1 (-1)",
-      "reported_sex_true: got 79923, baseline 65802 (+14121)",
-      "reported_gender_true: got 688, baseline 582 (+106)",
-      "reported_both_true: got 636, baseline 535 (+101)",
-      "gender_labeled_binary_only_true: got 2984, baseline 2479 (+505)"
+      "reported_sex_true: got 80045, baseline 65802 (+14243)",
+      "reported_gender_true: got 690, baseline 582 (+108)",
+      "reported_both_true: got 638, baseline 535 (+103)",
+      "gender_labeled_binary_only_true: got 2994, baseline 2479 (+515)"
     ],
     "exact_match": false
   }
