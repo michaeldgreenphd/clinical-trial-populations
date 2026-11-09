@@ -1,0 +1,5 @@
+{
+  "about": "Fictional outcomes artifact families copied from civicsample-engine tests/fixtures/outcomes/ (written by scripts/build_outcomes_fixture.py there). Every trial, sponsor and number is invented. Recopy after an engine contract change.",
+  "engine_commit": "4f47e6ac8899acd082b75351a37e494ad2c2c098",
+  "schema_version": 1
+}

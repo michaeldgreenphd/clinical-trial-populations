@@ -5712,3 +5712,75 @@ footer p {
     .demo-label, .demo-pct { font-size: 17px; }
     .demo-list-row { grid-template-columns: minmax(0, 1fr) 70px 40px; }
 }
+
+/* ── Industry tab: pane switch and the Trial outcomes pane (industry_outcomes.js) ──
+   State colours and textures adapt the 2026-11-09 outcomes prototype (validated for contrast and
+   colour-vision separation there): green and rose for the two decided states, a textured grey for
+   every absence, amber cross-hatch for conflict, and a new vertical-stripe grey for "roll-up not
+   supported", the eighth state the prototype lacked. Every swatch sits beside its text label. */
+.industry-pane-switch { width: fit-content; max-width: 100%; margin: 0 0 1rem; }
+.industry-pane-switch .view-btn { white-space: nowrap; }
+.industry-pane-switch .view-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--card-background), inset 0 0 0 4px var(--primary-color); }
+.industry-outcomes-pane {
+    --c-met: #0F7A4F; --c-notmet: #C2477E; --c-conflict: #C77A0A; --c-absent: #8A968F; --c-absent-ink: #5c6a63;
+}
+.industry-outcomes-pane :is(button, select, input, a, [tabindex]):focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.oc-beta { font-size: var(--fs-label); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.1rem 0.4rem; vertical-align: middle; color: var(--text-secondary); }
+.oc-banner { border: 2px dashed var(--c-conflict); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin-bottom: 1rem; background: var(--surface-sunk); }
+.oc-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin: 1rem 0; }
+.oc-card { border-top: 2px solid var(--primary-color); padding-top: 0.5rem; }
+.oc-card-label { font-size: var(--fs-small); color: var(--text-secondary); font-weight: 600; }
+.oc-card-value { font-size: var(--fs-lead); font-weight: 600; color: var(--text-primary); margin: 0.2rem 0; }
+.oc-card-def { font-size: var(--fs-small); color: var(--text-secondary); margin: 0; }
+.oc-more { margin: 0.5rem 0 1rem; }
+.oc-more > summary { cursor: pointer; color: var(--primary-color); font-weight: 600; }
+.oc-list { margin: 0.4rem 0; padding-left: 1.2rem; }
+.oc-section { margin: 1.5rem 0 0.5rem; }
+.oc-states h4 { margin: 1rem 0 0.25rem; }
+.oc-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; border: 1px solid var(--border-color); border-radius: var(--radius-sm); }
+.oc-table { border-collapse: collapse; width: 100%; font-size: var(--fs-small); }
+.oc-table th, .oc-table td { text-align: left; vertical-align: top; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-color); }
+.oc-table thead th { background: var(--surface-sunk); font-weight: 600; }
+.oc-trials { min-width: 980px; }
+.oc-trials td:first-child { min-width: 200px; }
+.oc-filters { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: flex-end; margin-bottom: 0.75rem; }
+.oc-filter { display: flex; flex-direction: column; gap: 0.2rem; font-size: var(--fs-small); color: var(--text-secondary); min-width: 0; }
+.oc-filter select, .oc-filter input { font: inherit; color: var(--text-primary); padding: 0.35rem 0.45rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-background); max-width: 100%; }
+.oc-search { flex: 1 1 220px; }
+.oc-filter select { max-width: 16rem; }
+.oc-count { font-size: var(--fs-small); color: var(--text-secondary); margin: 0 0 0.4rem; }
+.oc-open { font: inherit; font-family: var(--font-mono); background: none; border: none; padding: 0; color: var(--primary-color); text-decoration: underline; cursor: pointer; }
+.oc-title { margin-top: 0.15rem; }
+.oc-sub { font-size: var(--fs-small); color: var(--text-secondary); }
+.oc-tag { display: inline-block; margin-top: 0.25rem; font-size: var(--fs-label); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0 0.35rem; color: var(--text-secondary); }
+.oc-none { color: var(--text-secondary); font-style: italic; }
+.oc-state { display: inline-flex; align-items: center; gap: 0.35rem; }
+.oc-prov { display: inline-block; font-size: var(--fs-label); font-weight: 600; border: 1px dashed var(--c-conflict); border-radius: var(--radius-sm); padding: 0 0.35rem; color: #7a4a05; background: var(--card-background); }
+.oc-swatch { display: inline-block; width: 0.85rem; height: 0.85rem; border-radius: 2px; flex: none; vertical-align: -0.1rem; margin-right: 0.25rem; }
+.st-MET { background: var(--c-met); }
+.st-NOT_MET { background: var(--c-notmet); }
+.st-INSUFFICIENT_EVIDENCE { background: repeating-linear-gradient(45deg, var(--c-absent) 0 1.5px, var(--card-background) 1.5px 5px); box-shadow: inset 0 0 0 1px var(--c-absent); }
+.st-NOT_APPLICABLE { background: radial-gradient(var(--c-absent) 1.2px, var(--card-background) 1.3px) 0 0 / 5px 5px; box-shadow: inset 0 0 0 1px var(--c-absent); }
+.st-PENDING { background: repeating-linear-gradient(135deg, var(--c-absent) 0 1.5px, var(--card-background) 1.5px 5px); box-shadow: inset 0 0 0 1px var(--c-absent); }
+.st-UNREPORTED { background: var(--card-background); box-shadow: inset 0 0 0 1.5px var(--c-absent-ink); }
+.st-CONFLICTING { background: linear-gradient(var(--c-conflict) 1px, transparent 1px) 0 0 / 5px 5px, linear-gradient(90deg, var(--c-conflict) 1px, var(--card-background) 1px) 0 0 / 5px 5px; box-shadow: inset 0 0 0 1px var(--c-conflict); }
+.st-ROLL_UP_NOT_SUPPORTED { background: repeating-linear-gradient(90deg, var(--c-absent-ink) 0 1.5px, var(--card-background) 1.5px 4px); box-shadow: inset 0 0 0 1px var(--c-absent-ink); }
+.oc-more-btn { margin-top: 0.6rem; font: inherit; padding: 0.4rem 0.9rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-background); cursor: pointer; }
+.oc-panel { margin-top: 1rem; border: 1px solid var(--border-color); border-left: 3px solid var(--primary-color); border-radius: var(--radius-md); padding: var(--pad-panel); background: var(--card-background); overflow-wrap: anywhere; }
+.oc-panel-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.oc-panel-head h4 { margin: 0; font-family: var(--font-mono); }
+.oc-panel-title { font-weight: 600; margin: 0.3rem 0; }
+.oc-close { font: inherit; padding: 0.3rem 0.8rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-background); cursor: pointer; }
+.oc-layer-block { border-top: 1px solid var(--border-color); margin-top: 0.9rem; padding-top: 0.6rem; }
+.oc-layer-block h5 { margin: 0 0 0.4rem; font-size: var(--fs-body); color: var(--primary-color); }
+.oc-unit { margin: 0.6rem 0; padding-left: 0.75rem; border-left: 2px solid var(--border-color); }
+.oc-unit h6 { margin: 0; font-size: var(--fs-small); }
+.oc-unit p { margin: 0.2rem 0; }
+.oc-layer { display: inline-block; min-width: 5.5rem; font-size: var(--fs-label); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-secondary); }
+.oc-evidence { margin: 0.3rem 0; padding-left: 1.1rem; font-size: var(--fs-small); }
+.oc-loc { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--text-secondary); word-break: break-all; }
+@media (max-width: 480px) {
+    .industry-pane-switch .view-btn { padding: 0.5rem 0.7rem; font-size: var(--fs-small); }
+    .oc-filter select { max-width: 100%; }
+    .oc-filters .oc-filter { flex: 1 1 100%; }
+}
