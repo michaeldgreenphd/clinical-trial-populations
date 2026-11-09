@@ -23,7 +23,6 @@ Thumbs.db
 .gemini/
 gha-creds-*.json
 
-# Industry Outcomes beta: the engine writes data/outcomes/ by hand for a local preview
-# (civicsample-engine outcomes/README.md). Nothing there is published until the owner decides
-# to publish an evidence_only build; a provisional preview must never be committed.
-data/outcomes/
+# Industry Outcomes beta: data/outcomes/ holds the published evidence_only build, written by
+# hand with the engine (civicsample-engine outcomes/README.md). A provisional preview must never
+# be committed; tests/outcomes_publication.test.mjs refuses one.

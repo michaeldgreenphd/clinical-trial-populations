@@ -417,7 +417,7 @@
             ${filtersHTML(index.rows, state.filters)}
             <div class="oc-list-wrap">${listHTML(rows, run, state.shown)}</div>
             <div class="oc-panel" id="oc-panel" role="region" aria-label="Trial evidence" tabindex="-1" hidden></div>
-            <p class="chart-footnote">Run ${esc(run.run_id)}. Registry data retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))}; method ${esc((run.method || {}).version || 'not supplied')}; sponsor names by the curated rules where reviewed, otherwise as registered.</p>`;
+            <p class="chart-footnote">Run ${esc(run.run_id)}. A fixed registry pull, retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))} and not refreshed weekly; method ${esc((run.method || {}).version || 'not supplied')}; sponsor names by the curated rules where reviewed, otherwise as registered.</p>`;
         wire(el);
     }
 
@@ -498,7 +498,7 @@
         } catch (e) {
             const missing = /HTTP 404/.test(e.message);
             el.innerHTML = missing
-                ? '<div class="panel-hero"><h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3><p class="note">The trial outcomes data is not published. It is built by hand with the engine (civicsample-engine outcomes/README.md) and previewed locally until publication is decided.</p></div>'
+                ? '<div class="panel-hero"><h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3><p class="note">The trial outcomes data is not available on this site.</p></div>'
                 : `<p class="note">Could not load the trial outcomes data (${esc(e.message)}).</p>`;
             return;
         }

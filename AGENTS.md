@@ -34,7 +34,7 @@ linked companion, not a substitute for the effective Codex instructions.
 | `index.html`, `app.js`, `styles.css` | Hash routes, startup/mobile/snapshot loading, filters, charts and study details |
 | `geo/`, [data/geo/README.md](data/geo/README.md) | Geography reader/render boundary and deliberate run-advance procedure |
 | `data/geo/active_run.json`, `tests/run_expectations.json` | Pinned geography input and matching acceptance expectations; the run's CONTRACT.md defines its semantics |
-| `industry_outcomes.js`, `tests/fixtures/outcomes/` | Industry tab's Trial outcomes pane (beta): reads the outcomes folder the engine builds by hand under data/ (git-ignored until publication is decided); shows reviewed assessments only, except on a local preview |
+| `industry_outcomes.js`, `tests/fixtures/outcomes/` | Industry tab's Trial outcomes pane (beta): reads `data/outcomes/`, the evidence_only build the engine writes by hand (never scheduled; the weekly publish does not touch it); shows reviewed assessments only, except on a local preview, which must never be committed |
 | `beta/approval-queue.jsx` | Isolated React review UI; its ledger is in-memory, not a backend write |
 | `data/`, `snapshots/`, `history.json`, `condition_ontology.json` | Engine-published inputs; historical readers remain a compatibility obligation |
 | [tests/record_contract.json](tests/record_contract.json), [tests/data_budget.json](tests/data_budget.json) | Site-owned field/layout contract and size budgets consumed by the engine; split layout is an explicit owner switch |
