@@ -83,6 +83,27 @@ test('list filters select rows by the published fields only', () => {
   assert.deepEqual(ids({ state: 'MET' }), ['NCT99000001']);
 });
 
+test('the results filter keeps unconfirmed completion apart from not-yet-due results', () => {
+  const { index } = family('evidence_only');
+  const ids = (rows, f) => O.filterRows(rows, f).map((r) => r.nct_id);
+  // NCT99000003 is PENDING / STATUS_UNCERTAIN: its window cannot be placed, so it is not "not yet due".
+  assert.deepEqual(ids(index.rows, { results: 'PENDING_DUE' }), []);
+  assert.deepEqual(ids(index.rows, { results: 'PENDING_UNCERTAIN' }), ['NCT99000003']);
+  const base = index.rows.find((r) => r.nct_id === 'NCT99000003');
+  const rows = [
+    { ...base, nct_id: 'NCT99100001', results_sub_reason: 'WITHIN_STANDARD_WINDOW' },
+    { ...base, nct_id: 'NCT99100002', results_sub_reason: 'CERTIFIED_DELAY' },
+    base,
+  ];
+  assert.deepEqual(ids(rows, { results: 'PENDING_DUE' }), ['NCT99100001', 'NCT99100002']);
+  assert.deepEqual(ids(rows, { results: 'PENDING_UNCERTAIN' }), ['NCT99000003']);
+  assert.deepEqual(ids(rows, { results: 'PENDING' }), ['NCT99100001', 'NCT99100002', 'NCT99000003']);
+  const html = O.filtersHTML(index.rows, {});
+  assert.match(html, /not yet due</);
+  assert.match(html, /completion not confirmed</);
+  assert.doesNotMatch(html, /not yet past/);
+});
+
 test('absence is worded as a dated fact, never as non-compliance or a confidence score', () => {
   const { run, index } = family('evidence_only');
   const row = index.rows.find((r) => r.nct_id === 'NCT99000002');

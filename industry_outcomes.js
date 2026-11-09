@@ -36,7 +36,7 @@
         NOT_MET: 'Did not meet its primary objective',
         INSUFFICIENT_EVIDENCE: 'Cannot be determined from the evidence',
         NOT_APPLICABLE: 'Not applicable',
-        PENDING: 'No posted results; not yet past the standard window',
+        PENDING: 'No posted results; not yet due, or completion not confirmed',
         UNREPORTED: 'No posted results; past the standard window',
         CONFLICTING: 'Sources conflict',
         ROLL_UP_NOT_SUPPORTED: 'Several primary analyses, no stated way to combine them',
@@ -149,11 +149,25 @@
             ? { ...r, assessment_kind: null, trial_state: null } : r);
     }
 
+    // PENDING covers two different situations: results not yet due (within the standard window,
+    // or a certified delay) and a completion the registry has not confirmed, where no window can be
+    // placed. The filter keeps them apart; 'PENDING' itself still selects both (older share links).
+    const PENDING_SPLIT = {
+        PENDING_DUE: ['WITHIN_STANDARD_WINDOW', 'CERTIFIED_DELAY'],
+        PENDING_UNCERTAIN: ['STATUS_UNCERTAIN'],
+    };
+
+    function resultsMatch(r, want) {
+        if (want === 'NO_RESULTS') return r.results_state !== 'POSTED';
+        if (PENDING_SPLIT[want]) return r.results_state === 'PENDING' && PENDING_SPLIT[want].includes(r.results_sub_reason);
+        return r.results_state === want;
+    }
+
     function filterRows(rows, f) {
         const q = (f.q || '').trim().toLowerCase();
         return rows.filter(r =>
             (!q || [r.nct_id, r.title, r.sponsor, r.primary_objective].some(v => (v || '').toLowerCase().includes(q))) &&
-            (!f.results || (f.results === 'NO_RESULTS' ? r.results_state !== 'POSTED' : r.results_state === f.results)) &&
+            (!f.results || resultsMatch(r, f.results)) &&
             (!f.area || r.area === f.area) &&
             (!f.sponsor || r.sponsor === f.sponsor) &&
             (!f.docs || (f.docs === 'any' ? (r.protocol || r.sap) : !(r.protocol || r.sap))) &&
@@ -245,7 +259,8 @@
                 <option value="">All</option><option value="POSTED"${sel('POSTED', f.results)}>Posted</option>
                 <option value="NO_RESULTS"${sel('NO_RESULTS', f.results)}>No posted results</option>
                 <option value="UNREPORTED"${sel('UNREPORTED', f.results)}>No posted results, past the standard window</option>
-                <option value="PENDING"${sel('PENDING', f.results)}>No posted results, not yet past it</option>
+                <option value="PENDING_DUE"${sel('PENDING_DUE', f.results)}>No posted results, not yet due</option>
+                <option value="PENDING_UNCERTAIN"${sel('PENDING_UNCERTAIN', f.results)}>No posted results, completion not confirmed</option>
                 <option value="NOT_APPLICABLE"${sel('NOT_APPLICABLE', f.results)}>Not applicable</option></select></label>
             <label class="oc-filter"><span>Area</span><select data-of="area">${optionList(rows, 'area', f.area, 'All areas')}</select></label>
             <label class="oc-filter"><span>Sponsor</span><select data-of="sponsor">${optionList(rows, 'sponsor', f.sponsor, 'All sponsors')}</select></label>
