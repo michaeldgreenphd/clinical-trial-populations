@@ -9,7 +9,9 @@
  *   - the build is evidence_only and holds no machine-provisional row or record;
  *   - every file the run lists is present with its sha256, and no other file is;
  *   - no key anywhere names a reviewer, ledger, packet, timing or model.
- * With no folder committed, nothing is published and the test passes.
+ * Only an absent or empty folder means nothing is published. Any file there requires a valid
+ * run.json, and only the artifact family's own names may exist: run.json, summary.json,
+ * index.json and the records/rNN.json shards the index points at.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,7 +25,6 @@ const at = (p) => new URL(p, root);
 const ctx = { globalThis: {} };
 vm.runInNewContext(readFileSync(at('industry_outcomes.js'), 'utf8'), ctx);
 const O = ctx.globalThis.IndustryOutcomes;
-const published = existsSync(at(DIR + 'run.json'));
 const load = (p) => JSON.parse(readFileSync(at(DIR + p), 'utf8'));
 
 function listFiles(rel) {
@@ -32,6 +33,10 @@ function listFiles(rel) {
     return statSync(at(DIR + p)).isDirectory() ? listFiles(p + '/') : [p];
   });
 }
+
+const present = existsSync(at(DIR)) ? listFiles('') : [];
+const published = present.length > 0;
+const FAMILY_FILE = /^(?:run\.json|summary\.json|index\.json|records\/r\d{2}\.json)$/;
 
 const PRIVATE_KEY = /reviewer|ledger|packet|elapsed|minutes|duration|started|finished|model|prompt|raw_?response|rationale_private|email/i;
 function privateKeys(value, path = '') {
@@ -42,13 +47,26 @@ function privateKeys(value, path = '') {
   return [];
 }
 
+test('any file under data/outcomes/ needs a run manifest, and only the artifact family may be there', { skip: !published && 'nothing published' }, () => {
+  assert.ok(present.includes('run.json'), 'files are present without run.json');
+  assert.deepEqual(present.filter((f) => !FAMILY_FILE.test(f)), [], 'files outside the artifact family');
+  const run = load('run.json'); const index = load('index.json');
+  const shards = [...new Set(index.rows.map((r) => r.record))].sort();
+  assert.deepEqual(Object.keys(run.files).sort(), ['index.json', ...shards, 'summary.json'].sort(),
+    'run.json must list exactly summary.json, index.json and the shards the index uses');
+});
+
 test('the published outcomes data is an evidence_only build the page accepts', { skip: !published && 'nothing published' }, () => {
   const run = load('run.json'); const summary = load('summary.json'); const index = load('index.json');
   assert.equal(run.display_mode, 'evidence_only', 'only an evidence_only build may be published');
   assert.equal(O.dataProblem(run, summary, index), null);
   assert.equal(run.assessments.n_machine_provisional, 0);
   assert.deepEqual(Object.keys(summary.assessment_states.by_kind), ['human_reviewed']);
-  for (const r of index.rows) assert.ok([null, 'human_reviewed'].includes(r.assessment_kind ?? null), r.nct_id);
+  for (const r of index.rows) {
+    assert.ok([null, 'human_reviewed'].includes(r.assessment_kind ?? null), r.nct_id);
+    // A conclusion shows only for an assessment a person reviewed.
+    if ((r.assessment_kind ?? null) === null) assert.equal(r.trial_state ?? null, null, `${r.nct_id} has a trial state without a reviewed assessment`);
+  }
   const reviewedRows = index.rows.filter((r) => r.assessment_kind === 'human_reviewed').length;
   assert.equal(reviewedRows, run.collections.human_reviewed.n);
   for (const name of Object.keys(run.files).filter((f) => f.startsWith('records/'))) {
