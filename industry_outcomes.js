@@ -362,7 +362,7 @@
 
     // ---------------------------------------------------------------- the live view
 
-    const state = { data: null, filters: {}, shown: PAGE, shards: {}, opener: null };
+    const state = { data: null, filters: {}, shown: PAGE, shards: {}, opener: null, request: 0 };
 
     async function load(fetchJSON) {
         const get = async (path, reload) => fetchJSON(BASE + path, reload);
@@ -431,13 +431,18 @@
         if (more) more.addEventListener('click', () => { state.shown += PAGE; rerenderList(el); });
     }
 
-    async function openRecord(el, nct, opener) {
-        const { run, index, get } = state.data;
+    // data defaults to the loaded view's; tests pass their own.
+    async function openRecord(el, nct, opener, data = state.data) {
+        const { run, index, get } = data;
         const row = index.rows.find(r => r.nct_id === nct);
         const panel = el.querySelector('#oc-panel');
+        // The latest selection wins: a record that arrives after another trial was opened (or the
+        // panel closed) is dropped, with its error and its focus move.
+        const request = ++state.request;
         state.opener = opener;
         panel.hidden = false;
         panel.innerHTML = '<p class="note">Loading the evidence record…</p>';
+        let html;
         try {
             let shard = state.shards[row.record];
             if (!shard) {
@@ -450,16 +455,19 @@
             const rec = shard.records[nct];
             if (!rec) throw new Error(`${nct} is not in ${row.record}`);
             const host = (root.location && root.location.hostname) || '';
-            panel.innerHTML = recordHTML(rec, run, showsMachine(run, host));
+            html = recordHTML(rec, run, showsMachine(run, host));
         } catch (e) {
-            panel.innerHTML = `<p class="note">Could not load the evidence record (${esc(e.message)}).</p><button type="button" class="oc-close">Close</button>`;
+            html = `<p class="note">Could not load the evidence record (${esc(e.message)}).</p><button type="button" class="oc-close">Close</button>`;
         }
+        if (request !== state.request) return;
+        panel.innerHTML = html;
         panel.querySelector('.oc-close').addEventListener('click', () => closeRecord(el));
         panel.focus();
         if (panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest' });
     }
 
     function closeRecord(el) {
+        state.request++;   // any record still loading is now stale
         const panel = el.querySelector('#oc-panel');
         panel.hidden = true;
         panel.innerHTML = '';
@@ -483,7 +491,7 @@
     }
 
     root.IndustryOutcomes = {
-        open, dataProblem, shardProblem, filterRows, visibleRows, showsMachine, resultsLabel, fmtDate,
+        open, openRecord, dataProblem, shardProblem, filterRows, visibleRows, showsMachine, resultsLabel, fmtDate,
         overviewHTML, filtersHTML, listHTML, recordHTML, TRIAL_STATES, STATE_LABELS, REASONS,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

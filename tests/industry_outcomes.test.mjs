@@ -130,6 +130,26 @@ test('the evidence panel keeps registry, method and person apart, with dates', (
   assert.doesNotMatch(O.recordHTML(hostile, f.run, false), /<img/);
 });
 
+test('an evidence record that arrives after another trial was opened is dropped', async () => {
+  const f = family('evidence_only');
+  const pending = {};
+  const get = (path) => new Promise((resolve) => { pending[path] = () => resolve(f.shards[path]); });
+  const panel = { hidden: true, innerHTML: '', focused: 0, focus() { this.focused += 1; },
+    querySelector() { return { addEventListener() {} }; } };
+  const el = { querySelector: () => panel };
+  const data = { run: f.run, index: f.index, get };
+  const a = O.openRecord(el, 'NCT99000001', null, data);   // records/r01.json
+  const b = O.openRecord(el, 'NCT99000002', null, data);   // records/r02.json
+  pending['records/r02.json']();
+  await b;
+  assert.match(panel.innerHTML, /NCT99000002/);
+  pending['records/r01.json']();                            // the earlier request resolves last
+  await a;
+  assert.match(panel.innerHTML, /NCT99000002/);
+  assert.doesNotMatch(panel.innerHTML, /<h4>NCT99000001/);
+  assert.equal(panel.focused, 1, 'only the current request moves focus');
+});
+
 test('index.html: the switch, the hidden outcomes pane and the keyed script before app.js', () => {
   const html = read('index.html');
   const section = html.slice(html.indexOf('<section id="industry"'), html.indexOf('</section>', html.indexOf('<section id="industry"')));
