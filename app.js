@@ -4212,6 +4212,9 @@ function initTabs() {
             // reaches the same loader through openIndustryView().
             if (tab.dataset.tab === 'industry') {
                 loadIndustryView();
+                // The pane last open, and its filter chrome. typeof: this handler is also run by
+                // tests that load a slice of app.js without the outcomes pane.
+                if (typeof setIndustryPane === 'function') setIndustryPane(null);
             }
 
             updateShareUrl();
@@ -13292,6 +13295,7 @@ function updateIndustryShareUrl() {
     if (industrySexSpecific) p.set('ss', '1');
     if (industryConditionMode !== 'top') p.set('columns', industryConditionMode);
     if (industryConditionMode === 'custom') industryConditionSelected.forEach(c => p.append('condition', c));
+    if (document.getElementById('industry-outcomes-pane')?.hidden === false) p.set('pane', 'outcomes');
     // Until start-up has settled which dataset opened (shareUrlReady), a
     // snapshot the link named in this hash stays in it: the sponsor file can
     // draw the view while the snapshot is still loading, and a reload then
@@ -13413,8 +13417,51 @@ async function openIndustryView() {
     // hidden them, and the Filters button is on here even over an archive.
     showFilterChrome('industry');
     renderPhoneScope();   // a phone: the line names Industry's study types, as a tab click does
+    // A shared #industry?pane=outcomes opens the outcomes pane; otherwise the pane last open.
+    // typeof: tests run this function from a slice of app.js without the outcomes pane.
+    const cut = location.hash.indexOf('?');
+    const wantsOutcomes = cut >= 0 && new URLSearchParams(location.hash.slice(cut + 1)).get('pane') === 'outcomes';
+    if (typeof setIndustryPane === 'function') setIndustryPane(wantsOutcomes ? 'outcomes' : null);
 
     await loadIndustryView();
+}
+
+// The Industry tab's two panes: participant demographics (the sponsor view above) and trial
+// outcomes (industry_outcomes.js, a separate artifact family under data/outcomes/ with its own
+// run and cutoff). The global Year Range and Condition filters draw only the demographics
+// pane, so they are hidden while the outcomes pane is open; the outcomes pane has its own.
+let industryPane = 'demographics';
+// pane: 'outcomes', 'demographics', or null to keep the pane last open.
+function setIndustryPane(pane) {
+    if (pane) industryPane = pane === 'outcomes' ? 'outcomes' : 'demographics';
+    const demo = document.getElementById('industry-demographics-pane');
+    const outcomes = document.getElementById('industry-outcomes-pane');
+    if (!demo || !outcomes) return;
+    demo.hidden = industryPane !== 'demographics';
+    outcomes.hidden = industryPane !== 'outcomes';
+    document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => {
+        const on = b.dataset.ipane === industryPane;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (industryPane === 'outcomes') {
+        ['filters', 'filter-summary'].forEach(id => {
+            const node = document.getElementById(id);
+            if (node) node.style.display = 'none';
+        });
+        if (window.IndustryOutcomes) window.IndustryOutcomes.open(outcomes, { fetchJSON: outcomesFetchJSON });
+        else outcomes.innerHTML = '<p class="note">The trial outcomes view did not load (industry_outcomes.js).</p>';
+    } else if (industryActive()) {
+        showFilterChrome('industry');
+    }
+}
+
+// Outcome files are fetched with the data cache key; they carry their own run id, which the
+// outcomes view checks across files (a file from another run is fetched once past the cache).
+async function outcomesFetchJSON(path, reload) {
+    const resp = await keyedFetch(path, reload ? { cache: 'reload' } : undefined);
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    return resp.json();
 }
 
 // What is wrong with a parsed data/industry_sponsors.json as the Industry
@@ -13519,6 +13566,10 @@ function industryRoute() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
+        setIndustryPane(b.dataset.ipane);
+        updateIndustryShareUrl();
+    }));
     // Column controls change presentation only, never the filtered trial cohort.
     ['top', 'all'].forEach(mode => {
         document.getElementById('industry-condition-' + mode)?.addEventListener('click', () => {
