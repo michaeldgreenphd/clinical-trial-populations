@@ -1,0 +1,116 @@
+{
+ "schema_version": 1,
+ "run_id": "outcomes-2026-11-09-d41f32ec4d",
+ "generated_at": "2026-11-09T23:23:24+00:00",
+ "cutoff": "2026-11-09",
+ "producer": {
+  "repository": "civicsample-engine",
+  "commit": "e0e870d3bbc8e4ca68171bd2d271aec3f150de54",
+  "uncommitted_changes": false
+ },
+ "manual_run": true,
+ "display_mode": "evidence_only",
+ "acquisition": {
+  "source": "clinicaltrials.gov API v2",
+  "query": "AREA[StudyType]INTERVENTIONAL AND AREA[LeadSponsorClass]INDUSTRY AND AREA[Phase]PHASE3 AND AREA[DesignAllocation]RANDOMIZED AND AREA[PrimaryCompletionDate]RANGE[2020-01-01,2020-12-31]",
+  "fields": "protocolSection,documentSection,hasResults",
+  "retrieved_at": "2026-11-09T18:53:08+00:00",
+  "n_records": 648,
+  "sha256_uncompressed": "a7fbc064f97eb00c803de2547dfb9f5f640f101010a1a50cc0f651c1b486f554",
+  "archive": "frame-2026-11-09.jsonl.gz"
+ },
+ "cohort": {
+  "definition": "Interventional, Phase 3 (Phase 2/3 excluded as its own stratum), randomized trials with an INDUSTRY lead sponsor class and primary completion inside 2020 (a month- or year-precision date must lie wholly inside).",
+  "window": [
+   "2020-01-01",
+   "2020-12-31"
+  ],
+  "frame_query": "AREA[StudyType]INTERVENTIONAL AND AREA[LeadSponsorClass]INDUSTRY AND AREA[Phase]PHASE3 AND AREA[DesignAllocation]RANDOMIZED AND AREA[PrimaryCompletionDate]RANGE[2020-01-01,2020-12-31]",
+  "n_frame": 648,
+  "n_eligible": 598,
+  "n_excluded": 50,
+  "exclusions": {
+   "NOT_INTERVENTIONAL": 0,
+   "NOT_PHASE3": 0,
+   "PHASE2_PHASE3_STRATUM": 50,
+   "LEAD_SPONSOR_NOT_INDUSTRY": 0,
+   "NOT_RANDOMIZED": 0,
+   "PRIMARY_COMPLETION_OUTSIDE_WINDOW": 0
+  },
+  "differs_from_frame": "The frame query matches Phase 2/3 records through its PHASE3 term; those are excluded here, and every other rule is re-checked on the record as retrieved."
+ },
+ "method": {
+  "version": "0.3.0",
+  "rules_sha256": "671a41293902916847747fe5b23335ed6061a48434fcb39c3fbc9f401ae3f159",
+  "methods_spec_sha256": "1cdd5683fe5a39691d93d60b20d0fbf4db7eeff3db83cd856560bb45f2536835",
+  "assessment_cutoff": "2026-11-09",
+  "export_sha256": "85eca55655e867d7e53cfe9e935898e64047902828643d687f5a19206dde7d96",
+  "export_producer_commit": "ae39157ea1989f1bd5980cc8b2ba1164e5de4ea2"
+ },
+ "collections": {
+  "eligible": {
+   "n": 598,
+   "definition": "The beta cohort above."
+  },
+  "audit": {
+   "n": 23,
+   "n_including_excluded": 25,
+   "definition": "Development collection: the 25 trials of the 2026-11-09 feasibility audit (a stratified draw from the 2020 frame). Not a random sample of the cohort."
+  },
+  "human_reviewed": {
+   "n": 0,
+   "definition": "Trials whose assessment a named person has reviewed."
+  },
+  "demographics_linked": {
+   "n": 416,
+   "definition": "Eligible trials that appear in the site's participant-demographics dataset."
+  }
+ },
+ "sponsor_attribution": {
+  "method": "curated lead-sponsor rules (sponsors/company_aliases.csv)",
+  "rules_sha256": "3e13bc5926f6f8bc5025151c60ea7dc8f40a5f7b8d7a209026ba29472e70601c",
+  "lead_review_states": {
+   "attributed": 291,
+   "reviewed_excluded": 0,
+   "unreviewed": 307
+  },
+  "n_differs_from_industry_recode": 358,
+  "n_differs_by_review_state": {
+   "attributed": 145,
+   "reviewed_excluded": 0,
+   "unreviewed": 213
+  },
+  "industry_recode": "scripts/generate_industry_sponsors.py assign_industry_company (unchanged)"
+ },
+ "demographics_link": {
+  "site_snapshot_date": "2026-11-08",
+  "site_extracted_at": "2026-11-08T13:07:45.318831+00:00",
+  "site_pipeline_commit": "f6a2e7b74790c6f11982376441fb90c80d2c611e",
+  "state": "COMPUTED",
+  "n_site_parts": 8,
+  "n_in_dataset": 416,
+  "n_in_industry_demographics_cohort": 359
+ },
+ "assessments": {
+  "display_mode": "evidence_only",
+  "n_human_reviewed": 0,
+  "n_machine_provisional": 0
+ },
+ "dates": {
+  "outcomes_cutoff": "2026-11-09",
+  "assessment_cutoff": "2026-11-09",
+  "demographics_snapshot": "2026-11-08"
+ },
+ "files": {
+  "index.json": "20aa8b6ea3bcb8b76b63a01251bbb3367b8f9b1b87962f4ae23f0306abc883d2",
+  "records/r00.json": "513a58c00ea2a0f8f94a6c7043e1bc705b9b4b68b2d983de8cbaee192f3b1dc2",
+  "records/r01.json": "ec97a3c29be6f5bc21c53225f6f0ad6e633d9d88d72818b58325627d753a60e1",
+  "records/r02.json": "7d4a992dbdb2771c1e4ad908806f3adb7b6914a772f32b7a88314ad15b3f3ed0",
+  "records/r03.json": "2dc75130e4ad113f068e34f8c2b00e431c8d6ca420567c015c85463d69425c7b",
+  "records/r04.json": "acd441ab3a524db0ab8ea921eb620503eb1a3916f6107b704f2e8386c04e6271",
+  "records/r05.json": "b579034913b8f1e094cfd76a1807a108711a82a2de0107606747863e3a67a7e9",
+  "records/r06.json": "8611c9ae205b2c0207ee24d28f1437b72e776a041bceb8943b0391d124511de7",
+  "records/r07.json": "562cb5e958031b633e555b80bf03c2248f656ed8efd17988b1548d1570a3b31b",
+  "summary.json": "bda7822d4cf0befb06cd7156bbe7f2ea8d1a5d4820879424c7d2136068c24af6"
+ }
+}

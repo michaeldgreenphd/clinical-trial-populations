@@ -4,8 +4,7 @@
  * Runs the module's pure functions in a vm against the fictional artifact families copied from
  * the engine (tests/fixtures/outcomes/, see SOURCE.json there): the consumer-side contract, the
  * display boundary between reviewed and unreviewed assessments, list filtering, wording, and the
- * three layers of the evidence panel. Also checks the wiring in index.html, app.js and
- * .gitignore. It does not render in a browser; the served-page check is separate (verify.md).
+ * three layers of the evidence panel. Also checks the wiring in index.html and app.js. It does not render in a browser; the served-page check is separate (verify.md).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -189,5 +188,6 @@ test('app.js switches panes, hides the global filters on outcomes and keeps pane
   assert.match(app, /getElementById\('industry-outcomes-pane'\)\?\.hidden === false\) p\.set\('pane', 'outcomes'\);/);
   assert.match(app, /window\.IndustryOutcomes\.open\(outcomes, \{ fetchJSON: outcomesFetchJSON \}\)/);
   assert.match(app, /async function outcomesFetchJSON\(path, reload\) \{\n {4}const resp = await keyedFetch\(path/);
-  assert.match(read('.gitignore'), /^data\/outcomes\/$/m, 'local preview builds must stay out of git');
+  // data/outcomes/ is committed once published; tests/outcomes_publication.test.mjs refuses a preview build there.
+  assert.doesNotMatch(read('.gitignore'), /^data\/outcomes\/$/m);
 });
