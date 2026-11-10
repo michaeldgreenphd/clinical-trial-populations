@@ -81,28 +81,21 @@ Practical consequences:
   backed by something observable, not by inspection alone.
 - Say plainly what you did *not* do, and why, rather than leaving it implied.
 
-## Dual-AI PR Review Architecture
+## Automated PR review
 
-- **Codex** audits hunk-level diff logic, local edge cases, syntax/types and
-  isolated code correctness.
-- **Gemini CLI** follows [GEMINI.md](GEMINI.md) to audit whole-repository blast
-  radius, untouched downstream callers, data provenance, and contract sync
-  between civicsample-engine and clinical-trial-populations. It reports only
-  regressions supported by both a changed line and an untouched consumer.
+**Codex** is the only automated reviewer. It audits hunk-level diff logic, local
+edge cases, syntax/types and isolated code correctness. A `@codex review`
+comment requests it, on every pull request and after every push that changes
+the diff (see the pull request workflow below); do not rely on opening a pull
+request or marking it ready to start one.
 
-These roles complement the review rules below; Gemini does not repeat Codex's
-local checks. The [Gemini workflow](.github/workflows/gemini-pr-review.yml)
-runs on non-draft same-repository PRs when they are opened, pushed to or marked
-ready. It also runs on a PR comment containing `@codex review` or `@gemini-cli`
-from a collaborator with write access, drafts included, so the `@codex review`
-comment that opens every review requests both reviews and no separate Gemini
-comment is needed. Each head is reviewed once: a later event or `@codex review`
-comment for an already reviewed head is skipped, and `@gemini-cli` forces a
-rerun. It maintains one sticky review comment. If the model fails or times out,
-that comment records the reason for the head, a completed review of the same
-head is kept, and the check fails. Fork and Dependabot PRs are skipped because
-this job needs a secret and a comment-writing token. Comment triggers become
-available once the workflow is on the default branch.
+Nothing automated checks cross-file effects: untouched callers elsewhere in
+app.js, the published files the dashboard reads, or the contract between
+civicsample-engine and clinical-trial-populations. The author covers these with
+[verify.md](verify.md): its additional checks, served-browser verification and
+cross-repository verification.
+
+The Gemini PR review was removed on 2026-11-10 at the owner's request.
 
 ## Code Review Rules
 
@@ -172,11 +165,10 @@ branches, no deletions of published history.
 
 1. Branch from `main` and open a pull request against `main`. Never push to
    `main` directly unless the owner explicitly says to.
-2. Immediately after opening the PR, post a comment containing exactly
-   `@codex review`. Do this for every PR, without being asked, and again
-   after any push that changes the diff so the new head is reviewed. The
-   same comment requests the Gemini cross-file review (see Dual-AI PR Review
-   Architecture); post `@gemini-cli` only to force a Gemini rerun.
+2. Immediately after opening the PR, or after marking a draft ready, post a
+   comment containing exactly `@codex review`. Do this for every PR, without
+   being asked, and again after any push that changes the diff: a Codex
+   review covers only the commit it ran on.
 3. Address every Codex finding before the PR is considered done: verify it
    against the diff, push a fix for anything real, and reply on the thread
    saying what changed. Resolve the threads you addressed.
