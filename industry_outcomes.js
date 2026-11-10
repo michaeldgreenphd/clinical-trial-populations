@@ -181,69 +181,183 @@
         return `No posted results as of ${fmtDate(cutoff)}${why ? ` (${why})` : ''}`;
     }
 
+    // The texture class of a row's results state, shared by the list and the overview legend.
+    function resultsClass(r) {
+        if (r.results_state === 'POSTED') return 'rs-posted';
+        if (r.results_state === 'UNREPORTED') return 'rs-past';
+        if (r.results_state === 'NOT_APPLICABLE') return 'rs-none';
+        return r.results_sub_reason === 'STATUS_UNCERTAIN' ? 'rs-uncertain' : 'rs-due';
+    }
+
     function stateBadge(state, kind) {
         const prov = kind === 'machine_provisional';
         return `<span class="oc-state"><span class="oc-swatch st-${esc(state)}" aria-hidden="true"></span>${esc(STATE_LABELS[state] || state)}</span>` +
             (prov ? ' <span class="oc-prov">Provisional, machine only</span>' : '');
     }
 
+    // Four situations kept apart: reviewed, machine-only (local preview), awaiting review, not assessed.
     function assessmentCell(r) {
-        if (r.trial_state) return stateBadge(r.trial_state, r.assessment_kind);
-        return r.in_audit ? '<span class="oc-none">Not shown until reviewed by a person</span>'
-            : '<span class="oc-none">Not assessed</span>';
+        if (r.trial_state) {
+            return stateBadge(r.trial_state, r.assessment_kind) +
+                (r.review_status === 'human_reviewed' ? '<div class="oc-sub">Reviewed by a person</div>' : '');
+        }
+        return r.in_audit
+            ? '<span class="oc-none">Awaiting review</span><div class="oc-sub">Development collection; shown once a person has reviewed it</div>'
+            : '<span class="oc-none">Not assessed</span><div class="oc-sub">Outside the development collection</div>';
     }
 
-    function reviewLabel(r) {
-        if (r.review_status === 'human_reviewed') return 'Reviewed by a person';
-        if (r.review_status === 'awaiting_human_review') return 'Awaiting review';
-        return '';
-    }
+    const pctOf = (num, den) => (den ? Math.round((100 * num) / den) : 0);
+    const figure = (num, den) =>
+        `<span class="oc-fig"><strong>${num.toLocaleString()}</strong> of ${den.toLocaleString()} <span class="oc-pct">${pctOf(num, den)}%</span></span>`;
 
-    function pct(num, den) {
-        return den ? `${num.toLocaleString()} of ${den.toLocaleString()} (${Math.round((100 * num) / den)}%)` : `${num} of 0`;
-    }
+    // ---------------------------------------------------------------- head and overview
 
-    function overviewHTML(run, summary, machineShown) {
-        const den = summary.denominators;
-        const m = Object.fromEntries(summary.metrics.map(x => [x.id, x]));
-        const card = (id, label) => {
-            const x = m[id];
-            if (!x) return '';
-            return `<div class="oc-card"><div class="oc-card-label">${esc(label || x.label)}</div>` +
-                `<div class="oc-card-value">${esc(pct(x.numerator, den[x.denominator].n))}</div>` +
-                `<p class="oc-card-def">${esc(x.definition)} Denominator: ${esc(den[x.denominator].definition.toLowerCase())}</p></div>`;
-        };
-        const noResults = ['no_results_past_window', 'no_results_within_window', 'no_results_status_uncertain', 'no_results_not_applicable']
-            .filter(id => m[id]).map(id => `<li>${esc(m[id].label)}: ${esc(pct(m[id].numerator, den[m[id].denominator].n))}</li>`).join('');
-        const excl = Object.entries(run.cohort.exclusions || {}).filter(([, n]) => n > 0)
+    function headHTML(run) {
+        const excl = Object.entries((run.cohort || {}).exclusions || {}).filter(([, n]) => n > 0)
             .map(([k, n]) => `${n.toLocaleString()} ${esc(EXCLUSION_LABELS[k] || k)}`).join('; ');
-        const kinds = (summary.assessment_states || {}).by_kind || {};
-        const stateRows = Object.keys(kinds).filter(k => k === 'human_reviewed' || machineShown).map(k =>
-            `<tr><th scope="row">${k === 'human_reviewed' ? 'Reviewed by a person' : 'Provisional, machine only'}</th>` +
-            TRIAL_STATES.map(s => `<td>${kinds[k][s]}</td>`).join('') + '</tr>').join('');
         return `
-        <div class="oc-cards">
-            <div class="oc-card"><div class="oc-card-label">Eligible trials</div>
-                <div class="oc-card-value">${run.cohort.n_eligible.toLocaleString()}</div>
-                <p class="oc-card-def">${esc(run.cohort.definition)} Of ${run.cohort.n_frame.toLocaleString()} registry records the query matched${excl ? `, excluded: ${excl}` : ''}.</p></div>
-            ${card('results_posted')}
-            ${card('protocol_or_sap_posted', 'Protocol or SAP posted')}
-            ${card('human_reviewed', 'Assessments reviewed by a person')}
-        </div>
-        <details class="oc-more"><summary>Trials without posted results, and documents</summary>
-            <ul class="oc-list">${noResults}<li>${esc(m.protocol_posted.label)}: ${esc(pct(m.protocol_posted.numerator, den.eligible.n))}</li><li>${esc(m.sap_posted.label)}: ${esc(pct(m.sap_posted.numerator, den.eligible.n))}</li></ul>
-            <p class="note">A posted protocol or SAP is a document that exists, not a decision rule that someone has read and found usable.</p>
-        </details>
-        <div class="oc-states">
-            <h4>Assessments in the development collection</h4>
-            <p class="note">${esc(summary.assessment_states.note)} The development collection is the ${den.audit_eligible.n} eligible trials of the feasibility audit${machineShown ? '' : '; only assessments a person has reviewed are shown'}.</p>
-            <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Assessment states by review status">
-                <table class="oc-table"><thead><tr><th scope="col">Assessment</th>${TRIAL_STATES.map(s =>
-                    `<th scope="col"><span class="oc-swatch st-${s}" aria-hidden="true"></span>${esc(STATE_LABELS[s])}</th>`).join('')}</tr></thead>
-                <tbody>${stateRows || `<tr><td colspan="${TRIAL_STATES.length + 1}">No assessment has been reviewed by a person yet.</td></tr>`}</tbody></table>
-            </div>
+        <div class="oc-head">
+            <h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3>
+            <p class="oc-lede">${run.cohort.n_eligible.toLocaleString()} randomized Phase 3 trials with an industry lead sponsor and primary completion in 2020. For each: what evidence ClinicalTrials.gov makes available, whether a prespecified primary objective can be assessed from it, and, once a person has reviewed it, what that assessment concludes.</p>
+            <p class="oc-dateline"><strong>A fixed cohort</strong>, retrieved from the registry on ${esc(fmtDate((run.acquisition || {}).retrieved_at))}; results availability as of ${esc(fmtDate(run.cutoff))}. It is not refreshed weekly: the “Last updated” date and the snapshot selector at the top of the page belong to the weekly participant-demographics data and do not change this pane.</p>
+            <details class="oc-scope"><summary>Who is included: ${run.cohort.n_eligible.toLocaleString()} of ${run.cohort.n_frame.toLocaleString()} registry records</summary>
+                <p>${esc(run.cohort.definition)}</p>
+                <p>The registry query matched ${run.cohort.n_frame.toLocaleString()} records${excl ? `; excluded: ${excl}` : ''}.${run.cohort.differs_from_frame ? ` ${esc(run.cohort.differs_from_frame)}` : ''}</p>
+            </details>
         </div>`;
     }
+
+    function meterRow(label, num, den, note) {
+        const w = den ? (100 * num) / den : 0;
+        return `
+            <div class="oc-meter-row">
+                <div class="oc-meter-label">${esc(label)}${note ? `<div class="oc-sub">${note}</div>` : ''}</div>
+                <div class="oc-meter" role="img" aria-label="${num.toLocaleString()} of ${den.toLocaleString()} trials (${pctOf(num, den)}%)"><span class="oc-meter-fill" style="width:${w.toFixed(2)}%"></span></div>
+                ${figure(num, den)}
+            </div>`;
+    }
+
+    // The five results states are exclusive and, in a valid build, sum to the eligible count; the
+    // bar is drawn only when the published numerators do, otherwise the list stands alone.
+    const RESULTS_PARTS = [
+        ['results_posted', 'rs-posted', 'Results posted'],
+        ['no_results_past_window', 'rs-past', 'No posted results, past the standard one-year window'],
+        ['no_results_status_uncertain', 'rs-uncertain', 'No posted results, completion not confirmed'],
+        ['no_results_within_window', 'rs-due', 'No posted results, within the standard window'],
+        ['no_results_not_applicable', 'rs-none', 'No posted results, no participants'],
+    ];
+
+    function availabilityHTML(summary) {
+        const den = summary.denominators;
+        const m = Object.fromEntries(summary.metrics.map(x => [x.id, x]));
+        const N = den.eligible.n;
+        const docs = m.protocol_or_sap_posted;
+        const docNote = m.protocol_posted && m.sap_posted
+            ? `protocol ${m.protocol_posted.numerator.toLocaleString()} · statistical analysis plan ${m.sap_posted.numerator.toLocaleString()}` : '';
+        const parts = RESULTS_PARTS.filter(([id]) => m[id]);
+        const total = parts.reduce((s, [id]) => s + m[id].numerator, 0);
+        const bar = total === N && N > 0
+            ? `<div class="oc-split" role="img" aria-label="${parts.map(([id, , label]) => `${label}: ${m[id].numerator} of ${N}`).join('; ')}">` +
+              parts.filter(([id]) => m[id].numerator > 0).map(([id, cls]) => `<span class="oc-seg ${cls}" style="flex-grow:${m[id].numerator}"></span>`).join('') + '</div>'
+            : '';
+        const legend = parts.map(([id, cls, label]) => `
+                <li><span class="oc-swatch ${cls}" aria-hidden="true"></span><span class="oc-split-label">${esc(label)}</span>${figure(m[id].numerator, N)}</li>`).join('');
+        return `
+        <section class="oc-block oc-avail" aria-labelledby="oc-avail-h">
+            <h4 id="oc-avail-h">Evidence available <span class="oc-h-sub">all ${N.toLocaleString()} eligible trials</span></h4>
+            <div class="oc-meters">
+                ${m.results_posted ? meterRow('Results posted on ClinicalTrials.gov', m.results_posted.numerator, N) : ''}
+                ${docs ? meterRow('Protocol or statistical analysis plan posted', docs.numerator, N, esc(docNote)) : ''}
+            </div>
+            <p class="oc-note">Both rows count out of the same ${N.toLocaleString()} trials and overlap: a trial can have both. Neither is a step toward the other. A posted document is a file on the registry; it does not show which analysis it covers, or that it was finalised before results were known.</p>
+            <h5 class="oc-sub-h">Results status <span class="oc-h-sub">each trial in exactly one state</span></h5>
+            ${bar}
+            <ul class="oc-split-legend">${legend}</ul>
+            <p class="oc-note">Posted results show that results exist, not that the trial met its objective. A trial without posted results has not failed; the state says why results are absent. “Past the standard window” is a timing fact, not a finding of non-compliance.</p>
+        </section>`;
+    }
+
+    function taxonomyHTML() {
+        return `
+            <details class="oc-taxonomy"><summary>The eight assessment states</summary>
+                <ul class="oc-taxo">${TRIAL_STATES.map(s => `<li>${stateBadge(s)}</li>`).join('')}</ul>
+                <p class="oc-note">“Met” and “did not meet” are decided against the trial's own prespecified criterion. The other states say why no decision can be made, or why none applies. None of them measures clinical importance or regulatory approval.</p>
+            </details>`;
+    }
+
+    function reviewHTML(run, summary, machineShown) {
+        const den = summary.denominators;
+        const m = Object.fromEntries(summary.metrics.map(x => [x.id, x]));
+        const n = den.audit_eligible.n;
+        const reviewed = m.human_reviewed ? m.human_reviewed.numerator : 0;
+        const audit = (run.collections || {}).audit || {};
+        const cells = Array.from({ length: n }, (_, i) => `<span class="oc-cell${i < reviewed ? ' is-reviewed' : ''}"></span>`).join('');
+        const kinds = (summary.assessment_states || {}).by_kind || {};
+        const rows = Object.keys(kinds).filter(k => k === 'human_reviewed' || machineShown);
+        const anyCount = rows.some(k => TRIAL_STATES.some(s => kinds[k][s] > 0));
+        const body = anyCount
+            ? `<div class="oc-table-scroll" tabindex="0" role="region" aria-label="Assessment states, development collection">
+                <table class="oc-table oc-state-table"><thead><tr><th scope="col">State</th>${rows.map(k =>
+                    `<th scope="col" class="num">${k === 'human_reviewed' ? 'Reviewed by a person' : 'Provisional, machine only'}</th>`).join('')}</tr></thead>
+                <tbody>${TRIAL_STATES.map(s => `<tr><th scope="row">${stateBadge(s)}</th>${rows.map(k => `<td class="num">${kinds[k][s]}</td>`).join('')}</tr>`).join('')}</tbody></table>
+               </div>
+               <p class="oc-note">${esc(summary.assessment_states.note)} Counts are of the development collection's ${n} eligible trials, not of the cohort.</p>`
+            : `<div class="oc-empty">
+                <p class="oc-empty-lead">No assessment has been reviewed by a person yet, so none is shown.</p>
+                <dl class="oc-empty-dl">
+                    <dt>Available now</dt><dd>Registry evidence for all ${den.eligible.n.toLocaleString()} trials: results status, dates, registered primary outcomes and posted documents. Open any trial below.</dd>
+                    <dt>What review adds</dt><dd>For each reviewed trial: whether its prespecified primary objective was met, not met, or cannot be determined from the evidence, with the decision criterion, the reported finding and the cited sources, and the reviewer's decision (confirm, amend or cannot determine).</dd>
+                    <dt>What it will not say</dt><dd>Clinical importance, regulatory approval, or a success rate for any sponsor, drug or the cohort.</dd>
+                </dl>
+              </div>`;
+        return `
+        <section class="oc-block oc-review" aria-labelledby="oc-review-h">
+            <h4 id="oc-review-h">Review progress <span class="oc-h-sub">development collection, ${n} eligible trials</span></h4>
+            <p class="oc-note">${esc(audit.definition || 'The development collection.')} A separate set with its own denominator; it is not drawn on the cohort's scale.</p>
+            <div class="oc-progress">
+                <div class="oc-cells" role="img" aria-label="${reviewed} of ${n} reviewed by a person">${cells}</div>
+                ${figure(reviewed, n)}<span class="oc-progress-label">reviewed by a person</span>
+            </div>
+            ${body}
+            ${taxonomyHTML()}
+        </section>`;
+    }
+
+    // Kept for callers and tests: the evidence and review sections together.
+    function overviewHTML(run, summary, machineShown) {
+        return availabilityHTML(summary) + reviewHTML(run, summary, machineShown);
+    }
+
+    function methodsHTML(run, summary) {
+        const m = Object.fromEntries(summary.metrics.map(x => [x.id, x]));
+        const N = summary.denominators.eligible.n;
+        const sa = run.sponsor_attribution || {};
+        const ls = sa.lead_review_states || {};
+        const dl = run.demographics_link || {};
+        const acq = run.acquisition || {};
+        const meth = run.method || {};
+        const short = s => (s ? `${String(s).slice(0, 12)}…` : 'not recorded');
+        const defs = Object.values(m).filter(x => x.denominator === 'eligible')
+            .map(x => `<li><strong>${esc(x.label)}</strong>: ${esc(x.definition)} (${x.numerator.toLocaleString()} of ${N.toLocaleString()})</li>`).join('');
+        return `
+        <details class="oc-methods"><summary>Methods and provenance</summary>
+            <h5>Definitions, as published with this build</h5>
+            <ul class="oc-def-list">${defs}</ul>
+            <h5>Sponsors</h5>
+            <p>${sa.method ? `Names follow the ${esc(sa.method)} where a lead sponsor has been reviewed (${(ls.attributed || 0).toLocaleString()} trials); otherwise the registered name is shown as registered (${(ls.unreviewed || 0).toLocaleString()} trials).` : 'Sponsor names as registered.'}${sa.n_differs_from_industry_recode != null ? ` For ${sa.n_differs_from_industry_recode.toLocaleString()} trials the name differs from the Participant demographics view's company grouping, which this pane does not change.` : ''}</p>
+            <h5>Link to the participant-demographics data</h5>
+            <p>${m.demographics_linked ? `${m.demographics_linked.numerator.toLocaleString()} of ${N.toLocaleString()} trials appear in the participant-demographics dataset` : 'The link was not computed for this build'}${dl.n_in_industry_demographics_cohort != null ? `, ${dl.n_in_industry_demographics_cohort.toLocaleString()} of them in its Industry cohort` : ''}${dl.site_snapshot_date ? `, as of that dataset's ${esc(fmtDate(dl.site_snapshot_date))} data` : ''}. The two views have different cohorts and dates.</p>
+            <h5>This build</h5>
+            <dl class="oc-prov-dl">
+                <dt>Run</dt><dd><code>${esc(run.run_id)}</code>, generated ${esc(fmtDate(run.generated_at))}${run.producer ? ` by ${esc(run.producer.repository)} <code>${esc(short(run.producer.commit))}</code>` : ''}</dd>
+                <dt>Registry data</dt><dd>${esc(acq.source || '')}, retrieved ${esc(fmtDate(acq.retrieved_at))}, ${acq.n_records != null ? `${acq.n_records.toLocaleString()} records, ` : ''}sha256 <code>${esc(short(acq.sha256_uncompressed))}</code></dd>
+                <dt>Method</dt><dd>Version ${esc(meth.version || 'not recorded')}, rules <code>${esc(short(meth.rules_sha256))}</code>, assessment cutoff ${esc(fmtDate(meth.assessment_cutoff || run.cutoff))}</dd>
+                <dt>Display</dt><dd>${run.display_mode === 'evidence_only' ? 'Evidence only: registry evidence, and assessments a person has reviewed' : 'Provisional preview (local only)'}</dd>
+            </dl>
+        </details>`;
+    }
+
+    // ---------------------------------------------------------------- the trial browser
 
     function optionList(rows, key, current, all) {
         const vals = [...new Set(rows.map(r => r[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -253,15 +367,15 @@
     function filtersHTML(rows, f) {
         const sel = (v, cur) => (v === cur ? ' selected' : '');
         return `
-        <div class="oc-filters panel-chrome">
-            <label class="oc-filter oc-search"><span>Search</span><input type="search" data-of="q" value="${esc(f.q || '')}" placeholder="NCT id, title, sponsor, objective"></label>
+        <div class="oc-filters">
+            <label class="oc-filter oc-search"><span>Search</span><input type="search" data-of="q" value="${esc(f.q || '')}" placeholder="NCT id, title, sponsor, primary outcome"></label>
             <label class="oc-filter"><span>Results</span><select data-of="results">
                 <option value="">All</option><option value="POSTED"${sel('POSTED', f.results)}>Posted</option>
                 <option value="NO_RESULTS"${sel('NO_RESULTS', f.results)}>No posted results</option>
                 <option value="UNREPORTED"${sel('UNREPORTED', f.results)}>No posted results, past the standard window</option>
                 <option value="PENDING_DUE"${sel('PENDING_DUE', f.results)}>No posted results, not yet due</option>
                 <option value="PENDING_UNCERTAIN"${sel('PENDING_UNCERTAIN', f.results)}>No posted results, completion not confirmed</option>
-                <option value="NOT_APPLICABLE"${sel('NOT_APPLICABLE', f.results)}>Not applicable</option></select></label>
+                <option value="NOT_APPLICABLE"${sel('NOT_APPLICABLE', f.results)}>No posted results, no participants</option></select></label>
             <label class="oc-filter"><span>Area</span><select data-of="area">${optionList(rows, 'area', f.area, 'All areas')}</select></label>
             <label class="oc-filter"><span>Sponsor</span><select data-of="sponsor">${optionList(rows, 'sponsor', f.sponsor, 'All sponsors')}</select></label>
             <label class="oc-filter"><span>Documents</span><select data-of="docs">
@@ -275,30 +389,32 @@
         </div>`;
     }
 
+    const HEAD = ['Trial', 'Sponsor', 'Primary outcome', 'Results', 'Assessment'];
+
     function listHTML(rows, run, shown) {
-        const head = ['Trial', 'Sponsor', 'Area', 'Primary objective', 'Results', 'Assessment', 'Review'];
         const body = rows.slice(0, shown).map(r => `
-            <tr>
-                <td><button type="button" class="oc-open" data-nct="${esc(r.nct_id)}" aria-label="Open the evidence for ${esc(r.nct_id)}">${esc(r.nct_id)}</button>
-                    <div class="oc-title">${esc(r.title)}</div>${r.in_audit ? '<span class="oc-tag">Development collection</span>' : ''}</td>
-                <td>${esc(r.sponsor)}${r.sponsor_state !== 'attributed' ? '<div class="oc-sub">as registered; not yet curated</div>' : ''}</td>
-                <td>${esc(r.area)}</td>
-                <td>${esc(r.primary_objective || 'Not registered')}${r.n_primary_outcomes > 1 ? `<div class="oc-sub">+${r.n_primary_outcomes - 1} more primary</div>` : ''}</td>
-                <td>${esc(resultsLabel(r, run.cutoff))}</td>
-                <td>${assessmentCell(r)}</td>
-                <td>${esc(reviewLabel(r))}</td>
+            <tr data-row="${esc(r.nct_id)}">
+                <td data-label="Trial"><button type="button" class="oc-open" data-nct="${esc(r.nct_id)}" aria-expanded="false" aria-controls="oc-detail">${esc(r.nct_id)}<span class="oc-open-hint" aria-hidden="true">Evidence</span><span class="oc-vh"> — show the evidence</span></button>
+                    <div class="oc-title">${esc(r.title)}</div>
+                    <div class="oc-sub">${esc([r.area, r.area_secondary].filter(Boolean).join(' · '))}${r.in_audit ? ' <span class="oc-tag">Development collection</span>' : ''}</div></td>
+                <td data-label="Sponsor">${esc(r.sponsor)}${r.sponsor_state !== 'attributed' ? '<div class="oc-sub">as registered; not yet curated</div>' : ''}</td>
+                <td data-label="Primary outcome">${r.primary_objective ? esc(r.primary_objective) : '<span class="oc-none">None registered</span>'}${r.n_primary_outcomes > 1 ? `<div class="oc-sub">and ${r.n_primary_outcomes - 1} more primary outcome${r.n_primary_outcomes > 2 ? 's' : ''}</div>` : ''}</td>
+                <td data-label="Results"><span class="oc-state"><span class="oc-swatch ${resultsClass(r)}" aria-hidden="true"></span>${esc(resultsLabel(r, run.cutoff))}</span></td>
+                <td data-label="Assessment">${assessmentCell(r)}</td>
             </tr>`).join('');
         const more = rows.length > shown ? `<button type="button" class="oc-more-btn">Show ${Math.min(PAGE, rows.length - shown)} more of ${(rows.length - shown).toLocaleString()}</button>` : '';
         return `
-        <p class="oc-count" aria-live="polite">${rows.length.toLocaleString()} trial${rows.length === 1 ? '' : 's'} match</p>
-        <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Trials">
-            <table class="oc-table oc-trials"><thead><tr>${head.map(h => `<th scope="col">${h}</th>`).join('')}</tr></thead>
-            <tbody>${body || `<tr><td colspan="${head.length}">No trial matches these filters.</td></tr>`}</tbody></table>
+        <p class="oc-count" aria-live="polite">${rows.length.toLocaleString()} trial${rows.length === 1 ? '' : 's'} match${rows.length > shown ? `; showing ${shown.toLocaleString()}` : ''}</p>
+        <div class="oc-table-wrap" role="region" aria-label="Trials">
+            <table class="oc-table oc-trials"><thead><tr>${HEAD.map(h => `<th scope="col">${h}</th>`).join('')}</tr></thead>
+            <tbody>${body || `<tr class="oc-empty-row"><td colspan="${HEAD.length}"><p class="oc-empty-lead">No trial matches these filters.</p><p class="oc-note">Clear the search or set a filter back to “All”.</p></td></tr>`}</tbody></table>
         </div>${more}`;
     }
 
+    // ---------------------------------------------------------------- the evidence record
+
     function evidenceList(items) {
-        if (!items || !items.length) return '';
+        if (!items || !items.length) return '<span class="oc-absent">No citation recorded</span>';
         return '<ul class="oc-evidence">' + items.map(e => e.document
             ? `<li><span class="oc-loc">${esc(e.document)}, page ${esc(e.page)}</span> <q>${esc(e.quotation)}</q></li>`
             : `<li><code class="oc-loc">${esc(e.json_path)}</code> <q>${esc(e.excerpt)}</q></li>`).join('') + '</ul>';
@@ -310,14 +426,36 @@
         if (rep.paramType) parts.push(`${rep.paramType} ${rep.paramValue ?? ''}`.trim());
         if (rep.ciLowerLimit != null || rep.ciUpperLimit != null) parts.push(`${rep.ciPctValue || '?'}% CI ${rep.ciLowerLimit ?? '?'} to ${rep.ciUpperLimit ?? '?'}${rep.ciNumSides === 'ONE_SIDED' ? ' (one-sided)' : ''}`);
         if (rep.pValue) parts.push(`p ${rep.pValue}`);
+        if (rep.statisticalMethod) parts.push(rep.statisticalMethod);
         return parts.join('; ') || 'No estimate posted.';
     }
 
     function ruleLine(rule) {
-        if (!rule) return '';
-        if (rule.margin != null) return `Margin ${Array.isArray(rule.margin) ? rule.margin.join(' and ') : rule.margin} (${rule.margin_side} limit), from ${String(rule.source || '').toLowerCase().replace(/_/g, ' ')}`;
-        if (rule.alpha != null) return `Threshold ${rule.alpha}${rule.alpha_sides ? `, ${rule.alpha_sides}-sided` : ''}, from ${String(rule.source || '').toLowerCase().replace(/_/g, ' ')}`;
-        return 'No threshold or margin stated in the registry (the protocol or SAP may state one)';
+        if (!rule) return 'No decision criterion recorded.';
+        const src = String(rule.source || '').toLowerCase().replace(/_/g, ' ');
+        if (rule.margin != null) return `Margin ${Array.isArray(rule.margin) ? rule.margin.join(' and ') : rule.margin} on the ${rule.margin_side || 'unstated'} confidence limit${src ? `, from ${src}` : ''}`;
+        if (rule.alpha != null) return `Significance threshold ${rule.alpha}${rule.alpha_sides ? `, ${rule.alpha_sides}-sided` : ''}${src ? `, from ${src}` : ''}`;
+        return 'No threshold or margin is stated in the registry (the protocol or SAP may state one).';
+    }
+
+    const words = s => String(s || '').toLowerCase().replace(/_/g, ' ');
+
+    function unitHTML(u, kind) {
+        const objective = [esc(u.measure_title), u.time_frame ? esc(u.time_frame) : '<span class="oc-absent">time frame not stated</span>'].join(' — ');
+        const comparison = u.group_titles && u.group_titles.length ? esc(u.group_titles.join(' vs ')) : '<span class="oc-absent">compared groups not identified</span>';
+        return `
+            <div class="oc-unit">
+                <h6><span class="oc-unit-id">${esc(u.au_id)}</span> ${esc(u.measure_title)}</h6>
+                <dl class="oc-grid">
+                    <dt>Objective</dt><dd>${objective}<div class="oc-sub">${u.hypothesis_type ? esc(words(u.hypothesis_type)) : 'hypothesis type not stated'}; ${esc(words(u.analysis_role) || 'no analysis')}${u.part ? `; part ${esc(u.part)}` : ''}</div></dd>
+                    <dt>Comparison</dt><dd>${comparison}</dd>
+                    <dt>Analysis population</dt><dd><span class="oc-absent">Not recorded in this release</span></dd>
+                    <dt>Decision criterion</dt><dd>${esc(ruleLine(u.decision_rule))}</dd>
+                    <dt>Reported finding</dt><dd>${esc(reportedLine(u.reported))}</dd>
+                    <dt>Interpretation</dt><dd>${stateBadge(u.state, kind)}${u.amended_by_review ? ' <span class="oc-tag">amended by review</span>' : ''}<div>${esc(u.sub_reason ? REASONS[u.sub_reason] || '' : u.rationale || '')}</div></dd>
+                    <dt>Sources</dt><dd>${evidenceList(u.evidence)}</dd>
+                </dl>
+            </div>`;
     }
 
     function recordHTML(rec, run, machineShown) {
@@ -325,59 +463,63 @@
         let a = rec.assessment;
         if (a && a.assessment_kind === 'machine_provisional' && !machineShown) a = null;
         const docs = f.documents.length
-            ? '<ul class="oc-list">' + f.documents.map(d => `<li><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.label)}</a> (registry date ${esc(fmtDate(d.document_date))})</li>`).join('') + '</ul>'
-            : '<p>No protocol or statistical analysis plan is posted on the registry.</p>';
+            ? `<table class="oc-table oc-doc-table"><thead><tr><th scope="col">Document</th><th scope="col">Registry date</th><th scope="col">Uploaded</th></tr></thead><tbody>${
+                f.documents.map(d => `<tr><td><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.label)}</a></td><td>${esc(fmtDate(d.document_date)) || '<span class="oc-absent">not stated</span>'}</td><td>${esc(fmtDate(d.upload_date)) || '<span class="oc-absent">not stated</span>'}</td></tr>`).join('')}</tbody></table>
+               <p class="oc-note">A posted document is a file on the registry; it does not show which analysis it covers, or that it was finalised before results were known.</p>`
+            : '<p><span class="oc-absent">No protocol or statistical analysis plan is posted on the registry.</span></p>';
         const results = rec.results.state === 'POSTED'
-            ? `<p>Results posted ${esc(fmtDate(f.results_first_post_date))}.</p>`
-            : `<p><strong>No posted results as of ${esc(fmtDate(rec.results.as_of))}.</strong> ${esc(REASONS[rec.results.sub_reason] || '')}</p>`;
-        const units = a ? (a.units || []).map(u => `
-            <div class="oc-unit">
-                <h6>${esc(u.au_id)}: ${esc(u.measure_title)}</h6>
-                <p class="oc-sub">${esc((u.analysis_role || 'no analysis').toLowerCase().replace(/_/g, ' '))}; ${esc((u.hypothesis_type || '').toLowerCase().replace(/_/g, ' '))}${u.group_titles ? `; ${esc(u.group_titles.join(' vs '))}` : ''}</p>
-                <p><span class="oc-layer">Reported</span> ${esc(reportedLine(u.reported))}</p>
-                <p><span class="oc-layer">Rule</span> ${esc(ruleLine(u.decision_rule))}</p>
-                <p><span class="oc-layer">Conclusion</span> ${stateBadge(u.state, a.assessment_kind)}${u.amended_by_review ? ' <span class="oc-tag">amended by review</span>' : ''} ${esc(u.sub_reason ? REASONS[u.sub_reason] || '' : u.rationale || '')}</p>
-                ${evidenceList(u.evidence)}
-            </div>`).join('') : '';
+            ? `Posted ${esc(fmtDate(f.results_first_post_date))}`
+            : `<strong>No posted results as of ${esc(fmtDate(rec.results.as_of))}.</strong> ${esc(REASONS[rec.results.sub_reason] || '')}`;
+        const outcomes = f.registered_primary_outcomes.length
+            ? '<ul class="oc-list">' + f.registered_primary_outcomes.map(o => `<li>${esc(o.measure)}${o.time_frame ? ` <span class="oc-sub">— ${esc(o.time_frame)}</span>` : ''}</li>`).join('') + '</ul>'
+            : '<span class="oc-absent">None registered</span>';
         const method = a ? `
             <p>${stateBadge(a.trial_state, a.assessment_kind)}</p>
             <p>${esc(a.trial_sub_reason ? REASONS[a.trial_sub_reason] || a.trial_rationale : a.trial_rationale)}</p>
-            <p class="oc-sub">Multiplicity: ${esc((a.multiplicity || '').toLowerCase().replace(/_/g, ' '))}. Method ${esc(a.method_version)}, assessed as of ${esc(fmtDate(a.assessment_cutoff))}. Registration ${esc((a.prespecification || {}).registration_timing || '').toLowerCase()}.</p>
-            ${units}`
-            : `<p>${rec.collections.audit ? 'This trial is in the development collection; its assessment has not been reviewed by a person and is not shown here.' : 'Not assessed: only trials in the development collection are assessed in this beta.'}</p>`;
+            <dl class="oc-grid oc-grid-trial">
+                <dt>Multiplicity</dt><dd>${esc(words(a.multiplicity)) || '<span class="oc-absent">not recorded</span>'}</dd>
+                <dt>Prespecification</dt><dd>Registration ${esc(words((a.prespecification || {}).registration_timing)) || 'timing not recorded'}${(a.prespecification || {}).level ? `, level ${esc(a.prespecification.level)}` : ''}</dd>
+                <dt>Method</dt><dd>Version ${esc(a.method_version)}, assessed as of ${esc(fmtDate(a.assessment_cutoff))}</dd>
+            </dl>
+            ${(a.units || []).map(u => unitHTML(u, a.assessment_kind)).join('')}`
+            : `<p>${rec.collections.audit
+                ? '<strong>Awaiting review.</strong> This trial is in the development collection; its assessment is shown only after a person has reviewed it.'
+                : '<strong>Not assessed.</strong> Only trials in the development collection are assessed in this beta; that says nothing about this trial.'}</p>`;
         const review = a && a.assessment_kind === 'human_reviewed'
-            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${evidenceList(a.human_evidence)}`
+            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
             : `<p>${a ? '<span class="oc-prov">Provisional, machine only</span> No person has reviewed this assessment.' : 'No person has reviewed an assessment of this trial.'}</p>`;
         const link = rec.demographics_link
             ? (rec.demographics_link.in_dataset
                 ? `In the participant-demographics dataset (sex ${rec.demographics_link.sex_reported ? 'reported' : 'not reported'}, race ${rec.demographics_link.race_reported ? 'reported' : 'not reported'}, ethnicity ${rec.demographics_link.ethnicity_reported ? 'reported' : 'not reported'}).`
                 : 'Not in the participant-demographics dataset.')
             : 'Link to the participant-demographics dataset not computed for this build.';
+        const enrol = f.enrollment != null ? `${Number(f.enrollment).toLocaleString()} enrolled${f.enrollment_type === 'ESTIMATED' ? ' (estimated)' : ''}` : '';
         return `
-        <div class="oc-panel-head">
-            <h4>${esc(rec.nct_id)}</h4>
-            <button type="button" class="oc-close" aria-label="Close the evidence panel">Close</button>
+        <div class="oc-detail-head">
+            <div>
+                <p class="oc-detail-title">${esc(f.brief_title)}</p>
+                <p class="oc-sub">${esc(rec.sponsor.display)}${rec.sponsor.review_state !== 'attributed' ? ' (as registered; not yet curated)' : ''} · ${esc([rec.area.primary, rec.area.secondary].filter(Boolean).join(' · '))}${f.overall_status ? ` · ${esc(words(f.overall_status))}` : ''}${enrol ? ` · ${esc(enrol)}` : ''} · <a href="${esc(rec.registry_url)}" target="_blank" rel="noopener">ClinicalTrials.gov record</a></p>
+            </div>
+            <button type="button" class="oc-close">Close<span class="oc-vh"> the evidence for ${esc(rec.nct_id)}</span></button>
         </div>
-        <p class="oc-panel-title">${esc(f.brief_title)}</p>
-        <p class="oc-sub">${esc(rec.sponsor.display)}${rec.sponsor.review_state !== 'attributed' ? ' (sponsor name as registered)' : ''} · ${esc(rec.area.primary)} · ${esc(f.overall_status || '')} · <a href="${esc(rec.registry_url)}" target="_blank" rel="noopener">ClinicalTrials.gov record</a></p>
-        <section class="oc-layer-block"><h5>What the registry reports</h5>
-            ${results}
-            <p>Primary completion ${esc(fmtDate(f.primary_completion_date))}${f.primary_completion_type === 'ESTIMATED' ? ' (estimated)' : ''}${f.why_stopped ? `; stopped: ${esc(f.why_stopped)}` : ''}.</p>
-            <p>Registered primary outcome${f.registered_primary_outcomes.length === 1 ? '' : 's'}:</p>
-            <ul class="oc-list">${f.registered_primary_outcomes.map(o => `<li>${esc(o.measure)}${o.time_frame ? ` (${esc(o.time_frame)})` : ''}</li>`).join('') || '<li>None registered</li>'}</ul>
-            ${docs}
-        </section>
-        <section class="oc-layer-block"><h5>What the method concludes</h5>${method}</section>
-        <section class="oc-layer-block"><h5>What a person checked</h5>${review}</section>
-        <section class="oc-layer-block"><h5>Dates and links</h5>
-            <p>Results availability as of ${esc(fmtDate(run.cutoff))}; registry record last updated ${esc(fmtDate(f.last_update_post_date))}${a ? `; assessment as of ${esc(fmtDate(a.assessment_cutoff))}` : ''}${run.dates && run.dates.demographics_snapshot ? `; demographics data of ${esc(fmtDate(run.dates.demographics_snapshot))}` : ''}.</p>
-            <p>${esc(link)}</p>
-        </section>`;
+        <div class="oc-layers">
+            <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">1</span> What the registry reports</h5>
+                <dl class="oc-grid">
+                    <dt>Primary outcome${f.registered_primary_outcomes.length === 1 ? '' : 's'}</dt><dd>${outcomes}</dd>
+                    <dt>Results</dt><dd>${results}</dd>
+                    <dt>Primary completion</dt><dd>${esc(fmtDate(f.primary_completion_date)) || '<span class="oc-absent">not stated</span>'}${f.primary_completion_type === 'ESTIMATED' ? ' (estimated)' : ''}${f.why_stopped ? `; stopped: ${esc(f.why_stopped)}` : ''}</dd>
+                    <dt>Documents</dt><dd>${docs}</dd>
+                </dl>
+            </section>
+            <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">2</span> What the method concludes</h5>${method}</section>
+            <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">3</span> What a person checked</h5>${review}</section>
+        </div>
+        <p class="oc-note oc-detail-dates">Dates and links. Results availability as of ${esc(fmtDate(run.cutoff))}; registry record last updated ${esc(fmtDate(f.last_update_post_date))}${a ? `; assessment as of ${esc(fmtDate(a.assessment_cutoff))}` : ''}${run.dates && run.dates.demographics_snapshot ? `; demographics data of ${esc(fmtDate(run.dates.demographics_snapshot))}` : ''}. ${esc(link)}</p>`;
     }
 
     // ---------------------------------------------------------------- the live view
 
-    const state = { data: null, filters: {}, shown: PAGE, shards: {}, opener: null, request: 0 };
+    const state = { data: null, filters: {}, shown: PAGE, shards: {}, opener: null, openNct: null, request: 0 };
 
     async function load(fetchJSON) {
         const get = async (path, reload) => fetchJSON(BASE + path, reload);
@@ -392,11 +534,16 @@
         return { run, summary, index, get };
     }
 
+    function currentRows() {
+        const { run, index } = state.data;
+        const host = (root.location && root.location.hostname) || '';
+        return filterRows(visibleRows(index.rows, run, host), state.filters);
+    }
+
     function render(el) {
         const { run, summary, index } = state.data;
         const host = (root.location && root.location.hostname) || '';
         const machineShown = showsMachine(run, host);
-        const rows = filterRows(visibleRows(index.rows, run, host), state.filters);
         const banner = run.display_mode === 'provisional_preview'
             ? (machineShown
                 ? '<div class="oc-banner" role="note"><strong>Local preview.</strong> Provisional machine assessments are shown and labelled; no person has reviewed them. Never publish this build.</div>'
@@ -404,29 +551,28 @@
             : '';
         el.innerHTML = `
             ${banner}
-            <div class="panel-hero">
-                <h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3>
-                <div class="industry-claim">
-                    <p class="finding-headline">Which 2020 industry Phase 3 trials posted results, and what their records let anyone conclude.</p>
-                    <p class="finding-context">evidence availability &middot; traceable assessments &middot; reviewed by a person before they count</p>
-                </div>
-                <p class="note">Results availability as of ${esc(fmtDate(run.cutoff))}. Not a success rate for any sponsor, drug or the cohort.</p>
-            </div>
-            ${overviewHTML(run, summary, machineShown)}
-            <h4 class="oc-section">Trials</h4>
-            ${filtersHTML(index.rows, state.filters)}
-            <div class="oc-list-wrap">${listHTML(rows, run, state.shown)}</div>
-            <div class="oc-panel" id="oc-panel" role="region" aria-label="Trial evidence" tabindex="-1" hidden></div>
+            ${headHTML(run)}
+            ${availabilityHTML(summary)}
+            ${reviewHTML(run, summary, machineShown)}
+            <section class="oc-block oc-browser" aria-labelledby="oc-browser-h">
+                <h4 id="oc-browser-h">Trials <span class="oc-h-sub">search and filter the ${index.rows.length.toLocaleString()} eligible trials; open one to read its evidence in place</span></h4>
+                ${filtersHTML(index.rows, state.filters)}
+                <div class="oc-list-wrap">${listHTML(currentRows(), run, state.shown)}</div>
+            </section>
+            ${methodsHTML(run, summary)}
             <p class="chart-footnote">Run ${esc(run.run_id)}. A fixed registry pull, retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))} and not refreshed weekly; method ${esc((run.method || {}).version || 'not supplied')}; sponsor names by the curated rules where reviewed, otherwise as registered.</p>`;
         wire(el);
     }
 
+    // Re-draw the list after a filter or "show more", keeping an open record open (without moving
+    // focus) when its trial is still listed.
     function rerenderList(el) {
-        const { run, index } = state.data;
-        const host = (root.location && root.location.hostname) || '';
-        const rows = filterRows(visibleRows(index.rows, run, host), state.filters);
-        el.querySelector('.oc-list-wrap').innerHTML = listHTML(rows, run, state.shown);
+        el.querySelector('.oc-list-wrap').innerHTML = listHTML(currentRows(), state.data.run, state.shown);
         wireList(el);
+        const nct = state.openNct;
+        const opener = nct && [...el.querySelectorAll('.oc-open')].find(b => b.dataset.nct === nct);
+        if (opener) openRecord(el, nct, opener, state.data, mountDetail, { focus: false });
+        else { state.openNct = null; state.opener = null; state.request++; }
     }
 
     function wire(el) {
@@ -441,22 +587,40 @@
     }
 
     function wireList(el) {
-        el.querySelectorAll('.oc-open').forEach(b => b.addEventListener('click', () => openRecord(el, b.dataset.nct, b)));
+        el.querySelectorAll('.oc-open').forEach(b => b.addEventListener('click', () => {
+            if (b.getAttribute('aria-expanded') === 'true') closeRecord(el);
+            else openRecord(el, b.dataset.nct, b);
+        }));
         const more = el.querySelector('.oc-more-btn');
         if (more) more.addEventListener('click', () => { state.shown += PAGE; rerenderList(el); });
     }
 
-    // data defaults to the loaded view's; tests pass their own.
-    async function openRecord(el, nct, opener, data = state.data) {
+    // The evidence opens in a row directly under its trial, so the list keeps its place. One record
+    // is open at a time; the region is #oc-detail, which the open trial's button controls.
+    function mountDetail(el, opener) {
+        el.querySelectorAll('.oc-detail-row').forEach(n => n.remove());
+        el.querySelectorAll('.oc-open[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+        const tr = opener.closest('tr');
+        const row = document.createElement('tr');
+        row.className = 'oc-detail-row';
+        row.innerHTML = `<td colspan="${HEAD.length}"><div class="oc-detail" id="oc-detail" role="region" tabindex="-1" aria-label="Evidence for ${esc(opener.dataset.nct)}"></div></td>`;
+        tr.after(row);
+        opener.setAttribute('aria-expanded', 'true');
+        return row.querySelector('.oc-detail');
+    }
+
+    // data and mount default to the live view's; tests pass their own.
+    async function openRecord(el, nct, opener, data = state.data, mount = mountDetail, opts = {}) {
         const { run, index, get } = data;
         const row = index.rows.find(r => r.nct_id === nct);
-        const panel = el.querySelector('#oc-panel');
         // The latest selection wins: a record that arrives after another trial was opened (or the
-        // panel closed) is dropped, with its error and its focus move.
+        // record closed) is dropped, with its error and its focus move.
         const request = ++state.request;
         state.opener = opener;
+        state.openNct = nct;
+        const panel = mount(el, opener);
         panel.hidden = false;
-        panel.innerHTML = '<p class="note">Loading the evidence record…</p>';
+        panel.innerHTML = '<p class="oc-note">Loading the evidence record…</p>';
         let html;
         try {
             let shard = state.shards[row.record];
@@ -472,21 +636,30 @@
             const host = (root.location && root.location.hostname) || '';
             html = recordHTML(rec, run, showsMachine(run, host));
         } catch (e) {
-            html = `<p class="note">Could not load the evidence record (${esc(e.message)}).</p><button type="button" class="oc-close">Close</button>`;
+            html = `<div class="oc-detail-head"><p class="oc-note">Could not load the evidence record (${esc(e.message)}).</p><button type="button" class="oc-close">Close</button></div>`;
         }
         if (request !== state.request) return;
         panel.innerHTML = html;
         panel.querySelector('.oc-close').addEventListener('click', () => closeRecord(el));
-        panel.focus();
-        if (panel.scrollIntoView) panel.scrollIntoView({ block: 'nearest' });
+        if (panel.addEventListener) panel.addEventListener('keydown', e => { if (e.key === 'Escape') { e.preventDefault(); closeRecord(el); } });
+        if (opts.focus !== false) {
+            // Keep the reader's place: focus without scrolling, and scroll only when the evidence
+            // would start below the fold, and then just far enough to put the trial's row on top.
+            panel.focus({ preventScroll: true });
+            const rowEl = panel.closest ? (panel.closest('tr') || {}).previousElementSibling : null;
+            const vh = root.innerHeight || 0;
+            if (rowEl && panel.getBoundingClientRect && panel.getBoundingClientRect().top > vh - 160) rowEl.scrollIntoView({ block: 'start' });
+        }
     }
 
     function closeRecord(el) {
         state.request++;   // any record still loading is now stale
-        const panel = el.querySelector('#oc-panel');
-        panel.hidden = true;
-        panel.innerHTML = '';
-        if (state.opener && state.opener.isConnected) state.opener.focus();
+        el.querySelectorAll('.oc-detail-row').forEach(n => n.remove());
+        el.querySelectorAll('.oc-open[aria-expanded="true"]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+        const opener = state.opener;
+        state.openNct = null;
+        state.opener = null;
+        if (opener && opener.isConnected) opener.focus();
     }
 
     // deps.fetchJSON(path, reload) -> parsed JSON; throws on HTTP errors.
@@ -507,6 +680,7 @@
 
     root.IndustryOutcomes = {
         open, openRecord, dataProblem, shardProblem, filterRows, visibleRows, showsMachine, resultsLabel, fmtDate,
-        overviewHTML, filtersHTML, listHTML, recordHTML, TRIAL_STATES, STATE_LABELS, REASONS,
+        overviewHTML, availabilityHTML, reviewHTML, headHTML, methodsHTML, filtersHTML, listHTML, recordHTML,
+        TRIAL_STATES, STATE_LABELS, REASONS,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

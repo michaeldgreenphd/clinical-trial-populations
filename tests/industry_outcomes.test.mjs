@@ -63,7 +63,8 @@ test('machine assessments show only on a local preview, labelled; never on a pub
   assert.match(local, /Provisional, machine only/);
   const pub = O.listHTML(publicRows, p.run, 100);
   assert.doesNotMatch(pub, /Provisional, machine only/);
-  assert.match(pub, /Not shown until reviewed by a person/);
+  assert.match(pub, /Awaiting review/);
+  assert.match(pub, /shown once a person has reviewed it/);
   const rec = p.shards['records/r02.json'].records.NCT99000002;
   assert.doesNotMatch(O.recordHTML(rec, p.run, false), /Provisional, machine only|past the standard window<\/span>/);
   assert.match(O.recordHTML(rec, p.run, true), /Provisional, machine only/);
@@ -122,14 +123,15 @@ test('absence is worded as a dated fact, never as non-compliance or a confidence
 test('the overview names every denominator and lists all eight states', () => {
   const p = family('provisional_preview');
   const html = O.overviewHTML(p.run, p.summary, true);
-  assert.match(html, /2 of 6 \(33%\)/);                 // results posted, of the eligible trials
-  assert.match(html, /1 of 3 \(33%\)/);                 // reviewed by a person, of the eligible audit trials
-  assert.doesNotMatch(html.replace(/\d+ of \d+ \(\d+%\)/g, ''), /\d+%/, 'a percentage without its denominator');
+  const FIG = /<span class="oc-fig"><strong>\d+<\/strong> of \d+ <span class="oc-pct">\d+%<\/span><\/span>/g;
+  assert.match(html, /<strong>2<\/strong> of 6 <span class="oc-pct">33%<\/span>/);   // results posted, of the eligible trials
+  assert.match(html, /<strong>1<\/strong> of 3 <span class="oc-pct">33%<\/span>/);   // reviewed by a person, of the eligible audit trials
+  assert.doesNotMatch(html.replace(FIG, '').replace(/\(\d+%\)/g, '').replace(/style="[^"]*"/g, ''), /\d+%/, 'a percentage without its denominator');
   for (const s of O.TRIAL_STATES) assert.ok(html.includes(O.STATE_LABELS[s]), `overview drops ${s}`);
   assert.match(html, /Not a success rate|not a success rate/i);
   const pub = O.overviewHTML(p.run, p.summary, false);
   assert.doesNotMatch(pub, /Provisional, machine only/);
-  assert.match(pub, /document that exists, not a decision rule/);
+  assert.match(pub, /does not show which analysis it covers, or that it was finalised before results were known/);
 });
 
 test('the evidence panel keeps registry, method and person apart, with dates', () => {
@@ -145,9 +147,56 @@ test('the evidence panel keeps registry, method and person apart, with dates', (
   assert.match(html, /demographics data of 8 Nov 2026/);
   const withdrawn = O.recordHTML(f.shards['records/r04.json'].records.NCT99000004, f.run, false);
   assert.match(withdrawn, /No posted results as of 9 Nov 2026/);
-  assert.match(withdrawn, /Not assessed: only trials in the development collection/);
+  assert.match(withdrawn, /Not assessed\.<\/strong> Only trials in the development collection are assessed/);
   const hostile = clone(rec); hostile.facts.brief_title = '<img src=x onerror=alert(1)>';
   assert.doesNotMatch(O.recordHTML(hostile, f.run, false), /<img/);
+});
+
+test('evidence availability: overlapping measures on one scale, exclusive results states as one split', () => {
+  const { summary } = family('evidence_only');
+  const html = O.availabilityHTML(summary);
+  assert.match(html, /overlap: a trial can have both\. Neither is a step toward the other/);
+  assert.equal((html.match(/class="oc-meter-row"/g) || []).length, 2);
+  assert.match(html, /class="oc-split"/, 'the five exclusive states sum to the eligible count, so the split is drawn');
+  assert.match(html, /not that the trial met its objective/);
+  assert.match(html, /A trial without posted results has not failed/);
+  const broken = clone(summary); broken.metrics.find((m) => m.id === 'no_results_past_window').numerator += 1;
+  assert.doesNotMatch(O.availabilityHTML(broken), /class="oc-split"/, 'parts that do not sum to the whole draw no split');
+});
+
+test('review progress has its own denominator, and an empty state while nothing is reviewed', () => {
+  const { run, summary } = family('evidence_only');
+  const html = O.reviewHTML(run, summary, false);
+  assert.match(html, /its own denominator; it is not drawn on the cohort's scale/);
+  assert.equal((html.match(/class="oc-cell( is-reviewed)?"/g) || []).length, summary.denominators.audit_eligible.n);
+  assert.match(html, /oc-state-table/, 'the fixture has a reviewed assessment, so counts are shown');
+  const none = clone(summary);
+  none.metrics.find((m) => m.id === 'human_reviewed').numerator = 0;
+  for (const s of O.TRIAL_STATES) none.assessment_states.by_kind.human_reviewed[s] = 0;
+  const empty = O.reviewHTML(run, none, false);
+  assert.match(empty, /No assessment has been reviewed by a person yet, so none is shown/);
+  assert.match(empty, /What review adds/);
+  assert.match(empty, /Clinical importance, regulatory approval, or a success rate/);
+  assert.doesNotMatch(empty, /oc-state-table/, 'no table of zeros');
+  for (const s of O.TRIAL_STATES) assert.ok(empty.includes(O.STATE_LABELS[s]), `the taxonomy keeps ${s}`);
+  assert.equal((empty.match(/class="oc-cell is-reviewed"/g) || []).length, 0);
+});
+
+test('the list keeps not assessed, awaiting review and reviewed apart; the record states missing fields', () => {
+  const f = family('evidence_only');
+  const html = O.listHTML(f.index.rows, f.run, 100);
+  assert.match(html, /Not assessed<\/span><div class="oc-sub">Outside the development collection/);
+  assert.match(html, /Reviewed by a person/);
+  assert.match(html, /aria-expanded="false" aria-controls="oc-detail"/);
+  assert.match(O.listHTML([], f.run, 100), /No trial matches these filters/);
+  const rec = f.shards['records/r01.json'].records.NCT99000001;
+  const rec1 = O.recordHTML(rec, f.run, false);
+  assert.match(rec1, /<dt>Analysis population<\/dt><dd><span class="oc-absent">Not recorded in this release/);
+  for (const k of ['Objective', 'Comparison', 'Decision criterion', 'Reported finding', 'Interpretation', 'Sources']) {
+    assert.ok(rec1.includes(`<dt>${k}</dt>`), k);
+  }
+  const nodocs = clone(rec); nodocs.facts.documents = [];
+  assert.match(O.recordHTML(nodocs, f.run, false), /No protocol or statistical analysis plan is posted on the registry/);
 });
 
 test('an evidence record that arrives after another trial was opened is dropped', async () => {
@@ -158,8 +207,9 @@ test('an evidence record that arrives after another trial was opened is dropped'
     querySelector() { return { addEventListener() {} }; } };
   const el = { querySelector: () => panel };
   const data = { run: f.run, index: f.index, get };
-  const a = O.openRecord(el, 'NCT99000001', null, data);   // records/r01.json
-  const b = O.openRecord(el, 'NCT99000002', null, data);   // records/r02.json
+  const mount = () => panel;
+  const a = O.openRecord(el, 'NCT99000001', null, data, mount);   // records/r01.json
+  const b = O.openRecord(el, 'NCT99000002', null, data, mount);   // records/r02.json
   pending['records/r02.json']();
   await b;
   assert.match(panel.innerHTML, /NCT99000002/);
