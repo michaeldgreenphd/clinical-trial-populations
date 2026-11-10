@@ -5812,12 +5812,12 @@ footer p {
 .oc-count { font-size: var(--fs-small); color: var(--text-secondary); margin: 0 0 0.4rem; font-variant-numeric: tabular-nums; }
 .oc-table-wrap { overflow-x: auto; max-width: 100%; }
 .oc-trials { font-size: var(--fs-body); }
-.oc-trials td:nth-child(1) { width: 34%; }
-.oc-trials td:nth-child(2) { width: 14%; }
-.oc-trials td:nth-child(3) { width: 24%; }
-.oc-trials td:nth-child(4) { width: 14%; font-size: var(--fs-small); }
-.oc-trials td:nth-child(5) { width: 14%; font-size: var(--fs-small); }
-.oc-trials tbody tr:not(.oc-detail-row):hover { background: var(--tint); }
+.oc-trials > tbody > tr > td:nth-child(1) { width: 34%; }
+.oc-trials > tbody > tr > td:nth-child(2) { width: 14%; }
+.oc-trials > tbody > tr > td:nth-child(3) { width: 24%; }
+.oc-trials > tbody > tr > td:nth-child(4) { width: 14%; font-size: var(--fs-small); }
+.oc-trials > tbody > tr > td:nth-child(5) { width: 14%; font-size: var(--fs-small); }
+.oc-trials > tbody > tr:not(.oc-detail-row):hover { background: var(--tint); }
 .oc-open { font: inherit; font-family: var(--font-mono); font-size: var(--fs-small); background: none; border: none; padding: 0; color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .oc-open-hint { margin-left: 0.5rem; font-family: var(--font-sans); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; display: inline-block; color: var(--text-secondary); }
 .oc-open-hint::after { content: ' ▸'; }
@@ -5826,7 +5826,7 @@ footer p {
 .oc-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .oc-more-btn { margin-top: 0.6rem; font: inherit; padding: 0.4rem 0.9rem; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--card-background); cursor: pointer; }
 .oc-empty-row td { padding: 1.25rem 0.6rem; }
-.oc-trials tr:has(+ .oc-detail-row) > td { border-bottom-color: transparent; background: var(--tint); }
+.oc-trials > tbody > tr:has(+ .oc-detail-row) > td { border-bottom-color: transparent; background: var(--tint); }
 
 /* The evidence record, opened in place under its row. */
 .oc-detail-row > td { padding: 0 0 1rem; background: var(--tint); }
@@ -5859,11 +5859,11 @@ footer p {
 @media (max-width: 720px) {
     .oc-meter-row { grid-template-columns: 1fr auto; }
     .oc-meter-row .oc-meter { grid-column: 1 / -1; grid-row: 2; }
-    .oc-trials, .oc-trials tbody, .oc-trials tr, .oc-trials td { display: block; width: auto !important; }
-    .oc-trials thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-    .oc-trials tr:not(.oc-detail-row) { padding: 0.6rem 0; border-bottom: 1px solid var(--oc-rule); }
-    .oc-trials td { border: none; padding: 0.15rem 0; }
-    .oc-trials td:not(:first-child)::before { content: attr(data-label); display: block; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-top: 0.35rem; }
+    .oc-trials, .oc-trials > tbody, .oc-trials > tbody > tr, .oc-trials > tbody > tr > td { display: block; width: auto !important; }
+    .oc-trials > thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+    .oc-trials > tbody > tr:not(.oc-detail-row) { padding: 0.6rem 0; border-bottom: 1px solid var(--oc-rule); }
+    .oc-trials > tbody > tr > td { border: none; padding: 0.15rem 0; }
+    .oc-trials > tbody > tr > td:not(:first-child)::before { content: attr(data-label); display: block; font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-top: 0.35rem; }
     .oc-detail { margin: 0; padding: 0.75rem; }
     .oc-grid, .oc-empty-dl, .oc-prov-dl { grid-template-columns: 1fr; gap: 0.1rem; }
     .oc-grid > dd, .oc-empty-dl dd, .oc-prov-dl dd { margin-bottom: 0.4rem; }
@@ -5878,5 +5878,5 @@ footer p {
 @keyframes oc-in { from { opacity: 0.4; } to { opacity: 1; } }
 /* Secondary text on the tint ground uses the darker absent ink (5.1:1; the default grey is 4.3:1). */
 .oc-empty-dl dt, .oc-empty .oc-note,
-.oc-trials tbody tr:hover .oc-sub, .oc-trials tbody tr:hover .oc-open-hint,
-.oc-trials tr:has(+ .oc-detail-row) .oc-sub, .oc-trials tr:has(+ .oc-detail-row) .oc-open-hint { color: var(--c-absent-ink); }
+.oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-sub, .oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-open-hint,
+.oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-sub, .oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-open-hint { color: var(--c-absent-ink); }

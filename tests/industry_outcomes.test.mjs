@@ -241,3 +241,14 @@ test('app.js switches panes, hides the global filters on outcomes and keeps pane
   // data/outcomes/ is committed once published; tests/outcomes_publication.test.mjs refuses a preview build there.
   assert.doesNotMatch(read('.gitignore'), /^data\/outcomes\/$/m);
 });
+
+test('trial-table layout rules reach only the outer table, not the nested document table', () => {
+  // The open evidence record holds its own table (.oc-doc-table) inside .oc-trials. A descendant
+  // selector such as `.oc-trials td` or `.oc-trials thead` would also hide that table's column
+  // headings at phone width and leave its registry and upload dates unlabelled.
+  const css = read('styles.css');
+  const leaks = css.match(/\.oc-trials\s+(?:thead|tbody|tr|td|th)\b/g) || [];
+  assert.deepEqual(leaks, []);
+  assert.match(css, /\.oc-trials > thead \{ position: absolute;/);
+  assert.match(css, /\.oc-trials > tbody > tr > td:not\(:first-child\)::before/);
+});
