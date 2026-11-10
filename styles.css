@@ -5867,11 +5867,22 @@ footer p {
     .oc-detail { margin: 0; padding: 0.75rem; }
     .oc-grid, .oc-empty-dl, .oc-prov-dl { grid-template-columns: 1fr; gap: 0.1rem; }
     .oc-grid > dd, .oc-empty-dl dd, .oc-prov-dl dd { margin-bottom: 0.4rem; }
+    /* An open row keeps only its toggle: the evidence panel right below repeats the title,
+       sponsor and area in its head, and the results, primary outcomes and assessment in its
+       layers, so the stacked row would put a screen of duplicate text above the evidence. */
+    .oc-trials > tbody > tr:has(+ .oc-detail-row) > td:not(:first-child),
+    .oc-trials > tbody > tr:has(+ .oc-detail-row) > td:first-child > :not(.oc-open) { display: none; }
+    .oc-trials > tbody > tr:has(+ .oc-detail-row) { padding-bottom: 0.25rem; border-bottom: none; }
+    /* A section's sub-heading that wraps starts at the left edge, not indented by its inline gap. */
+    .oc-h-sub { display: block; margin: 0.15rem 0 0; }
 }
 @media (max-width: 480px) {
     .industry-pane-switch .view-btn { padding: 0.5rem 0.7rem; font-size: var(--fs-small); }
     .oc-filter select { max-width: 100%; }
-    .oc-filters .oc-filter { flex: 1 1 100%; }
+    /* Search on its own row, the six selects two per row: the first trial starts after four
+       rows of controls instead of seven. */
+    .oc-filters .oc-filter { flex: 1 1 calc(50% - 0.5rem); }
+    .oc-filters .oc-search { flex-basis: 100%; }
     .oc-detail-head { flex-direction: column; }
 }
 @media (prefers-reduced-motion: no-preference) { .oc-detail { animation: oc-in 120ms ease-out; } }

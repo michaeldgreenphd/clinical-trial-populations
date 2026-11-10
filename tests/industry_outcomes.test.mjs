@@ -252,3 +252,23 @@ test('trial-table layout rules reach only the outer table, not the nested docume
   assert.match(css, /\.oc-trials > thead \{ position: absolute;/);
   assert.match(css, /\.oc-trials > tbody > tr > td:not\(:first-child\)::before/);
 });
+
+test('phone layout: an open row keeps only its toggle, and the selects sit two per row', () => {
+  const css = read('styles.css');
+  // The rules live in the outcomes pane's own narrow blocks (the stylesheet has other 720px
+  // and 480px blocks), so locate them by the selector that only the outcomes block uses.
+  const narrowAt = css.indexOf('.oc-meter-row { grid-template-columns: 1fr auto; }');
+  const phoneAt = css.indexOf('.industry-pane-switch .view-btn { padding: 0.5rem 0.7rem;');
+  assert.ok(narrowAt > 0 && phoneAt > narrowAt);
+  const narrow = css.slice(narrowAt, phoneAt);
+  // The evidence panel repeats every cell of the row it opens under, so the stacked row
+  // hides all but the toggle while open, and only while open.
+  assert.match(narrow, /tr:has\(\+ \.oc-detail-row\) > td:not\(:first-child\),\s*\.oc-trials > tbody > tr:has\(\+ \.oc-detail-row\) > td:first-child > :not\(\.oc-open\) \{ display: none; \}/);
+  const phone = css.slice(phoneAt, css.indexOf('}', css.indexOf('.oc-detail-head { flex-direction: column; }', phoneAt)));
+  assert.match(phone, /\.oc-filters \.oc-filter \{ flex: 1 1 calc\(50% - 0\.5rem\); \}/);
+  assert.match(phone, /\.oc-filters \.oc-search \{ flex-basis: 100%; \}/);
+  // The panel head still carries what the hidden cells showed.
+  const src = read('industry_outcomes.js');
+  assert.match(src, /<p class="oc-detail-title">\$\{esc\(f\.brief_title\)\}<\/p>/);
+  assert.match(src, /\$\{esc\(rec\.sponsor\.display\)\}/);
+});
