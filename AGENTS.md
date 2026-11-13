@@ -227,10 +227,10 @@ executes is JavaScript.
 * **Generator (Claude Code):** writes implementations, structures multi-file
   edits, runs the local checks, and opens the pull request. It states what it
   verified and how, and says plainly what it did not do.
-* **Reviewers (Codex, Copilot):** audit for security, data-loss and
-  correctness; check that the numbers a change renders still match the
-  published files; check UI consistency. Do not report formatting or lint
-  nits, and do not report a stylistic preference as a finding unless it
+* **Reviewer (Codex):** audits for security, data-loss and
+  correctness; checks that the numbers a change renders still match the
+  published files; checks UI consistency. Does not report formatting or lint
+  nits, and does not report a stylistic preference as a finding unless it
   violates a constraint stated in this file.
 
 ## Coding constraints
