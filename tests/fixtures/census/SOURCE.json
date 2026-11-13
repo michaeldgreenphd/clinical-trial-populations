@@ -1,0 +1,4 @@
+{
+ "about": "A fictional census benchmark family in site schema 1, written by hand for tests/census_benchmarks.test.mjs. No real area, trial or figure.",
+ "schema": "civicsample-engine scripts/census/export_site.py"
+}

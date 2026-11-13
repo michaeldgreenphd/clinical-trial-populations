@@ -1,0 +1,29 @@
+{
+ "schema_version": 1,
+ "run_id": "census-data-2099-01-01-fixture0000",
+ "cohort_funnel": {
+  "records": 1000,
+  "us_one_listed_facility": 400
+ },
+ "reference_population_fit": {
+  "contextual": 340,
+  "general": 60
+ },
+ "dimensions": {
+  "race": {
+   "reported": 300,
+   "not_reported": 100,
+   "pooled": 250
+  },
+  "ethnicity": {
+   "reported": 300,
+   "not_reported": 100,
+   "pooled": 250
+  },
+  "sex": {
+   "reported": 300,
+   "not_reported": 100,
+   "pooled": 250
+  }
+ }
+}

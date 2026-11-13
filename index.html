@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261110-outcomes-phone1">
+    <link rel="stylesheet" href="styles.css?v=20261113-census1">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -740,6 +740,14 @@
 
         <!-- Geography Tab -->
         <section id="geography" class="tab-content">
+            <!-- Two views with different sources and dates: the pinned AACT geography run below, and
+                 site-area population benchmarks from the Census Bureau's ACS (census_benchmarks.js,
+                 data/census/). app.js switches between them (setGeographyPane). -->
+            <div class="geography-view-toggle geography-pane-switch" id="geography-pane-switch" role="group" aria-label="Geography view">
+                <button type="button" class="view-btn active" data-gpane="registry" aria-pressed="true">Where trials are sited</button>
+                <button type="button" class="view-btn" data-gpane="census" aria-pressed="false">Site-area benchmarks (US)</button>
+            </div>
+            <div class="chart-container census-benchmarks-pane" id="geography-census-pane" hidden></div>
             <div class="chart-row">
                 <!-- Tier 1: this tab's framing statement is its finding. -->
                 <div class="chart-container panel-hero geography-chart-wide">
@@ -1709,6 +1717,7 @@
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
     <script defer src="industry_outcomes.js?v=20261110-outcomes-design1"></script>
-    <script defer src="app.js?v=20261109-outcomes1"></script>
+    <script defer src="census_benchmarks.js?v=20261113-census1"></script>
+    <script defer src="app.js?v=20261113-census1"></script>
 </body>
 </html>
