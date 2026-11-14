@@ -41,6 +41,9 @@ const lineSource = (start) => {
 const SOURCES = [
     'let breakdownToken = 0; let studyModalToken = 0;',
     lineSource('const overlayOpeners = '),
+    lineSource('let activatingControl = null;'),
+    lineSource('const OPENER_SELECTOR = '),
+    fnSource('function initOverlayOpeners()'),
     lineSource('const TAB_STOP_SELECTOR = '),
     fnSource('function drawOverlay(id, html, redraw)'),
     fnSource('function markDialog(overlay, id)'),
@@ -236,7 +239,12 @@ const BREAKDOWN = `<div class="breakdown-modal">
 
 function harness() {
     const doc = makeDoc();
-    const context = vm.createContext({ document: doc, window: {} });
+    // Document listeners (initOverlayOpeners) and timers, run when the test
+    // says: a click's handlers finish before its setTimeout callbacks.
+    const listeners = [];
+    doc.addEventListener = (type, fn, capture) => listeners.push({ type, fn, capture: !!capture });
+    const timers = [];
+    const context = vm.createContext({ document: doc, window: {}, setTimeout: (fn) => timers.push(fn) });
     contexts.set(doc, context);
     vm.runInContext(SOURCES, context);
     const run = (src) => vm.runInContext(src, context);
@@ -251,7 +259,15 @@ function harness() {
         return event;
     };
     const name = (el) => (el === doc.body ? 'page' : el.id === 'faq-link' ? 'faq-link' : (el.attrs.class || el.tagName.toLowerCase()).split(' ')[0]);
-    return { doc, run, overlay, dialog, press, name, active: () => doc.activeElement };
+    // A pointer click on `el` that does not focus it (Safari), whose onclick
+    // runs `handler`: the document's capture listeners, then the handler, then
+    // the timers the click left.
+    const click = (el, handler) => {
+        for (const l of listeners) if (l.type === 'click' && l.capture) l.fn({ target: el });
+        run(handler);
+        timers.splice(0).forEach((fn) => fn());
+    };
+    return { doc, run, overlay, dialog, press, name, click, active: () => doc.activeElement };
 }
 
 // Open the race breakdown from its badge in the first row, as a click does.
@@ -460,4 +476,34 @@ test('when a link in the pop-up switched tabs, closing focuses the tab now on sc
     const again = openFromBadge(h);
     h.press('Escape');
     same(h.active(), again);
+});
+
+test('a clicked badge that the browser did not focus (Safari) still gets focus back', () => {
+    // Safari does not focus a button it clicks, so document.activeElement is
+    // the page, or whatever had focus before, when the pop-up opens.
+    const h = harness();
+    h.run('initOverlayOpeners()');
+    const badge = h.doc.getElementById('studies-table-body').querySelector('.demo-badge');
+    const faq = h.doc.getElementById('faq-link');
+    faq.focus();   // focused earlier; the click does not move it
+    // The click lands on the badge's check mark, inside the button.
+    badge.append(h.doc.node('span', { class: 'demo-badge-check' }));
+    h.click(badge.firstElementChild, `drawOverlay('breakdown-overlay', ${JSON.stringify(BREAKDOWN)}, false)`);
+    same(h.active(), h.dialog(), 'the pop-up did not take focus');
+    h.press('Escape');
+    same(h.active(), badge, 'focus went back to the control focused before the click, not the badge clicked');
+    // From the page itself (nothing focused), by its Close button.
+    h.doc.activeElement = h.doc.body;
+    h.click(badge, `drawOverlay('breakdown-overlay', ${JSON.stringify(BREAKDOWN)}, false)`);
+    h.dialog().querySelector('.modal-close-btn').click();
+    same(h.active(), badge);
+    // Once the click is handled it is forgotten: a later opening without a
+    // click takes what has focus.
+    const plus = h.doc.getElementById('studies-table-body').querySelector('.details-btn');
+    plus.focus();
+    h.run(`drawOverlay('breakdown-overlay', ${JSON.stringify(BREAKDOWN)}, false)`);
+    h.press('Escape');
+    same(h.active(), plus, 'a click already handled named the opener of a later pop-up');
+    // Wired at startup, beside the nav menus.
+    assert.match(app.slice(app.indexOf('async function'), app.indexOf('function initNavGroups()')), /initNavGroups\(\);[\s\S]{0,200}initOverlayOpeners\(\);/, 'initOverlayOpeners is not called at startup');
 });

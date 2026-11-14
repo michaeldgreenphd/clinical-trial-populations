@@ -1972,6 +1972,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
+        // Pop-ups note the control that opened them, clicked or not focused.
+        initOverlayOpeners();
         // A shared snapshot link (?sgsnapshot=, desktop only) opens that
         // snapshot in place of the latest data, never after it.
         const requested = requestedSnapshot();
@@ -3330,13 +3332,30 @@ function drawOverlay(id, html, redraw) {
             || overlay.querySelector('.close-btn, .modal-close-btn');
         if (target) target.focus({ preventScroll: true });
     } else if (!open) {
-        overlayOpeners[id] = openerOf(active);
+        overlayOpeners[id] = openerOf(activatingControl || active);
         if (dialog) dialog.focus({ preventScroll: true });
     }
 }
 
-// What had focus when each pop-up opened, by overlay id (openerOf).
+// What opened each pop-up, by overlay id (openerOf).
 const overlayOpeners = {};
+
+// The control a click is activating, while that click is being handled (an
+// Enter or Space on a button arrives as a click too). drawOverlay takes it as
+// a pop-up's opener ahead of document.activeElement: Safari does not focus a
+// button it clicks, so activeElement can be the page, or a control focused
+// earlier, and focus would not come back to the badge. Noted in the capture
+// phase, before the control's own onclick runs, and cleared once the click's
+// handlers are done.
+let activatingControl = null;
+function initOverlayOpeners() {
+    document.addEventListener('click', (e) => {
+        const control = e.target && e.target.closest ? e.target.closest(OPENER_SELECTOR) : null;
+        activatingControl = control;
+        setTimeout(() => { if (activatingControl === control) activatingControl = null; }, 0);
+    }, true);
+}
+const OPENER_SELECTOR = 'button, a[href], summary, [role="button"]';
 
 // The overlay's box as a modal dialog, named by its heading. It takes focus
 // (tabindex -1) without becoming a Tab stop, so a click on its text keeps
