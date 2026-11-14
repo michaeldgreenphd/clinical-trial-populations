@@ -262,5 +262,17 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
   // Regression (Codex, PR 285): with 25 or 50 sponsors per page and the sponsor set back on Top 10, Reset
   // hid itself while the page size stayed, and it came back with the all-sponsors scope.
   assert.match(isDefault, /industryRowsPerPage === INDUSTRY_ROWS_DEFAULT/, 'a non-default page size does not show Reset');
+  // Regression (Codex, PR 285): the options note said the sponsor set applies to every comparison, but the
+  // adjusted view never reads industryScope and hides that control. The role does reach it (lead-only fits).
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const optionsNote = html.match(/<details class="industry-options"[\s\S]*?<\/details>/)?.[0] || '';
+  assert.doesNotMatch(optionsNote, /sponsor set apply to every comparison/i, 'the sponsor set is said to change the adjusted estimates');
+  assert.match(optionsNote, /Sponsor set applies to the heatmap and trend only/, 'the options note no longer limits the sponsor set');
+  assert.doesNotMatch(forest, /industryScope/, 'the adjusted view now reads the sponsor set; revise the options note');
+  assert.match(forest, /industryRole === 'lead'/, 'the adjusted view no longer follows the role; revise the options note');
+  // Regression (Codex, PR 285): the empty heatmap pointed to condition controls "above"; they follow the table.
+  assert.match(app, /No condition columns selected\. Use Top 10 or Choose conditions under Condition columns, below,/);
+  assert.ok(html.indexOf('id="industry-view-heatmap"') < html.indexOf('id="industry-condition-controls"'),
+    'the condition controls are no longer below the heatmap; revise the empty-state wording');
   assert.match(app, /let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;/, 'the opening page size and the Reset default differ');
 });

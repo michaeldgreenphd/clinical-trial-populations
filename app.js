@@ -12855,7 +12855,7 @@ function renderIndustryHeatmap(rows) {
     const conditions = industryVisibleConditions(available);
     renderIndustryConditionControls(available, conditions);
     if (!conditions.length) {
-        host.innerHTML = `<p class="note">${available.length ? 'No condition columns selected. Use Choose conditions or Top conditions above to populate the table.' : 'No conditions have reporting trials under the current filters.'}</p>`;
+        host.innerHTML = `<p class="note">${available.length ? 'No condition columns selected. Use Top 10 or Choose conditions under Condition columns, below, to populate the table.' : 'No conditions have reporting trials under the current filters.'}</p>`;
         return;
     }
     const topN = d.top_n || 10;
