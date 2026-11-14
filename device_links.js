@@ -707,7 +707,9 @@
             ${recordsBlock(d.bySource[s.id] || [], d.evidence, ctx, s.empty)}`).join('');
         let aside;
         if (!nSetAside) aside = '<p class="note">No record was set aside by rule here.</p>';
-        else if (state.setAsideError) aside = `<p class="note" role="alert">Could not load the set-aside records (${esc(state.setAsideError)}).</p>`;
+        // A failed load keeps a button: the file is asked for again on the next press.
+        else if (state.setAsideError) aside = `<p class="note" role="alert">Could not load the set-aside records (${esc(state.setAsideError)}).</p>
+            <button type="button" class="dl-btn" data-dl-setaside="1"${state.setAsideLoading ? ' disabled' : ''}>${state.setAsideLoading ? 'Loading…' : 'Try again'}</button>`;
         else if (state.setAside && state.showSetAside) {
             const records = sources.flatMap(s => state.setAside.bySource[s.id] || []);
             aside = `<div class="dl-setaside" id="dl-setaside" tabindex="-1">
@@ -1017,13 +1019,14 @@
         async function showSetAside() {
             const request = state.request;
             if (!state.setAside) {
-                state.setAsideLoading = true; state.setAsideError = null;
+                state.setAsideLoading = true;
                 draw('[data-dl-setaside]');
                 try {
                     const file = await data.current('evidence_set_aside.json');
                     const problem = dataProblem(data.run, data.summary, { setAside: file });
                     if (problem) throw new Error(problem);
                     state.setAside = { file, bySource: indexBySource(file) };
+                    state.setAsideError = null;
                 } catch (err) { state.setAsideError = String((err && err.message) || err); }
                 state.setAsideLoading = false;
                 if (request !== state.request) return;

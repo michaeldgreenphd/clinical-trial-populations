@@ -5953,6 +5953,8 @@ footer p {
     .cb-controls { gap: 0.6rem 0.75rem; }
     .cb-toggle .view-btn { padding: 0.45rem 0.6rem; font-size: var(--fs-small); }
     .cb-withheld-list { columns: 1; }
+}
+
 /* ── AI Devices tab: pane switch and the Study links and evidence pane (device_links.js) ──
    Tables and quoted text, no charts: every figure is a published count beside the unit it
    counts. A record's level (submission or family) and a draft review are told apart by words

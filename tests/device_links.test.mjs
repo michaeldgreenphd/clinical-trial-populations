@@ -533,6 +533,46 @@ test('the manifest is read past the cache, and a file from an earlier build is r
   assert.match(el.innerHTML, /NCT99000004/);
 });
 
+test('a failed load of the set-aside records keeps a button that asks again', async () => {
+  const f = family(); const L = fresh(); const { el, click, focused } = pane();
+  let fail = true; const asked = [];
+  const fetchJSON = (path, reload) => {
+    if (path.endsWith('evidence_set_aside.json')) {
+      asked.push(Boolean(reload));
+      if (fail) return Promise.reject(new Error('HTTP 503'));
+    }
+    return serve(f)(path);
+  };
+  await L.open(el, { fetchJSON, storage: null });
+  click({ dlOpen: 'K990003' }); await tick(); await tick();
+  click({ dlSetaside: '1' }); await tick(); await tick();
+  assert.match(text(el.innerHTML), /Could not load the set-aside records \(HTTP 503\)\./);
+  assert.match(el.innerHTML, /data-dl-setaside="1">Try again<\/button>/);
+  assert.doesNotMatch(el.innerHTML, /NCT99000004/);
+  fail = false;
+  click({ dlSetaside: '1' }); await tick(); await tick();
+  assert.equal(asked.length, 2, 'asked once more');
+  assert.doesNotMatch(el.innerHTML, /Could not load the set-aside records/);
+  assert.match(el.innerHTML, /NCT99000004/);
+  assert.equal(focused.at(-1), '#dl-setaside');
+});
+
+test('the stylesheet is balanced: every rule block that opens is closed', () => {
+  // The site has no build step, so a brace left open is served as committed and can swallow every
+  // rule after it into a media query.
+  const css = read('styles.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  let depth = 0;
+  for (const ch of css) {
+    depth += ch === '{' ? 1 : ch === '}' ? -1 : 0;
+    assert.ok(depth >= 0, 'a block closes that was never opened');
+  }
+  assert.equal(depth, 0, 'a block is left open');
+  // the device pane's rules stand at the top level, outside any media query
+  const at = css.indexOf('.ai-devices-pane-switch {');
+  let d = 0; for (const ch of css.slice(0, at)) d += ch === '{' ? 1 : ch === '}' ? -1 : 0;
+  assert.equal(d, 0, 'the AI Devices rules are not nested in another block');
+});
+
 test('absent data says so, and data that fails the contract is refused rather than half-drawn', async () => {
   const f = family();
   let L = fresh(); let p = pane();
