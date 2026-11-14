@@ -1,8 +1,8 @@
 {
  "build_files": {
-  "areas.json": "4a6b74161db0747d0ad4bad861adee8b6e567e572f7ad4490ae70b5cf9e92b7c",
-  "summary.json": "f5060ce7aee9ea7af1d481d91b8851cc862c93752d2ecfea49c98c12871e7c11",
-  "trials.jsonl.gz": "ef827e9321cc3f222572d5121ce9347d08f4d0d7d42c3c8dcf46be7ffdf85556"
+  "areas.json": "867cec48e2011829de3bc6a72298b35641d77f4c2d47240fef203e39b79b297e",
+  "summary.json": "909512d2dc71edbf5df36443ac597c85fdd8c36c0ceba86e3a7021946fc196f2",
+  "trials.jsonl.gz": "c7964ccffb6bdec4378f421e1e53cf263dd642240a0577e1cd84a9f32613802f"
  },
  "comparison_label": "site-area population benchmark",
  "default_level": {
@@ -11,12 +11,12 @@
   "reason": "Widest coverage among local levels and stable estimates; reflects commuting patterns. A default for display, not a claim about where participants live."
  },
  "files": {
-  "areas.ethnicity.json": "4014875bff0b47182cceeb647b3a6972862a63212adf44564d64af98081d5454",
-  "areas.race.json": "d5834578216bbac9a9ab928edbe948a30bdfc1382d763ff0bb1ef027afb486dc",
-  "areas.sex.json": "f5286e605b77996cb284917bc0f0037080180bb0840801e6427b6ed50f23021c",
-  "summary.json": "d2bd0eb9aee8ba6900cf2119194e1a5b26f98ea172f7c459108cbbf4b385a6ae"
+  "areas.ethnicity.json": "30757cf7fccdf0aa01fd4f7ab98330ba4440362418cb90ef7639aea7aa55c652",
+  "areas.race.json": "454418b02accd2b89a42da461a736c518578228f2f826cfb46bb866ff2c7257c",
+  "areas.sex.json": "7e3ff3c120513ceb3fb90e9885b7d90dd7481fca272f8f6eb6ca7ef155cbbabc",
+  "summary.json": "c28e966d1f65fb49600016e695853ba29a2dbb2eb57e5995722a40b798fbe960"
  },
- "generated_at": "2026-11-14T00:53:58+00:00",
+ "generated_at": "2026-11-14T01:17:17+00:00",
  "limitations": [
   "The reference population is a proxy for a potential recruitment population: residents of the area around the listed site who meet the registered age and sex eligibility. It is not where participants live, the study catchment, the population with the condition, or an enrolment target. A referral centre may recruit nationally.",
   "One listed facility is not proof of a single-site study, and the registration is read as it stands today; earlier versions and the historical recruitment location are not examined.",
@@ -46,13 +46,13 @@
  },
  "population_basis": "ClinicalTrials.gov baseline characteristics: participants in the baseline analysis population, all arms combined",
  "producer": {
-  "commit": "0295a6fe444579fe15ca514ff6d7735f66a4f474",
+  "commit": "cc15b60c9808144171a12c912fc9a0a8cd0f10d6",
   "repository": "civicsample-engine",
   "uncommitted_changes": false
  },
  "product": "ACS 5-year estimates (90% margins of error)",
  "registry_retrieved_at": "2026-11-13T22:40:25+00:00",
- "run_id": "census-data-2026-11-08-0295a6fe44-be9a23b5",
+ "run_id": "census-data-2026-11-08-cc15b60c98-855408f1",
  "schema_version": 1,
  "site_basis": "one_listed_facility",
  "source_release": {
