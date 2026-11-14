@@ -1,17 +1,17 @@
 {
  "build_files": {
-  "coverage.json": "6ab65275124f04d1e62fc1634ee2cfbe69f727f2412202967e54be4e0663b059",
-  "demographics.json": "c7479917cc656c1fc03bd61ba04a26678781eb804a720dacc4c87373be7d3f1f",
-  "documents.json": "4a4e00249f9dde7b527741fdd40b7d46e7202441c23723c5067c06ec83464ba0",
-  "families.json": "c830226aa294d7130702f7a3e04bbf6fbb29e2456b5a141d787c8f3410ac7f5f",
-  "links.json": "988799fdd170de1530662bb4938505e7780ed8793b697f5a7f6a745ec122deba",
-  "organizations.json": "19e5b4af34c1e02c55ed7298843fd666cbdbf5a0d6dbfc63811d010da446028f",
-  "review_queue.json": "29d251102e918f77c1e99681789bd94c5473803671c42ae39da4e3cb1e208dd6",
-  "studies.json": "e4c9a54fe6c5556080060f6206d4906ebcb5e4be8c5a8e2745ca06484d3920d3",
-  "submissions.json": "832e5204b4ef861e8852d1956bd8b1d7d83e04e46242faecf1e1c2059b6e07c4",
-  "summary.json": "adf52f79399baf025648eef3a7de47845bdeef2dde95386bf03344ea96871e8b"
+  "coverage.json": "27f11932661c0e428e8ad59ca34f089e00f0cb7f7cc8d33895ca79bd7b9c9042",
+  "demographics.json": "b4d0c97eeb0de3960531a5c66d36c25fb4dd3e557316d35daa3c6c6884977dc5",
+  "documents.json": "909be329befe6adf639e6692def7b234571e8725c4559f203c886012fda0dd52",
+  "families.json": "326c2cefe747ac57cc5fd142f3390b2e6c631d05576ebe39113074ce089529a2",
+  "links.json": "7a65b8871169efd9550c9fa036d5b427d24ccfda0bf7a6bf759c86d82597e538",
+  "organizations.json": "bcece1a72ef4e6ba2b9d7f0e36ed6f287411e02df324d3071565f843162b3a99",
+  "review_queue.json": "0b93bcc6f57febb1c8b16a6ad16817342a45e591f381f3ca35e9e037de022da8",
+  "studies.json": "dfda6a95296eedc7d97deed506e51c6dd8138dc684dabadc717696443cdff4a4",
+  "submissions.json": "43a077d48279cc6c428dd807ab38da61f30fc623edf03c615be2854e1c8f8865",
+  "summary.json": "fd75d74e9179be6ba03129a7cff76e1c9f117985bbd56b2cbad1b13d62667ec7"
  },
- "build_run_id": "devices-2026-11-14-5433ca19c6",
+ "build_run_id": "devices-2026-11-14-ba872e874d",
  "build_schema_version": 1,
  "counting_units": {
   "document": "one source URL for one submission; a version is one sha256 of its bytes",
@@ -47,19 +47,19 @@
   "submission_identifier": "submission-level: an identifier found in a retrieved source (automated validation identifier_confirmed). The citation exists; what it means is not reviewed"
  },
  "files": {
-  "documents.json": "5cb7d8bd9f81c05b796df365af58ef0e597549b91d66dd35c5c94cedbceeb077",
-  "evidence.json": "93e443ca2d2495ddbd3f05665130b4eeb475f5f4656dc607811ac7fc066f563a",
-  "evidence_set_aside.json": "654b88e8e3283d5537dadab7799dd4448420839af9786339d3dfdea72bbc3937",
-  "families.json": "f684fac3c43e6a2e205a9014612c31608759f657eee8558abd6fa35c2f0fc16e",
-  "submissions.json": "68ceb7330024f23c39a230fd1c6a4b065d0e79895711b54e11c6eacaed835a53",
-  "summary.json": "595699e392890cd1a5b3fb49d2d6e0640f070d53b0738f02200a2a37c5d91507"
+  "documents.json": "40a44eadc94dc08b01acf1ae330777470b97cd51105c504b2376685a776c0b18",
+  "evidence.json": "2364cae57a059ebd3d32224f01d593691134060bb0a45a98faa31bb7a247a7d2",
+  "evidence_set_aside.json": "5d3417af8d0a7fee5c8da5b0a89bd822207945299d87774bce8d23fcdf2d291f",
+  "families.json": "f609c00edac9f6171bf5e0f4b09883208823e51ee862dad54d967b5b6fda9fba",
+  "submissions.json": "068414c2669f497bd78ef912caa9ea2b08368da90a25bcbf768e858c8c79f16a",
+  "summary.json": "c7d87d09e0d997e54c676c76eba3f8b66125843ab65dfcdddb8ecee1a8c6e605"
  },
- "generated_at": "2026-11-14T04:46:56+00:00",
+ "generated_at": "2026-11-14T04:54:46+00:00",
  "method_version": "device-links-1",
  "producer": {
-  "commit": "d3a9c5bed366876d3f8ee9a50b461b51a82dba15",
+  "commit": "0d8923a975de3a08ad98b114f0ca252eb8599e06",
   "repository": "civicsample-engine",
-  "source_sha256": "6ffea6d89090c40a7fce006361ba88611bca81b7fe33a679691309b6ebc8f3e6",
+  "source_sha256": "f04b2db3ae35752818ede49e978feba1b1cb1bfae7b5c70b73f6cfdf2a780321",
   "uncommitted_changes": false
  },
  "records": {
@@ -71,7 +71,7 @@
   "n_orphaned": 0,
   "n_rows": 0
  },
- "run_id": "devices-2026-11-14-5433ca19c6-cde328a6",
+ "run_id": "devices-2026-11-14-ba872e874d-568fe52f",
  "scheduled": false,
  "schema_version": 1,
  "sources": {
