@@ -8787,6 +8787,19 @@ function initGeographyTab() {
 // ---------------------------------------------------------------------------
 let aiDevicesData = null;
 let aiDevicesLoaded = false;
+let aiDevicesSourceSha256 = null;   // sha256 of the CSV bytes drawn; null when the browser cannot hash
+
+// Hex sha256 of the bytes as served, so the page can tell whether the device-linkage build was
+// made from this very file (the build records its source's sha256). Null without Web Crypto,
+// which browsers give only to secure pages (https, localhost); the caller then shows rows only.
+async function aiDevicesSha256(bytes) {
+    try {
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        return null;
+    }
+}
 
 async function loadAIDevicesTab() {
     if (aiDevicesLoaded) return;
@@ -8803,7 +8816,11 @@ async function loadAIDevicesTab() {
         try {
             const resp = await fetch(src);
             if (!resp.ok) continue;
-            const csvText = await resp.text();
+            // Read as bytes so their sha256 can be compared with the build's source; decoded as
+            // resp.text() would (UTF-8, a leading byte-order mark dropped).
+            const bytes = await resp.arrayBuffer();
+            const csvText = new TextDecoder('utf-8').decode(bytes);
+            aiDevicesSourceSha256 = await aiDevicesSha256(bytes);
             aiDevicesData = parseCSV(csvText);
             aiDevicesLoaded = true;
             renderAIDevicesTab();
@@ -8866,19 +8883,26 @@ function parseCSV(text) {
 // The list's 1,451 rows are not 1,451 devices: rows share submission numbers, and several
 // submissions can be one product line. When the device-linkage build is published
 // (data/devices/, read through device_links.js) the three counting units are shown side by
-// side with the engine's definitions. When it is absent, fails its contract, or was built from
-// a list with a different number of rows than the CSV drawn here, the cards fall back to the
-// one thing the CSV supports: a count of rows on FDA's list. The pathway cards, the charts and
-// the table always count list rows, and say so.
+// side with the engine's definitions. They are shown only when the build was made from this
+// very file: the sha256 of the CSV bytes drawn here must equal the build's
+// sources.inventory.sha256. An equal row count is not enough; the fallback CSV has as many rows
+// as the enriched one. When the build is absent, fails its contract, was made from another
+// file, or the match cannot be confirmed, the cards fall back to the one thing the CSV
+// supports: a count of rows on FDA's list. The pathway cards, the charts and the table always
+// count list rows, and say so.
 //
-// counts: { total, pathwayCounts } from the CSV. units: { run, summary } from
+// counts: { total, pathwayCounts, sha256 } from the CSV. units: { run, summary } from
 // DeviceLinks.loadHead, or null.
 function aiDevicesStatsHTML(counts, units) {
     const { total, pathwayCounts } = counts;
     const pctOf = n => total ? `${(n / total * 100).toFixed(1)}% of list rows` : '—';
     const published = units && units.summary && units.summary.denominators && units.summary.denominators.source_rows
         ? units.summary.denominators.source_rows.n : null;
-    const useUnits = Boolean(units && window.DeviceLinks && published === total);
+    const inventory = units && units.run && units.run.sources && units.run.sources.inventory;
+    const builtFrom = inventory && typeof inventory.sha256 === 'string' ? inventory.sha256.toLowerCase() : null;
+    const drawn = typeof counts.sha256 === 'string' ? counts.sha256.toLowerCase() : null;
+    const sameFile = Boolean(builtFrom && drawn && builtFrom === drawn);
+    const useUnits = Boolean(units && window.DeviceLinks && published === total && sameFile);
     const unitCards = useUnits
         ? window.DeviceLinks.unitCardsHTML(units.run, units.summary)
         : `<div class="stat-card">
@@ -8886,9 +8910,17 @@ function aiDevicesStatsHTML(counts, units) {
                 <p class="stat-value">${total.toLocaleString()}</p>
                 <p class="stat-sub">one row per line of FDA's list; rows can share a submission number, so this is not a count of devices</p>
             </div>`;
-    const mismatch = units && !useUnits && published !== null
-        ? `<p class="note ai-row-unit">The study-link data was built from a list of ${Number(published).toLocaleString()} rows and this page's list has ${total.toLocaleString()}, so only the row count is shown.</p>`
-        : '';
+    let why = '';
+    if (units && window.DeviceLinks && !useUnits && published !== null) {
+        if (published !== total) {
+            why = `The study-link data was built from a list of ${Number(published).toLocaleString()} rows and this page's list has ${total.toLocaleString()}, so only the row count is shown.`;
+        } else if (builtFrom && drawn) {
+            why = 'The study-link data was built from a different copy of FDA\'s list than the one this page drew (the files\' checksums differ), so only the row count is shown.';
+        } else {
+            why = 'This page could not confirm that the study-link data was built from the list drawn here, so only the row count is shown.';
+        }
+    }
+    const mismatch = why ? `<p class="note ai-row-unit">${why}</p>` : '';
     return `
         <div class="stats-grid ai-unit-cards" style="margin-bottom: 1rem;">${unitCards}</div>
         ${mismatch}
@@ -8982,7 +9014,7 @@ function renderAIDevicesTab() {
         }
     });
 
-    aiDevicesStatCounts = { total: aiDevicesData.length, pathwayCounts };
+    aiDevicesStatCounts = { total: aiDevicesData.length, pathwayCounts, sha256: aiDevicesSourceSha256 };
     renderAIDevicesStats();
     loadAIDeviceUnits();
 

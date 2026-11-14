@@ -693,10 +693,11 @@ test('the pane switch shows one pane, marks its button, and opens the evidence p
 
 test('without the devices data the tab still draws from the CSV, with the card relabelled as rows', () => {
   const f = family();
-  const counts = { total: 11, pathwayCounts: { '510(k)': 8, 'De Novo': 1, PMA: 2, Other: 0 } };
-  const stats = (units, deviceLinks = D) => {
+  const counts = { total: 11, pathwayCounts: { '510(k)': 8, 'De Novo': 1, PMA: 2, Other: 0 },
+    sha256: f.run.sources.inventory.sha256 };
+  const stats = (units, deviceLinks = D, drawn = counts) => {
     const ctx = { window: { DeviceLinks: deviceLinks } };
-    vm.runInNewContext(`${slice('function aiDevicesStatsHTML(counts, units) {')}\nthis.html = aiDevicesStatsHTML(${JSON.stringify(counts)}, units);`, Object.assign(ctx, { units }));
+    vm.runInNewContext(`${slice('function aiDevicesStatsHTML(counts, units) {')}\nthis.html = aiDevicesStatsHTML(${JSON.stringify(drawn)}, units);`, Object.assign(ctx, { units }));
     return ctx.html;
   };
   // absent, failed its check, or the module did not load: one card, relabelled, from the CSV
@@ -716,8 +717,41 @@ test('without the devices data the tab still draws from the CSV, with the card r
   const mismatch = text(stats({ run: f.run, summary: other }));
   assert.doesNotMatch(mismatch, /Distinct submissions/);
   assert.match(mismatch, /built from a list of 12 rows and this page's list has 11, so only the row count is shown/);
+  // the same number of rows from another file (the fallback CSV has as many rows as the enriched
+  // one): the build does not describe this CSV either
+  const otherFile = text(stats({ run: f.run, summary: f.summary }, D, { ...counts, sha256: 'ab'.repeat(32) }));
+  assert.doesNotMatch(otherFile, /Distinct submissions/);
+  assert.match(otherFile, /built from a different copy of FDA's list than the one this page drew \(the files' checksums differ\)/);
+  // the page could not hash what it drew, or the build names no checksum: not confirmed, rows only
+  const noRun = clone(f.run); delete noRun.sources.inventory.sha256;
+  for (const html of [stats({ run: f.run, summary: f.summary }, D, { ...counts, sha256: null }),
+                      stats({ run: noRun, summary: f.summary })]) {
+    assert.doesNotMatch(text(html), /Distinct submissions/);
+    assert.match(text(html), /could not confirm that the study-link data was built from the list drawn here/);
+  }
+  // the build's checksum is compared without regard to letter case
+  assert.match(text(stats({ run: f.run, summary: f.summary }, D, { ...counts, sha256: counts.sha256.toUpperCase() })),
+    /Distinct submissions/);
   assert.doesNotMatch(app, /Authorized AI\/ML Devices/, 'the row count is no longer called devices');
   assert.doesNotMatch(app, /Number of Devices/);
+});
+
+test('the list is hashed as served, so the unit cards can be matched to the build that described it', async () => {
+  const csv = readFileSync(new URL('../data/ai-ml-enabled-devices-enriched.csv', import.meta.url));
+  const served = [];
+  const ctx = { crypto: globalThis.crypto, TextDecoder, console, Uint8Array, Array,
+    fetch: async src => { served.push(src); return { ok: true, arrayBuffer: async () => csv.buffer.slice(csv.byteOffset, csv.byteOffset + csv.length) }; },
+    parseCSV: t => t.split('\n'), renderAIDevicesTab: () => {} };
+  vm.runInNewContext(`let aiDevicesData = null; let aiDevicesLoaded = false; let aiDevicesSourceSha256 = null;
+${slice('async function aiDevicesSha256(bytes) {')}
+${slice('async function loadAIDevicesTab() {')}
+this.load = loadAIDevicesTab; this.sha = () => aiDevicesSourceSha256; this.hash = aiDevicesSha256;`, ctx);
+  await ctx.load();
+  assert.deepEqual(served, ['data/ai-ml-enabled-devices-enriched.csv']);
+  assert.equal(ctx.sha(), createHash('sha256').update(csv).digest('hex'));
+  // without Web Crypto (an insecure page) there is no checksum, and so no unit cards
+  ctx.crypto = undefined;
+  assert.equal(await ctx.hash(new Uint8Array([1])), null);
 });
 
 test('a failed load of the devices data leaves the unit cards on the CSV and does not throw', async () => {
