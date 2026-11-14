@@ -3368,7 +3368,11 @@ function openerOf(active) {
 }
 
 // Hide a pop-up and put focus back on what opened it: the same element, else
-// the same control in the redrawn Studies table, else the table itself. Focus
+// the same control in the redrawn Studies table, else the table itself. Each
+// must be on screen: a link in a pop-up can switch tabs while it stays open
+// (the sex/gender breakdown's Methods link opens the FAQ), and focus() on an
+// element in the hidden tab does nothing, leaving focus on the page. Then
+// focus goes to what names the tab now on screen (activeTabControl). Focus
 // that has already left the pop-up for another control stays where it is.
 function closeOverlay(id) {
     const overlay = document.getElementById(id);
@@ -3381,10 +3385,29 @@ function closeOverlay(id) {
     if (!from || !inside) return;
     const body = document.getElementById('studies-table-body');
     const pager = document.getElementById('pagination');
-    const target = (from.el.isConnected ? from.el : null)
-        || findStudiesControl(from.key, body, pager)
-        || (from.key ? document.getElementById('studies-table') : null);
+    const target = [
+        from.el,
+        findStudiesControl(from.key, body, pager),
+        from.key ? document.getElementById('studies-table') : null,
+        activeTabControl()
+    ].find(onScreen);
     if (target) target.focus();
+}
+
+// In the page and laid out: not detached, and not in a hidden tab, a closed
+// menu or a display: none box.
+function onScreen(el) {
+    return !!el && el.isConnected && el.getClientRects().length > 0;
+}
+
+// The control that names the tab on screen: its tab button, or, while that
+// button sits in a closed menu (Race is under Demographics), the menu's
+// summary.
+function activeTabControl() {
+    const tab = document.querySelector('.tab.active');
+    if (!tab) return null;
+    const group = tab.closest('.nav-group');
+    return group && !group.open ? group.querySelector('summary') : tab;
 }
 
 // Keys inside an open pop-up (index.html: onkeydown on each overlay). Escape

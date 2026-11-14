@@ -46,6 +46,8 @@ const SOURCES = [
     fnSource('function markDialog(overlay, id)'),
     fnSource('function openerOf(active)'),
     fnSource('function closeOverlay(id)'),
+    fnSource('function onScreen(el)'),
+    fnSource('function activeTabControl()'),
     fnSource('function overlayKeydown(event, close)'),
     fnSource('function isTabStop(el)'),
     fnSource('function nextTabStop(dialog, active, back)'),
@@ -91,6 +93,7 @@ function makeDoc() {
             get firstElementChild() { return n.children[0] || null; },
             get textContent() { return n.kids.map((k) => (typeof k === 'string' ? k : k.textContent)).join(''); },
             get disabled() { return 'disabled' in n.attrs; },
+            get open() { return 'open' in n.attrs; },
             get tabIndex() {
                 if ('tabindex' in n.attrs) return Number(n.attrs.tabindex);
                 if (NATIVE_STOPS.has(tag) || (tag === 'a' && 'href' in n.attrs)) return 0;
@@ -182,12 +185,20 @@ function makeDoc() {
     doc.node = node;
     doc.body = node('body');
     doc.activeElement = doc.body;
-    // The page: the Studies table and its pager, an unrelated link behind the
-    // pop-ups (the FDAAA FAQ entry link where the defect was seen), and the
-    // two overlays as index.html writes them.
+    doc.querySelector = (sel) => doc.body.querySelector(sel);
+    // The page: the tab bar as index.html lays it out (Race in the closed
+    // Demographics menu, FAQ a top-level tab; Studies active), the Studies
+    // section with its table and pager, the Race section, the FAQ section with
+    // an unrelated link (the FDAAA FAQ entry link where the defect was seen),
+    // and the two overlays as index.html writes them.
     const page = node('div');
-    page.innerHTML = studiesTable(['NCT00416078', 'NCT00000002']) +
-        '<a id="faq-link" href="#faq">FDAAA FAQ</a>' +
+    page.innerHTML = '<nav class="tabs"><button class="tab active" data-tab="studies">Studies</button>' +
+        '<details class="nav-group" id="nav-demographics"><summary>Demographics</summary><div class="nav-menu">' +
+        '<button class="tab" data-tab="race">Race</button></div></details>' +
+        '<span class="nav-secondary"><button class="tab" data-tab="faq">FAQ</button></span></nav>' +
+        '<section id="studies" class="tab-content active">' + studiesTable(['NCT00416078', 'NCT00000002']) + '</section>' +
+        '<section id="race" class="tab-content"></section>' +
+        '<section id="faq" class="tab-content"><a id="faq-link" href="#faq">FDAAA FAQ</a></section>' +
         overlayTag('breakdown-overlay') + overlayTag('study-details-overlay');
     doc.body.append(page);
     for (const el of page.querySelectorAll('[id]')) doc.byId[el.id] = el;
@@ -416,4 +427,37 @@ test('focus that has already left the pop-up for another control is not moved on
     // Closing a pop-up that is not open does nothing to focus.
     h.run('closeBreakdown()');
     same(h.active(), faq);
+});
+
+test('when a link in the pop-up switched tabs, closing focuses the tab now on screen, not the hidden opener', () => {
+    // The sex/gender v2 breakdown's Methods link (sgOpenMethods) clicks the FAQ
+    // tab and leaves the pop-up open. The badge that opened it is still in the
+    // page, in the hidden Studies section, where focus() does nothing.
+    const h = harness();
+    const badge = openFromBadge(h);
+    const switchTo = (tab) => {
+        for (const t of h.doc.body.querySelectorAll('.tab')) t.classList.toggle('active', t.getAttribute('data-tab') === tab);
+        for (const sec of h.doc.body.querySelectorAll('.tab-content')) sec.style.display = sec.id === tab ? '' : 'none';
+    };
+    switchTo('faq');
+    assert.equal(badge.isConnected, true);
+    assert.equal(badge.getClientRects().length, 0, 'the stub did not hide the Studies section');
+    h.press('Escape');
+    same(h.active(), h.doc.body.querySelector('.tab[data-tab="faq"]'), 'focus did not go to the FAQ tab now on screen');
+    // A tab inside a closed menu: the menu's summary, which is on screen.
+    openFromBadge(h);   // the stub's focus() lands even on a hidden badge; it is recorded as the opener
+    switchTo('race');
+    h.press('Escape');
+    same(h.active(), h.doc.getElementById('nav-demographics').querySelector('summary'), 'focus did not go to the Demographics menu that holds the Race tab');
+    // With that menu open, the Race tab button itself.
+    h.doc.getElementById('nav-demographics').setAttribute('open', '');
+    openFromBadge(h);
+    switchTo('race');
+    h.press('Escape');
+    same(h.active(), h.doc.body.querySelector('.tab[data-tab="race"]'));
+    // Back on Studies, the badge itself, as before.
+    switchTo('studies');
+    const again = openFromBadge(h);
+    h.press('Escape');
+    same(h.active(), again);
 });
