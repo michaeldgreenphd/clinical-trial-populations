@@ -38,6 +38,8 @@ test('the contract refuses mixed builds, unknown levels and a withheld area that
   a = clone(areas); a.areas[0].display_rule = 'badge';
   assert.match(C.dataProblem(run, summary, a), /display rule/);
   assert.match(C.dataProblem({ ...run, limitations: undefined }, summary, null), /limitations/);
+  // the denominator for "contextual" must be published; the pane does not add one up
+  assert.match(C.dataProblem(run, { ...summary, reference_population_assessed: undefined }, null), /assessed-trials count/);
 });
 
 test('rows are the published areas for one level and variant, withheld kept apart', () => {
@@ -89,7 +91,7 @@ test('the pane says what the comparison is before any number, and labels the def
   const head = C.headHTML(fx('run.json'), fx('summary.json'));
   assert.match(head, /proxy for a\s+potential recruitment population/);
   assert.match(head, /not where participants live/); assert.match(head, /contextual/);
-  assert.match(head, /400 of 1,000/); assert.match(head, /340 of 400/);
+  assert.match(head, /400 of 1,000/); assert.match(head, /Of the 400 whose eligibility could be read, 340 are marked/);
   const controls = C.controlsHTML(state(), fx('run.json'));
   assert.match(controls, /Metro area \(default\)/); assert.match(controls, /No level is the answer/);
   assert.doesNotMatch(head + controls, /underrepresent/i);
@@ -109,7 +111,35 @@ test('index.html loads the module keyed and before app.js, and app.js opens it f
   assert.ok(mod > 0 && mod < html.indexOf('src="app.js?v='), 'census_benchmarks.js must load, keyed, before app.js');
   assert.match(html, /id="geography-pane-switch"/); assert.match(html, /id="geography-census-pane"[^>]*hidden/);
   assert.match(app, /function setGeographyPane\(/); assert.match(app, /CensusBenchmarks\.open\(census/);
-  assert.match(read('styles.css'), /#geography\.census-open > \.chart-row \{ display: none; \}/);
+  // every other direct child of the tab belongs to the registry pane and is hidden with it, notes included
+  assert.match(read('styles.css'), /#geography\.census-open > :not\(#geography-pane-switch\):not\(#geography-census-pane\) \{ display: none; \}/);
+  const section = html.slice(html.indexOf('<section id="geography"'), html.indexOf('</section>', html.indexOf('<section id="geography"')));
+  assert.match(section, /class="note geo-spine-note"/); assert.match(section, /id="geo-run-pin"/);
+});
+
+test('a file that arrives after the reader chose another characteristic does not paint over it', async () => {
+  const run = fx('run.json'), summary = fx('summary.json'), race = fx('areas.race.json');
+  const sex = { ...clone(race), dimension: 'sex' };
+  sex.areas = sex.areas.map((a) => (a.categories ? { ...a, categories: [{ ...a.categories[0], category: 'female' }] } : a));
+  const waiting = {};
+  const fetchJSON = (path) => {
+    if (path.endsWith('run.json')) return Promise.resolve(run);
+    if (path.endsWith('summary.json')) return Promise.resolve(summary);
+    return new Promise((resolve) => { waiting[path] = resolve; });      // area files resolve when the test says
+  };
+  const el = { innerHTML: '', querySelector: () => null, contains: () => true };
+  const opening = C.open(el, { fetchJSON });
+  await new Promise((r) => setTimeout(r, 0));
+  const press = (key, value) => el.onclick({ target: { closest: () => ({ dataset: { [key]: value } }) } });
+  press('cbDimension', 'sex');                                           // chosen while race is still loading
+  await new Promise((r) => setTimeout(r, 0));
+  waiting['data/census/areas.sex.json'](sex);
+  await new Promise((r) => setTimeout(r, 0));
+  assert.match(el.innerHTML, /<option value="female" selected>/);
+  waiting['data/census/areas.race.json'](race);                          // the stale file arrives last
+  await opening; await new Promise((r) => setTimeout(r, 0));
+  assert.match(el.innerHTML, /<option value="female" selected>/, 'the late race file must not replace the sex view');
+  assert.doesNotMatch(el.innerHTML, /value="black_african_american"/);
 });
 
 const published = existsSync(at('data/census/run.json'));

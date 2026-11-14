@@ -25,5 +25,9 @@
    "not_reported": 100,
    "pooled": 250
   }
+ },
+ "reference_population_assessed": {
+  "n": 400,
+  "definition": "fixture"
  }
 }

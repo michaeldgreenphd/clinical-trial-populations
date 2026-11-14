@@ -59,6 +59,7 @@
         if (!run || run.schema_version !== SCHEMA_VERSION) return 'run.json is missing or has a schema this view does not read';
         if (!run.run_id || !run.default_level || !Array.isArray(run.limitations)) return 'run.json lacks its run id, default level or limitations';
         if (!summary || summary.run_id !== run.run_id) return 'summary.json belongs to a different build';
+        if (!summary.reference_population_assessed || typeof summary.reference_population_assessed.n !== 'number') return 'summary.json lacks the assessed-trials count';
         if (areas) {
             if (areas.schema_version !== SCHEMA_VERSION || areas.run_id !== run.run_id) return 'the areas file belongs to a different build';
             if (!DIMENSIONS.includes(areas.dimension) || !Array.isArray(areas.areas)) return 'the areas file is not an areas file';
@@ -101,7 +102,7 @@
     function headHTML(run, summary) {
         const funnel = summary.cohort_funnel || {};
         const fit = summary.reference_population_fit || {};
-        const total = (fit.contextual || 0) + (fit.general || 0);
+        const assessed = (summary.reference_population_assessed || {}).n;    // published, not added up here
         return `
             <div class="panel-hero cb-head">
                 <h3>Site-area population benchmarks <span class="cb-tag">US, one listed site</span></h3>
@@ -110,8 +111,8 @@
                     potential recruitment population.</strong> It is not where participants live, not the population with the
                     condition, and not an enrolment target; a referral centre may recruit nationally.</p>
                 <p class="note cb-dateline">${num(funnel.us_one_listed_facility)} of ${num(funnel.records)} trials with posted results
-                    list one US facility. ${num(fit.contextual)} of ${num(total)} are marked <em>contextual</em>: a general-population
-                    denominator does not match them, most often because they enrol patients. Built ${esc(fmtDate(run.generated_at))}
+                    list one US facility. Of the ${num(assessed)} whose eligibility could be read, ${num(fit.contextual)} are marked
+                    <em>contextual</em>: a general-population denominator does not match them, most often because they enrol patients. Built ${esc(fmtDate(run.generated_at))}
                     from the ${esc(run.source_release && run.source_release.tag)} release; reference populations from the
                     ${esc(run.product)}, windows ${esc((run.windows || []).join(', '))}. Not refreshed weekly.</p>
             </div>`;
@@ -258,16 +259,23 @@
         if (!state.level) state.level = run.default_level.level;
 
         async function draw(focusId) {
-            let areas = cache[state.dimension];
+            // The characteristic this draw is for. A file can arrive after the reader has chosen
+            // another one; a draw that is no longer current stops rather than paint the wrong rows.
+            const dimension = state.dimension;
+            let areas = cache[dimension];
             if (!areas) {
-                try { areas = cache[state.dimension] = await fetchJSON(`${BASE}areas.${state.dimension}.json`); }
-                catch (err) { el.innerHTML = `<p class="note">Could not load the areas for this characteristic (${esc(err && err.message)}).</p>`; return; }
+                try { areas = cache[dimension] = await fetchJSON(`${BASE}areas.${dimension}.json`); }
+                catch (err) {
+                    if (dimension === state.dimension) el.innerHTML = `<p class="note">Could not load the areas for this characteristic (${esc(err && err.message)}).</p>`;
+                    return;
+                }
+                if (dimension !== state.dimension) return;
             }
             const problem = dataProblem(run, summary, areas);
             if (problem) { el.innerHTML = `<p class="note">The site-area benchmark data could not be read: ${esc(problem)}.</p>`; return; }
             const first = areas.areas.find(a => a.display_rule === 'show');
             state.categories = first ? first.categories.map(c => c.category) : [];
-            if (!state.categories.includes(state.category)) state.category = DEFAULT_CATEGORY[state.dimension];
+            if (!state.categories.includes(state.category)) state.category = DEFAULT_CATEGORY[dimension];
             const rows = areaRows(areas, state.level, state.variant, state.query);
             el.innerHTML = headHTML(run, summary) + controlsHTML(state, run) + tableHTML(rows, state) + methodsHTML(run, summary);
             const target = focusId && el.querySelector('#' + focusId);
