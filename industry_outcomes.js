@@ -217,14 +217,29 @@
 
     // ---------------------------------------------------------------- head and overview
 
-    function headHTML(run) {
+    // The pane's one statement of who is in it, when the data was retrieved, and how many
+    // assessments a person has reviewed (from summary.json, never assumed). Inclusion rules sit in
+    // the disclosure; review detail lives in its own section further down.
+    function reviewStatus(summary) {
+        const m = Object.fromEntries(((summary || {}).metrics || []).map(x => [x.id, x]));
+        const r = m.human_reviewed;
+        if (!r) return '';
+        const n = (summary.denominators[r.denominator] || {}).n ?? r.denominator;
+        const lead = `<strong>${r.numerator.toLocaleString()} of ${Number(n).toLocaleString()}</strong> development-collection trials have an assessment reviewed by a person`;
+        const tail = r.numerator === 0
+            ? '; none is published yet. Registry evidence for every trial is below.'
+            : '; only those are shown, and they describe the development collection, not the cohort.';
+        return `<p class="oc-status" role="status">${lead}${tail} <button type="button" class="oc-status-link" aria-controls="oc-review-h">About review</button></p>`;
+    }
+
+    function headHTML(run, summary) {
         const excl = Object.entries((run.cohort || {}).exclusions || {}).filter(([, n]) => n > 0)
             .map(([k, n]) => `${n.toLocaleString()} ${esc(EXCLUSION_LABELS[k] || k)}`).join('; ');
         return `
         <div class="oc-head">
-            <h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3>
-            <p class="oc-lede">${run.cohort.n_eligible.toLocaleString()} randomized Phase 3 trials with an industry lead sponsor and primary completion in 2020. For each: what evidence ClinicalTrials.gov makes available, whether a prespecified primary objective can be assessed from it, and, once a person has reviewed it, what that assessment concludes.</p>
-            <p class="oc-dateline"><strong>A fixed cohort</strong>, retrieved from the registry on ${esc(fmtDate((run.acquisition || {}).retrieved_at))}; results availability as of ${esc(fmtDate(run.cutoff))}. It is not refreshed weekly: the “Last updated” date and the snapshot selector at the top of the page belong to the weekly participant-demographics data and do not change this pane.</p>
+            <h3>What outcome evidence is there for each trial? <span class="oc-beta">Beta</span></h3>
+            <p class="oc-dateline"><strong>${run.cohort.n_eligible.toLocaleString()} randomized Phase 3 industry trials</strong> with primary completion in 2020 · registry retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))}, results as of ${esc(fmtDate(run.cutoff))} · a fixed cohort: the weekly “Last updated” date and snapshot selector do not apply to it.</p>
+            ${reviewStatus(summary)}
             <details class="oc-scope"><summary>Who is included: ${run.cohort.n_eligible.toLocaleString()} of ${run.cohort.n_frame.toLocaleString()} registry records</summary>
                 <p>${esc(run.cohort.definition)}</p>
                 <p>The registry query matched ${run.cohort.n_frame.toLocaleString()} records${excl ? `; excluded: ${excl}` : ''}.${run.cohort.differs_from_frame ? ` ${esc(run.cohort.differs_from_frame)}` : ''}</p>
@@ -309,11 +324,13 @@
                <p class="oc-note">${esc(summary.assessment_states.note)} Counts are of the development collection's ${n} eligible trials, not of the cohort.</p>`
             : `<div class="oc-empty">
                 <p class="oc-empty-lead">No assessment has been reviewed by a person yet, so none is shown.</p>
+                <details class="oc-empty-more"><summary>What review adds, and what it will not say</summary>
                 <dl class="oc-empty-dl">
                     <dt>Available now</dt><dd>Registry evidence for all ${den.eligible.n.toLocaleString()} trials: results status, dates, registered primary outcomes and posted documents. Open any trial below.</dd>
                     <dt>What review adds</dt><dd>For each reviewed trial: whether its prespecified primary objective was met, not met, or cannot be determined from the evidence, with the decision criterion, the reported finding and the cited sources, and the reviewer's decision (confirm, amend or cannot determine).</dd>
                     <dt>What it will not say</dt><dd>Clinical importance, regulatory approval, or a success rate for any sponsor, drug or the cohort.</dd>
                 </dl>
+                </details>
               </div>`;
         return `
         <section class="oc-block oc-review" aria-labelledby="oc-review-h">
@@ -911,17 +928,16 @@
             : '';
         el.innerHTML = `
             ${banner}
-            ${headHTML(run)}
+            ${headHTML(run, summary)}
             ${availabilityHTML(summary)}
-            ${reviewHTML(run, summary, machineShown)}
             ${structureSummaryHTML(state.data.structure)}
             <section class="oc-block oc-browser" aria-labelledby="oc-browser-h">
                 <h4 id="oc-browser-h">Trials <span class="oc-h-sub">search and filter the ${index.rows.length.toLocaleString()} eligible trials; open one to read its evidence in place</span></h4>
                 ${filtersHTML(index.rows, state.filters)}
                 <div class="oc-list-wrap">${listHTML(currentRows(), run, state.shown, state.data.structure)}</div>
             </section>
-            ${methodsHTML(run, summary)}
-            <p class="chart-footnote">Run ${esc(run.run_id)}. A fixed registry pull, retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))} and not refreshed weekly; method ${esc((run.method || {}).version || 'not supplied')}; sponsor names by the curated rules where reviewed, otherwise as registered.</p>`;
+            ${reviewHTML(run, summary, machineShown)}
+            ${methodsHTML(run, summary)}`;
         wire(el);
     }
 
@@ -937,6 +953,14 @@
     }
 
     function wire(el) {
+        // A button, not a #fragment link: the site routes on location.hash.
+        const about = el.querySelector('.oc-status-link');
+        const target = el.querySelector('#oc-review-h');
+        if (about && target) about.addEventListener('click', () => {
+            target.setAttribute('tabindex', '-1');
+            target.scrollIntoView({ block: 'start' });
+            target.focus({ preventScroll: true });
+        });
         el.querySelectorAll('[data-of]').forEach(input => {
             input.addEventListener(input.tagName === 'INPUT' ? 'input' : 'change', () => {
                 state.filters[input.dataset.of] = input.value;
@@ -1024,16 +1048,23 @@
     }
 
     // deps.fetchJSON(path, reload) -> parsed JSON; throws on HTTP errors.
+    // Loading, missing and failed states keep the pane's heading, so the page does not change shape
+    // when the data arrives; none of them shows a number.
+    const SHELL = '<div class="oc-head"><h3>What outcome evidence is there for each trial? <span class="oc-beta">Beta</span></h3></div>';
+
     async function open(el, deps) {
         if (state.data) { render(el); return; }
-        el.innerHTML = '<p class="note">Loading the trial outcomes data…</p>';
+        el.innerHTML = `${SHELL}<p class="oc-state-msg" role="status" aria-live="polite">Loading the trial outcomes data…</p>`;
         try {
             state.data = await load(deps.fetchJSON);
         } catch (e) {
             const missing = /HTTP 404/.test(e.message);
             el.innerHTML = missing
-                ? '<div class="panel-hero"><h3>Industry Trial Outcomes <span class="oc-beta">Beta</span></h3><p class="note">The trial outcomes data is not available on this site.</p></div>'
-                : `<p class="note">Could not load the trial outcomes data (${esc(e.message)}).</p>`;
+                ? `${SHELL}<div class="oc-state-msg" role="status"><p>The trial outcomes data is not published on this site.</p><p class="oc-note">The Participant demographics view is unaffected.</p></div>`
+                : `${SHELL}<div class="oc-state-msg" role="alert"><p>Could not load the trial outcomes data (${esc(e.message)}). Nothing is shown rather than a partial or zero count.</p>
+                    <button type="button" class="oc-retry">Try again</button></div>`;
+            const retry = el.querySelector('.oc-retry');
+            if (retry) retry.addEventListener('click', () => { open(el, deps); });
             return;
         }
         render(el);

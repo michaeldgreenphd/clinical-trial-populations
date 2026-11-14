@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261114-results-structure2">
+    <link rel="stylesheet" href="styles.css?v=20261114-industry3">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -1145,30 +1145,35 @@
             </div>
             <div class="chart-container" id="industry-demographics-pane">
                 <div class="panel-hero">
-                    <h3>Industry Sponsors</h3>
-                    <!-- Tier 1: what the tab is for, stated before any control.
-                         Static copy in the Overview finding's voice; it asserts
-                         no number, so it needs nothing from the dataset. -->
-                    <div class="industry-claim">
-                        <p class="finding-headline">The largest industry sponsors, compared on who they enroll.</p>
-                        <p class="finding-context">by condition &middot; over time &middot; adjusted for trial mix</p>
-                    </div>
+                    <!-- Tier 1: the question and the population, then the characteristic. The
+                         purpose line is static copy and asserts no number; the scope line under it
+                         is drawn by renderIndustry() from the dataset (trials in the current
+                         filter, the cohort, the data date). -->
+                    <h3>Who takes part in industry-sponsored trials?</h3>
+                    <p class="finding-headline">Compare who the largest industry sponsors enroll: by condition, over time, and adjusted for trial mix.</p>
+                    <p class="industry-scope-line"><span id="industry-meta" class="industry-meta"></span><span id="industry-scope-extra"></span></p>
                     <nav class="industry-demo-nav" aria-label="Demographic characteristic">
                         <button type="button" class="industry-demo-tab active" data-idemo="sex">Sex</button>
                         <button type="button" class="industry-demo-tab" data-idemo="race">Race</button>
                         <button type="button" class="industry-demo-tab" data-idemo="ethnicity">Ethnicity</button>
-                        <button type="button" class="industry-demo-tab" disabled title="Coming soon">Gender</button>
                     </nav>
-                    <p class="note industry-subtitle" id="industry-subtitle">Percent female is female / (female + male) within each trial, with explicitly reported Unknown counts excluded; shown by sponsor and condition over the mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.</p>
                 </div>
                 <div class="industry-controls">
-                    <div class="geography-view-toggle industry-view-toggle" id="industry-view-toggle">
-                        <button type="button" class="view-btn active" data-iview="heatmap">Condition Baseline</button>
-                        <button type="button" class="view-btn" data-iview="trend">Share Over Time</button>
-                        <button type="button" class="view-btn" data-iview="forest">Adjusted Differences</button>
-                    </div>
-                    <p class="industry-view-question" id="industry-view-question"></p>
-                    <div class="industry-chrome panel-chrome">
+                    <!-- Controls the active question needs, first; methodological options in a
+                         disclosure whose summary names any non-default choice. -->
+                    <div class="industry-primary">
+                        <div class="industry-ctl-group">
+                            <span class="industry-ctl-label" id="industry-view-label">Comparison</span>
+                        <div class="geography-view-toggle industry-view-toggle" id="industry-view-toggle" role="group" aria-labelledby="industry-view-label">
+                            <button type="button" class="view-btn active" data-iview="heatmap">Condition Baseline</button>
+                            <button type="button" class="view-btn" data-iview="trend">Share Over Time</button>
+                            <button type="button" class="view-btn" data-iview="forest">Adjusted Differences</button>
+                        </div>
+                        </div>
+                        <div class="industry-ctl-group" id="industry-benchmark-group">
+                            <span class="industry-ctl-label">Benchmark</span>
+                        <div class="geography-view-toggle industry-mini-toggle" id="industry-benchmark-toggle" title="What deviations are measured against"></div>
+                        </div>
                         <div class="industry-ctl-group">
                             <span class="industry-ctl-label">Sponsors</span>
                         <details class="industry-sponsor-menu" id="industry-sponsor-menu">
@@ -1176,36 +1181,42 @@
                             <div class="industry-sponsor-options" id="industry-sponsor-options"></div>
                         </details>
                         </div>
-                        <div class="industry-ctl-group">
-                            <span class="industry-ctl-label">Role</span>
-                        <div class="geography-view-toggle industry-mini-toggle" id="industry-role-toggle" title="Which sponsor role assigns a trial to a company">
-                            <button type="button" class="view-btn active" data-irole="any">Lead &amp; Collaborator</button>
-                            <button type="button" class="view-btn" data-irole="lead">Lead Sponsor Only</button>
-                        </div>
-                        </div>
-                        <div class="industry-ctl-group">
-                            <span class="industry-ctl-label">Benchmark</span>
-                        <div class="geography-view-toggle industry-mini-toggle" id="industry-benchmark-toggle" title="What deviations are measured against"></div>
-                        </div>
-                        <div class="industry-ctl-group">
-                            <span class="industry-ctl-label">Scope</span>
-                        <div class="geography-view-toggle industry-mini-toggle" id="industry-scope-toggle" title="Which sponsor set the views display">
-                            <button type="button" class="view-btn active" data-iscope="top10">Top 10 Sponsors</button>
-                            <button type="button" class="view-btn" data-iscope="all">All Industry Sponsors</button>
-                        </div>
-                        </div>
-                        <div class="industry-cellrange" id="industry-cellrange" title="Heatmap cells are computed and colored only when their trial count falls in this window; the rest show their n in grey">
-                            <span class="industry-cellrange-label">Trials / cell</span>
-                            <input type="number" id="industry-cellmin" min="1" step="1" inputmode="numeric" aria-label="Minimum trials per heatmap cell">
-                            <span class="industry-cellrange-dash">&ndash;</span>
-                            <input type="number" id="industry-cellmax" min="1" step="1" inputmode="numeric" placeholder="∞" aria-label="Maximum trials per heatmap cell (empty = no cap)">
-                        </div>
-                        <div class="industry-cat-row" id="industry-cat-row" style="display:none"></div>
+                        <button type="button" class="industry-reset" id="industry-reset" hidden>Reset view</button>
                     </div>
+                    <div class="industry-cat-row" id="industry-cat-row" style="display:none"></div>
+                    <details class="industry-options" id="industry-options">
+                        <summary>Analysis options <span class="industry-options-state" id="industry-options-state">lead &amp; collaborator sponsors · top 10 · default cell size</span></summary>
+                        <div class="industry-chrome panel-chrome">
+                            <div class="industry-ctl-group">
+                                <span class="industry-ctl-label">Sponsor role</span>
+                            <div class="geography-view-toggle industry-mini-toggle" id="industry-role-toggle" title="Which sponsor role assigns a trial to a company">
+                                <button type="button" class="view-btn active" data-irole="any">Lead &amp; Collaborator</button>
+                                <button type="button" class="view-btn" data-irole="lead">Lead Sponsor Only</button>
+                            </div>
+                            </div>
+                            <div class="industry-ctl-group" id="industry-scope-group">
+                                <span class="industry-ctl-label">Sponsor set</span>
+                            <div class="geography-view-toggle industry-mini-toggle" id="industry-scope-toggle" title="Which sponsor set the views display">
+                                <button type="button" class="view-btn active" data-iscope="top10">Top 10 Sponsors</button>
+                                <button type="button" class="view-btn" data-iscope="all">All Industry Sponsors</button>
+                            </div>
+                            </div>
+                            <div class="industry-cellrange" id="industry-cellrange" title="Heatmap cells are computed and colored only when their trial count falls in this window; the rest show their n in grey">
+                                <span class="industry-cellrange-label">Trials / cell</span>
+                                <input type="number" id="industry-cellmin" min="1" step="1" inputmode="numeric" aria-label="Minimum trials per heatmap cell">
+                                <span class="industry-cellrange-dash">&ndash;</span>
+                                <input type="number" id="industry-cellmax" min="1" step="1" inputmode="numeric" placeholder="∞" aria-label="Maximum trials per heatmap cell (empty = no cap)">
+                            </div>
+                        </div>
+                        <p class="note">Sponsor role applies to every comparison, including Adjusted Differences. Sponsor set applies to the heatmap and trend only; the adjusted estimates cover the named top sponsors. The trials-per-cell window shapes the Condition Baseline table only. See Methods and definitions below for how sponsors are assigned and grouped.</p>
+                    </details>
+                    <p class="industry-view-question" id="industry-view-question"></p>
+                    <p class="note industry-subtitle" id="industry-subtitle">Percent female is female / (female + male) within each trial, with explicitly reported Unknown counts excluded; shown by sponsor and condition over the mixed-sex, sex-reporting interventional trials with primary completion in 2009 or later, not terminated.</p>
                 </div>
-                <div id="industry-meta" class="industry-meta"></div>
                 <div class="industry-pager" id="industry-pager"></div>
 
+                <div id="industry-view-heatmap" class="industry-view"></div>
+                <!-- After the table it shapes: which condition columns, and where the benchmark comes from. -->
                 <div id="industry-condition-controls" class="industry-condition-controls">
                     <div class="industry-condition-toolbar">
                         <div><strong>Condition columns</strong><p id="industry-condition-status" role="status"></p></div>
@@ -1235,7 +1246,6 @@
                     </details>
                 </div>
 
-                <div id="industry-view-heatmap" class="industry-view"></div>
                 <div id="industry-view-trend" class="industry-view" style="display:none">
                     <div class="industry-canvas-wrap"><canvas id="industry-trend-canvas"></canvas></div>
                     <p class="industry-footnote" id="industry-trend-footnote">Annual median within-trial percent female by primary completion year, per selected sponsor. Years with fewer than 5 trials for a sponsor are left blank; the dashed grey line is the pooled industry median and the dotted line marks 50% parity. Respects the global Year Range (results posted) and Condition filters.</p>
@@ -1243,7 +1253,14 @@
                 <div id="industry-view-forest" class="industry-view" style="display:none"></div>
 
                 <div class="industry-faq">
-                    <h4 class="industry-faq-title">How to read this</h4>
+                    <h4 class="industry-faq-title">Methods and definitions</h4>
+
+                    <details class="faq-section">
+                        <summary><h4>What is not covered yet?</h4></summary>
+                        <div class="faq-answer">
+                            <p class="note"><strong>Gender identity</strong> is not compared by sponsor: the industry sponsor dataset has no gender table (the Demographics tab covers gender reporting across all trials). <strong>Disease-prevalence benchmarks</strong> (does enrollment mirror the patients with each condition?) are marked pending in the dataset, with no tables yet; the benchmarks offered are the industry cohort baseline and population references. Either will appear here when the engine publishes it.</p>
+                        </div>
+                    </details>
 
                     <details class="faq-section">
                         <summary><h4>How is percent female or a category’s share computed?</h4></summary>
@@ -1717,8 +1734,8 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="industry_outcomes.js?v=20261114-results-structure3"></script>
+    <script defer src="industry_outcomes.js?v=20261114-results-structure4"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
-    <script defer src="app.js?v=20261113-census1"></script>
+    <script defer src="app.js?v=20261114-industry2"></script>
 </body>
 </html>

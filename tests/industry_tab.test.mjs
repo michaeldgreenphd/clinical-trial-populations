@@ -201,3 +201,78 @@ test('the heatmap caption states its column count and that the table scrolls', (
   assert.match(fn, /industrySyncHeatmapScrollNote\(\);/, 'renderIndustryHeatmap() no longer measures overflow after rendering');
   assert.match(app, /addEventListener\('resize'[\s\S]{0,200}industrySyncHeatmapScrollNote/, 'the overflow check is not re-run on resize');
 });
+
+// 2026-11-13 layout: the question, the population and its denominator, then the controls the
+// comparison needs; methodological options in a disclosure; no control that can never act; the
+// condition-column band after the table it shapes.
+test('the demographics pane opens on its scope line and keeps methodological options in a disclosure', () => {
+  const pane = html.match(/<div class="chart-container" id="industry-demographics-pane">([\s\S]*?)<div class="chart-container industry-outcomes-pane"/)?.[1];
+  assert.ok(pane, 'the demographics pane markup is gone');
+  const at = (s) => pane.indexOf(s);
+  assert.ok(at('id="industry-meta"') > 0 && at('id="industry-meta"') < at('class="industry-demo-nav"'),
+    'the denominator line has to sit under the title, before the characteristic tier');
+  assert.equal((pane.match(/id="industry-meta"/g) || []).length, 1, 'one denominator line');
+  assert.doesNotMatch(pane.match(/<nav class="industry-demo-nav"[\s\S]*?<\/nav>/)[0], /disabled/,
+    'a disabled "coming soon" tier is back in primary navigation');
+  const options = pane.match(/<details class="industry-options" id="industry-options">([\s\S]*?)<\/details>/)?.[1];
+  assert.ok(options, 'the Analysis options disclosure is gone');
+  for (const id of ['industry-role-toggle', 'industry-scope-toggle', 'industry-cellrange']) {
+    assert.ok(options.includes(`id="${id}"`), `${id} left the Analysis options disclosure`);
+  }
+  assert.ok(options.includes('id="industry-options-state"'), 'the closed disclosure no longer names its settings');
+  assert.ok(at('id="industry-view-heatmap"') < at('id="industry-condition-controls"'),
+    'the condition-column controls moved back above the table');
+  assert.ok(at('id="industry-reset"') > 0, 'the Reset view button is gone');
+});
+
+test('the scope line does not call every counted trial sex-reporting', () => {
+  // Regression (Codex, PR 285): on the Sex tier the count includes trials with no sex value
+  // (2,648 of 30,403 in the dataset of 2026-11-08), so the label must describe the broader cohort.
+  const short = app.match(/const INDUSTRY_COHORT_SHORT = \{[\s\S]*?\};/)?.[0];
+  assert.ok(short, 'INDUSTRY_COHORT_SHORT is gone');
+  assert.doesNotMatch(short.match(/sex: '([^']*)'/)[1], /sex-reporting/, 'the Sex label calls trials without a sex value sex-reporting');
+  assert.match(app, /if \(industryDemo !== 'sex' && industryTrialValue\(t\) === null\) return false;/,
+    'the Race and Ethnicity labels say "reporting" because their rows exclude non-reporting trials');
+});
+
+test('controls the adjusted model ignores are hidden with it, and Reset restores the defaults', () => {
+  const sync = app.match(/function industrySyncChrome\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(sync, 'industrySyncChrome() is gone');
+  assert.match(sync, /industry-benchmark-group[\s\S]*?\.hidden = forest/, 'the benchmark stays beside the adjusted view, which does not use it');
+  assert.match(sync, /industry-scope-group[\s\S]*?\.hidden = forest/, 'the sponsor set stays beside the adjusted view, which does not use it');
+  assert.match(sync, /reset\.hidden = industryIsDefault\(\)/, 'Reset no longer appears only when something differs from the defaults');
+  assert.match(app, /industrySyncChrome === 'function'\) industrySyncChrome\(\)/, 'renderIndustry() no longer syncs the chrome');
+  const forest = app.match(/function renderIndustryForest\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.match(forest, /industry-fixed-note[\s\S]*?Year Range and Condition filters and the benchmark do not change them/,
+    'the adjusted view no longer says, beside the chart, that its cohort is fixed');
+  const reset = app.match(/function resetIndustryView\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(reset, 'resetIndustryView() is gone');
+  for (const [v, d] of [['industryDemo', "'sex'"], ['industryView', "'heatmap'"], ['industryBenchmark', "'cohort'"],
+                        ['industryRole', "'any'"], ['industryScope', "'top10'"], ['industryCellMin', 'null'], ['industryCellMax', 'null'],
+                        ['industryRowsPerPage', 'INDUSTRY_ROWS_DEFAULT']]) {
+    assert.match(reset, new RegExp(`${v} = ${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`), `${v} is not reset to ${d}`);
+  }
+  assert.match(reset, /renderIndustry\(\);/, 'Reset does not redraw (and so does not rewrite the share URL)');
+  // Regression (Codex, PR 285): a Race or Ethnicity category chosen before Reset came back on that tier,
+  // and Reset hid itself while it stayed chosen.
+  assert.match(reset, /industryCat = \{ \.\.\.INDUSTRY_CAT_DEFAULTS \};/, 'Reset leaves the chosen Race or Ethnicity category');
+  assert.match(app, /let industryCat = \{ \.\.\.INDUSTRY_CAT_DEFAULTS \};/, 'the opening categories and the Reset defaults differ');
+  const isDefault = app.match(/function industryIsDefault\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.match(isDefault, /industryCat\[k\] === INDUSTRY_CAT_DEFAULTS\[k\]/, 'a non-default category does not show Reset');
+  // Regression (Codex, PR 285): with 25 or 50 sponsors per page and the sponsor set back on Top 10, Reset
+  // hid itself while the page size stayed, and it came back with the all-sponsors scope.
+  assert.match(isDefault, /industryRowsPerPage === INDUSTRY_ROWS_DEFAULT/, 'a non-default page size does not show Reset');
+  // Regression (Codex, PR 285): the options note said the sponsor set applies to every comparison, but the
+  // adjusted view never reads industryScope and hides that control. The role does reach it (lead-only fits).
+  const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+  const optionsNote = html.match(/<details class="industry-options"[\s\S]*?<\/details>/)?.[0] || '';
+  assert.doesNotMatch(optionsNote, /sponsor set apply to every comparison/i, 'the sponsor set is said to change the adjusted estimates');
+  assert.match(optionsNote, /Sponsor set applies to the heatmap and trend only/, 'the options note no longer limits the sponsor set');
+  assert.doesNotMatch(forest, /industryScope/, 'the adjusted view now reads the sponsor set; revise the options note');
+  assert.match(forest, /industryRole === 'lead'/, 'the adjusted view no longer follows the role; revise the options note');
+  // Regression (Codex, PR 285): the empty heatmap pointed to condition controls "above"; they follow the table.
+  assert.match(app, /No condition columns selected\. Use Top 10 or Choose conditions under Condition columns, below,/);
+  assert.ok(html.indexOf('id="industry-view-heatmap"') < html.indexOf('id="industry-condition-controls"'),
+    'the condition controls are no longer below the heatmap; revise the empty-state wording');
+  assert.match(app, /let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;/, 'the opening page size and the Reset default differ');
+});

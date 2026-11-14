@@ -12479,7 +12479,10 @@ const INDUSTRY_CAT_LABELS = {
     more_than_one_race: 'More than one race', other: 'Other',
     hispanic_latino: 'Hispanic or Latino', not_hispanic_latino: 'Not Hispanic or Latino'
 };
-let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
+// The category each tier opens with; Reset restores it, and the view is not "default" while
+// any tier has another category chosen (it would reappear on returning to that tier).
+const INDUSTRY_CAT_DEFAULTS = Object.freeze({ race: 'black_african_american', ethnicity: 'hispanic_latino' });
+let industryCat = { ...INDUSTRY_CAT_DEFAULTS };
 let industryBenchmark = 'cohort';      // 'cohort' | 'parity' (sex) | 'census' (race/eth)
 let industrySexSpecific = false;       // Sex tier: include sex-specific condition categories
 let industryConditionMode = 'top';     // 'top' | 'all' | 'custom'; display only
@@ -12518,9 +12521,9 @@ function renderIndustryConditionControls(available, visible) {
     const benchmark = industryBenchmark === 'parity' ? 'Benchmark: fixed 50% parity reference.'
         : industryBenchmark === 'census' ? `Benchmark: ${industryData.census?.source || '2020 U.S. Census population shares'}.`
         : 'Benchmark: trial-enrollment baseline, calculated within each condition.';
-    const extracted = industryData.source_extracted_at;
+    // The data date is stated once, in the scope line under the title (industrySyncChrome).
     document.getElementById('industry-benchmark-source').textContent = benchmark +
-        ' Disease-prevalence data is not integrated.' + (extracted ? ` Trial data extracted ${extracted.slice(0, 10)}.` : '');
+        ' Disease-prevalence data is not integrated.';
 }
 
 function filterIndustryConditionOptions() {
@@ -12800,7 +12803,9 @@ function updateIndustrySummaryLabel(summary) {
 // Selected sponsors in volume order, paginated: the heatmap and trend show
 // one page of sponsors at a time (15 default, up to 50 per page) so a bulk
 // "All" over hundreds of sponsors stays readable and browsable.
-let industryRowsPerPage = 15;
+// Sponsors per page in the all-sponsors table; the opening value, which Reset restores.
+const INDUSTRY_ROWS_DEFAULT = 15;
+let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;
 let industrySponsorPage = 0;
 function industrySelectedOrdered() {
     const all = industryMenuCompanies().filter(sp => industrySelected.has(sp));
@@ -12850,7 +12855,7 @@ function renderIndustryHeatmap(rows) {
     const conditions = industryVisibleConditions(available);
     renderIndustryConditionControls(available, conditions);
     if (!conditions.length) {
-        host.innerHTML = `<p class="note">${available.length ? 'No condition columns selected. Use Choose conditions or Top conditions above to populate the table.' : 'No conditions have reporting trials under the current filters.'}</p>`;
+        host.innerHTML = `<p class="note">${available.length ? 'No condition columns selected. Use Top 10 or Choose conditions under Condition columns, below, to populate the table.' : 'No conditions have reporting trials under the current filters.'}</p>`;
         return;
     }
     const topN = d.top_n || 10;
@@ -13227,7 +13232,9 @@ function renderIndustryForest() {
         groupNoun = `${lb} participants`;
     }
 
-    let html = '<div class="industry-forest">';
+    // The model's cohort is fixed: say so beside the chart, not only in the footnote.
+    let html = `<p class="industry-fixed-note"><strong>Fixed cohort.</strong> Adjusted estimates are fitted once on the ${leadMode ? 'lead-sponsored' : 'full'} cohort; the Year Range and Condition filters and the benchmark do not change them.</p>`;
+    html += '<div class="industry-forest">';
     // The direction label states which side is which in words, so the read
     // does not depend on telling the two bar colours apart.
     html += `<div class="industry-forest-head"><span>Sponsor</span><span class="industry-forest-axiswrap"><span class="industry-forest-axis"><span class="industry-forest-zerolabel" style="left:${px(0)}">0</span></span><span class="industry-forest-dir">&#8592; fewer ${escapeHtml(groupNoun)} &middot; more ${escapeHtml(groupNoun)} &#8594;</span></span><span>Difference, pp [95% CI] &middot; n</span></div>`;
@@ -13269,6 +13276,8 @@ function renderIndustry() {
     }
     renderIndustryPager();
     updateIndustryShareUrl();
+    // typeof: tests run renderIndustry from a slice of app.js without these helpers.
+    if (typeof industrySyncChrome === 'function') industrySyncChrome();
     ['heatmap', 'trend', 'forest'].forEach(v => {
         const el = document.getElementById('industry-view-' + v);
         if (el) el.style.display = v === industryView ? '' : 'none';
@@ -13280,6 +13289,88 @@ function renderIndustry() {
     if (industryView === 'heatmap') renderIndustryHeatmap(rows);
     else if (industryView === 'trend') renderIndustryTrend(rows);
     else renderIndustryForest();
+}
+
+// The population each tier's charts are drawn over, for the scope line under the title.
+// What the count before this label covers. On the Race and Ethnicity tiers the filtered rows already
+// exclude trials that do not report that dimension; on the Sex tier they do not (industryFilteredRows
+// keeps rows with no sex value), so the label must not call those trials sex-reporting.
+const INDUSTRY_COHORT_SHORT = {
+    sex: 'industry trials (the charts use those that report sex)',
+    race: 'race-reporting industry trials',
+    ethnicity: 'ethnicity-reporting industry trials'
+};
+
+// The controls' state, in words, where the reader looks for it: the scope line names the
+// population and the data date; the Analysis options summary names its settings when closed;
+// Reset appears once anything differs from the defaults; controls the active comparison
+// ignores are hidden from it (the adjusted model uses no benchmark or sponsor set).
+function industryIsDefault() {
+    const top = industryData ? industryTop10() : [];
+    const sameSponsors = !industrySelected || (industrySelected.size === top.length && top.every(s => industrySelected.has(s)));
+    return industryDemo === 'sex' && industryView === 'heatmap' && industryBenchmark === 'cohort' &&
+        industryRole === 'any' && industryScope === 'top10' && !industrySexSpecific &&
+        industryCellMin === null && industryCellMax === null && industryConditionMode === 'top' && sameSponsors &&
+        industryRowsPerPage === INDUSTRY_ROWS_DEFAULT &&
+        Object.keys(INDUSTRY_CAT_DEFAULTS).every(k => industryCat[k] === INDUSTRY_CAT_DEFAULTS[k]);
+}
+
+function industrySyncChrome() {
+    const extra = document.getElementById('industry-scope-extra');
+    if (extra && industryData) {
+        const date = String(industryData.source_extracted_at || '').slice(0, 10);
+        extra.textContent = ` · ${INDUSTRY_COHORT_SHORT[industryDemo] || 'industry trials'}, primary completion 2009 or later` +
+            (date ? ` · weekly data of ${date}` : '');
+    }
+    const opts = document.getElementById('industry-options-state');
+    if (opts) {
+        const cells = industryCellMin === null && industryCellMax === null ? 'default cell size'
+            : `${industryCellMin ?? (industryData && industryData.min_cell) ?? 10}\u2013${industryCellMax ?? '\u221e'} trials per cell`;
+        opts.textContent = [industryRole === 'lead' ? 'lead sponsors only' : 'lead & collaborator sponsors',
+            industryScope === 'all' ? 'all industry sponsors' : 'top 10', cells].join(' \u00b7 ');
+    }
+    const forest = industryView === 'forest';
+    const bench = document.getElementById('industry-benchmark-group');
+    if (bench) bench.hidden = forest;
+    const scope = document.getElementById('industry-scope-group');
+    if (scope) scope.hidden = forest;
+    const reset = document.getElementById('industry-reset');
+    if (reset) reset.hidden = industryIsDefault();
+}
+
+// Back to the defaults the tab opens on. The global filters (years, conditions) are the
+// page's, with their own Reset, and stay as they are.
+function resetIndustryView() {
+    industryDemo = 'sex';
+    industryCat = { ...INDUSTRY_CAT_DEFAULTS };
+    industryView = 'heatmap';
+    industryBenchmark = 'cohort';
+    industryRole = 'any';
+    industryScope = 'top10';
+    industrySexSpecific = false;
+    industryCellMin = null;
+    industryCellMax = null;
+    industryConditionMode = 'top';
+    industryConditionSelected = new Set();
+    if (industryData) industrySelected = new Set(industryTop10());
+    industrySponsorPage = 0;
+    industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;
+    const setActive = (sel, attr, val) => document.querySelectorAll(sel).forEach(b =>
+        b.classList.toggle('active', b.dataset[attr] === val));
+    setActive('.industry-demo-tab[data-idemo]', 'idemo', 'sex');
+    setActive('#industry-role-toggle .view-btn', 'irole', 'any');
+    setActive('#industry-scope-toggle .view-btn', 'iscope', 'top10');
+    setActive('#industry-view-toggle .view-btn', 'iview', 'heatmap');
+    const sub = document.getElementById('industry-subtitle');
+    if (sub) sub.textContent = INDUSTRY_SUBTITLES.sex;
+    const min = document.getElementById('industry-cellmin');
+    if (min) min.value = (industryData && industryData.min_cell) || 10;
+    const max = document.getElementById('industry-cellmax');
+    if (max) max.value = '';
+    renderIndustryCatRow();
+    renderIndustrySponsorMenu();
+    renderIndustry();
+    redrawArchiveSummary();
 }
 
 // Serialize the industry view's state into #industry?… so the exact tier,
@@ -13649,6 +13740,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderIndustryCatRow();
             renderIndustry();
         });
+    });
+    document.getElementById('industry-reset')?.addEventListener('click', () => {
+        resetIndustryView();
+        document.getElementById('industry-view-toggle')?.querySelector('.view-btn.active')?.focus();
     });
     // Role toggle: lead & collaborator vs lead sponsor only.
     document.querySelectorAll('#industry-role-toggle .view-btn').forEach(btn => {
