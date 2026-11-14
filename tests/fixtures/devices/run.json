@@ -1,17 +1,17 @@
 {
  "build_files": {
-  "coverage.json": "c3120479fcc8c3d0d23b5300d9300b27fde29ae1fe7859f2e7f904e3f63672e4",
-  "demographics.json": "65ba38395e7385b2d583fb8022fb88e8be27f6e5fd99589a2970bba0d9e61f5c",
-  "documents.json": "ffc7974e095e64bc31c52dae017381bf834a2004ed8656265062d218417179c9",
-  "families.json": "98438db3476667b38914a5d5cd020a10dd19a4097c0dfa9b687465bd03c1a712",
-  "links.json": "c235fa0ad5461cdc444dc5f8b0c009764713bb6dbdac1450bfc6144f80b2e285",
-  "organizations.json": "22fff1d1d5bb1f7767dbd82e034512eef7b2b8ca6cc184028583db774db521fe",
-  "review_queue.json": "6dc9692e27a52df40eb2ab57e64ee375bb657457076629080eb0f26fdc221ec0",
-  "studies.json": "6bcf86d0f4498ab5f7e52d3d9fadc1dbca24551afb955166493bc3f770883d90",
-  "submissions.json": "207c2e52c7cfa4b36616112000f87978d4ba5a1f6809853d95615149fcaff95a",
-  "summary.json": "1735ec7f5941f27d259b7470fc1ef4d08ddadac8e1a2c1e7f72582068fd481e6"
+  "coverage.json": "989564858816bec96abd80c3667c4f5c86a81281a2cd0f02fa570966a7e73cee",
+  "demographics.json": "139af7cd6bf54223cba30d8df3cf9ee73fe472976666ef114bd7120403920b88",
+  "documents.json": "c73a4df40b15b02c3bf9a65facdeae584e7ecd19c92f67777fb5d1532c22a327",
+  "families.json": "e9bc65847cabc50b85dcb716c6f3a5745f3ad3a775834e38588924285a712822",
+  "links.json": "5215ef990279d0ca6fc0a9479f951224068feb0002cd3f5f637ac63f936225e0",
+  "organizations.json": "8fb934bd3ca252d96c438232d13f27def3ae55b5da47a458b63823064aa49a77",
+  "review_queue.json": "93c42c592677353a6b5d15cee83e5ffd96912af5cf78b6a820cbd5a2e6653553",
+  "studies.json": "21397d358c4596e18f2b65362ad5d0c799edcb3f71919e5702e2f7e0c589bbcf",
+  "submissions.json": "aefcfcf58e569122f3fd349fc2faf1b0c1ae689672566a04ec5e991931ce621d",
+  "summary.json": "8a88c7b897d0c5f7b85723aa14a279468c27f6e52ddb2c0d1461b4331cae9aba"
  },
- "build_run_id": "devices-2026-11-13-d6b551295e",
+ "build_run_id": "devices-2026-11-13-f9d20a4eeb",
  "build_schema_version": 1,
  "counting_units": {
   "document": "one source URL for one submission; a version is one sha256 of its bytes",
@@ -42,12 +42,12 @@
   "submission_identifier": "submission-level: an identifier found in a retrieved source (automated validation identifier_confirmed). The citation exists; what it means is not reviewed"
  },
  "files": {
-  "documents.json": "9ffd638646d17c96cd3c87a236e2ec186ebcc5dc055cf6655a356fb0d620c3bd",
-  "evidence.json": "9deb69e7fc5172464cbaf5b8bb0dd62fc5fc84c1721b858016ca8a9763ee2816",
-  "evidence_set_aside.json": "4bfa6cd01760a34db99a6170f0fffba23d2b3f27f2f780cfe3431055cda6a79d",
-  "families.json": "cf18180b890ae89813b34a85815fac57dc058bb8cb20d22ae3d26960c253cae0",
-  "submissions.json": "75dd47f6d08e9bf15630d6bf137b25f9f88c9cfeb9d9f7c6825988f5c9694164",
-  "summary.json": "b19f406d4a95b83652a7e30fc3ae09ab326db6533a8eff1b4b8bcbb56c4da30a"
+  "documents.json": "8cfd41efd4b9fef08662b53ad4d88963ed4d2548925f55b21f74d8e07b848cfe",
+  "evidence.json": "c4760177c50aad7c0694417025e48d8c4c768046e90c4fa1b68762057c86334d",
+  "evidence_set_aside.json": "86f8138ea9848a6134a41b6a01d9aadcf48727901f3230fe52812ded0260180d",
+  "families.json": "fb0b928b895604e2400c4ad10f00bf55ee0b2e235f896b80f029baaf376d1495",
+  "submissions.json": "382e176fd515c51756ff77bbc1bd3b3e221c958a50fc8dcaba7cbb54ca4bfdb8",
+  "summary.json": "57bb993f144e8f691f2f7399871a575fd61d482c9cbc85952e928318785a86f3"
  },
  "generated_at": "2026-11-13T00:00:00+00:00",
  "method_version": "device-links-1",
@@ -65,7 +65,7 @@
   "n_orphaned": 0,
   "n_rows": 1
  },
- "run_id": "devices-2026-11-13-d6b551295e-12cef310",
+ "run_id": "devices-2026-11-13-f9d20a4eeb-0b1a2a2e",
  "scheduled": false,
  "schema_version": 1,
  "sources": {
