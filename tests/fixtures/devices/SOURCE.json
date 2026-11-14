@@ -1,0 +1,10 @@
+{
+ "about": "A fictional device-linkage family in site schema 1 (K99xxxx, DEN99xxxx, P99xxxx, NCT990000xx). No real device, company, study or sentence. One fictional review is applied so that a published human review can be tested; the real build has none.",
+ "written_by": "civicsample-engine tests/devices/site_fixture.py",
+ "command": "python3 tests/devices/site_fixture.py ../clinical-trial-populations/tests/fixtures/devices",
+ "path": "tests/devices/fixture.py (stub acquisition) -> devices/artifacts.py build -> devices/contract.py -> scripts/export_device_links_site.py",
+ "engine_commit": "7dc08ed65bf43d2b745567c426ae9b75978bc976",
+ "engine_uncommitted_changes": false,
+ "run_id": "devices-2026-11-13-81089474f2-69685d10",
+ "do_not_edit": "Regenerate with the command above; the files are checked against run.json by the site tests."
+}
