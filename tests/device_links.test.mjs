@@ -391,7 +391,7 @@ test('an open family shows its members, the statement and the records of the fam
 
 // ---------------------------------------------------------------- draft reviews
 
-const draft = (over = {}) => ({ human_review: 'rejected', reviewed_relationship: '', note: 'The quote is about a predicate.', reviewed_on: '2026-11-14', ...over });
+const draft = (over = {}) => ({ human_review: 'rejected', reviewed_relationship: '', note: 'The quote is about a predicate.', reviewed_on: '2026-11-14', run_id: fx('run.json').run_id, ...over });
 
 test('a draft must satisfy the rules the engine loader applies to devices/reviews.csv', () => {
   const run = fx('run.json');
@@ -420,6 +420,11 @@ test('review rows export in the column order of devices/reviews.csv, quoted as C
     'link:bbbb,accepted,documented_postmarket_study,2026-11-14,"Says ""post-market"", page 4, then\nnames the device."\n');
   assert.equal(out.n_rows, 2); assert.deepEqual([...out.skipped], ['link:cccc']);
   assert.equal(D.reviewRowsCSV({}, run).text, 'link_id,human_review,reviewed_relationship,reviewed_on,note\n');
+  // a complete draft saved while an earlier build was shown is left out and named, never exported
+  const mixed = D.reviewRowsCSV({ 'link:aaaa': draft(), 'link:dddd': draft({ run_id: 'devices-2026-01-01-0000000000-00000000' }),
+    'link:eeee': draft({ run_id: undefined }) }, run);
+  assert.equal(mixed.n_rows, 1); assert.deepEqual([...mixed.earlier_build], ['link:dddd', 'link:eeee']);
+  assert.doesNotMatch(mixed.text, /link:dddd|link:eeee/);
   assert.equal(D.EXPORT_SENTENCE, 'Decisions made here take effect only when these rows are added to devices/reviews.csv in the engine repository and the build is rerun.');
 });
 
@@ -772,4 +777,14 @@ test('the published list rows equal the CSV the tab draws, so the three units ar
   const ctx = { text: read('data/ai-ml-enabled-devices-enriched.csv') };
   vm.runInNewContext(`${slice('function parseCSV(text) {')}\nthis.rows = parseCSV(text).length;`, ctx);
   assert.equal(summary.denominators.source_rows.n, ctx.rows, 'the build was made from a list with another number of rows than the CSV on this site');
+});
+
+test('the panel chart counts list rows in its tooltip as on its axis', () => {
+  // Rows sharing a submission number are counted once per row: the unit is a list row, not a device.
+  const app = read('app.js');
+  const at = app.indexOf("label: 'List rows'");
+  assert.ok(at > 0, 'the panel dataset is labelled List rows');
+  const block = app.slice(at, app.indexOf('datalabels', at));
+  assert.match(block, /list rows across/); assert.match(block, /toLocaleString\(\)\} list rows`/);
+  assert.doesNotMatch(block, / devices/);
 });

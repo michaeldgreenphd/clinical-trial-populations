@@ -9271,8 +9271,8 @@ function renderAIPanelChart(panelCounts) {
                 tooltip: {
                     callbacks: {
                         label: c => c.dataIndex === labels.length - 1 && tail.length
-                            ? ` ${c.parsed.x} devices across ${tailNames}`
-                            : ` ${c.parsed.x.toLocaleString()} devices`
+                            ? ` ${c.parsed.x} list rows across ${tailNames}`
+                            : ` ${c.parsed.x.toLocaleString()} list rows`
                     }
                 },
                 datalabels: {

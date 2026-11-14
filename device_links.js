@@ -336,15 +336,20 @@
         return /[",\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     // CSV text for devices/reviews.csv: the file's header, then one row per complete draft in
-    // link-id order. Incomplete drafts are left out and named in `skipped`.
+    // link-id order. Incomplete drafts are left out and named in `skipped`. A draft saved while an
+    // earlier build was shown is left out too and named in `earlier_build`: the evidence it was a
+    // decision on may have changed, so it is exported only after it is opened and saved again
+    // against the build on show.
     function reviewRowsCSV(drafts, run) {
         const ids = Object.keys(drafts || {}).sort();
-        const ready = ids.filter(id => !draftProblem(drafts[id], run));
+        const earlier = ids.filter(id => drafts[id] && drafts[id].run_id !== run.run_id);
+        const ready = ids.filter(id => !earlier.includes(id) && !draftProblem(drafts[id], run));
         const lines = [REVIEW_COLUMNS.join(',')].concat(ready.map(id => {
             const d = drafts[id];
             return [id, d.human_review, d.reviewed_relationship || '', d.reviewed_on, String(d.note).trim()].map(csvField).join(',');
         }));
-        return { text: lines.join('\n') + '\n', n_rows: ready.length, skipped: ids.filter(id => !ready.includes(id)) };
+        return { text: lines.join('\n') + '\n', n_rows: ready.length,
+                 skipped: ids.filter(id => !ready.includes(id) && !earlier.includes(id)), earlier_build: earlier };
     }
 
     // Drafts live in memory; storage is a mirror that may be missing, full or refused. Every
@@ -814,7 +819,7 @@
         const exported = state.exportOpen ? `
                 <div class="dl-export">
                     <p class="note"><strong>${esc(EXPORT_SENTENCE)}</strong></p>
-                    <p class="note">${num(csv.n_rows)} ${csv.n_rows === 1 ? 'row' : 'rows'}, in the column order of ${REVIEW_FILE}. The first line is that file's header; leave it out when adding to a file that already has it.${csv.skipped.length ? ` ${num(csv.skipped.length)} incomplete ${csv.skipped.length === 1 ? 'draft is' : 'drafts are'} left out.` : ''}</p>
+                    <p class="note">${num(csv.n_rows)} ${csv.n_rows === 1 ? 'row' : 'rows'}, in the column order of ${REVIEW_FILE}. The first line is that file's header; leave it out when adding to a file that already has it.${csv.skipped.length ? ` ${num(csv.skipped.length)} incomplete ${csv.skipped.length === 1 ? 'draft is' : 'drafts are'} left out.` : ''}${csv.earlier_build.length ? ` ${num(csv.earlier_build.length)} ${csv.earlier_build.length === 1 ? 'draft was' : 'drafts were'} saved against an earlier build and ${csv.earlier_build.length === 1 ? 'is' : 'are'} left out: open the record and save the draft again to export it against this build.` : ''}</p>
                     <label class="dl-control-label" for="dl-export-text">Review rows (CSV)</label>
                     <textarea id="dl-export-text" class="dl-export-text" rows="${Math.min(12, csv.n_rows + 2)}" readonly>${esc(csv.text)}</textarea>
                     <div class="dl-review-actions">
