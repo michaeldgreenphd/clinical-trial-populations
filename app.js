@@ -12803,7 +12803,9 @@ function updateIndustrySummaryLabel(summary) {
 // Selected sponsors in volume order, paginated: the heatmap and trend show
 // one page of sponsors at a time (15 default, up to 50 per page) so a bulk
 // "All" over hundreds of sponsors stays readable and browsable.
-let industryRowsPerPage = 15;
+// Sponsors per page in the all-sponsors table; the opening value, which Reset restores.
+const INDUSTRY_ROWS_DEFAULT = 15;
+let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;
 let industrySponsorPage = 0;
 function industrySelectedOrdered() {
     const all = industryMenuCompanies().filter(sp => industrySelected.has(sp));
@@ -13309,6 +13311,7 @@ function industryIsDefault() {
     return industryDemo === 'sex' && industryView === 'heatmap' && industryBenchmark === 'cohort' &&
         industryRole === 'any' && industryScope === 'top10' && !industrySexSpecific &&
         industryCellMin === null && industryCellMax === null && industryConditionMode === 'top' && sameSponsors &&
+        industryRowsPerPage === INDUSTRY_ROWS_DEFAULT &&
         Object.keys(INDUSTRY_CAT_DEFAULTS).every(k => industryCat[k] === INDUSTRY_CAT_DEFAULTS[k]);
 }
 
@@ -13351,7 +13354,7 @@ function resetIndustryView() {
     industryConditionSelected = new Set();
     if (industryData) industrySelected = new Set(industryTop10());
     industrySponsorPage = 0;
-    industryRowsPerPage = 15;
+    industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;
     const setActive = (sel, attr, val) => document.querySelectorAll(sel).forEach(b =>
         b.classList.toggle('active', b.dataset[attr] === val));
     setActive('.industry-demo-tab[data-idemo]', 'idemo', 'sex');

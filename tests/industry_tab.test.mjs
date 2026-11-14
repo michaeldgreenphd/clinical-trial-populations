@@ -249,7 +249,7 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
   assert.ok(reset, 'resetIndustryView() is gone');
   for (const [v, d] of [['industryDemo', "'sex'"], ['industryView', "'heatmap'"], ['industryBenchmark', "'cohort'"],
                         ['industryRole', "'any'"], ['industryScope', "'top10'"], ['industryCellMin', 'null'], ['industryCellMax', 'null'],
-                        ['industryRowsPerPage', '15']]) {
+                        ['industryRowsPerPage', 'INDUSTRY_ROWS_DEFAULT']]) {
     assert.match(reset, new RegExp(`${v} = ${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`), `${v} is not reset to ${d}`);
   }
   assert.match(reset, /renderIndustry\(\);/, 'Reset does not redraw (and so does not rewrite the share URL)');
@@ -259,4 +259,8 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
   assert.match(app, /let industryCat = \{ \.\.\.INDUSTRY_CAT_DEFAULTS \};/, 'the opening categories and the Reset defaults differ');
   const isDefault = app.match(/function industryIsDefault\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.match(isDefault, /industryCat\[k\] === INDUSTRY_CAT_DEFAULTS\[k\]/, 'a non-default category does not show Reset');
+  // Regression (Codex, PR 285): with 25 or 50 sponsors per page and the sponsor set back on Top 10, Reset
+  // hid itself while the page size stayed, and it came back with the all-sponsors scope.
+  assert.match(isDefault, /industryRowsPerPage === INDUSTRY_ROWS_DEFAULT/, 'a non-default page size does not show Reset');
+  assert.match(app, /let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;/, 'the opening page size and the Reset default differ');
 });
