@@ -13348,6 +13348,7 @@ function resetIndustryView() {
     industryConditionSelected = new Set();
     if (industryData) industrySelected = new Set(industryTop10());
     industrySponsorPage = 0;
+    industryRowsPerPage = 15;
     const setActive = (sel, attr, val) => document.querySelectorAll(sel).forEach(b =>
         b.classList.toggle('active', b.dataset[attr] === val));
     setActive('.industry-demo-tab[data-idemo]', 'idemo', 'sex');

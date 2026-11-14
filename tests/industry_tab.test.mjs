@@ -238,7 +238,8 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
   const reset = app.match(/function resetIndustryView\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(reset, 'resetIndustryView() is gone');
   for (const [v, d] of [['industryDemo', "'sex'"], ['industryView', "'heatmap'"], ['industryBenchmark', "'cohort'"],
-                        ['industryRole', "'any'"], ['industryScope', "'top10'"], ['industryCellMin', 'null'], ['industryCellMax', 'null']]) {
+                        ['industryRole', "'any'"], ['industryScope', "'top10'"], ['industryCellMin', 'null'], ['industryCellMax', 'null'],
+                        ['industryRowsPerPage', '15']]) {
     assert.match(reset, new RegExp(`${v} = ${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`), `${v} is not reset to ${d}`);
   }
   assert.match(reset, /renderIndustry\(\);/, 'Reset does not redraw (and so does not rewrite the share URL)');
