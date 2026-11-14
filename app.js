@@ -901,7 +901,21 @@ const DONUT_COLORS = {
 // Category names that mean absence rather than a group. They keep the
 // neutral grey and, in ramp mode, sort to the end instead of joining the
 // magnitude ramp.
-const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported']);
+const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported', 'Hispanic or Latino, no race category']);
+
+// The part of a race block's unknown that the engine publishes as
+// race.unknown_ethnicity_only: participants a combined race and ethnicity
+// table counted in its Hispanic or Latino row and gave no race. It is a PART
+// of omb_totals.unknown_not_reported, never an addition: the Race views take
+// it out of "Unknown" and show it as its own absence row. A record extracted
+// before the field existed has no such key; its unknown then stays whole, as
+// it always was (0 here means "nothing to take out", not a measured zero).
+const RACE_ETHNICITY_ONLY_LABEL = 'Hispanic or Latino, no race category';
+function raceUnknownEthnicityOnly(part, unknown) {
+    const p = Number(part);
+    const u = Number(unknown) || 0;
+    return Number.isFinite(p) && p > 0 ? Math.min(p, u) : 0;
+}
 
 // ── Demographics tabs: the Overview's ink on paper ──────────────────────
 // Race, Ethnicity, Sex and Gender take the Overview's type and palette (the
@@ -1972,6 +1986,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
+        // Pop-ups note the control that opened them, clicked or not focused.
+        initOverlayOpeners();
         // A shared snapshot link (?sgsnapshot=, desktop only) opens that
         // snapshot in place of the latest data, never after it.
         const requested = requestedSnapshot();
@@ -3292,12 +3308,20 @@ function stateCell(st, what) {
 let breakdownToken = 0;
 let studyModalToken = 0;
 
-// Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
-// what it waits for lands, or by its own Try again, which opens it afresh)
-// keeps its scroll position and does not play its entrance (slideUp) again,
-// and focus that was inside it stays inside it: on the same section's line
-// (its button, when it has one), else on the close button. Replacing the
-// markup would otherwise send focus to the page behind.
+// Put a pop-up's markup on screen. The pop-ups are modal dialogs: the box (the
+// overlay's first child) is the dialog, named by its heading. A fresh opening
+// notes what had focus and moves focus to the dialog itself, not to a control:
+// the breakdowns' Close button is at the foot of the box, and focusing it
+// would scroll a long pop-up to its end. index.html wires overlayKeydown on
+// each overlay (Tab and Shift+Tab stay inside, Escape closes), and
+// closeOverlay gives focus back.
+//
+// A pop-up already on screen (redrawn as what it waits for lands, or by its
+// own Try again, which opens it afresh) keeps its scroll position and does
+// not play its entrance (slideUp) again, and focus that was inside it stays
+// inside it, without a second move: on the dialog if it was there, else on
+// the same section's line (its button, when it has one), else the close
+// button. Replacing the markup would otherwise send focus to the page behind.
 function drawOverlay(id, html, redraw) {
     const overlay = document.getElementById(id);
     if (!overlay) return;
@@ -3306,20 +3330,162 @@ function drawOverlay(id, html, redraw) {
     const top = box ? box.scrollTop : 0;
     const active = document.activeElement;
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
-    const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
-    const same = hadFocus && !section ? controlSignature(active) : null;
+    const onDialog = hadFocus && active === box;
+    const section = hadFocus && !onDialog && active.getAttribute ? active.getAttribute('data-state') : null;
+    const same = hadFocus && !onDialog && !section ? controlSignature(active) : null;
     overlay.innerHTML = html;
+    const dialog = markDialog(overlay, id);
     overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
-    if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
+    if (box && dialog) dialog.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
         const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
-        const target = (line && (line.querySelector('.detail-action') || line))
+        const target = (onDialog && dialog)
+            || (line && (line.querySelector('.detail-action') || line))
             || findSameControl(overlay, same)
             || overlay.querySelector('.close-btn, .modal-close-btn');
         if (target) target.focus({ preventScroll: true });
+    } else if (!open) {
+        overlayOpeners[id] = openerOf(activatingControl || active);
+        if (dialog) dialog.focus({ preventScroll: true });
     }
 }
+
+// What opened each pop-up, by overlay id (openerOf).
+const overlayOpeners = {};
+
+// The control a click is activating, while that click is being handled (an
+// Enter or Space on a button arrives as a click too). drawOverlay takes it as
+// a pop-up's opener ahead of document.activeElement: Safari does not focus a
+// button it clicks, so activeElement can be the page, or a control focused
+// earlier, and focus would not come back to the badge. Noted in the capture
+// phase, before the control's own onclick runs, and cleared once the click's
+// handlers are done.
+let activatingControl = null;
+function initOverlayOpeners() {
+    document.addEventListener('click', (e) => {
+        const control = e.target && e.target.closest ? e.target.closest(OPENER_SELECTOR) : null;
+        activatingControl = control;
+        setTimeout(() => { if (activatingControl === control) activatingControl = null; }, 0);
+    }, true);
+}
+const OPENER_SELECTOR = 'button, a[href], summary, [role="button"]';
+
+// The overlay's box as a modal dialog, named by its heading. It takes focus
+// (tabindex -1) without becoming a Tab stop, so a click on its text keeps
+// focus inside it rather than dropping it to the page.
+function markDialog(overlay, id) {
+    const box = overlay.firstElementChild;
+    if (!box) return null;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('tabindex', '-1');
+    const heading = box.querySelector('h3, h4');
+    if (heading) {
+        heading.id = `${id}-title`;
+        box.setAttribute('aria-labelledby', heading.id);
+    } else {
+        box.setAttribute('aria-label', 'Details');
+    }
+    return box;
+}
+
+// The element focus goes back to when a pop-up closes, and, when it is a
+// control in the Studies table's rows or page buttons, its studiesFocusKey:
+// the table can redraw while the pop-up is open (the extras land), and the
+// element is then gone from the page.
+function openerOf(active) {
+    if (!active || active === document.body) return null;
+    const key = studiesFocusKey(active, document.getElementById('studies-table-body'), document.getElementById('pagination'));
+    return { el: active, key };
+}
+
+// Hide a pop-up and put focus back on what opened it: the same element, else
+// the same control in the redrawn Studies table, else the table itself. Each
+// must be on screen: a link in a pop-up can switch tabs while it stays open
+// (the sex/gender breakdown's Methods link opens the FAQ), and focus() on an
+// element in the hidden tab does nothing, leaving focus on the page. Then
+// focus goes to what names the tab now on screen (activeTabControl). Focus
+// that has already left the pop-up for another control stays where it is.
+function closeOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    const from = overlayOpeners[id];
+    delete overlayOpeners[id];
+    const active = document.activeElement;
+    const inside = !active || active === document.body || overlay.contains(active);
+    overlay.style.display = 'none';
+    if (!from || !inside) return;
+    const body = document.getElementById('studies-table-body');
+    const pager = document.getElementById('pagination');
+    const target = [
+        from.el,
+        findStudiesControl(from.key, body, pager),
+        from.key ? document.getElementById('studies-table') : null,
+        activeTabControl()
+    ].find(onScreen);
+    if (target) target.focus();
+}
+
+// In the page and laid out: not detached, and not in a hidden tab, a closed
+// menu or a display: none box.
+function onScreen(el) {
+    return !!el && el.isConnected && el.getClientRects().length > 0;
+}
+
+// The control that names the tab on screen: its tab button, or, while that
+// button sits in a closed menu (Race is under Demographics), the menu's
+// summary.
+function activeTabControl() {
+    const tab = document.querySelector('.tab.active');
+    if (!tab) return null;
+    const group = tab.closest('.nav-group');
+    return group && !group.open ? group.querySelector('summary') : tab;
+}
+
+// Keys inside an open pop-up (index.html: onkeydown on each overlay). Escape
+// closes it with its own close function. Tab and Shift+Tab move between its
+// controls and go round from the last to the first, so focus never reaches
+// the page behind.
+function overlayKeydown(event, close) {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget.firstElementChild;
+    if (!dialog) return;
+    event.preventDefault();
+    nextTabStop(dialog, document.activeElement, event.shiftKey).focus();
+}
+
+// Candidates for a Tab stop; isTabStop decides.
+const TAB_STOP_SELECTOR = 'a[href], button, input, select, textarea, summary, [tabindex]';
+
+// A control the keyboard can land on: enabled, not tabindex -1, and laid
+// out (an element inside a closed <details> or a display: none box is not).
+function isTabStop(el) {
+    return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0;
+}
+
+// Where Tab (back: Shift+Tab) goes from `active` inside a dialog, in document
+// order, round from the last stop to the first and back. From the dialog
+// itself, a line that takes focus but is no stop (tabindex -1), or anywhere
+// outside, it is the next stop after that place; the dialog when it holds no
+// stop at all.
+function nextTabStop(dialog, active, back) {
+    const all = [...dialog.querySelectorAll(TAB_STOP_SELECTOR)];
+    const stops = all.filter(isTabStop);
+    if (!stops.length) return dialog;
+    const at = all.indexOf(active);
+    if (back) {
+        const before = stops.filter(s => all.indexOf(s) < at);
+        return before.length ? before[before.length - 1] : stops[stops.length - 1];
+    }
+    return stops.find(s => all.indexOf(s) > at) || stops[0];
+}
+window.overlayKeydown = overlayKeydown;
 
 // A focused control in a pop-up that has no section line (a study's NCT link,
 // a publication link), told apart from its siblings by tag, class and where
@@ -6350,6 +6516,9 @@ function breakdownHtml(study, categoryName, tab) {
         // Denominator includes all standard categories + any "other" unmapped counts
         const grandTotal = ombCategories.reduce((s, c) => s + (ombTotals[c.key] || 0), 0)
                          + (ombTotals.other || 0);
+        // Participants the table counted as Hispanic or Latino and gave no race:
+        // a part of the unknown count, shown on its own row below.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
 
         for (const cat of ombCategories) {
             if (!reportedSet.has(cat.key)) {
@@ -6364,7 +6533,7 @@ function breakdownHtml(study, categoryName, tab) {
                 continue;
             }
 
-            const count   = ombTotals[cat.key] || 0;
+            const count   = (ombTotals[cat.key] || 0) - (cat.key === 'unknown_not_reported' ? ethnicityOnly : 0);
             const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
 
             // Aggregate original labels and best match quality from raw_categories
@@ -6398,6 +6567,19 @@ function breakdownHtml(study, categoryName, tab) {
                 <td class="text-center">${matchQuality}</td>
                 <td>${count.toLocaleString()}</td>
                 <td style="--percent: ${percent}">${percent}%</td>
+            </tr>`;
+        }
+
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count above, on its own row (engine: race.unknown_ethnicity_only).
+        if (ethnicityOnly > 0) {
+            const partPct = grandTotal > 0 ? ((ethnicityOnly / grandTotal) * 100).toFixed(1) : '0.0';
+            html += `<tr>
+                <td>${escapeHtml(RACE_ETHNICITY_ONLY_LABEL)}</td>
+                <td class="original-label">This table's Hispanic or Latino row</td>
+                <td class="text-center"><span class="match-na" title="Counted from the table's own rows: they add up exactly to the participants">-</span></td>
+                <td>${ethnicityOnly.toLocaleString()}</td>
+                <td style="--percent: ${partPct}">${partPct}%</td>
             </tr>`;
         }
 
@@ -6531,7 +6713,15 @@ function breakdownCountsHtml(study, categoryName, tab) {
     if (categoryName === 'race') {
         const ombTotals = study.race?.omb_totals || {};
         grandTotal = RACE_ORDER.reduce((sum, [key]) => sum + (ombTotals[key] || 0), 0);
-        rows = RACE_ORDER.filter(([key]) => ombTotals[key] > 0).map(([key, label]) => [label, ombTotals[key]]);
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count, on its own row after it, as in breakdownHtml.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
+        rows = RACE_ORDER.flatMap(([key, label]) => {
+            const count = (ombTotals[key] || 0) - (key === 'unknown_not_reported' ? ethnicityOnly : 0);
+            const out = count > 0 ? [[label, count]] : [];
+            if (key === 'unknown_not_reported' && ethnicityOnly > 0) out.push([RACE_ETHNICITY_ONLY_LABEL, ethnicityOnly]);
+            return out;
+        });
     } else {
         const fieldData = study[categoryName];
         const totals = fieldData.omb_totals || fieldData.totals || {};
@@ -6571,7 +6761,7 @@ function formatOmbCategory(ombCat) {
 
 function closeBreakdown() {
     breakdownToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('breakdown-overlay').style.display = 'none';
+    closeOverlay('breakdown-overlay');
 }
 
 // Make functions available globally
@@ -6824,7 +7014,7 @@ function studyDetailsHtml(fullStudy, states) {
         <div class="study-details-modal">
             <div class="modal-header">
                 <h3>${escapeHtml(fullStudy.brief_title)}</h3>
-                <button class="close-btn" onclick="closeStudyDetails()">✕</button>
+                <button class="close-btn" onclick="closeStudyDetails()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="detail-row">
@@ -6997,7 +7187,7 @@ function renderStudySites(study, detail = READY, retry = '') {
 
 function closeStudyDetails() {
     studyModalToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('study-details-overlay').style.display = 'none';
+    closeOverlay('study-details-overlay');
 }
 
 window.showStudyDetails = showStudyDetails;
@@ -7193,29 +7383,34 @@ function renderRaceDistribution(filtered) {
     let totals;
     if (dashboardSummary) {
         const d = dashboardSummary.raceDistribution;
+        // A summary written before the engine published the part has no
+        // unknown_ethnicity_only key: Unknown then stays whole.
+        const part = raceUnknownEthnicityOnly(d.unknown_ethnicity_only, d.unknown_not_reported);
         totals = {
             'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
             'Asian': d.asian || 0, 'Black/African American': d.black_african_american || 0,
             'Native Hawaiian/Pacific Islander': d.native_hawaiian_pacific_islander || 0,
             'White': d.white || 0, 'More than one race': d.more_than_one_race || 0,
-            'Unknown': d.unknown_not_reported || 0, 'Other': d.other || 0
+            'Unknown': (d.unknown_not_reported || 0) - part, [RACE_ETHNICITY_ONLY_LABEL]: part, 'Other': d.other || 0
         };
     } else {
         totals = {
             'American Indian/Alaska Native': 0, 'Asian': 0, 'Black/African American': 0,
             'Native Hawaiian/Pacific Islander': 0, 'White': 0, 'More than one race': 0,
-            'Unknown': 0, 'Other': 0
+            'Unknown': 0, [RACE_ETHNICITY_ONLY_LABEL]: 0, 'Other': 0
         };
         filtered.forEach(study => {
             if (!study.race?.reported) return;
             const omb = study.race.omb_totals;
+            const part = raceUnknownEthnicityOnly(study.race.unknown_ethnicity_only, omb.unknown_not_reported);
             totals['American Indian/Alaska Native'] += omb.american_indian_alaska_native || 0;
             totals['Asian'] += omb.asian || 0;
             totals['Black/African American'] += omb.black_african_american || 0;
             totals['Native Hawaiian/Pacific Islander'] += omb.native_hawaiian_pacific_islander || 0;
             totals['White'] += omb.white || 0;
             totals['More than one race'] += omb.more_than_one_race || 0;
-            totals['Unknown'] += omb.unknown_not_reported || 0;
+            totals['Unknown'] += (omb.unknown_not_reported || 0) - part;
+            totals[RACE_ETHNICITY_ONLY_LABEL] += part;
             totals['Other'] += omb.other || 0;
         });
     }
@@ -12158,9 +12353,7 @@ function sgShowBreakdown(nctId, field) {
             : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
         `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
         `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    drawOverlay('breakdown-overlay', html, false);
 }
 
 // ── Methods page ─────────────────────────────────────────────────────────
