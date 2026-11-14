@@ -541,6 +541,9 @@
     //     person accepted; structureProblem refuses a family that says otherwise.
     //   - Every count shown is a numerator and denominator published in summary.json. Nothing here
     //     counts, sums or divides: no percentage is derived, and no row is counted.
+    //   - The build's scope is stated from summary.json: how many registry records were fetched,
+    //     how many trials the build covers, and how many fetched records it leaves out and why.
+    //     The counts are over the trials it covers, which is the cohort this pane lists.
     //   - Posted documents and publications are not read by the method; each trial says so on its
     //     own line, so absence in the structured fields is not presented as absence everywhere.
     const RS_BASE = 'data/results_structure/';
@@ -607,6 +610,12 @@
             const d = den[m.denominator];
             if (!isObj(d) || !isInt(d.n) || !isInt(m.numerator) || m.numerator > d.n || !m.definition || !m.label) return `metric ${m.id} is incomplete`;
         }
+        const scope = summary.scope;
+        if (!isObj(scope) || !Array.isArray(scope.rows) || scope.rows.some(r => !isObj(r) || !isInt(r.n) || !r.label)) return 'summary.json does not state the scope of the build';
+        const scoped = Object.fromEntries(scope.rows.map(r => [r.id, r]));
+        if (!scoped.frame || !scoped.included || !scoped.excluded) return 'summary.json does not state the scope of the build';
+        if (scoped.included.n !== den.requested.n) return 'the scope does not match the requested denominator';
+        if (scoped.excluded.n > 0 && !scoped.excluded.reason) return 'records are left out of the build without a stated reason';
         const states = summary.subgroup_states;
         if (!isObj(states) || !isObj(states.by_dimension) || !isObj(den[states.denominator])) return 'summary.json has no subgroup state counts';
         for (const d of RS_DIMENSIONS) {
@@ -730,6 +739,9 @@
         }
         const { summary } = structure;
         const den = summary.denominators;
+        // The scope rows as published: fetched, covered, left out (with the reason when any are).
+        const scopeRows = summary.scope.rows.map(r =>
+            `<dt>${esc(r.label)}</dt><dd><strong>${r.n.toLocaleString()}</strong>${r.id === 'excluded' && r.n > 0 ? ` <span class="oc-sub">Reason: ${esc(r.reason)}.</span>` : ''} <span class="oc-sub">${esc(r.definition || '')}</span></dd>`).join('');
         const metricRow = m => `<tr><th scope="row">${esc(m.label)}</th><td class="num">${count(m.numerator, den[m.denominator].n)}</td><td>${esc(den[m.denominator].definition)} <span class="oc-sub">${esc(m.definition)}</span></td></tr>`;
         const states = summary.subgroup_states;
         const stateRows = SUBGROUP_STATES.map(s =>
@@ -748,16 +760,17 @@
             </div>`;
         return `
         <section class="oc-block oc-structure" aria-labelledby="oc-structure-h">
-            ${head} <span class="oc-h-sub">${den.requested.n.toLocaleString()} registry records requested</span></h4>
-            <p class="oc-note">What the posted results section of each record contains, and where its wording looks like subgroup reporting. These counts cover every registry record this build requested, which can include records excluded from the list below, so their denominators are not the number of eligible trials. Each count names its own denominator.</p>
+            ${head} <span class="oc-h-sub">${den.requested.n.toLocaleString()} trials</span></h4>
+            <p class="oc-note">What the posted results section of each trial contains, and where its wording looks like subgroup reporting. Every count below is over the trials in this build, and each count names its own denominator.</p>
+            <dl class="oc-grid oc-structure-scope">${scopeRows}</dl>
             ${table('Posted results: content that can be read', summary.metrics.map(metricRow).join(''))}
-            <h5 class="oc-sub-h">Subgroup results, by dimension <span class="oc-h-sub">each of the ${den[states.denominator].n.toLocaleString()} records is in exactly one state per dimension</span></h5>
+            <h5 class="oc-sub-h">Subgroup results, by dimension <span class="oc-h-sub">each of the ${den[states.denominator].n.toLocaleString()} trials is in exactly one state per dimension</span></h5>
             <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Subgroup result states by dimension">
                 <table class="oc-table oc-structure-states"><thead><tr><th scope="col">State</th>${RS_DIMENSIONS.map(d => `<th scope="col" class="num">${RS_DIMENSION_LABELS[d]}</th>`).join('')}</tr></thead>
                 <tbody>${stateRows}</tbody></table>
             </div>
             ${signalLine}
-            <p class="oc-note oc-doc-review">Posted documents and publications: not reviewed, for every record. “No explicit subgroup results detected in reviewed structured fields” describes those fields only.</p>
+            <p class="oc-note oc-doc-review">Posted documents and publications: not reviewed, for every trial. “No explicit subgroup results detected in reviewed structured fields” describes those fields only.</p>
             <details class="oc-taxonomy"><summary>Failures, missing data and negative findings</summary>
                 <dl class="oc-grid">
                     <dt>Retrieval failures</dt><dd>${tableCount(tables.retrieval_failures)} <span class="oc-sub">${esc(tables.retrieval_failures.definition || '')}</span></dd>

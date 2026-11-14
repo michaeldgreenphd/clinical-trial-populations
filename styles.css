@@ -5864,6 +5864,7 @@ footer p {
 .oc-sg-explicit_subgroup_results_detected { font-weight: 600; }
 .oc-sg-not_yet_processed, .oc-sg-not_applicable_no_posted_results { color: var(--c-absent-ink); font-style: italic; }
 .oc-structure-table, .oc-structure-states { max-width: 60rem; }
+.oc-structure-scope { grid-template-columns: 16rem 1fr; max-width: 60rem; }
 .oc-structure-table caption { caption-side: top; text-align: left; font-weight: 600; font-size: var(--fs-small); padding: 0.75rem 0 0.25rem; color: var(--oc-ink); }
 .oc-structure-table th[scope="row"], .oc-structure-states th[scope="row"] { font-weight: 500; }
 .oc-structure-table td:last-child { color: var(--text-secondary); min-width: 14rem; }

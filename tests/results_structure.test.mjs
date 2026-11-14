@@ -253,6 +253,7 @@ test('the summary block shows only numbers summary.json published, each with its
   const expected = new Set();
   const mark = () => { expected.add(next.toLocaleString('en-US')); return next++; };
   for (const d of Object.values(marked.summary.denominators)) { d.n = 900000 + next; next += 1; }
+  for (const r of marked.summary.scope.rows) r.n = mark();
   for (const m of marked.summary.metrics) m.numerator = mark();
   for (const d of O.RS_DIMENSIONS) for (const st of O.SUBGROUP_STATES) marked.summary.subgroup_states.by_dimension[d][st] = mark();
   for (const t of ['retrieval_failures', 'parsing_failures']) marked.summary.tables[t].n = mark();
@@ -274,12 +275,41 @@ test('the summary block shows only numbers summary.json published, each with its
   const real = O.structureSummaryHTML(s);
   assert.match(real, /<th scope="row">Primary outcome usable \(rule O1\)<\/th><td class="num"><span class="oc-fig"><strong>2<\/strong> of 4<\/span><\/td><td>Retrieved trials with posted results/);
   assert.match(real, /<th scope="row">Between-arm analysis posted on a primary measure<\/th><td class="num"><span class="oc-fig"><strong>1<\/strong> of 1<\/span>/);
+  assert.match(real, /Posted results structure and subgroup reporting <span class="oc-h-sub">7 trials<\/span>/);
   assert.match(real, /Retrieval failures<\/dt><dd><span class="oc-fig"><strong>1<\/strong> of 7<\/span>/);
   assert.match(real, /Parsing failures<\/dt><dd><span class="oc-fig"><strong>1<\/strong> of 6<\/span>/);
   assert.match(real, /Missing data: what the records do not contain/);
   assert.match(real, /Negative findings: searches that found nothing, with their scope/);
   assert.match(real, /Scope: Rule SG2 over the 18 listed fields/);
   for (const label of Object.values(O.SUBGROUP_LABELS)) assert.ok(real.includes(`<th scope="row">${label}</th>`), `the state table drops ${label}`);
+});
+
+test('the block states the scope of the build: records fetched, trials covered, records left out and why', () => {
+  const s = structure();
+  const html = O.structureSummaryHTML(s);
+  const scope = html.slice(html.indexOf('oc-structure-scope'), html.indexOf('</dl>', html.indexOf('oc-structure-scope')));
+  assert.match(scope, /<dt>Registry records fetched \(the frame\)<\/dt><dd><strong>8<\/strong>/);
+  assert.match(scope, /<dt>Trials in this build<\/dt><dd><strong>7<\/strong>/);
+  assert.match(scope, /<dt>Frame records left out<\/dt><dd><strong>1<\/strong> <span class="oc-sub">Reason: fictional: excluded by the cohort&#39;s eligibility rules\.<\/span>/);
+  assert.match(html, /Every count below is over the trials in this build/);
+  // The excluded frame record has no record, and the counts' denominator is the trials covered.
+  assert.equal(s.records.NCT99000009, undefined);
+  assert.equal(s.summary.denominators.requested.n, 7);
+  assert.deepEqual(clone(s.run.scope.excluded.nct_ids), ['NCT99000009']);
+  // Nothing left out: the row says zero and gives no reason.
+  const all = clone(s); all.summary.scope.rows[2].n = 0; all.summary.scope.rows[2].reason = null;
+  assert.doesNotMatch(O.structureSummaryHTML(all), /Reason:/);
+  // A family that does not state its scope, or leaves records out without a reason, is refused.
+  const cases = {
+    'does not state the scope': (f) => { delete f.summary.scope; },
+    'does not state the scope of the build': (f) => { f.summary.scope.rows = f.summary.scope.rows.filter((r) => r.id !== 'excluded'); },
+    'without a stated reason': (f) => { f.summary.scope.rows.find((r) => r.id === 'excluded').reason = null; },
+    'scope does not match the requested denominator': (f) => { f.summary.scope.rows.find((r) => r.id === 'included').n = 8; },
+  };
+  for (const [message, breakIt] of Object.entries(cases)) {
+    const f = files(); breakIt(f);
+    assert.match(O.structureProblem(f.run, f.summary, f.records), new RegExp(message), message);
+  }
 });
 
 test('the browser computes no aggregate in the results-structure code', () => {
@@ -376,6 +406,27 @@ test('every trial the pane lists has a record or reads "Not yet processed"', { s
     }
   }
   assert.equal((html.match(/<td data-label="Subgroup results">/g) || []).length, index.rows.length);
+});
+
+test('the published build covers the cohort the pane lists, and says what it leaves out', { skip: !published && 'nothing published' }, () => {
+  const run = json(`${DIR}run.json`); const summary = json(`${DIR}summary.json`); const records = json(`${DIR}records.json`);
+  const index = json('data/outcomes/index.json');
+  const listed = index.rows.map((r) => r.nct_id).sort();
+  // One record per listed trial, and none for a record the outcomes cohort excludes: the block's
+  // denominators are the pane's trials, so its counts can be read beside the pane's own.
+  assert.deepEqual(Object.keys(records.records).sort(), listed);
+  assert.equal(summary.denominators.requested.n, index.rows.length);
+  const scope = Object.fromEntries(summary.scope.rows.map((r) => [r.id, r]));
+  assert.equal(scope.included.n, index.rows.length);
+  const excluded = index.excluded.map((x) => x.nct_id).sort();
+  assert.deepEqual([...run.scope.excluded.nct_ids].sort(), excluded);
+  assert.equal(scope.excluded.n, excluded.length);
+  assert.equal(scope.frame.n, run.acquisition.n_requested, 'the frame is what the archive was fetched for');
+  if (excluded.length) {
+    assert.ok(scope.excluded.reason && run.scope.excluded.reason === scope.excluded.reason);
+    assert.match(scope.excluded.reason, /data\/outcomes\/index\.json excluded/);
+  }
+  for (const n of excluded) assert.equal(records.records[n], undefined, n);
 });
 
 test('index.html and the stylesheet carry the results-structure view', () => {
