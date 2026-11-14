@@ -3292,12 +3292,20 @@ function stateCell(st, what) {
 let breakdownToken = 0;
 let studyModalToken = 0;
 
-// Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
-// what it waits for lands, or by its own Try again, which opens it afresh)
-// keeps its scroll position and does not play its entrance (slideUp) again,
-// and focus that was inside it stays inside it: on the same section's line
-// (its button, when it has one), else on the close button. Replacing the
-// markup would otherwise send focus to the page behind.
+// Put a pop-up's markup on screen. The pop-ups are modal dialogs: the box (the
+// overlay's first child) is the dialog, named by its heading. A fresh opening
+// notes what had focus and moves focus to the dialog itself, not to a control:
+// the breakdowns' Close button is at the foot of the box, and focusing it
+// would scroll a long pop-up to its end. index.html wires overlayKeydown on
+// each overlay (Tab and Shift+Tab stay inside, Escape closes), and
+// closeOverlay gives focus back.
+//
+// A pop-up already on screen (redrawn as what it waits for lands, or by its
+// own Try again, which opens it afresh) keeps its scroll position and does
+// not play its entrance (slideUp) again, and focus that was inside it stays
+// inside it, without a second move: on the dialog if it was there, else on
+// the same section's line (its button, when it has one), else the close
+// button. Replacing the markup would otherwise send focus to the page behind.
 function drawOverlay(id, html, redraw) {
     const overlay = document.getElementById(id);
     if (!overlay) return;
@@ -3306,20 +3314,122 @@ function drawOverlay(id, html, redraw) {
     const top = box ? box.scrollTop : 0;
     const active = document.activeElement;
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
-    const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
-    const same = hadFocus && !section ? controlSignature(active) : null;
+    const onDialog = hadFocus && active === box;
+    const section = hadFocus && !onDialog && active.getAttribute ? active.getAttribute('data-state') : null;
+    const same = hadFocus && !onDialog && !section ? controlSignature(active) : null;
     overlay.innerHTML = html;
+    const dialog = markDialog(overlay, id);
     overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
-    if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
+    if (box && dialog) dialog.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
         const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
-        const target = (line && (line.querySelector('.detail-action') || line))
+        const target = (onDialog && dialog)
+            || (line && (line.querySelector('.detail-action') || line))
             || findSameControl(overlay, same)
             || overlay.querySelector('.close-btn, .modal-close-btn');
         if (target) target.focus({ preventScroll: true });
+    } else if (!open) {
+        overlayOpeners[id] = openerOf(active);
+        if (dialog) dialog.focus({ preventScroll: true });
     }
 }
+
+// What had focus when each pop-up opened, by overlay id (openerOf).
+const overlayOpeners = {};
+
+// The overlay's box as a modal dialog, named by its heading. It takes focus
+// (tabindex -1) without becoming a Tab stop, so a click on its text keeps
+// focus inside it rather than dropping it to the page.
+function markDialog(overlay, id) {
+    const box = overlay.firstElementChild;
+    if (!box) return null;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('tabindex', '-1');
+    const heading = box.querySelector('h3, h4');
+    if (heading) {
+        heading.id = `${id}-title`;
+        box.setAttribute('aria-labelledby', heading.id);
+    } else {
+        box.setAttribute('aria-label', 'Details');
+    }
+    return box;
+}
+
+// The element focus goes back to when a pop-up closes, and, when it is a
+// control in the Studies table's rows or page buttons, its studiesFocusKey:
+// the table can redraw while the pop-up is open (the extras land), and the
+// element is then gone from the page.
+function openerOf(active) {
+    if (!active || active === document.body) return null;
+    const key = studiesFocusKey(active, document.getElementById('studies-table-body'), document.getElementById('pagination'));
+    return { el: active, key };
+}
+
+// Hide a pop-up and put focus back on what opened it: the same element, else
+// the same control in the redrawn Studies table, else the table itself. Focus
+// that has already left the pop-up for another control stays where it is.
+function closeOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    const from = overlayOpeners[id];
+    delete overlayOpeners[id];
+    const active = document.activeElement;
+    const inside = !active || active === document.body || overlay.contains(active);
+    overlay.style.display = 'none';
+    if (!from || !inside) return;
+    const body = document.getElementById('studies-table-body');
+    const pager = document.getElementById('pagination');
+    const target = (from.el.isConnected ? from.el : null)
+        || findStudiesControl(from.key, body, pager)
+        || (from.key ? document.getElementById('studies-table') : null);
+    if (target) target.focus();
+}
+
+// Keys inside an open pop-up (index.html: onkeydown on each overlay). Escape
+// closes it with its own close function. Tab and Shift+Tab move between its
+// controls and go round from the last to the first, so focus never reaches
+// the page behind.
+function overlayKeydown(event, close) {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget.firstElementChild;
+    if (!dialog) return;
+    event.preventDefault();
+    nextTabStop(dialog, document.activeElement, event.shiftKey).focus();
+}
+
+// Candidates for a Tab stop; isTabStop decides.
+const TAB_STOP_SELECTOR = 'a[href], button, input, select, textarea, summary, [tabindex]';
+
+// A control the keyboard can land on: enabled, not tabindex -1, and laid
+// out (an element inside a closed <details> or a display: none box is not).
+function isTabStop(el) {
+    return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0;
+}
+
+// Where Tab (back: Shift+Tab) goes from `active` inside a dialog, in document
+// order, round from the last stop to the first and back. From the dialog
+// itself, a line that takes focus but is no stop (tabindex -1), or anywhere
+// outside, it is the next stop after that place; the dialog when it holds no
+// stop at all.
+function nextTabStop(dialog, active, back) {
+    const all = [...dialog.querySelectorAll(TAB_STOP_SELECTOR)];
+    const stops = all.filter(isTabStop);
+    if (!stops.length) return dialog;
+    const at = all.indexOf(active);
+    if (back) {
+        const before = stops.filter(s => all.indexOf(s) < at);
+        return before.length ? before[before.length - 1] : stops[stops.length - 1];
+    }
+    return stops.find(s => all.indexOf(s) > at) || stops[0];
+}
+window.overlayKeydown = overlayKeydown;
 
 // A focused control in a pop-up that has no section line (a study's NCT link,
 // a publication link), told apart from its siblings by tag, class and where
@@ -6571,7 +6681,7 @@ function formatOmbCategory(ombCat) {
 
 function closeBreakdown() {
     breakdownToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('breakdown-overlay').style.display = 'none';
+    closeOverlay('breakdown-overlay');
 }
 
 // Make functions available globally
@@ -6824,7 +6934,7 @@ function studyDetailsHtml(fullStudy, states) {
         <div class="study-details-modal">
             <div class="modal-header">
                 <h3>${escapeHtml(fullStudy.brief_title)}</h3>
-                <button class="close-btn" onclick="closeStudyDetails()">✕</button>
+                <button class="close-btn" onclick="closeStudyDetails()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="detail-row">
@@ -6997,7 +7107,7 @@ function renderStudySites(study, detail = READY, retry = '') {
 
 function closeStudyDetails() {
     studyModalToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('study-details-overlay').style.display = 'none';
+    closeOverlay('study-details-overlay');
 }
 
 window.showStudyDetails = showStudyDetails;
@@ -12043,9 +12153,7 @@ function sgShowBreakdown(nctId, field) {
             : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
         `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
         `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    drawOverlay('breakdown-overlay', html, false);
 }
 
 // ── Methods page ─────────────────────────────────────────────────────────
