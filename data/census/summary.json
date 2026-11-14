@@ -874,16 +874,16 @@
   }
  ],
  "benchmark_window": {
-  "2005-2009": 4921,
-  "2010-2014": 7510,
-  "2015-2019": 9174,
-  "2020-2024": 9153,
+  "2005-2009": 4923,
+  "2010-2014": 7511,
+  "2015-2019": 9182,
+  "2020-2024": 9142,
   "None": 3
  },
  "benchmark_window_reason": {
-  "after_last_window": 245,
+  "after_last_window": 241,
   "before_first_window": 291,
-  "midpoint_inside_window": 30222,
+  "midpoint_inside_window": 30226,
   "no_usable_date": 3
  },
  "cohort_funnel": {
@@ -932,8 +932,8 @@
      "no_eligible_residents_estimated": 1003,
      "no_zip_in_registration": 86,
      "resolved_place_is_outside_the_registered_state": 26,
-     "zcta_tables_not_published_for_this_window": 659,
-     "zip_has_no_zcta_in_this_window": 1785
+     "zcta_tables_not_published_for_this_window": 661,
+     "zip_has_no_zcta_in_this_window": 1783
     }
    },
    "category_cautions": {},
@@ -945,9 +945,9 @@
    },
    "classified_share_computed": 12919,
    "geography_sensitivity": {
-    "False": 7239,
+    "False": 7238,
     "None": 31,
-    "True": 6081
+    "True": 6082
    },
    "not_pooled_reasons": {
     "over_size_cap": 115,
@@ -993,8 +993,8 @@
      "no_eligible_residents_estimated": 1297,
      "no_zip_in_registration": 104,
      "resolved_place_is_outside_the_registered_state": 35,
-     "zcta_tables_not_published_for_this_window": 1054,
-     "zip_has_no_zcta_in_this_window": 2575
+     "zcta_tables_not_published_for_this_window": 1056,
+     "zip_has_no_zcta_in_this_window": 2573
     }
    },
    "category_cautions": {
@@ -1009,9 +1009,9 @@
    },
    "classified_share_computed": 18314,
    "geography_sensitivity": {
-    "False": 3099,
+    "False": 3100,
     "None": 40,
-    "True": 15543
+    "True": 15542
    },
    "not_pooled_reasons": {
     "eligible_ages_unreadable": 1,
@@ -1071,8 +1071,8 @@
      "no_zip_in_registration": 246,
      "resolved_place_is_outside_the_registered_state": 42,
      "single_sex_by_eligibility": 2514,
-     "zcta_tables_not_published_for_this_window": 4694,
-     "zip_has_no_zcta_in_this_window": 3618
+     "zcta_tables_not_published_for_this_window": 4696,
+     "zip_has_no_zcta_in_this_window": 3616
     }
    },
    "category_cautions": {},
@@ -1194,12 +1194,12 @@
   "zcta": {
    "no_zip_in_registration": 259,
    "resolved_place_is_outside_the_registered_state": 44,
-   "zcta_tables_not_published_for_this_window": 4917,
+   "zcta_tables_not_published_for_this_window": 4919,
    "zip_code_equals_published_zcta_code": 21797,
-   "zip_has_no_zcta_in_this_window": 3741
+   "zip_has_no_zcta_in_this_window": 3739
   }
  },
- "run_id": "census-data-2026-11-08-14e0bf1bf3-358e4e2f",
+ "run_id": "census-data-2026-11-08-0295a6fe44-be9a23b5",
  "schema_version": 1,
  "site_count_tiers": {
   "conflicting_text": 42,
