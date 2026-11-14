@@ -57,7 +57,10 @@ function harness(opts = {}) {
         DATA_CACHE_VERSION: 'test', hasDecompressionStream: false, ensurePako: async () => {},
         fetch: opts.fetch || (async () => ({ ok: false, status: 404 })),
         charts: {}, dashboardSummary: null, data: [], Chart: function () { return { destroy() {} }; },
-        ChartDataLabels: {}, donutConfig: () => ({})
+        ChartDataLabels: {}, donutConfig: () => ({}),
+        // app.js's drawOverlay (tests/overlay_dialog.test.mjs has its focus
+        // handling); here it only puts the pop-up's markup on screen.
+        drawOverlay: (id, markup) => { const o = el(id); o.innerHTML = markup; o.style.display = 'flex'; }
     });
     // keyedFetch and fetchChecked are tests/data_cache_key.test.mjs's; here
     // they only add the key, through the stub fetch.

@@ -781,6 +781,63 @@ const civicWatermarkPlugin = {
     }
 };
 
+// An axis title longer than the axis it names is cut off at the canvas edge:
+// a desktop window narrowed after load keeps every chart's full-width title
+// on a chart a third of the size. After each layout, when the plot's place
+// is known, this measures each title against its axis: it uses the title's
+// `short` text when the full one does not fit, and hides it when neither
+// does; the chart's heading still names the measure. The full title comes
+// back with the room. Full and short take the same line, so swapping them
+// moves nothing; hiding or showing one frees or takes that line, which one
+// further update lays out. The choice depends only on the chart's size, so
+// that update settles at once.
+const civicAxisTitleFitPlugin = {
+    id: 'civicAxisTitleFit',
+    afterLayout(chart) {
+        const scales = chart.options && chart.options.scales;
+        const area = chart.chartArea;
+        if (!scales || !area || !chart.ctx || !(chart.width > 0 && chart.height > 0)) return;
+        const kept = chart.$axisTitles || (chart.$axisTitles = {});
+        let relayout = false;
+        for (const id of Object.keys(scales)) {
+            const title = scales[id] && scales[id].title;
+            const scale = chart.scales && chart.scales[id];
+            if (!title || !scale) continue;
+            if (!kept[id]) {
+                if (!title.display || !title.text || typeof title.text !== 'string') continue;
+                kept[id] = { text: title.text, short: typeof title.short === 'string' ? title.short : null };
+            }
+            const vertical = scale.isHorizontal ? !scale.isHorizontal() : id.charAt(0) === 'y';
+            const size = vertical ? chart.height : chart.width;
+            // Centred on the plot, which sits off-centre in the canvas: the
+            // room is twice the distance to the nearer canvas edge.
+            const centre = vertical ? (area.top + area.bottom) / 2 : (area.left + area.right) / 2;
+            const room = 2 * Math.min(centre, size - centre) - 2;
+            chart.ctx.save();
+            chart.ctx.font = Chart.helpers.toFont(title.font).string;
+            const fits = (t) => !!t && chart.ctx.measureText(t).width <= room;
+            const text = fits(kept[id].text) ? kept[id].text : (fits(kept[id].short) ? kept[id].short : null);
+            chart.ctx.restore();
+            const shown = text !== null;
+            if (shown !== !!title.display) relayout = true;
+            // The chart's options for the next layout, and the scale's own
+            // resolved options for the draw that follows this layout.
+            for (const o of [title, scale.options && scale.options.title]) {
+                if (!o) continue;
+                o.display = shown;
+                if (shown) o.text = text;
+            }
+        }
+        if (relayout && !chart.$axisTitleRelayout) {
+            chart.$axisTitleRelayout = true;
+            requestAnimationFrame(() => {
+                chart.$axisTitleRelayout = false;
+                if (chart.canvas) chart.update('none');
+            });
+        }
+    }
+};
+
 // A hairline between the lowest and highest value on each row of the FDA
 // dot plot. The length of that connector IS the finding — short where a
 // regulator is watching, long where nobody is — so it is drawn as data,
@@ -901,7 +958,21 @@ const DONUT_COLORS = {
 // Category names that mean absence rather than a group. They keep the
 // neutral grey and, in ramp mode, sort to the end instead of joining the
 // magnitude ramp.
-const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported']);
+const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported', 'Hispanic or Latino, no race category']);
+
+// The part of a race block's unknown that the engine publishes as
+// race.unknown_ethnicity_only: participants a combined race and ethnicity
+// table counted in its Hispanic or Latino row and gave no race. It is a PART
+// of omb_totals.unknown_not_reported, never an addition: the Race views take
+// it out of "Unknown" and show it as its own absence row. A record extracted
+// before the field existed has no such key; its unknown then stays whole, as
+// it always was (0 here means "nothing to take out", not a measured zero).
+const RACE_ETHNICITY_ONLY_LABEL = 'Hispanic or Latino, no race category';
+function raceUnknownEthnicityOnly(part, unknown) {
+    const p = Number(part);
+    const u = Number(unknown) || 0;
+    return Number.isFinite(p) && p > 0 ? Math.min(p, u) : 0;
+}
 
 // ── Demographics tabs: the Overview's ink on paper ──────────────────────
 // Race, Ethnicity, Sex and Gender take the Overview's type and palette (the
@@ -1123,11 +1194,26 @@ function demoConfig(config, spec = {}) {
     // Above the plot the title would sit under a legend, so with a legend
     // it goes back to the axis, turned.
     const titleAbove = !!spec.yTitle && !legendOn;
-    if (spec.yTitle && !titleAbove) y.title = { display: true, text: spec.yTitle, font, color: DEMO_INK.muted };
+    if (spec.yTitle && !titleAbove) y.title = { display: true, text: spec.yTitle, short: spec.yTitleShort, font, color: DEMO_INK.muted };
     o.plugins.legend = {
         display: legendOn,
         position: 'top', align: 'start',
-        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false },
+        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false,
+            // A legend entry cannot wrap, so one wider than the chart was cut
+            // off at its edge (the percent-female series on a phone). Where
+            // spec.names gives a series a shorter name, that stands in.
+            generateLabels: (chart) => {
+                const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                if (!spec.names) return items;
+                const room = chart.width - 44;
+                chart.ctx.save();
+                chart.ctx.font = Chart.helpers.toFont(font).string;
+                items.forEach(it => {
+                    if (spec.names[it.text] && chart.ctx.measureText(it.text).width > room) it.text = spec.names[it.text];
+                });
+                chart.ctx.restore();
+                return items;
+            } },
             spec.legend !== true && ends && unlabelled.size ? { filter: (item) => unlabelled.has(item.datasetIndex) } : {})
     };
     o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, {
@@ -1388,7 +1474,17 @@ const civicEventLinesPlugin = {
             // Inside the plot, such a label drops below the top line.
             const y = above ? chartArea.top - 10 : chartArea.top + (ev.above ? 22 : 9) + i * 11;
             ctx.font = (above && ev.font) || "9px 'DM Mono', ui-monospace, monospace";
-            const fitsRight = px + 16 + ctx.measureText(ev.label).width < chartArea.right;
+            // The caption goes right of its line, else left, and only where it
+            // stays inside the plot's width. Above the plot it never goes
+            // left, where a chart's y title sits (the Overview's "% of
+            // Studies"). With no room either side the caption is left out
+            // and the line stays: a narrowed window otherwise drew it over
+            // the y title and off the canvas edge. Every captioned chart
+            // names its markers in its footnote too.
+            const width = ctx.measureText(ev.label).width;
+            const fitsRight = px + 16 + width < chartArea.right;
+            const fitsLeft = !above && px - 16 - width > chartArea.left;
+            if (!fitsRight && !fitsLeft) { ctx.restore(); return; }
             const dir = fitsRight ? 1 : -1;
             // Leader arrow from the label to its line — with several
             // staggered labels the pointer says which line is which.
@@ -1961,7 +2057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (catDefaults.grid) catDefaults.grid.display = false;
                 else catDefaults.grid = { display: false };
             }
-            Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
+            Chart.register(civicWatermarkPlugin, civicEventLinesPlugin, civicAxisTitleFitPlugin);
         }
         // Key every data URL by the latest run before any data is fetched
         // (resolveDataCacheVersion); the condition ontology, which carries
@@ -1972,6 +2068,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         // The nav menus work from the start: the first view leaves the
         // page clickable while the records load.
         initNavGroups();
+        // Pop-ups note the control that opened them, clicked or not focused.
+        initOverlayOpeners();
+        // The Overview's trend chart follows the window across its narrow width.
+        initReportingTrendsResize();
         // A shared snapshot link (?sgsnapshot=, desktop only) opens that
         // snapshot in place of the latest data, never after it.
         const requested = requestedSnapshot();
@@ -3292,12 +3392,20 @@ function stateCell(st, what) {
 let breakdownToken = 0;
 let studyModalToken = 0;
 
-// Put a pop-up's markup on screen. A pop-up already on screen (redrawn as
-// what it waits for lands, or by its own Try again, which opens it afresh)
-// keeps its scroll position and does not play its entrance (slideUp) again,
-// and focus that was inside it stays inside it: on the same section's line
-// (its button, when it has one), else on the close button. Replacing the
-// markup would otherwise send focus to the page behind.
+// Put a pop-up's markup on screen. The pop-ups are modal dialogs: the box (the
+// overlay's first child) is the dialog, named by its heading. A fresh opening
+// notes what had focus and moves focus to the dialog itself, not to a control:
+// the breakdowns' Close button is at the foot of the box, and focusing it
+// would scroll a long pop-up to its end. index.html wires overlayKeydown on
+// each overlay (Tab and Shift+Tab stay inside, Escape closes), and
+// closeOverlay gives focus back.
+//
+// A pop-up already on screen (redrawn as what it waits for lands, or by its
+// own Try again, which opens it afresh) keeps its scroll position and does
+// not play its entrance (slideUp) again, and focus that was inside it stays
+// inside it, without a second move: on the dialog if it was there, else on
+// the same section's line (its button, when it has one), else the close
+// button. Replacing the markup would otherwise send focus to the page behind.
 function drawOverlay(id, html, redraw) {
     const overlay = document.getElementById(id);
     if (!overlay) return;
@@ -3306,20 +3414,162 @@ function drawOverlay(id, html, redraw) {
     const top = box ? box.scrollTop : 0;
     const active = document.activeElement;
     const hadFocus = open && !!active && active !== overlay && overlay.contains(active);
-    const section = hadFocus && active.getAttribute ? active.getAttribute('data-state') : null;
-    const same = hadFocus && !section ? controlSignature(active) : null;
+    const onDialog = hadFocus && active === box;
+    const section = hadFocus && !onDialog && active.getAttribute ? active.getAttribute('data-state') : null;
+    const same = hadFocus && !onDialog && !section ? controlSignature(active) : null;
     overlay.innerHTML = html;
+    const dialog = markDialog(overlay, id);
     overlay.classList.toggle('is-redrawn', open);   // styles.css: no entrance then
-    if (box && overlay.firstElementChild) overlay.firstElementChild.scrollTop = top;
+    if (box && dialog) dialog.scrollTop = top;
     overlay.style.display = 'flex';
     if (hadFocus) {
         const line = section ? overlay.querySelector(`[data-state="${section}"]`) : null;
-        const target = (line && (line.querySelector('.detail-action') || line))
+        const target = (onDialog && dialog)
+            || (line && (line.querySelector('.detail-action') || line))
             || findSameControl(overlay, same)
             || overlay.querySelector('.close-btn, .modal-close-btn');
         if (target) target.focus({ preventScroll: true });
+    } else if (!open) {
+        overlayOpeners[id] = openerOf(activatingControl || active);
+        if (dialog) dialog.focus({ preventScroll: true });
     }
 }
+
+// What opened each pop-up, by overlay id (openerOf).
+const overlayOpeners = {};
+
+// The control a click is activating, while that click is being handled (an
+// Enter or Space on a button arrives as a click too). drawOverlay takes it as
+// a pop-up's opener ahead of document.activeElement: Safari does not focus a
+// button it clicks, so activeElement can be the page, or a control focused
+// earlier, and focus would not come back to the badge. Noted in the capture
+// phase, before the control's own onclick runs, and cleared once the click's
+// handlers are done.
+let activatingControl = null;
+function initOverlayOpeners() {
+    document.addEventListener('click', (e) => {
+        const control = e.target && e.target.closest ? e.target.closest(OPENER_SELECTOR) : null;
+        activatingControl = control;
+        setTimeout(() => { if (activatingControl === control) activatingControl = null; }, 0);
+    }, true);
+}
+const OPENER_SELECTOR = 'button, a[href], summary, [role="button"]';
+
+// The overlay's box as a modal dialog, named by its heading. It takes focus
+// (tabindex -1) without becoming a Tab stop, so a click on its text keeps
+// focus inside it rather than dropping it to the page.
+function markDialog(overlay, id) {
+    const box = overlay.firstElementChild;
+    if (!box) return null;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('tabindex', '-1');
+    const heading = box.querySelector('h3, h4');
+    if (heading) {
+        heading.id = `${id}-title`;
+        box.setAttribute('aria-labelledby', heading.id);
+    } else {
+        box.setAttribute('aria-label', 'Details');
+    }
+    return box;
+}
+
+// The element focus goes back to when a pop-up closes, and, when it is a
+// control in the Studies table's rows or page buttons, its studiesFocusKey:
+// the table can redraw while the pop-up is open (the extras land), and the
+// element is then gone from the page.
+function openerOf(active) {
+    if (!active || active === document.body) return null;
+    const key = studiesFocusKey(active, document.getElementById('studies-table-body'), document.getElementById('pagination'));
+    return { el: active, key };
+}
+
+// Hide a pop-up and put focus back on what opened it: the same element, else
+// the same control in the redrawn Studies table, else the table itself. Each
+// must be on screen: a link in a pop-up can switch tabs while it stays open
+// (the sex/gender breakdown's Methods link opens the FAQ), and focus() on an
+// element in the hidden tab does nothing, leaving focus on the page. Then
+// focus goes to what names the tab now on screen (activeTabControl). Focus
+// that has already left the pop-up for another control stays where it is.
+function closeOverlay(id) {
+    const overlay = document.getElementById(id);
+    if (!overlay) return;
+    const from = overlayOpeners[id];
+    delete overlayOpeners[id];
+    const active = document.activeElement;
+    const inside = !active || active === document.body || overlay.contains(active);
+    overlay.style.display = 'none';
+    if (!from || !inside) return;
+    const body = document.getElementById('studies-table-body');
+    const pager = document.getElementById('pagination');
+    const target = [
+        from.el,
+        findStudiesControl(from.key, body, pager),
+        from.key ? document.getElementById('studies-table') : null,
+        activeTabControl()
+    ].find(onScreen);
+    if (target) target.focus();
+}
+
+// In the page and laid out: not detached, and not in a hidden tab, a closed
+// menu or a display: none box.
+function onScreen(el) {
+    return !!el && el.isConnected && el.getClientRects().length > 0;
+}
+
+// The control that names the tab on screen: its tab button, or, while that
+// button sits in a closed menu (Race is under Demographics), the menu's
+// summary.
+function activeTabControl() {
+    const tab = document.querySelector('.tab.active');
+    if (!tab) return null;
+    const group = tab.closest('.nav-group');
+    return group && !group.open ? group.querySelector('summary') : tab;
+}
+
+// Keys inside an open pop-up (index.html: onkeydown on each overlay). Escape
+// closes it with its own close function. Tab and Shift+Tab move between its
+// controls and go round from the last to the first, so focus never reaches
+// the page behind.
+function overlayKeydown(event, close) {
+    if (event.key === 'Escape') {
+        event.preventDefault();
+        close();
+        return;
+    }
+    if (event.key !== 'Tab') return;
+    const dialog = event.currentTarget.firstElementChild;
+    if (!dialog) return;
+    event.preventDefault();
+    nextTabStop(dialog, document.activeElement, event.shiftKey).focus();
+}
+
+// Candidates for a Tab stop; isTabStop decides.
+const TAB_STOP_SELECTOR = 'a[href], button, input, select, textarea, summary, [tabindex]';
+
+// A control the keyboard can land on: enabled, not tabindex -1, and laid
+// out (an element inside a closed <details> or a display: none box is not).
+function isTabStop(el) {
+    return !el.disabled && el.tabIndex >= 0 && el.getClientRects().length > 0;
+}
+
+// Where Tab (back: Shift+Tab) goes from `active` inside a dialog, in document
+// order, round from the last stop to the first and back. From the dialog
+// itself, a line that takes focus but is no stop (tabindex -1), or anywhere
+// outside, it is the next stop after that place; the dialog when it holds no
+// stop at all.
+function nextTabStop(dialog, active, back) {
+    const all = [...dialog.querySelectorAll(TAB_STOP_SELECTOR)];
+    const stops = all.filter(isTabStop);
+    if (!stops.length) return dialog;
+    const at = all.indexOf(active);
+    if (back) {
+        const before = stops.filter(s => all.indexOf(s) < at);
+        return before.length ? before[before.length - 1] : stops[stops.length - 1];
+    }
+    return stops.find(s => all.indexOf(s) > at) || stops[0];
+}
+window.overlayKeydown = overlayKeydown;
 
 // A focused control in a pop-up that has no section line (a study's NCT link,
 // a publication link), told apart from its siblings by tag, class and where
@@ -6175,7 +6425,32 @@ function initColumnPicker() {
         const picker = document.getElementById('column-picker');
         if (picker && picker.open && !e.target.closest('#column-picker')) picker.open = false;
     });
+    const picker = document.getElementById('column-picker');
+    if (picker) picker.addEventListener('toggle', placeColumnPicker);
+    window.addEventListener('resize', placeColumnPicker);
     applyStudyColumns(on);
+}
+
+// Where the column menu opens: under its button, right edges lined up, unless
+// that would cross an edge of the window, in which case it moves in from that
+// edge. A window under about 780px wraps the table controls and puts the
+// button at the left edge, where the right-aligned menu opened 193px off the
+// screen (#290). Measured on each opening and on a resize while it is open.
+const COLUMN_PICKER_MARGIN = 8;   // px kept clear of the window's edges
+function placeColumnPicker() {
+    const picker = document.getElementById('column-picker');
+    const menu = document.getElementById('column-picker-menu');
+    if (!picker || !menu || !picker.open) return;
+    menu.style.left = '';
+    menu.style.right = '';
+    const view = document.documentElement.clientWidth;
+    const box = picker.getBoundingClientRect();
+    const width = menu.getBoundingClientRect().width;
+    let left = box.right - width;
+    left = Math.min(left, view - COLUMN_PICKER_MARGIN - width);
+    left = Math.max(left, COLUMN_PICKER_MARGIN);
+    menu.style.left = `${Math.round(left - box.left)}px`;
+    menu.style.right = 'auto';
 }
 
 function renderDemographicCell(study, field, tab = READY) {
@@ -6350,6 +6625,9 @@ function breakdownHtml(study, categoryName, tab) {
         // Denominator includes all standard categories + any "other" unmapped counts
         const grandTotal = ombCategories.reduce((s, c) => s + (ombTotals[c.key] || 0), 0)
                          + (ombTotals.other || 0);
+        // Participants the table counted as Hispanic or Latino and gave no race:
+        // a part of the unknown count, shown on its own row below.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
 
         for (const cat of ombCategories) {
             if (!reportedSet.has(cat.key)) {
@@ -6364,7 +6642,7 @@ function breakdownHtml(study, categoryName, tab) {
                 continue;
             }
 
-            const count   = ombTotals[cat.key] || 0;
+            const count   = (ombTotals[cat.key] || 0) - (cat.key === 'unknown_not_reported' ? ethnicityOnly : 0);
             const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
 
             // Aggregate original labels and best match quality from raw_categories
@@ -6398,6 +6676,19 @@ function breakdownHtml(study, categoryName, tab) {
                 <td class="text-center">${matchQuality}</td>
                 <td>${count.toLocaleString()}</td>
                 <td style="--percent: ${percent}">${percent}%</td>
+            </tr>`;
+        }
+
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count above, on its own row (engine: race.unknown_ethnicity_only).
+        if (ethnicityOnly > 0) {
+            const partPct = grandTotal > 0 ? ((ethnicityOnly / grandTotal) * 100).toFixed(1) : '0.0';
+            html += `<tr>
+                <td>${escapeHtml(RACE_ETHNICITY_ONLY_LABEL)}</td>
+                <td class="original-label">This table's Hispanic or Latino row</td>
+                <td class="text-center"><span class="match-na" title="Counted from the table's own rows: they add up exactly to the participants">-</span></td>
+                <td>${ethnicityOnly.toLocaleString()}</td>
+                <td style="--percent: ${partPct}">${partPct}%</td>
             </tr>`;
         }
 
@@ -6531,7 +6822,15 @@ function breakdownCountsHtml(study, categoryName, tab) {
     if (categoryName === 'race') {
         const ombTotals = study.race?.omb_totals || {};
         grandTotal = RACE_ORDER.reduce((sum, [key]) => sum + (ombTotals[key] || 0), 0);
-        rows = RACE_ORDER.filter(([key]) => ombTotals[key] > 0).map(([key, label]) => [label, ombTotals[key]]);
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count, on its own row after it, as in breakdownHtml.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
+        rows = RACE_ORDER.flatMap(([key, label]) => {
+            const count = (ombTotals[key] || 0) - (key === 'unknown_not_reported' ? ethnicityOnly : 0);
+            const out = count > 0 ? [[label, count]] : [];
+            if (key === 'unknown_not_reported' && ethnicityOnly > 0) out.push([RACE_ETHNICITY_ONLY_LABEL, ethnicityOnly]);
+            return out;
+        });
     } else {
         const fieldData = study[categoryName];
         const totals = fieldData.omb_totals || fieldData.totals || {};
@@ -6571,7 +6870,7 @@ function formatOmbCategory(ombCat) {
 
 function closeBreakdown() {
     breakdownToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('breakdown-overlay').style.display = 'none';
+    closeOverlay('breakdown-overlay');
 }
 
 // Make functions available globally
@@ -6824,7 +7123,7 @@ function studyDetailsHtml(fullStudy, states) {
         <div class="study-details-modal">
             <div class="modal-header">
                 <h3>${escapeHtml(fullStudy.brief_title)}</h3>
-                <button class="close-btn" onclick="closeStudyDetails()">✕</button>
+                <button class="close-btn" onclick="closeStudyDetails()" aria-label="Close">✕</button>
             </div>
             <div class="modal-body">
                 <div class="detail-row">
@@ -6997,7 +7296,7 @@ function renderStudySites(study, detail = READY, retry = '') {
 
 function closeStudyDetails() {
     studyModalToken++;   // whatever it was waiting for no longer redraws it
-    document.getElementById('study-details-overlay').style.display = 'none';
+    closeOverlay('study-details-overlay');
 }
 
 window.showStudyDetails = showStudyDetails;
@@ -7041,9 +7340,45 @@ function formatCountries(countries) {
 // them (paintFirstView); never recounted here. The chart drawn from them is
 // replaced by the records' one without its draw-in animation, or kept when
 // the records give the same numbers, so the hand-over does not move.
+// The Overview's trend chart chooses its narrow or wide design as it draws
+// (renderReportingTrends: below 600px a key above the plot names the lines;
+// wider, each line is named at its end). A window resized across that width
+// afterwards kept the design it was drawn with: a wide chart squeezed to a
+// phone's width, its end names off the canvas. When the chart's box crosses
+// that width, this draws it again from what it was last asked to draw. The
+// box's width does not depend on the design, so one redraw settles it; a
+// hidden tab (no width) is left until it is shown.
+function initReportingTrendsResize() {
+    const canvas = document.getElementById('reporting-trends-chart');
+    const box = canvas && canvas.parentElement;
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    let frame = 0;
+    // Whether the chart on screen is drawn for the other side of the width.
+    const stale = () => {
+        const chart = charts.reportingTrends;
+        return !!chart && !!canvas.civicTrendArgs && box.clientWidth > 0
+            && (box.clientWidth < 600) !== !!chart.civicNarrow;
+    };
+    new ResizeObserver(() => {
+        if (frame || !stale()) return;
+        frame = requestAnimationFrame(() => {
+            frame = 0;
+            // Read at the frame, not when it was asked for: a filter change, or
+            // the records taking over from the first view, may have drawn the
+            // chart in between, with newer arguments and perhaps already at
+            // this width.
+            if (!stale()) return;
+            const now = canvas.civicTrendArgs;
+            renderReportingTrends(now.filtered, now.counted);
+        });
+    }).observe(box);
+}
+
 function renderReportingTrends(filtered, counted) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
+    // What it was last asked to draw, for initReportingTrendsResize.
+    ctx.civicTrendArgs = { filtered, counted };
 
     // byYear[year]: { total, race, ethnicity, both } and, where the parser's
     // counts exist for every year drawn, { sex, gender } (its flags, === true,
@@ -7093,6 +7428,12 @@ function renderReportingTrends(filtered, counted) {
     // end with its last value (no legend to decode); on a narrow canvas the
     // names would crowd the plot, so a key above it names them instead.
     const narrow = (ctx.parentElement && ctx.parentElement.clientWidth ? ctx.parentElement.clientWidth : 800) < 600;
+    // Redrawn because the window crossed the narrow width
+    // (initReportingTrendsResize): no entrance animation. The new shape
+    // resizes the box at once, and Chart.js holds a resize that arrives
+    // mid-animation for a draw that may not come before the animation ends;
+    // the next resize then drew it, putting the chart back at that size.
+    const redesign = !!previous && previous.civicNarrow !== undefined && previous.civicNarrow !== narrow;
     const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
     // On a narrow canvas the lines are named by a key above the chart, not
     // at their ends, so each line also has its own dash (and its key the
@@ -7155,15 +7496,22 @@ function renderReportingTrends(filtered, counted) {
     };
     const tickFont = { family: serif, size: 15 };
 
+    // The box around the canvas holds nothing else, so with Chart.js keeping
+    // the aspect ratio it was exactly as tall as the chart, and Chart.js never
+    // grows a chart past its box's height: a window narrowed and widened again
+    // left the chart at its narrow size. The box carries the shape instead
+    // and the chart fills it.
+    const shape = CHART_ASPECT_RATIO || (narrow ? 1.3 : 2.9);
+    if (ctx.parentElement && ctx.parentElement.style) ctx.parentElement.style.aspectRatio = String(shape);
+
     charts.reportingTrends = new Chart(ctx, {
         type: 'line',
         data: { labels: years, datasets },
         plugins: narrow ? [] : [endLabels],
         options: {
-            ...(fromFirstView ? { animation: false } : {}),
+            ...(fromFirstView || redesign ? { animation: false } : {}),
             responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO || (narrow ? 1.3 : 2.9),
+            maintainAspectRatio: false,
             layout: { padding: narrow ? { top: 4, right: 4 } : { top: 28, right: 200 } },
             interaction: { mode: 'index', intersect: false },
             scales: {
@@ -7184,6 +7532,7 @@ function renderReportingTrends(filtered, counted) {
     });
     charts.reportingTrends.civicDrawn = drawn;
     charts.reportingTrends.civicFirstView = !!counted;
+    charts.reportingTrends.civicNarrow = narrow;
 }
 
 function renderRaceDistribution(filtered) {
@@ -7193,29 +7542,34 @@ function renderRaceDistribution(filtered) {
     let totals;
     if (dashboardSummary) {
         const d = dashboardSummary.raceDistribution;
+        // A summary written before the engine published the part has no
+        // unknown_ethnicity_only key: Unknown then stays whole.
+        const part = raceUnknownEthnicityOnly(d.unknown_ethnicity_only, d.unknown_not_reported);
         totals = {
             'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
             'Asian': d.asian || 0, 'Black/African American': d.black_african_american || 0,
             'Native Hawaiian/Pacific Islander': d.native_hawaiian_pacific_islander || 0,
             'White': d.white || 0, 'More than one race': d.more_than_one_race || 0,
-            'Unknown': d.unknown_not_reported || 0, 'Other': d.other || 0
+            'Unknown': (d.unknown_not_reported || 0) - part, [RACE_ETHNICITY_ONLY_LABEL]: part, 'Other': d.other || 0
         };
     } else {
         totals = {
             'American Indian/Alaska Native': 0, 'Asian': 0, 'Black/African American': 0,
             'Native Hawaiian/Pacific Islander': 0, 'White': 0, 'More than one race': 0,
-            'Unknown': 0, 'Other': 0
+            'Unknown': 0, [RACE_ETHNICITY_ONLY_LABEL]: 0, 'Other': 0
         };
         filtered.forEach(study => {
             if (!study.race?.reported) return;
             const omb = study.race.omb_totals;
+            const part = raceUnknownEthnicityOnly(study.race.unknown_ethnicity_only, omb.unknown_not_reported);
             totals['American Indian/Alaska Native'] += omb.american_indian_alaska_native || 0;
             totals['Asian'] += omb.asian || 0;
             totals['Black/African American'] += omb.black_african_american || 0;
             totals['Native Hawaiian/Pacific Islander'] += omb.native_hawaiian_pacific_islander || 0;
             totals['White'] += omb.white || 0;
             totals['More than one race'] += omb.more_than_one_race || 0;
-            totals['Unknown'] += omb.unknown_not_reported || 0;
+            totals['Unknown'] += (omb.unknown_not_reported || 0) - part;
+            totals[RACE_ETHNICITY_ONLY_LABEL] += part;
             totals['Other'] += omb.other || 0;
         });
     }
@@ -8556,11 +8910,16 @@ function renderFdaOversight(filtered) {
         });
         if (charts.fdaReporting) { charts.fdaReporting.destroy(); charts.fdaReporting = null; }
         if (ctx) ctx.style.display = 'none';
+        // The canvas's box keeps a minimum height (styles.css), so it goes too.
+        const wrap = document.getElementById('fda-reporting-wrap');
+        if (wrap) wrap.style.display = 'none';
         if (absentNote) absentNote.hidden = false;
         return;
     }
     if (absentNote) absentNote.hidden = true;
     if (ctx) ctx.style.display = '';
+    const fdaWrap = document.getElementById('fda-reporting-wrap');
+    if (fdaWrap) fdaWrap.style.display = '';
     const hasClasses = !!(f && f.classes);
     const legacy = !!(f && !f.classes);
 
@@ -8665,7 +9024,10 @@ function renderFdaOversight(filtered) {
     // meaning the labels do not already give.
     rows.sort((a, b) => b.values.race - a.values.race);
     // The "(n=…)" suffix is useful on a wide axis and simply truncates on a
-    // phone, so it drops there and lives in the tooltip instead.
+    // phone, so it drops there and lives in the tooltip instead. A desktop
+    // window narrowed after load gets the same treatment from the chart's
+    // own width (narrow, below), since isMobileDevice is fixed at load.
+    const narrow = (chart) => isMobileDevice || chart.width < 640;
     const rowLabels = rows.map(r => isMobileDevice
         ? r.label.replace(/\s*\(n=[^)]*\)\s*$/, '')
         : r.label);
@@ -8692,9 +9054,12 @@ function renderFdaOversight(filtered) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
-            // Short and wide: five rows need far less height than the bars did.
-            aspectRatio: isMobileDevice ? 1 : 2.6,
+            // Short and wide, but never shorter than five rows of dots with a
+            // value above each need: the box's aspect-ratio and min-height
+            // (styles.css .fda-reporting-canvas) set the height. A fixed
+            // aspect ratio squeezed the rows together as the window narrowed,
+            // until each row's values sat on the row above.
+            maintainAspectRatio: false,
             layout: { padding: { top: 18, right: 34, bottom: 6, left: 4 } },
             scales: {
                 x: {
@@ -8715,8 +9080,10 @@ function renderFdaOversight(filtered) {
                         // long class name wraps instead of being clipped on a
                         // narrow axis.
                         callback(value) {
-                            const text = this.getLabelForValue(value);
-                            if (!isMobileDevice || text.length <= 20) return text;
+                            let text = this.getLabelForValue(value);
+                            if (!narrow(this.chart)) return text;
+                            text = text.replace(/\s*\(n=[^)]*\)\s*$/, '');
+                            if (text.length <= 20) return text;
                             const out = [];
                             let line = '';
                             for (const word of String(text).split(' ')) {
@@ -8744,18 +9111,20 @@ function renderFdaOversight(filtered) {
                 },
                 // Every dot carries its value, including the middle one.
                 // On a wide plot all three sit above their dot, so each
-                // number is unambiguously its row's. A phone has ~36px
+                // number is unambiguously its row's. A narrow plot has ~36px
                 // between the race and sex dots — not enough for two labels
                 // side by side — so there race drops below its own marker
-                // rather than a value being dropped altogether.
+                // rather than a value being dropped. Narrower still, a value
+                // that would still land on another is left out ('auto') and
+                // stays in the tooltip, rather than the two overprinting.
                 datalabels: {
-                    display: true,
+                    display: (c) => (narrow(c.chart) ? 'auto' : true),
                     anchor: 'center',
-                    align: (c) => (isMobileDevice && c.datasetIndex === 1 ? 'bottom' : 'top'),
+                    align: (c) => (narrow(c.chart) && c.datasetIndex === 1 ? 'bottom' : 'top'),
                     offset: 7,
                     clamp: true,
                     color: '#212529',
-                    font: { size: isMobileDevice ? 10 : 11, weight: '600' },
+                    font: (c) => ({ size: narrow(c.chart) ? 10 : 11, weight: '600' }),
                     formatter: v => (typeof v.x === 'number' ? v.x.toFixed(1) : '')
                 }
             }
@@ -8787,9 +9156,26 @@ function initGeographyTab() {
 // ---------------------------------------------------------------------------
 let aiDevicesData = null;
 let aiDevicesLoaded = false;
+let aiDevicesSourceSha256 = null;   // sha256 of the CSV bytes drawn; null when the browser cannot hash
+
+// Hex sha256 of the bytes as served, so the page can tell whether the device-linkage build was
+// made from this very file (the build records its source's sha256). Null without Web Crypto,
+// which browsers give only to secure pages (https, localhost); the caller then shows rows only.
+async function aiDevicesSha256(bytes) {
+    try {
+        const digest = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        return null;
+    }
+}
 
 async function loadAIDevicesTab() {
-    if (aiDevicesLoaded) return;
+    if (aiDevicesLoaded) {
+        // A return visit asks again for the unit cards' data if an earlier request failed.
+        retryAIDeviceUnits();
+        return;
+    }
 
     // Prefer the enriched CSV (with pdf_url / local_pdf_path columns produced
     // by the civicsample-engine pipeline). Fall back to the raw FDA CSV
@@ -8803,7 +9189,11 @@ async function loadAIDevicesTab() {
         try {
             const resp = await fetch(src);
             if (!resp.ok) continue;
-            const csvText = await resp.text();
+            // Read as bytes so their sha256 can be compared with the build's source; decoded as
+            // resp.text() would (UTF-8, a leading byte-order mark dropped).
+            const bytes = await resp.arrayBuffer();
+            const csvText = new TextDecoder('utf-8').decode(bytes);
+            aiDevicesSourceSha256 = await aiDevicesSha256(bytes);
             aiDevicesData = parseCSV(csvText);
             aiDevicesLoaded = true;
             renderAIDevicesTab();
@@ -8861,6 +9251,124 @@ function parseCSV(text) {
     return rows;
 }
 
+// The header cards of the Device list pane.
+//
+// The list's 1,451 rows are not 1,451 devices: rows share submission numbers, and several
+// submissions can be one product line. When the device-linkage build is published
+// (data/devices/, read through device_links.js) the three counting units are shown side by
+// side with the engine's definitions. They are shown only when the build was made from this
+// very file: the sha256 of the CSV bytes drawn here must equal the build's
+// sources.inventory.sha256. An equal row count is not enough; the fallback CSV has as many rows
+// as the enriched one. When the build is absent, fails its contract, was made from another
+// file, or the match cannot be confirmed, the cards fall back to the one thing the CSV
+// supports: a count of rows on FDA's list. The pathway cards, the charts and the table always
+// count list rows, and say so.
+//
+// counts: { total, pathwayCounts, sha256 } from the CSV. units: { run, summary } from
+// DeviceLinks.loadHead, or null.
+function aiDevicesStatsHTML(counts, units) {
+    const { total, pathwayCounts } = counts;
+    const pctOf = n => total ? `${(n / total * 100).toFixed(1)}% of list rows` : '—';
+    const published = units && units.summary && units.summary.denominators && units.summary.denominators.source_rows
+        ? units.summary.denominators.source_rows.n : null;
+    const inventory = units && units.run && units.run.sources && units.run.sources.inventory;
+    const builtFrom = inventory && typeof inventory.sha256 === 'string' ? inventory.sha256.toLowerCase() : null;
+    const drawn = typeof counts.sha256 === 'string' ? counts.sha256.toLowerCase() : null;
+    const sameFile = Boolean(builtFrom && drawn && builtFrom === drawn);
+    const useUnits = Boolean(units && window.DeviceLinks && published === total && sameFile);
+    const unitCards = useUnits
+        ? window.DeviceLinks.unitCardsHTML(units.run, units.summary)
+        : `<div class="stat-card">
+                <h3>Rows on FDA's list</h3>
+                <p class="stat-value">${total.toLocaleString()}</p>
+                <p class="stat-sub">one row per line of FDA's list; rows can share a submission number, so this is not a count of devices</p>
+            </div>`;
+    let why = '';
+    if (units && window.DeviceLinks && !useUnits && published !== null) {
+        if (published !== total) {
+            why = `The study-link data was built from a list of ${Number(published).toLocaleString()} rows and this page's list has ${total.toLocaleString()}, so only the row count is shown.`;
+        } else if (builtFrom && drawn) {
+            why = 'The study-link data was built from a different copy of FDA\'s list than the one this page drew (the files\' checksums differ), so only the row count is shown.';
+        } else {
+            why = 'This page could not confirm that the study-link data was built from the list drawn here, so only the row count is shown.';
+        }
+    }
+    const mismatch = why ? `<p class="note ai-row-unit">${why}</p>` : '';
+    return `
+        <div class="stats-grid ai-unit-cards" style="margin-bottom: 1rem;">${unitCards}</div>
+        ${mismatch}
+        <div class="stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+                <h3>510(k) list rows</h3>
+                <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
+                <p class="stat-sub">rows, not distinct clearances · ${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
+            </div>
+            <div class="stat-card">
+                <h3>De Novo list rows</h3>
+                <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
+                <p class="stat-sub">rows, not distinct grants — novel devices with no predicate</p>
+            </div>
+            <div class="stat-card">
+                <h3>PMA list rows</h3>
+                <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
+                <p class="stat-sub">rows, not distinct approvals — full premarket approval on clinical evidence</p>
+            </div>
+        </div>
+    `;
+}
+
+let aiDevicesStatCounts = null;   // { total, pathwayCounts } of the CSV drawn
+let aiDeviceUnits = null;         // { run, summary } once the device-linkage build is read and checked
+
+function renderAIDevicesStats() {
+    const statsEl = document.getElementById('ai-devices-stats');
+    if (statsEl && aiDevicesStatCounts) statsEl.innerHTML = aiDevicesStatsHTML(aiDevicesStatCounts, aiDeviceUnits);
+}
+
+// Reads data/devices/run.json and summary.json for the unit cards. A missing folder, a failed
+// request or a failed contract leaves the cards on the CSV's row count; nothing else in the
+// pane depends on it. It is asked again on a return to the tab and on every pane switch while
+// the cards lack it (retryAIDeviceUnits); DeviceLinks.loadHead keeps a successful load, so once
+// the evidence pane has read the files this makes no new request.
+async function loadAIDeviceUnits() {
+    if (!window.DeviceLinks || aiDeviceUnits) return;
+    try {
+        const head = await window.DeviceLinks.loadHead(outcomesFetchJSON);
+        aiDeviceUnits = { run: head.run, summary: head.summary };
+    } catch (e) {
+        aiDeviceUnits = null;
+        console.warn('Device-linkage data not used for the unit cards:', e.message);
+    }
+    renderAIDevicesStats();
+}
+
+function retryAIDeviceUnits() {
+    if (aiDevicesStatCounts && !aiDeviceUnits) loadAIDeviceUnits();
+}
+
+// The AI Devices tab's two panes: FDA's list as published (the pane already in the tab) and the
+// study links and evidence (device_links.js, a separate artifact family under data/devices/
+// with its own build). The list pane is the default and is left as it was drawn.
+let aiDevicesPane = 'list';
+// pane: 'links', 'list', or null to keep the pane last open.
+function setAIDevicesPane(pane) {
+    if (pane) aiDevicesPane = pane === 'links' ? 'links' : 'list';
+    const list = document.getElementById('ai-devices-list-pane');
+    const links = document.getElementById('ai-devices-links-pane');
+    if (!list || !links) return;
+    list.hidden = aiDevicesPane !== 'list';
+    links.hidden = aiDevicesPane !== 'links';
+    document.querySelectorAll('#ai-devices-pane-switch .view-btn').forEach(b => {
+        const on = b.dataset.dpane === aiDevicesPane;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    retryAIDeviceUnits();
+    if (aiDevicesPane !== 'links') return;
+    if (window.DeviceLinks) window.DeviceLinks.open(links, { fetchJSON: outcomesFetchJSON });
+    else links.innerHTML = '<p class="note">The study links view did not load (device_links.js).</p>';
+}
+
 function renderAIDevicesTab() {
     if (!aiDevicesData) return;
 
@@ -8868,7 +9376,6 @@ function renderAIDevicesTab() {
     // clearance rides substantial equivalence to a predicate; De Novo and PMA
     // are where novel evidence gets reviewed — a split that frames how much
     // clinical scrutiny this young category actually receives.
-    const statsEl = document.getElementById('ai-devices-stats');
     const panelCounts = {};
     const yearCounts = {};
     const pathwayCounts = { '510(k)': 0, 'De Novo': 0, 'PMA': 0, 'Other': 0 };
@@ -8887,32 +9394,9 @@ function renderAIDevicesTab() {
         }
     });
 
-    const total = aiDevicesData.length;
-    const pctOf = n => total ? `${(n / total * 100).toFixed(1)}%` : '—';
-    statsEl.innerHTML = `
-        <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="stat-card">
-                <h3>Authorized AI/ML Devices</h3>
-                <p class="stat-value">${total.toLocaleString()}</p>
-                <p class="stat-sub">FDA marketing authorization — products, not trials</p>
-            </div>
-            <div class="stat-card">
-                <h3>510(k) Clearances</h3>
-                <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
-                <p class="stat-sub">${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
-            </div>
-            <div class="stat-card">
-                <h3>De Novo Grants</h3>
-                <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
-                <p class="stat-sub">novel devices with no predicate</p>
-            </div>
-            <div class="stat-card">
-                <h3>PMA Approvals</h3>
-                <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
-                <p class="stat-sub">full premarket approval on clinical evidence</p>
-            </div>
-        </div>
-    `;
+    aiDevicesStatCounts = { total: aiDevicesData.length, pathwayCounts, sha256: aiDevicesSourceSha256 };
+    renderAIDevicesStats();
+    loadAIDeviceUnits();
 
     // Panel bar chart
     renderAIPanelChart(panelCounts);
@@ -9178,7 +9662,7 @@ function renderAIPanelChart(panelCounts) {
         data: {
             labels,
             datasets: [{
-                label: 'Devices',
+                label: 'List rows',
                 data: values,
                 backgroundColor: colors,
                 borderRadius: 2
@@ -9192,15 +9676,29 @@ function renderAIPanelChart(panelCounts) {
             // Room at the right for the value that sits past the bar end.
             layout: { padding: { right: 40 } },
             scales: {
-                x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
+                x: { beginAtZero: true, title: { display: true, text: 'Number of list rows' } },
+                // Chart.js gives the panel names at most a share of the
+                // chart's width; in a narrow window a long one ("Gastro-
+                // enterology-Urology") ran off the left edge. There they
+                // break at a hyphen or space onto two lines.
+                y: {
+                    ticks: {
+                        callback(value) {
+                            const text = String(this.getLabelForValue(value));
+                            if (this.chart.width >= 520 || text.length <= 16) return text;
+                            const cut = Math.max(text.lastIndexOf('-', 16), text.lastIndexOf(' ', 16));
+                            return cut > 0 ? [text.slice(0, cut + (text[cut] === '-' ? 1 : 0)), text.slice(cut + 1)] : text;
+                        }
+                    }
+                }
             },
             plugins: {
                 legend: { display: false },
                 tooltip: {
                     callbacks: {
                         label: c => c.dataIndex === labels.length - 1 && tail.length
-                            ? ` ${c.parsed.x} devices across ${tailNames}`
-                            : ` ${c.parsed.x.toLocaleString()} devices`
+                            ? ` ${c.parsed.x} list rows across ${tailNames}`
+                            : ` ${c.parsed.x.toLocaleString()} list rows`
                     }
                 },
                 datalabels: {
@@ -9257,12 +9755,12 @@ function renderAITimelineChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of list rows', short: 'List rows' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
                 legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
-                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y} list ${c.parsed.y === 1 ? 'row' : 'rows'}` } },
                 datalabels: { display: false }
             }
         }
@@ -9307,12 +9805,12 @@ function renderAINonKChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of Authorizations' } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of list rows', short: 'List rows' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
                 legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
-                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y} list ${c.parsed.y === 1 ? 'row' : 'rows'}` } },
                 datalabels: { display: false }
             }
         }
@@ -11770,7 +12268,7 @@ function sgRenderQualityByYear(filtered) {
             },
             interaction: { mode: 'index', intersect: false }
         }
-    }, { canvas: ctx, yTitle: 'Trials not in the Reported state', legend: true }));
+    }, { canvas: ctx, yTitle: 'Trials not in the Reported state', yTitleShort: 'Trials', legend: true }));
 }
 
 function sgRenderPercentFemale(filtered) {
@@ -11788,7 +12286,9 @@ function sgRenderPercentFemale(filtered) {
     // is a different estimand, so the series is withheld and named as missing.
     const aMissing = !mobile && pts.missing > 0;
     const foot = document.getElementById('sg-pf-footnote');
-    if (foot) foot.textContent = (aMissing
+    // The two series' definitions, which their legend names carry only while
+    // the chart is wide enough for them (demoConfig's legend).
+    if (foot) foot.textContent = 'Mean of within-trial % female: each trial counts once. Participant-weighted % female: sum female / (sum female + male). ' + (aMissing
         ? `Mean of within-trial % female is unavailable for this selection: ${pts.missing.toLocaleString()} of ${pts.eligible.toLocaleString()} trials in the denominator do not carry the engine's published percent female, because sex_gender_parsed.csv.gz did not load. It is read, never recomputed here. `
         : '') + (mobile
         ? 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is named only where the engine publishes it.'
@@ -12043,9 +12543,7 @@ function sgShowBreakdown(nctId, field) {
             : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
         `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
         `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
-    const overlay = document.getElementById('breakdown-overlay');
-    overlay.innerHTML = html;
-    overlay.style.display = 'flex';
+    drawOverlay('breakdown-overlay', html, false);
 }
 
 // ── Methods page ─────────────────────────────────────────────────────────
@@ -12969,8 +13467,19 @@ const INDUSTRY_ENDLABEL_GAP = 14;    // px between stacked label centres
 const INDUSTRY_ENDLABEL_PAD = 160;   // px reserved right of the plot for them
 const INDUSTRY_ENDLABEL_OVERHEAD = 90; // px of axis and title under the plot, until the first layout has measured it
 
+// A legend to the right of a narrow plot runs its sponsor names off the
+// canvas edge, and the last of ten off its foot; below the plot they wrap.
+function industryLegendPosition(width) {
+    return width > 0 && width < 640 ? 'bottom' : CHART_LEGEND_POSITION;
+}
+
 const industryTrendEndLabels = {
     id: 'industryTrendEndLabels',
+    // Before the update a resize sets off, so the legend is laid out where it
+    // will be drawn.
+    resize(chart, args) {
+        if (args && args.size) chart.options.plugins.legend.position = industryLegendPosition(args.size.width);
+    },
     // Decides from the room the chart actually has whether the names fit down
     // its side. isMobileDevice is fixed at load, so a desktop window narrowed
     // afterwards would otherwise keep the legend hidden while the labels no
@@ -13161,8 +13670,10 @@ function renderIndustryTrend(rows) {
         plugins: [industryTrendEndLabels],
         data: { labels: years, datasets },
         options: {
-            responsive: true, maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO || 2,
+            // The box sets the height: twice as wide as tall, never under
+            // 340px (styles.css .industry-canvas-wrap), so ten sponsor lines
+            // and a legend under them keep room in a narrowed window.
+            responsive: true, maintainAspectRatio: false,
             layout: { padding: { right: useEndLabels ? INDUSTRY_ENDLABEL_PAD : 0 } },
             plugins: {
                 industryTrendEndLabels: {
@@ -13170,14 +13681,14 @@ function renderIndustryTrend(rows) {
                     font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`,
                     textColor: tokens.getPropertyValue('--text-primary').trim()
                 },
-                legend: { display: !useEndLabels, position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
+                legend: { display: !useEndLabels, position: industryLegendPosition(canvas.parentElement ? canvas.parentElement.clientWidth : 0), labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
                 datalabels: { display: false }
             },
             scales: {
                 y: industryDemo === 'sex'
-                    ? { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial' } }
-                    : { min: 0, title: { display: true, text: (isMobileDevice ? '% ' : 'Median % ') + industryMetricLabel() + (isMobileDevice ? '' : ' per trial') } },
+                    ? { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial', short: '% female' } }
+                    : { min: 0, title: { display: true, text: (isMobileDevice ? '% ' : 'Median % ') + industryMetricLabel() + (isMobileDevice ? '' : ' per trial'), short: '% ' + industryMetricLabel() } },
                 x: { title: { display: true, text: isMobileDevice ? 'Completion year' : 'Primary completion year' } }
             }
         }
@@ -13680,6 +14191,9 @@ function industryRoute() {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setGeographyPane(b.dataset.gpane);
+    }));
+    document.querySelectorAll('#ai-devices-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
+        setAIDevicesPane(b.dataset.dpane);
     }));
     document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setIndustryPane(b.dataset.ipane);

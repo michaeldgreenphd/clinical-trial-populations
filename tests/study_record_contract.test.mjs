@@ -513,7 +513,8 @@ test('the layout section says what the split spec says, word for word', () => {
         'race.raw_categories[].category': 'studies_tab',
         'ethnicity.raw_categories[].category': 'studies_tab',
         'sex.raw_categories[].omb_category': 'studies_tab',
-        'gender.raw_categories[].omb_category': 'studies_tab'
+        'gender.raw_categories[].omb_category': 'studies_tab',
+        'race.unknown_ethnicity_only': 'core'
     });
     assert.deepEqual(layout.detail.whole_lists, ['study_sites', 'collaborators']);
     assert.deepEqual(layout.archive, { file: 'archive_records.json.gz', class: 'archive', listed_in: 'history.json archives.<date>.detail' });
