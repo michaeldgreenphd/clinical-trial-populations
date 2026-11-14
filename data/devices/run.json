@@ -1,17 +1,17 @@
 {
  "build_files": {
-  "coverage.json": "ae984daf8e43b48d4a831e7f34a1b43c5d91ca0e0c8aa0326d7e596b07108d31",
-  "demographics.json": "5ea692fe8b5d436d2eb1f1e29bd92aaae56f104273e96d8fbaa70c923cf568d2",
-  "documents.json": "0ab67bddc65be4b440f0327d11791507b16a4fc5bcef0ea70428a84c9c461150",
-  "families.json": "a5e3348af1a0cd8619e9b4a1bf0f56d7bc2a987e08f17765257fb57f35919b4b",
-  "links.json": "3d8067f66c403b67619fff1824cf5b34cfe92157203476bbdedf3b06c4f68d4e",
-  "organizations.json": "e0c317018c389a29a94e0a3dcbe46f62e0ebd7672138039427357085677ef1ac",
-  "review_queue.json": "3833aa8eae37bcd0e341716a46dac9a737657d438ec66cb026f4a153d61c37d9",
-  "studies.json": "4a8d5284b23b9412cdf9d718409a564a175e88d939053807727c58245d3b6ced",
-  "submissions.json": "86b156cc7c0d604b2635d1f0e23155344929dfae0dd0e5b15b798a2cd62123f8",
-  "summary.json": "9012b810ed255dc48e0bdb4c232626f208bfc51b6c7fe56e26789a0cba8ede13"
+  "coverage.json": "831001d8cc949330181293c376fb68773113f63a80fc6b1b7d23a045d0f3b4b2",
+  "demographics.json": "242b7e91eff13cded1942003ddc1f1fdf287d0f7f2e33bd358b66fbe755c5d39",
+  "documents.json": "06a82a3c6734ac6018dd6722b31711a9bc6c3e844fb87b14ff7d94b22104261c",
+  "families.json": "90d1eaae67be6b12a6e7cb3b6cf0542a22e4cc06d7fd8663c9e5a0b68428c0b8",
+  "links.json": "12d5b475a1651010eeb46e81c6b8630cdea5e86f88abeb919602300d97f825e8",
+  "organizations.json": "efd59996200b667442a835b60f3818ffe4c5ec6376557e39b1830979a6c3f675",
+  "review_queue.json": "ade5d72f6985586e064513b482ae54fdbdc0facf07a6642a9f36a931155c1d8f",
+  "studies.json": "82e078ef31292a25d083c19c859d355ba81e424ca68660257b11735050e41415",
+  "submissions.json": "222b6d80afa33841bb210011c2070949ea611eaa94f23a3b2931b0fa16735d53",
+  "summary.json": "8404640013e42556d085523f37772270f4471cd6cb390f105e0703f363ce1d75"
  },
- "build_run_id": "devices-2026-11-14-ccabb9c916",
+ "build_run_id": "devices-2026-11-14-9565d46877",
  "build_schema_version": 1,
  "counting_units": {
   "document": "one source URL for one submission; a version is one sha256 of its bytes",
@@ -25,6 +25,7 @@
  },
  "coverage_routes": {
   "demographic_extraction": "pilot LLM extraction of demographic fields from a document",
+  "documentary_statement": "statements a person entered in devices/documentary_statements.csv, each with its verbatim quote and place",
   "fda_document_fetch": "FDA release-database page and the documents it links (www.accessdata.fda.gov)",
   "local_document": "PDFs an earlier fetch left on disk (data/pilot_summary_statements)",
   "nct_citation_scan": "text of every document held for the submission, scanned for NCT ids",
@@ -47,19 +48,19 @@
   "submission_identifier": "submission-level: an identifier found in a retrieved source (automated validation identifier_confirmed). The citation exists; what it means is not reviewed"
  },
  "files": {
-  "documents.json": "2d0439d9ba5442a10472d1607516149d37193a9be0d2e9169eaf5aaa75a8eec5",
-  "evidence.json": "25e91a404a8d3d626f1ad76922d92d318efa4ac235a31238d2901dff72cd5257",
-  "evidence_set_aside.json": "3e3c1e48fc25613afba0939b895ff5cc980e42812ecd79bf93ef571446f5a763",
-  "families.json": "6edf4b145facbf8ad31fcfa1908e11dfd4172c5f0f09e3c9bb72042c5325d046",
-  "submissions.json": "90af0ca6131b4e6250838e3296f9db67912c8590879dfb555b46279754401d38",
-  "summary.json": "d5d8e08c517dbc381f1f718d449f1d0214480cfed17a890594c236932ab219d3"
+  "documents.json": "872c71feddc1168203921b2ea6e6e8fb81ca5c4766137e142b0167b13d73c322",
+  "evidence.json": "e9b431cc738253658ab56e3926ae0c220507766e4dad832b82bf7fc6c2c914c1",
+  "evidence_set_aside.json": "6616ea81fa807ee860814e7b7d65da79c0aae48fe8e5f8459813826aecc78d43",
+  "families.json": "f9b292f12c642b81b8b915f99521bb8e4d5cce7f0db6bf5236fca6372facf012",
+  "submissions.json": "26c1f135ebd22affe60734485c3f3c5e99756bc571b5e6a20c27ae4292a675c9",
+  "summary.json": "0164d04ec195bc0e9147cd44804b12fa4b519c62a81ad6c8a86c69b2ae19d371"
  },
- "generated_at": "2026-11-14T15:43:58+00:00",
+ "generated_at": "2026-11-14T15:58:51+00:00",
  "method_version": "device-links-1",
  "producer": {
-  "commit": "59bff70122fa9ca38721c12fecff0120ee816ba2",
+  "commit": "f3c86bd26fbd356bae658105b95930c64c4408d2",
   "repository": "civicsample-engine",
-  "source_sha256": "e923492d3b1b2a439f8e6ada78d28eb70e9205d663b733bca966206c155571ec",
+  "source_sha256": "4e52ffcb6a9ffcd97ee3b4788984ce3c1ae58709376715b26dbf1102b861d0ed",
   "uncommitted_changes": false
  },
  "records": {
@@ -71,7 +72,7 @@
   "n_orphaned": 0,
   "n_rows": 0
  },
- "run_id": "devices-2026-11-14-ccabb9c916-e8dc59bf",
+ "run_id": "devices-2026-11-14-9565d46877-c79861ef",
  "scheduled": false,
  "schema_version": 1,
  "sources": {
@@ -148,6 +149,7 @@
    "nct_citation_scan",
    "registry_submission_number_search",
    "registry_name_organisation_search",
+   "documentary_statement",
    "demographic_extraction"
   ],
   "coverage_states": [

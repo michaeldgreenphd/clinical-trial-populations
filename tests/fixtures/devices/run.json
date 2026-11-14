@@ -1,17 +1,17 @@
 {
  "build_files": {
-  "coverage.json": "989564858816bec96abd80c3667c4f5c86a81281a2cd0f02fa570966a7e73cee",
-  "demographics.json": "139af7cd6bf54223cba30d8df3cf9ee73fe472976666ef114bd7120403920b88",
-  "documents.json": "c73a4df40b15b02c3bf9a65facdeae584e7ecd19c92f67777fb5d1532c22a327",
-  "families.json": "e9bc65847cabc50b85dcb716c6f3a5745f3ad3a775834e38588924285a712822",
-  "links.json": "5215ef990279d0ca6fc0a9479f951224068feb0002cd3f5f637ac63f936225e0",
-  "organizations.json": "8fb934bd3ca252d96c438232d13f27def3ae55b5da47a458b63823064aa49a77",
-  "review_queue.json": "93c42c592677353a6b5d15cee83e5ffd96912af5cf78b6a820cbd5a2e6653553",
-  "studies.json": "21397d358c4596e18f2b65362ad5d0c799edcb3f71919e5702e2f7e0c589bbcf",
-  "submissions.json": "aefcfcf58e569122f3fd349fc2faf1b0c1ae689672566a04ec5e991931ce621d",
-  "summary.json": "8a88c7b897d0c5f7b85723aa14a279468c27f6e52ddb2c0d1461b4331cae9aba"
+  "coverage.json": "54dcbaa04ead4a6da85ec99d366f02a683920baab8d7b9ba30d6791bf84dcc29",
+  "demographics.json": "8f09a06e1d3082c388ea478a07eefbfc62ee736377158c9886293866c245da16",
+  "documents.json": "ee85c1e2fe76da6d82a75de2e2d4d72fc197c003462442a6da97c40a580b6816",
+  "families.json": "c163a77da8a27373e0134a2ce0611312e63a0f4db656fcb3a0db561a342c6337",
+  "links.json": "8c86d65981494f6b3536b580fb143baa7284d54296c519986a12d61aed8ff825",
+  "organizations.json": "fed9db8e16c4ddf52e8d6f0505db752e027a325ca1a4b29d78613390141bce73",
+  "review_queue.json": "ebab3f842ef16b00de9e214a436c76dd9cb9887cac3ee0fdb6d490a9cdd1ee12",
+  "studies.json": "be992179d7d7e7a29fdaa8342371d0893ad8f723f9c37ef9adb33c64e11c1af4",
+  "submissions.json": "4f1b31276b894f06578508e8a19787f17c45d3fba47c5db5a571dbd55b2435e7",
+  "summary.json": "d3966f64eee410a714e88784ed91f071a8a4247eeea6520ff5b4ed7a95a979b2"
  },
- "build_run_id": "devices-2026-11-13-f9d20a4eeb",
+ "build_run_id": "devices-2026-11-13-48307878a9",
  "build_schema_version": 1,
  "counting_units": {
   "document": "one source URL for one submission; a version is one sha256 of its bytes",
@@ -25,6 +25,7 @@
  },
  "coverage_routes": {
   "demographic_extraction": "pilot LLM extraction of demographic fields from a document",
+  "documentary_statement": "statements a person entered in devices/documentary_statements.csv, each with its verbatim quote and place",
   "fda_document_fetch": "FDA release-database page and the documents it links (www.accessdata.fda.gov)",
   "local_document": "PDFs an earlier fetch left on disk (data/pilot_summary_statements)",
   "nct_citation_scan": "text of every document held for the submission, scanned for NCT ids",
@@ -42,12 +43,12 @@
   "submission_identifier": "submission-level: an identifier found in a retrieved source (automated validation identifier_confirmed). The citation exists; what it means is not reviewed"
  },
  "files": {
-  "documents.json": "8cfd41efd4b9fef08662b53ad4d88963ed4d2548925f55b21f74d8e07b848cfe",
-  "evidence.json": "c4760177c50aad7c0694417025e48d8c4c768046e90c4fa1b68762057c86334d",
-  "evidence_set_aside.json": "86f8138ea9848a6134a41b6a01d9aadcf48727901f3230fe52812ded0260180d",
-  "families.json": "fb0b928b895604e2400c4ad10f00bf55ee0b2e235f896b80f029baaf376d1495",
-  "submissions.json": "382e176fd515c51756ff77bbc1bd3b3e221c958a50fc8dcaba7cbb54ca4bfdb8",
-  "summary.json": "57bb993f144e8f691f2f7399871a575fd61d482c9cbc85952e928318785a86f3"
+  "documents.json": "fca4c4a0d55f0cfc4050677a69194151fc08c918c887b8f80519fdd162fbd858",
+  "evidence.json": "3b7c3f533c7fc5de6c30c4947d32f082c83bd7bd84be6777a56cc699a9fedefa",
+  "evidence_set_aside.json": "115c2f9fbc73f28f56a1e8dd58fe2c927930904fe41a17886ccddc08256731fe",
+  "families.json": "56ec2baaa4d3484f8939f121c7b77f5b4fd41a0be9f74610a45561977c003d13",
+  "submissions.json": "bef404d71908470bafccf481b24282c131499b86f4831aed3bc430c368c84ad2",
+  "summary.json": "ed638e14d36a27df3d0ced6d01db53e42c65a75f9b142898125f04e51052ebf7"
  },
  "generated_at": "2026-11-13T00:00:00+00:00",
  "method_version": "device-links-1",
@@ -65,7 +66,7 @@
   "n_orphaned": 0,
   "n_rows": 1
  },
- "run_id": "devices-2026-11-13-f9d20a4eeb-0b1a2a2e",
+ "run_id": "devices-2026-11-13-48307878a9-e58babff",
  "scheduled": false,
  "schema_version": 1,
  "sources": {
@@ -142,6 +143,7 @@
    "nct_citation_scan",
    "registry_submission_number_search",
    "registry_name_organisation_search",
+   "documentary_statement",
    "demographic_extraction"
   ],
   "coverage_states": [
