@@ -901,7 +901,22 @@ const DONUT_COLORS = {
 // Category names that mean absence rather than a group. They keep the
 // neutral grey and, in ramp mode, sort to the end instead of joining the
 // magnitude ramp.
-const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported']);
+const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported',
+    'Hispanic or Latino, no race category']);
+
+// The part of a race block's unknown that the engine publishes as
+// race.unknown_ethnicity_only: participants a combined race and ethnicity
+// table counted in its Hispanic or Latino row and gave no race. It is a PART
+// of omb_totals.unknown_not_reported, never an addition: the Race views take
+// it out of "Unknown" and show it as its own absence row. A record extracted
+// before the field existed has no such key; its unknown then stays whole, as
+// it always was (0 here means "nothing to take out", not a measured zero).
+const RACE_ETHNICITY_ONLY_LABEL = 'Hispanic or Latino, no race category';
+function raceUnknownEthnicityOnly(part, unknown) {
+    const p = Number(part);
+    const u = Number(unknown) || 0;
+    return Number.isFinite(p) && p > 0 ? Math.min(p, u) : 0;
+}
 
 // ── Demographics tabs: the Overview's ink on paper ──────────────────────
 // Race, Ethnicity, Sex and Gender take the Overview's type and palette (the
@@ -6350,6 +6365,9 @@ function breakdownHtml(study, categoryName, tab) {
         // Denominator includes all standard categories + any "other" unmapped counts
         const grandTotal = ombCategories.reduce((s, c) => s + (ombTotals[c.key] || 0), 0)
                          + (ombTotals.other || 0);
+        // Participants the table counted as Hispanic or Latino and gave no race:
+        // a part of the unknown count, shown on its own row below.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
 
         for (const cat of ombCategories) {
             if (!reportedSet.has(cat.key)) {
@@ -6364,7 +6382,7 @@ function breakdownHtml(study, categoryName, tab) {
                 continue;
             }
 
-            const count   = ombTotals[cat.key] || 0;
+            const count   = (ombTotals[cat.key] || 0) - (cat.key === 'unknown_not_reported' ? ethnicityOnly : 0);
             const percent = grandTotal > 0 ? ((count / grandTotal) * 100).toFixed(1) : '0.0';
 
             // Aggregate original labels and best match quality from raw_categories
@@ -6398,6 +6416,19 @@ function breakdownHtml(study, categoryName, tab) {
                 <td class="text-center">${matchQuality}</td>
                 <td>${count.toLocaleString()}</td>
                 <td style="--percent: ${percent}">${percent}%</td>
+            </tr>`;
+        }
+
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count above, on its own row (engine: race.unknown_ethnicity_only).
+        if (ethnicityOnly > 0) {
+            const partPct = grandTotal > 0 ? ((ethnicityOnly / grandTotal) * 100).toFixed(1) : '0.0';
+            html += `<tr>
+                <td>${escapeHtml(RACE_ETHNICITY_ONLY_LABEL)}</td>
+                <td class="original-label">This table's Hispanic or Latino row</td>
+                <td class="text-center"><span class="match-na" title="Counted from the table's own rows: they add up exactly to the participants">-</span></td>
+                <td>${ethnicityOnly.toLocaleString()}</td>
+                <td style="--percent: ${partPct}">${partPct}%</td>
             </tr>`;
         }
 
@@ -7193,29 +7224,34 @@ function renderRaceDistribution(filtered) {
     let totals;
     if (dashboardSummary) {
         const d = dashboardSummary.raceDistribution;
+        // A summary written before the engine published the part has no
+        // unknown_ethnicity_only key: Unknown then stays whole.
+        const part = raceUnknownEthnicityOnly(d.unknown_ethnicity_only, d.unknown_not_reported);
         totals = {
             'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
             'Asian': d.asian || 0, 'Black/African American': d.black_african_american || 0,
             'Native Hawaiian/Pacific Islander': d.native_hawaiian_pacific_islander || 0,
             'White': d.white || 0, 'More than one race': d.more_than_one_race || 0,
-            'Unknown': d.unknown_not_reported || 0, 'Other': d.other || 0
+            'Unknown': (d.unknown_not_reported || 0) - part, [RACE_ETHNICITY_ONLY_LABEL]: part, 'Other': d.other || 0
         };
     } else {
         totals = {
             'American Indian/Alaska Native': 0, 'Asian': 0, 'Black/African American': 0,
             'Native Hawaiian/Pacific Islander': 0, 'White': 0, 'More than one race': 0,
-            'Unknown': 0, 'Other': 0
+            'Unknown': 0, [RACE_ETHNICITY_ONLY_LABEL]: 0, 'Other': 0
         };
         filtered.forEach(study => {
             if (!study.race?.reported) return;
             const omb = study.race.omb_totals;
+            const part = raceUnknownEthnicityOnly(study.race.unknown_ethnicity_only, omb.unknown_not_reported);
             totals['American Indian/Alaska Native'] += omb.american_indian_alaska_native || 0;
             totals['Asian'] += omb.asian || 0;
             totals['Black/African American'] += omb.black_african_american || 0;
             totals['Native Hawaiian/Pacific Islander'] += omb.native_hawaiian_pacific_islander || 0;
             totals['White'] += omb.white || 0;
             totals['More than one race'] += omb.more_than_one_race || 0;
-            totals['Unknown'] += omb.unknown_not_reported || 0;
+            totals['Unknown'] += (omb.unknown_not_reported || 0) - part;
+            totals[RACE_ETHNICITY_ONLY_LABEL] += part;
             totals['Other'] += omb.other || 0;
         });
     }
