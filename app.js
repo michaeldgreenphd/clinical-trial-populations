@@ -6425,7 +6425,32 @@ function initColumnPicker() {
         const picker = document.getElementById('column-picker');
         if (picker && picker.open && !e.target.closest('#column-picker')) picker.open = false;
     });
+    const picker = document.getElementById('column-picker');
+    if (picker) picker.addEventListener('toggle', placeColumnPicker);
+    window.addEventListener('resize', placeColumnPicker);
     applyStudyColumns(on);
+}
+
+// Where the column menu opens: under its button, right edges lined up, unless
+// that would cross an edge of the window, in which case it moves in from that
+// edge. A window under about 780px wraps the table controls and puts the
+// button at the left edge, where the right-aligned menu opened 193px off the
+// screen (#290). Measured on each opening and on a resize while it is open.
+const COLUMN_PICKER_MARGIN = 8;   // px kept clear of the window's edges
+function placeColumnPicker() {
+    const picker = document.getElementById('column-picker');
+    const menu = document.getElementById('column-picker-menu');
+    if (!picker || !menu || !picker.open) return;
+    menu.style.left = '';
+    menu.style.right = '';
+    const view = document.documentElement.clientWidth;
+    const box = picker.getBoundingClientRect();
+    const width = menu.getBoundingClientRect().width;
+    let left = box.right - width;
+    left = Math.min(left, view - COLUMN_PICKER_MARGIN - width);
+    left = Math.max(left, COLUMN_PICKER_MARGIN);
+    menu.style.left = `${Math.round(left - box.left)}px`;
+    menu.style.right = 'auto';
 }
 
 function renderDemographicCell(study, field, tab = READY) {

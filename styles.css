@@ -5362,11 +5362,16 @@ footer p {
     outline-offset: 2px;
 }
 
+/* right: 0 is where the menu opens before app.js placeColumnPicker measures
+   it; that moves it in from any window edge it would cross. It is never wider
+   than the window, and on the narrowest screens its options stack. */
 .column-picker-menu {
     position: absolute;
     top: calc(100% + 0.35rem);
     right: 0;
     z-index: 60;
+    max-width: calc(100vw - 16px);
+    box-sizing: border-box;
     display: grid;
     grid-template-columns: repeat(2, minmax(9rem, 1fr));
     gap: 0.125rem 1rem;
@@ -5390,6 +5395,10 @@ footer p {
 }
 
 .column-option:hover { background: var(--tint); }
+
+@media (max-width: 359px) {
+    .column-picker-menu { grid-template-columns: 1fr; }
+}
 
 /* ── Sex/gender parser v2 (?sg=v2 beta) ─────────────────────────────────
    The v2 blocks and the legacy blocks swap by class, never by the hidden
