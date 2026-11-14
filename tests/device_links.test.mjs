@@ -822,13 +822,14 @@ test('without the devices data the tab still draws from the CSV, with the card r
     const t = text(html);
     assert.match(t, /Rows on FDA's list 11 one row per line of FDA's list; rows can share a submission number, so this is not a count of devices/);
     assert.doesNotMatch(t, /Distinct submissions|Candidate product families/);
-    assert.match(t, /510\(k\) Clearances 8 counted by list row · 72\.7% of list rows/);
-    assert.match(t, /De Novo Grants 1 counted by list row/); assert.match(t, /PMA Approvals 2 counted by list row/);
+    assert.match(t, /510\(k\) list rows 8 rows, not distinct clearances · 72\.7% of list rows/);
+    assert.match(t, /De Novo list rows 1 rows, not distinct grants/); assert.match(t, /PMA list rows 2 rows, not distinct approvals/);
+    assert.doesNotMatch(t, /Clearances|Grants|Approvals/, 'a pathway card titles list rows as authorizations');
   }
   // present and built from the same list: the three units, from the published files
   const withUnits = text(stats({ run: f.run, summary: f.summary }));
   assert.match(withUnits, /Rows on FDA's list 11 .* Distinct submissions 8 .* Candidate product families: grouped by rule, none curated 7 /);
-  assert.match(withUnits, /510\(k\) Clearances 8 counted by list row/);
+  assert.match(withUnits, /510\(k\) list rows 8 rows, not distinct clearances/);
   // built from a list of another length: the build does not describe this CSV, so only rows are shown
   const other = clone(f.summary); other.denominators.source_rows.n = 12;
   const mismatch = text(stats({ run: f.run, summary: other }));
@@ -851,6 +852,10 @@ test('without the devices data the tab still draws from the CSV, with the card r
     /Distinct submissions/);
   assert.doesNotMatch(app, /Authorized AI\/ML Devices/, 'the row count is no longer called devices');
   assert.doesNotMatch(app, /Number of Devices/);
+  // the pathway timelines count list rows too: axis, tooltip and heading
+  assert.doesNotMatch(app, /Number of Authorizations/);
+  assert.equal((app.match(/\$\{c\.parsed\.y\} list \$\{c\.parsed\.y === 1 \? 'row' : 'rows'\}/g) || []).length, 2);
+  assert.doesNotMatch(read('index.html'), /Authorizations per Year/);
 });
 
 test('the list is hashed as served, so the unit cards can be matched to the build that described it', async () => {

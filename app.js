@@ -9274,19 +9274,19 @@ function aiDevicesStatsHTML(counts, units) {
         ${mismatch}
         <div class="stats-grid" style="margin-bottom: 1.5rem;">
             <div class="stat-card">
-                <h3>510(k) Clearances</h3>
+                <h3>510(k) list rows</h3>
                 <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
-                <p class="stat-sub">counted by list row · ${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
+                <p class="stat-sub">rows, not distinct clearances · ${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
             </div>
             <div class="stat-card">
-                <h3>De Novo Grants</h3>
+                <h3>De Novo list rows</h3>
                 <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
-                <p class="stat-sub">counted by list row — novel devices with no predicate</p>
+                <p class="stat-sub">rows, not distinct grants — novel devices with no predicate</p>
             </div>
             <div class="stat-card">
-                <h3>PMA Approvals</h3>
+                <h3>PMA list rows</h3>
                 <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
-                <p class="stat-sub">counted by list row — full premarket approval on clinical evidence</p>
+                <p class="stat-sub">rows, not distinct approvals — full premarket approval on clinical evidence</p>
             </div>
         </div>
     `;
@@ -9730,12 +9730,12 @@ function renderAITimelineChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations', short: 'Authorizations' } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of list rows', short: 'List rows' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
                 legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
-                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y} list ${c.parsed.y === 1 ? 'row' : 'rows'}` } },
                 datalabels: { display: false }
             }
         }
@@ -9780,12 +9780,12 @@ function renderAINonKChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of Authorizations', short: 'Authorizations' } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of list rows', short: 'List rows' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
                 legend: { position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8 } },
-                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y}` } },
+                tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y} list ${c.parsed.y === 1 ? 'row' : 'rows'}` } },
                 datalabels: { display: false }
             }
         }
