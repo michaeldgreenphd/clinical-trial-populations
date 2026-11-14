@@ -41,7 +41,7 @@ function raceDistribution({ summary = null, studies = [] }) {
         charts: {}, dashboardSummary: summary, captured: null,
         document: { getElementById: () => ({ set innerHTML(v) { context.html = v; } }) },
     });
-    vm.runInContext(blockAt('const DONUT_ABSENT_LABELS =', ']);\n') + blockAt('const RACE_ETHNICITY_ONLY_LABEL', '\n}\n')
+    vm.runInContext(lineAt('const DONUT_ABSENT_LABELS =') + blockAt('const RACE_ETHNICITY_ONLY_LABEL', '\n}\n')
         + fnAt('function demoScale(maxPct)') + fnAt('function demoRowsHtml(rows, opts = {})')
         + 'function demoRowsFromTotals(totals, colors) { captured = totals; return ('
         + fnAt('function demoRowsFromTotals(totals, colors)').replace('function demoRowsFromTotals(totals, colors)', 'function (totals, colors)')

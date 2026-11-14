@@ -901,8 +901,7 @@ const DONUT_COLORS = {
 // Category names that mean absence rather than a group. They keep the
 // neutral grey and, in ramp mode, sort to the end instead of joining the
 // magnitude ramp.
-const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported',
-    'Hispanic or Latino, no race category']);
+const DONUT_ABSENT_LABELS = new Set(['Unknown', 'Unknown or Not Reported', 'Not reported', 'Hispanic or Latino, no race category']);
 
 // The part of a race block's unknown that the engine publishes as
 // race.unknown_ethnicity_only: participants a combined race and ethnicity
