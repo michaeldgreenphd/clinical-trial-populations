@@ -554,6 +554,7 @@ test('a failed load of the set-aside records keeps a button that asks again', as
   assert.match(text(el.innerHTML), /Could not load the set-aside records \(HTTP 503\)\./);
   assert.match(el.innerHTML, /data-dl-setaside="1">Try again<\/button>/);
   assert.doesNotMatch(el.innerHTML, /NCT99000004/);
+  assert.equal(focused.at(-1), '[data-dl-setaside]', 'focus moves to the retry button, not out of the pane');
   fail = false;
   click({ dlSetaside: '1' }); await tick(); await tick();
   assert.equal(asked.length, 2, 'asked once more');

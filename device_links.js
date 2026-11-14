@@ -1046,7 +1046,9 @@
                 if (request !== state.request) return;
             }
             state.showSetAside = true;
-            draw('#dl-setaside');
+            // After a failed load the records are not drawn, so focus goes to the retry button that
+            // replaced the one pressed; otherwise a keyboard user is left outside the pane.
+            draw(state.setAsideError ? '[data-dl-setaside]' : '#dl-setaside');
         }
 
         function saveDraft(id) {
