@@ -225,6 +225,16 @@ test('the demographics pane opens on its scope line and keeps methodological opt
   assert.ok(at('id="industry-reset"') > 0, 'the Reset view button is gone');
 });
 
+test('the scope line does not call every counted trial sex-reporting', () => {
+  // Regression (Codex, PR 285): on the Sex tier the count includes trials with no sex value
+  // (2,648 of 30,403 in the dataset of 2026-11-08), so the label must describe the broader cohort.
+  const short = app.match(/const INDUSTRY_COHORT_SHORT = \{[\s\S]*?\};/)?.[0];
+  assert.ok(short, 'INDUSTRY_COHORT_SHORT is gone');
+  assert.doesNotMatch(short.match(/sex: '([^']*)'/)[1], /sex-reporting/, 'the Sex label calls trials without a sex value sex-reporting');
+  assert.match(app, /if \(industryDemo !== 'sex' && industryTrialValue\(t\) === null\) return false;/,
+    'the Race and Ethnicity labels say "reporting" because their rows exclude non-reporting trials');
+});
+
 test('controls the adjusted model ignores are hidden with it, and Reset restores the defaults', () => {
   const sync = app.match(/function industrySyncChrome\(\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(sync, 'industrySyncChrome() is gone');

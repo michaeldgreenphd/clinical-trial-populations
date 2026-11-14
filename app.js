@@ -13290,8 +13290,11 @@ function renderIndustry() {
 }
 
 // The population each tier's charts are drawn over, for the scope line under the title.
+// What the count before this label covers. On the Race and Ethnicity tiers the filtered rows already
+// exclude trials that do not report that dimension; on the Sex tier they do not (industryFilteredRows
+// keeps rows with no sex value), so the label must not call those trials sex-reporting.
 const INDUSTRY_COHORT_SHORT = {
-    sex: 'mixed-sex, sex-reporting industry trials',
+    sex: 'industry trials (the charts use those that report sex)',
     race: 'race-reporting industry trials',
     ethnicity: 'ethnicity-reporting industry trials'
 };
