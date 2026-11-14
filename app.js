@@ -7328,13 +7328,23 @@ function initReportingTrendsResize() {
     const box = canvas && canvas.parentElement;
     if (!box || typeof ResizeObserver === 'undefined') return;
     let frame = 0;
-    new ResizeObserver(() => {
+    // Whether the chart on screen is drawn for the other side of the width.
+    const stale = () => {
         const chart = charts.reportingTrends;
-        const last = canvas.civicTrendArgs;
-        if (frame || !chart || !last || !box.clientWidth || (box.clientWidth < 600) === !!chart.civicNarrow) return;
+        return !!chart && !!canvas.civicTrendArgs && box.clientWidth > 0
+            && (box.clientWidth < 600) !== !!chart.civicNarrow;
+    };
+    new ResizeObserver(() => {
+        if (frame || !stale()) return;
         frame = requestAnimationFrame(() => {
             frame = 0;
-            renderReportingTrends(last.filtered, last.counted);
+            // Read at the frame, not when it was asked for: a filter change, or
+            // the records taking over from the first view, may have drawn the
+            // chart in between, with newer arguments and perhaps already at
+            // this width.
+            if (!stale()) return;
+            const now = canvas.civicTrendArgs;
+            renderReportingTrends(now.filtered, now.counted);
         });
     }).observe(box);
 }

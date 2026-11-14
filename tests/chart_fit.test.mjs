@@ -196,6 +196,7 @@ test('every chart with a captioned marker names its markers in a footnote too', 
 // ── The Overview chart and the window ──
 
 function overviewHarness({ narrowDrawn = false, args = { filtered: ['a'], counted: null } } = {}) {
+    const charts = { reportingTrends: { civicNarrow: narrowDrawn } };
     let observed = null;
     const calls = [];
     const box = { clientWidth: 900 };
@@ -203,12 +204,12 @@ function overviewHarness({ narrowDrawn = false, args = { filtered: ['a'], counte
     const { run, frames } = context({
         document: { getElementById: (id) => (id === 'reporting-trends-chart' ? canvas : null) },
         ResizeObserver: function (cb) { this.observe = (el) => { observed = { el, cb }; }; },
-        charts: { reportingTrends: { civicNarrow: narrowDrawn } },
+        charts,
         renderReportingTrends: (filtered, counted) => calls.push([filtered, counted])
     });
     run(fnSource('function initReportingTrendsResize()'));
     run('initReportingTrendsResize()');
-    return { box, calls, frames, fire: () => observed.cb([]), observed: () => observed };
+    return { box, calls, frames, canvas, charts, fire: () => observed.cb([]), observed: () => observed };
 }
 
 test('the Overview chart is drawn again when its box crosses the narrow width, and only then', () => {
@@ -281,4 +282,23 @@ test("a demographic chart's legend entry too wide for the chart takes its short 
     const pf = fnSource('function sgRenderPercentFemale(filtered)');
     assert.match(pf, /foot\.textContent = 'Mean of within-trial % female: each trial counts once\. Participant-weighted % female: sum female \/ \(sum female \+ male\)\. '/);
     assert.match(pf, /names: \{ \[aLabel\]: 'Mean of within-trial % female', \[bLabel\]: 'Participant-weighted' \}/);
+});
+
+test('a render between the resize and its frame wins: the frame uses the newest arguments, or does nothing', () => {
+    // A filter change draws the chart after the resize asked for a frame:
+    // the frame redraws from the filter change's arguments, not the old ones.
+    const h = overviewHarness({ narrowDrawn: false, args: { filtered: ['old'], counted: null } });
+    h.box.clientWidth = 480; h.fire();
+    assert.equal(h.frames.length, 1);
+    h.canvas.civicTrendArgs = { filtered: ['new'], counted: null };
+    h.frames.shift()();
+    assert.deepEqual(h.calls, [[['new'], null]], 'the frame redrew the chart with the arguments from before the filter change');
+    // The records take over from the first view, already drawn narrow at this
+    // width: nothing left to do.
+    const g = overviewHarness({ narrowDrawn: false, args: { filtered: null, counted: { 2020: {} } } });
+    g.box.clientWidth = 480; g.fire();
+    g.canvas.civicTrendArgs = { filtered: ['records'], counted: null };
+    g.charts.reportingTrends = { civicNarrow: true };
+    g.frames.shift()();
+    assert.deepEqual(g.calls, [], 'a chart already drawn for this width was drawn again');
 });
