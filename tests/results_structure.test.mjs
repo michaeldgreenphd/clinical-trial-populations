@@ -126,6 +126,12 @@ test('a family that fails its integrity check is not used at all', async () => {
     'number of records run.json states': (f) => { delete f.records.records.NCT99000007; },
     'all five values': (f) => { delete f.summary.subgroup_states.by_dimension.sex.not_yet_processed; },
     'metric usable_baseline is incomplete': (f) => { f.summary.metrics.find((m) => m.id === 'usable_baseline').numerator = 99; },
+    // The summary block maps over the metrics; a family without the list is refused, not shown empty.
+    'no metrics list': (f) => { delete f.summary.metrics; },
+    'has no metrics list': (f) => { f.summary.metrics = null; },
+    'a metric that is not an object': (f) => { f.summary.metrics[0] = null; },
+    'review list is malformed': (f) => { f.records.records.NCT99000001.subgroup.signals[0].review = 'accepted'; },
+    'parse failures are not a list': (f) => { f.records.records.NCT99000005.parse.failures = 'failed'; },
     'does not list fields not inspected': (f) => { f.run.fields_not_inspected = []; },
     'schema version 1': (f) => { f.run.schema_version = 2; },
     'separate tables': (f) => { delete f.summary.tables.negative_findings; },
@@ -144,6 +150,65 @@ test('a family that fails its integrity check is not used at all', async () => {
   const f = files();
   f.records.records.NCT99000001.subgroup.signals.forEach((s) => { s.review = []; });
   assert.match(O.structureProblem(f.run, f.summary, f.records), /without an accepted human review/);
+});
+
+test('"detected" for a characteristic needs an accepted review of that characteristic', () => {
+  // The fixture trial has an accepted review for sex and a rejected one for age.
+  const problem = (breakIt) => { const f = files(); breakIt(f.records.records.NCT99000001.subgroup); return O.structureProblem(f.run, f.summary, f.records); };
+  const DETECTED = 'explicit_subgroup_results_detected';
+  assert.equal(problem(() => {}), null);
+  // An accepted sex review does not make race, or the rejected age signal, detected.
+  assert.match(problem((sg) => { sg.by_dimension.race = DETECTED; }), /NCT99000001: race is marked detected without an accepted human review for race/);
+  assert.match(problem((sg) => { sg.by_dimension.age = DETECTED; }), /age is marked detected without an accepted human review for age/);
+  // Nor does an accepted review that names another characteristic than the state it would support.
+  assert.match(problem((sg) => { sg.by_dimension.race = DETECTED; sg.signals[0].review.push({ decision: 'accepted', dimension: 'age', reviewed_on: '2026-11-14' }); }), /race is marked detected/);
+  // A signal typed for one characteristic cannot be accepted for another: the engine never does that.
+  assert.match(problem((sg) => { sg.by_dimension.race = DETECTED; sg.signals[0].review.push({ decision: 'accepted', dimension: 'race', reviewed_on: '2026-11-14' }); }), /race is marked detected/);
+  // A signal with no named characteristic, accepted for race by a person, does support race...
+  const other = (sg) => { sg.signals.push({ ...sg.signals[0], signal_id: 'sg-000000000000', dimension: 'other', review: [{ decision: 'accepted', dimension: 'race', reviewed_on: '2026-11-14' }] }); };
+  assert.equal(problem((sg) => { other(sg); sg.by_dimension.race = DETECTED; }), null);
+  // ...and only race; accepted as 'other', it supports none of the four.
+  assert.match(problem((sg) => { other(sg); sg.by_dimension.race = DETECTED; sg.by_dimension.ethnicity = DETECTED; }), /ethnicity is marked detected/);
+  assert.match(problem((sg) => { other(sg); sg.signals[2].review[0].dimension = 'other'; sg.by_dimension.race = DETECTED; }), /race is marked detected/);
+});
+
+test('no altered copy of the fixture passes the check and then fails to render', () => {
+  // Every key of the three files, in turn: removed, null, a string, a number, an empty object, an
+  // empty list. Each altered family is either refused by the integrity check or renders (summary
+  // block, list and every trial's detail) without throwing. The page renders outside the loader's
+  // error handling, so a family that passes the check must be safe to render.
+  const { run, index, shards } = outcomes();
+  const trials = Object.values(shards).flatMap((sh) => Object.values(sh.records));
+  const paths = (o, pre = []) => (o && typeof o === 'object'
+    ? Object.keys(o).flatMap((k) => [[...pre, k], ...paths(o[k], [...pre, k])]) : []);
+  const alter = {
+    removed: (p, k) => { if (Array.isArray(p)) p.splice(k, 1); else delete p[k]; },
+    null: (p, k) => { p[k] = null; },
+    'a string': (p, k) => { p[k] = 'x'; },
+    'a number': (p, k) => { p[k] = 7; },
+    'an empty object': (p, k) => { p[k] = {}; },
+    'an empty list': (p, k) => { p[k] = []; },
+  };
+  const pristine = JSON.stringify(files());
+  let refused = 0; let rendered = 0;
+  for (const path of paths(JSON.parse(pristine))) {
+    for (const [what, change] of Object.entries(alter)) {
+      const f = JSON.parse(pristine);
+      change(path.slice(0, -1).reduce((o, k) => o[k], f), path[path.length - 1]);
+      const where = `${path.join('.')} ${what}`;
+      let problem;
+      assert.doesNotThrow(() => { problem = O.structureProblem(f.run, f.summary, f.records); }, where);
+      if (problem) { refused += 1; continue; }
+      const s = { ok: true, run: f.run, summary: f.summary, records: f.records.records };
+      assert.doesNotThrow(() => {
+        O.structureSummaryHTML(s);
+        O.listHTML(index.rows, run, 100, s);
+        for (const rec of trials) O.recordHTML(rec, run, false, s);
+      }, where);
+      rendered += 1;
+    }
+  }
+  assert.ok(refused > 1000 && rendered > 1000, `the check ran on both sides (${refused} refused, ${rendered} rendered)`);
 });
 
 test('a stale cached file is fetched once more before the family is given up', async () => {

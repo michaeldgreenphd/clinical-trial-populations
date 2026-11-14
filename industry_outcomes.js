@@ -606,7 +606,10 @@
         if (!isObj(recordsFile.records)) return 'records.json has no records';
         const den = summary.denominators;
         if (!isObj(den) || !isObj(den.requested) || !isInt(den.requested.n) || den.requested.n !== run.n_records) return 'the requested denominator does not match run.json';
-        for (const m of summary.metrics || []) {
+        // The summary block maps over this list; a family without it is a failed family, not an empty one.
+        if (!Array.isArray(summary.metrics)) return 'summary.json has no metrics list';
+        for (const m of summary.metrics) {
+            if (!isObj(m)) return 'summary.json has a metric that is not an object';
             const d = den[m.denominator];
             if (!isObj(d) || !isInt(d.n) || !isInt(m.numerator) || m.numerator > d.n || !m.definition || !m.label) return `metric ${m.id} is incomplete`;
         }
@@ -617,7 +620,7 @@
         if (scoped.included.n !== den.requested.n) return 'the scope does not match the requested denominator';
         if (scoped.excluded.n > 0 && !scoped.excluded.reason) return 'records are left out of the build without a stated reason';
         const states = summary.subgroup_states;
-        if (!isObj(states) || !isObj(states.by_dimension) || !isObj(den[states.denominator])) return 'summary.json has no subgroup state counts';
+        if (!isObj(states) || !isObj(states.by_dimension) || !isObj(den[states.denominator]) || !isInt(den[states.denominator].n)) return 'summary.json has no subgroup state counts';
         for (const d of RS_DIMENSIONS) {
             const c = states.by_dimension[d];
             if (!isObj(c) || SUBGROUP_STATES.some(s => !isInt(c[s])) || Object.keys(c).length !== SUBGROUP_STATES.length) {
@@ -625,7 +628,7 @@
             }
         }
         const tables = summary.tables;
-        if (!isObj(tables) || ['retrieval_failures', 'parsing_failures', 'missing_data', 'negative_findings'].some(t => !isObj(tables[t]) || !Array.isArray(tables[t].rows))) {
+        if (!isObj(tables) || ['retrieval_failures', 'parsing_failures', 'missing_data', 'negative_findings'].some(t => !isObj(tables[t]) || !Array.isArray(tables[t].rows) || tables[t].rows.some(row => !isObj(row)))) {
             return 'summary.json does not keep failures, missing data and negative findings as separate tables';
         }
         let seen = 0;
@@ -637,10 +640,23 @@
                 return `${id}: a subgroup state is outside the vocabulary`;
             }
             if (sg.signals != null && !Array.isArray(sg.signals)) return `${id}: signals are not a list`;
-            const accepted = (sg.signals || []).some(s => (s.review || []).some(v => v.decision === 'accepted'));
-            if (!accepted && RS_DIMENSIONS.some(d => sg.by_dimension[d] === SUBGROUP_DETECTED)) {
-                return `${id}: a detected state without an accepted human review`;
+            const signals = sg.signals || [];
+            const reviewOk = v => isObj(v) && typeof v.dimension === 'string' && typeof v.decision === 'string';
+            if (signals.some(s => !isObj(s) || (s.review != null && (!Array.isArray(s.review) || !s.review.every(reviewOk))))) {
+                return `${id}: a signal or its review list is malformed`;
             }
+            const failures = isObj(r.parse) ? r.parse.failures : null;
+            if ((r.parse != null && !isObj(r.parse)) || (failures != null && (!Array.isArray(failures) || failures.some(f => !isObj(f))))) {
+                return `${id}: the parse failures are not a list of records`;
+            }
+            // "Detected" for a characteristic needs an accepted human review naming that characteristic,
+            // on a signal of that characteristic or one with no named characteristic ('other'). An
+            // accepted review of another characteristic does not carry over. This is the engine's rule
+            // (outcomes/results_structure.py, apply_reviews), checked again on what was published.
+            const acceptedFor = d => signals.some(s => (s.dimension === d || s.dimension === 'other')
+                && (s.review || []).some(v => v.decision === 'accepted' && v.dimension === d));
+            const lacking = RS_DIMENSIONS.find(d => sg.by_dimension[d] === SUBGROUP_DETECTED && !acceptedFor(d));
+            if (lacking) return `${id}: ${lacking} is marked detected without an accepted human review for ${lacking}`;
         }
         if (seen !== run.n_records) return 'records.json does not hold the number of records run.json states';
         return null;
