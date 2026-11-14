@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261114-industry2">
+    <link rel="stylesheet" href="styles.css?v=20261114-industry3">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -1136,7 +1136,8 @@
              view initializes. -->
         <section id="industry" class="tab-content">
             <!-- Two views with different cohorts and dates: weekly participant demographics, and a
-                 fixed outcomes cohort (industry_outcomes.js, data/outcomes/). app.js switches
+                 fixed outcomes cohort (industry_outcomes.js, data/outcomes/ and, for posted results
+                 structure and subgroup reporting, data/results_structure/). app.js switches
                  between them (setIndustryPane). -->
             <div class="geography-view-toggle industry-pane-switch" id="industry-pane-switch" role="group" aria-label="Industry view">
                 <button type="button" class="view-btn active" data-ipane="demographics" aria-pressed="true">Participant demographics</button>
@@ -1733,7 +1734,7 @@
     <script defer src="geo/geo_render.js?v=20260813"></script>
     <script defer src="geo/geo_data.js?v=20260811"></script>
     <script defer src="geo/geo_ui.js?v=20260813"></script>
-    <script defer src="industry_outcomes.js?v=20261114-industry2"></script>
+    <script defer src="industry_outcomes.js?v=20261114-results-structure4"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
     <script defer src="app.js?v=20261114-industry2"></script>
 </body>
