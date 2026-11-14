@@ -222,6 +222,24 @@ test('closing an open area with its own button returns focus to that button', as
   assert.deepEqual(focused, ['detail', 'button']);
 });
 
+test('the trials column counts the trials behind the figure shown', () => {
+  const areas = fx('areas.race.json');
+  const rows = C.areaRows(areas, 'cbsa', 'with_referral_zips', '');
+  const a = rows.shown.find((r) => r.categories.some((c) => c.of_classified && c.of_classified.n_trials !== r.n_trials));
+  assert.ok(a, 'the fixture has an area whose classified figure rests on fewer trials');
+  const cat = a.categories.find((c) => c.of_classified && c.of_classified.n_trials !== a.n_trials);
+  assert.equal(C.cell(a, cat.category, 'all').trials, a.n_trials);
+  assert.equal(C.cell(a, cat.category, 'classified').trials, cat.of_classified.n_trials);
+  const only = { shown: [a], withheld: [] };
+  const all = C.tableHTML(only, state({ category: cat.category }), fx('run.json'));
+  const known = C.tableHTML(only, state({ category: cat.category, denominator: 'classified' }), fx('run.json'));
+  assert.match(all, new RegExp(`<td class="cb-num">${a.n_trials}</td>`));
+  assert.match(known, new RegExp(`<td class="cb-num">${cat.of_classified.n_trials} <span class="cb-interval">of ${a.n_trials}</span></td>`));
+  const none = clone(a); delete none.categories.find((c) => c.category === cat.category).of_classified;
+  assert.match(C.tableHTML({ shown: [none], withheld: [] }, state({ category: cat.category, denominator: 'classified' }), fx('run.json')),
+    new RegExp(`<td class="cb-num">— <span class="cb-interval">of ${a.n_trials}</span></td>`));
+});
+
 const published = existsSync(at('data/census/run.json'));
 test('the published family is one build whose files match its manifest', { skip: !published && 'data/census/ is not published' }, () => {
   const run = JSON.parse(read('data/census/run.json')), summary = JSON.parse(read('data/census/summary.json'));

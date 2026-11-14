@@ -93,9 +93,12 @@
         const c = (area.categories || []).find(x => x.category === category);
         if (!c) return null;
         const b = denominator === 'classified' ? c.of_classified : null;
-        if (denominator === 'classified' && !b) return { reference: c.expected_pct, moe: c.expected_moe90_pp, unavailable: true };
+        if (denominator === 'classified' && !b) return { reference: c.expected_pct, moe: c.expected_moe90_pp, unavailable: true, trials: null };
         return {
             reference: c.expected_pct, moe: c.expected_moe90_pp,
+            // how many trials stand behind the figure shown: fewer under the known-category
+            // denominator, which leaves out a trial with nobody classified
+            trials: b ? b.n_trials : area.n_trials,
             observed: b ? b.observed_pct : c.observed_pct, diff: b ? b.diff_pp : c.diff_pp,
             lo: b ? null : c.lo_pp, hi: b ? null : c.hi_pp, ratio: b ? b.ratio : c.ratio,
             settled: c.unknown_bounds ? c.unknown_bounds.direction_settled : null,
@@ -159,7 +162,7 @@
             return `<tr class="cb-row${open ? ' cb-open' : ''}">
                 <th scope="row"><button type="button" class="cb-area-btn" data-cb-area="${esc(a.geoid)}" aria-expanded="${open}"
                     aria-controls="cb-detail-${esc(a.geoid)}">${esc(a.name || a.geoid)}</button></th>
-                <td class="cb-num">${num(a.n_trials)}</td>
+                <td class="cb-num">${c.trials == null ? '—' : num(c.trials)}${c.trials !== a.n_trials ? ` <span class="cb-interval">of ${num(a.n_trials)}</span>` : ''}</td>
                 <td class="cb-num">${pct(c.reference)}${typeof c.moe === 'number' ? ` <span class="cb-interval">±${c.moe.toFixed(1)}</span>` : ''}</td>
                 <td class="cb-num">${c.unavailable ? '—' : pct(c.observed)}</td>
                 <td class="cb-num cb-diff">${c.unavailable ? '—' : pts(c.diff)}${interval}</td>
