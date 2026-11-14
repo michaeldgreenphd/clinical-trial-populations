@@ -986,16 +986,24 @@
             return target;
         }
         const openerSelector = () => (state.open ? `[data-dl-open="${attr(state.open.id)}"]` : null);
-        // The control that has focus in the pane, as a selector a redraw can focus again; null when
-        // focus is outside the pane or on something a selector cannot name.
-        function activeSelector() {
+        // Redraw while keeping focus on the control that had it. A control is found again by its id
+        // or data-dl-* attribute; one with neither (a study or document link) by its place among
+        // the pane's focusable controls, which a redraw that changes only text or state keeps.
+        const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]';
+        function redrawKeepingFocus() {
             const a = typeof document !== 'undefined' ? document.activeElement : null;
-            if (!a || a === el || !el.contains || !el.contains(a)) return null;
-            if (a.id) return `#${a.id}`;
-            for (const name of (a.getAttributeNames ? a.getAttributeNames() : [])) {
-                if (name.startsWith('data-dl-')) return `[${name}="${attr(a.getAttribute(name))}"]`;
+            const inside = a && a !== el && el.contains && el.contains(a);
+            let selector = null, index = -1;
+            if (inside && a.id) selector = `#${a.id}`;
+            for (const name of (inside && !selector && a.getAttributeNames ? a.getAttributeNames() : [])) {
+                if (name.startsWith('data-dl-')) { selector = `[${name}="${attr(a.getAttribute(name))}"]`; break; }
             }
-            return null;
+            if (inside && !selector && el.querySelectorAll) index = Array.from(el.querySelectorAll(FOCUSABLE)).indexOf(a);
+            draw(selector);
+            if (index >= 0) {
+                const again = Array.from(el.querySelectorAll(FOCUSABLE))[index];
+                if (again && again.focus) again.focus({ preventScroll: true });
+            }
         }
 
         // One load of the evidence and documents files, shared: a row opened while it is in
@@ -1058,7 +1066,7 @@
                     // Another row, or this one again, was opened while the file loaded: redraw it so its
                     // button is no longer "Loading…", without opening the records it did not ask for,
                     // and with focus where the reader left it.
-                    if (state.open) draw(activeSelector());
+                    if (state.open) redrawKeepingFocus();
                     return;
                 }
             }
