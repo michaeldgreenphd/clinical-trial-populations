@@ -8802,7 +8802,11 @@ async function aiDevicesSha256(bytes) {
 }
 
 async function loadAIDevicesTab() {
-    if (aiDevicesLoaded) return;
+    if (aiDevicesLoaded) {
+        // A return visit asks again for the unit cards' data if an earlier request failed.
+        retryAIDeviceUnits();
+        return;
+    }
 
     // Prefer the enriched CSV (with pdf_url / local_pdf_path columns produced
     // by the civicsample-engine pipeline). Fall back to the raw FDA CSV
@@ -8954,7 +8958,9 @@ function renderAIDevicesStats() {
 
 // Reads data/devices/run.json and summary.json for the unit cards. A missing folder, a failed
 // request or a failed contract leaves the cards on the CSV's row count; nothing else in the
-// pane depends on it.
+// pane depends on it. It is asked again on a return to the tab and on every pane switch while
+// the cards lack it (retryAIDeviceUnits); DeviceLinks.loadHead keeps a successful load, so once
+// the evidence pane has read the files this makes no new request.
 async function loadAIDeviceUnits() {
     if (!window.DeviceLinks || aiDeviceUnits) return;
     try {
@@ -8965,6 +8971,10 @@ async function loadAIDeviceUnits() {
         console.warn('Device-linkage data not used for the unit cards:', e.message);
     }
     renderAIDevicesStats();
+}
+
+function retryAIDeviceUnits() {
+    if (aiDevicesStatCounts && !aiDeviceUnits) loadAIDeviceUnits();
 }
 
 // The AI Devices tab's two panes: FDA's list as published (the pane already in the tab) and the
@@ -8984,6 +8994,7 @@ function setAIDevicesPane(pane) {
         b.classList.toggle('active', on);
         b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    retryAIDeviceUnits();
     if (aiDevicesPane !== 'links') return;
     if (window.DeviceLinks) window.DeviceLinks.open(links, { fetchJSON: outcomesFetchJSON });
     else links.innerHTML = '<p class="note">The study links view did not load (device_links.js).</p>';

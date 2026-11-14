@@ -641,6 +641,32 @@ test('a file that arrives after the row was closed draws nothing', async () => {
   assert.equal(el.innerHTML, closed, 'the late file must not reopen the row');
 });
 
+test('a row opened while another row\'s files are loading is drawn when they land', async () => {
+  const f = family(); const L = fresh(); const { el, click } = pane();
+  let release; let asked = 0;
+  const held = new Promise((resolve) => { release = () => resolve(clone(f.evidence)); });
+  await L.open(el, { fetchJSON: serve(f, { 'evidence.json': () => { asked++; return held; } }), storage: null });
+  click({ dlOpen: 'K990001' }); await tick();
+  click({ dlOpen: 'K990002' }); await tick();
+  assert.match(text(el.innerHTML), /Loading the evidence records and documents…/);
+  release(); await tick(); await tick();
+  assert.doesNotMatch(text(el.innerHTML), /Loading the evidence records and documents…/);
+  assert.match(el.innerHTML, /data-dl-open="K990002" aria-expanded="true"/);
+  assert.match(el.innerHTML, /id="dl-detail"/);
+  assert.equal(asked, 1, 'the two rows share one request');
+});
+
+test('a failed load of a row\'s files is asked again when a row is next opened', async () => {
+  const f = family(); const L = fresh(); const { el, click } = pane();
+  let calls = 0;
+  await L.open(el, { fetchJSON: serve(f, { 'evidence.json': () => (++calls === 1 ? Promise.reject(new Error('HTTP 503')) : Promise.resolve(clone(f.evidence))) }), storage: null });
+  click({ dlOpen: 'K990001' }); await tick(); await tick();
+  assert.match(text(el.innerHTML), /HTTP 503/);
+  click({ dlOpen: 'K990002' }); await tick(); await tick();
+  assert.equal(calls, 2);
+  assert.doesNotMatch(text(el.innerHTML), /HTTP 503|Loading the evidence records/);
+});
+
 // ---------------------------------------------------------------- the tab: wiring and the unit cards
 
 const app = read('app.js');
@@ -675,10 +701,13 @@ test('the pane switch shows one pane, marks its button, and opens the evidence p
   const nodes = { 'ai-devices-list-pane': { hidden: false }, 'ai-devices-links-pane': { hidden: true, innerHTML: '' } };
   const buttons = ['list', 'links'].map((dpane) => ({ dataset: { dpane }, state: {}, classList: { toggle(c, on) { this.on = on; } },
     setAttribute(k, v) { this.state[k] = v; } }));
+  const retried = [];
   const ctx = { document: { getElementById: (id) => nodes[id], querySelectorAll: () => buttons },
-    window: { DeviceLinks: { open: (el, deps) => opened.push([el, typeof deps.fetchJSON]) } }, outcomesFetchJSON: () => {} };
+    window: { DeviceLinks: { open: (el, deps) => opened.push([el, typeof deps.fetchJSON]) } }, outcomesFetchJSON: () => {},
+    retryAIDeviceUnits: () => retried.push(1) };
   vm.runInNewContext(`let aiDevicesPane = 'list';\n${slice('function setAIDevicesPane(pane) {')}\nthis.set = setAIDevicesPane;`, ctx);
   ctx.set('links');
+  assert.equal(retried.length, 1, 'a pane switch asks again for the unit cards if they lack their data');
   assert.deepEqual([nodes['ai-devices-list-pane'].hidden, nodes['ai-devices-links-pane'].hidden], [true, false]);
   assert.deepEqual(buttons.map((b) => b.state['aria-pressed']), ['false', 'true']);
   assert.deepEqual(opened, [[nodes['ai-devices-links-pane'], 'function']]);
@@ -764,6 +793,25 @@ test('a failed load of the devices data leaves the unit cards on the CSV and doe
   ctx.window.DeviceLinks.loadHead = () => Promise.resolve({ run: { run_id: 'r' }, summary: { run_id: 'r' }, current: () => {} });
   await ctx.load();
   assert.deepEqual(clone(drawn[1]), { run: { run_id: 'r' }, summary: { run_id: 'r' } });
+});
+
+test('a return to the tab asks again for the unit cards after a failed load, and not once they have it', async () => {
+  const drawn = []; let asked = 0; let fail = true;
+  const ctx = { console: { warn: () => {} }, outcomesFetchJSON: () => {},
+    window: { DeviceLinks: { loadHead: () => { asked++; return fail ? Promise.reject(new Error('HTTP 503')) : Promise.resolve({ run: { run_id: 'r' }, summary: { run_id: 'r' } }); } } } };
+  vm.runInNewContext(`let aiDeviceUnits = null; let aiDevicesLoaded = true; let aiDevicesStatCounts = { total: 1 };
+function renderAIDevicesStats() { drawn.push(aiDeviceUnits); }
+${slice('async function loadAIDeviceUnits() {')}
+${slice('function retryAIDeviceUnits() {')}
+${slice('async function loadAIDevicesTab() {')}
+this.load = loadAIDeviceUnits; this.tab = loadAIDevicesTab;`, Object.assign(ctx, { drawn }));
+  await ctx.load();
+  assert.deepEqual(drawn, [null]);
+  fail = false;
+  await ctx.tab(); await tick();
+  assert.equal(asked, 2); assert.equal(drawn.at(-1).run.run_id, 'r');
+  await ctx.tab(); await tick();
+  assert.equal(asked, 2, 'cards that have their data are not asked again');
 });
 
 // ---------------------------------------------------------------- the published data

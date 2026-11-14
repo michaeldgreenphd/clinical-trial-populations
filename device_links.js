@@ -987,18 +987,27 @@
         }
         const openerSelector = () => (state.open ? `[data-dl-open="${attr(state.open.id)}"]` : null);
 
-        async function ensureDetail() {
-            if (state.detail || state.detailLoading) return;
-            state.detailLoading = true; state.detailError = null;
-            try {
-                const [evidence, documents] = await Promise.all([data.current('evidence.json'), data.current('documents.json')]);
-                const problem = dataProblem(data.run, data.summary, { evidence, documents });
-                if (problem) throw new Error(problem);
-                const docsById = {};
-                for (const list of Object.values(documents.documents)) for (const d of list) docsById[d.document_id] = d;
-                state.detail = { evidence, documents, docsById, bySource: indexBySource(evidence) };
-            } catch (err) { state.detailError = String((err && err.message) || err); }
-            state.detailLoading = false;
+        // One load of the evidence and documents files, shared: a row opened while it is in
+        // flight waits for the same load, so whichever row is open when it lands is redrawn.
+        function ensureDetail() {
+            if (state.detail) return Promise.resolve();
+            if (!state.detailLoading) {
+                state.detailError = null;
+                const load = (async () => {
+                    try {
+                        const [evidence, documents] = await Promise.all([data.current('evidence.json'), data.current('documents.json')]);
+                        const problem = dataProblem(data.run, data.summary, { evidence, documents });
+                        if (problem) throw new Error(problem);
+                        const docsById = {};
+                        for (const list of Object.values(documents.documents)) for (const d of list) docsById[d.document_id] = d;
+                        state.detail = { evidence, documents, docsById, bySource: indexBySource(evidence) };
+                    } catch (err) { state.detailError = String((err && err.message) || err); }
+                })();
+                state.detailLoading = load;
+                // Cleared once it lands, so a failed load is asked again when a row is next opened.
+                load.then(() => { if (state.detailLoading === load) state.detailLoading = null; });
+            }
+            return state.detailLoading;
         }
 
         async function openRow(id) {
