@@ -246,8 +246,16 @@
         const fetchJSON = deps.fetchJSON;
         el.innerHTML = '<p class="note">Loading site-area benchmarks…</p>';
         let run, summary;
+        // This family is published on its own schedule, so the page's weekly cache key says nothing
+        // about it. The manifest is always read past the browser cache; any other file that names
+        // a different build is a cached copy of an earlier one and is read once more past the cache.
+        const current = async name => {
+            const data = await fetchJSON(BASE + name);
+            return data && run && data.run_id !== run.run_id ? fetchJSON(BASE + name, true) : data;
+        };
         try {
-            [run, summary] = await Promise.all([fetchJSON(BASE + 'run.json'), fetchJSON(BASE + 'summary.json')]);
+            run = await fetchJSON(BASE + 'run.json', true);
+            summary = await current('summary.json');
         } catch (err) {
             el.innerHTML = `<p class="note">${/404/.test(String(err && err.message))
                 ? 'The site-area benchmark data is not available on this site.'
@@ -258,13 +266,15 @@
         if (bad) { el.innerHTML = `<p class="note">The site-area benchmark data could not be read: ${esc(bad)}.</p>`; return; }
         if (!state.level) state.level = run.default_level.level;
 
-        async function draw(focusId) {
+        // A draw replaces the pane's markup, and with it whichever control had focus. The caller
+        // names what should hold focus afterwards: an element id, or a control by its data key.
+        async function draw(focusId, control) {
             // The characteristic this draw is for. A file can arrive after the reader has chosen
             // another one; a draw that is no longer current stops rather than paint the wrong rows.
             const dimension = state.dimension;
             let areas = cache[dimension];
             if (!areas) {
-                try { areas = cache[dimension] = await fetchJSON(`${BASE}areas.${dimension}.json`); }
+                try { areas = cache[dimension] = await current(`areas.${dimension}.json`); }
                 catch (err) {
                     if (dimension === state.dimension) el.innerHTML = `<p class="note">Could not load the areas for this characteristic (${esc(err && err.message)}).</p>`;
                     return;
@@ -278,7 +288,8 @@
             if (!state.categories.includes(state.category)) state.category = DEFAULT_CATEGORY[dimension];
             const rows = areaRows(areas, state.level, state.variant, state.query);
             el.innerHTML = headHTML(run, summary) + controlsHTML(state, run) + tableHTML(rows, state) + methodsHTML(run, summary);
-            const target = focusId && el.querySelector('#' + focusId);
+            const target = focusId ? el.querySelector('#' + focusId)
+                : control ? Array.from(el.querySelectorAll('button')).find(b => b.dataset[control.key] === control.value) : null;
             if (target) target.focus({ preventScroll: true });
         }
 
@@ -286,8 +297,9 @@
             const b = ev.target.closest('button');
             if (!b || !el.contains(b)) return;
             for (const key of ['dimension', 'level', 'variant', 'denominator']) {
-                const v = b.dataset['cb' + key[0].toUpperCase() + key.slice(1)];
-                if (v) { state[key] = v; if (key !== 'denominator') state.open = null; draw(); return; }
+                const attr = 'cb' + key[0].toUpperCase() + key.slice(1);
+                const v = b.dataset[attr];
+                if (v) { state[key] = v; if (key !== 'denominator') state.open = null; draw(null, { key: attr, value: v }); return; }
             }
             if (b.dataset.cbArea) {
                 const id = b.dataset.cbArea;

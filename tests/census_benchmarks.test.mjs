@@ -127,7 +127,7 @@ test('a file that arrives after the reader chose another characteristic does not
     if (path.endsWith('summary.json')) return Promise.resolve(summary);
     return new Promise((resolve) => { waiting[path] = resolve; });      // area files resolve when the test says
   };
-  const el = { innerHTML: '', querySelector: () => null, contains: () => true };
+  const el = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [], contains: () => true };
   const opening = C.open(el, { fetchJSON });
   await new Promise((r) => setTimeout(r, 0));
   const press = (key, value) => el.onclick({ target: { closest: () => ({ dataset: { [key]: value } }) } });
@@ -140,6 +140,38 @@ test('a file that arrives after the reader chose another characteristic does not
   await opening; await new Promise((r) => setTimeout(r, 0));
   assert.match(el.innerHTML, /<option value="female" selected>/, 'the late race file must not replace the sex view');
   assert.doesNotMatch(el.innerHTML, /value="black_african_american"/);
+});
+
+test('the manifest is read past the cache, and a file from an earlier build is read once more', async () => {
+  const run = fx('run.json'), summary = fx('summary.json'), race = fx('areas.race.json');
+  const calls = [];
+  const fetchJSON = (path, reload) => {
+    calls.push([path.replace('data/census/', ''), Boolean(reload)]);
+    if (path.endsWith('run.json')) return Promise.resolve(run);
+    if (path.endsWith('summary.json')) return Promise.resolve(summary);
+    return Promise.resolve(reload ? race : { ...clone(race), run_id: 'census-an-earlier-build' });   // the cache holds an old file
+  };
+  const el = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [], contains: () => true };
+  const fresh = { globalThis: {} };                       // its own module, so no area file is already held
+  vm.runInNewContext(read('census_benchmarks.js'), fresh);
+  await fresh.globalThis.CensusBenchmarks.open(el, { fetchJSON });
+  assert.deepEqual(calls, [['run.json', true], ['summary.json', false], ['areas.race.json', false], ['areas.race.json', true]]);
+  assert.match(el.innerHTML, /cb-table|<table/);
+  assert.doesNotMatch(el.innerHTML, /could not be read/);
+});
+
+test('choosing a control leaves focus on that control after the redraw', async () => {
+  const run = fx('run.json'), summary = fx('summary.json'), race = fx('areas.race.json');
+  const fetchJSON = (path) => Promise.resolve(path.endsWith('run.json') ? run : path.endsWith('summary.json') ? summary : race);
+  const focused = [];
+  const button = (dataset) => ({ dataset, focus: () => focused.push(dataset) });
+  const buttons = [button({ cbLevel: 'county' }), button({ cbLevel: 'cbsa' }), button({ cbDenominator: 'classified' })];
+  const el = { innerHTML: '', querySelector: () => null, querySelectorAll: () => buttons, contains: () => true };
+  await C.open(el, { fetchJSON });
+  assert.deepEqual(focused, [], 'opening the pane does not move focus');
+  el.onclick({ target: { closest: () => ({ dataset: { cbLevel: 'county' } }) } });
+  await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(focused, [{ cbLevel: 'county' }]);
 });
 
 const published = existsSync(at('data/census/run.json'));
