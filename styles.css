@@ -2046,6 +2046,16 @@ footer p {
     transform: translateY(0);
 }
 
+/* The FDA dot plot's box: short and wide, with a floor so five rows of dots
+   and their values keep their room in a narrowed window (app.js
+   renderFdaOversight, maintainAspectRatio: false). */
+.fda-reporting-canvas {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 2.6;
+    min-height: 360px;
+}
+
 /* Modal overlay */
 .modal-overlay {
     position: fixed;
@@ -4802,7 +4812,10 @@ footer p {
 .industry-cell-empty { background: var(--card-background); }
 
 /* — Trend — */
-.industry-canvas-wrap { width: 100%; }
+/* The trend chart's box sets its height (app.js renderIndustryTrend,
+   maintainAspectRatio: false): 2:1, with a floor so a narrowed window keeps
+   room for ten lines and the legend under them. */
+.industry-canvas-wrap { position: relative; width: 100%; aspect-ratio: 2; min-height: 340px; }
 
 /* — Forest plot — */
 .industry-forest {
@@ -5552,6 +5565,12 @@ footer p {
 #overview .rate-scale > span:nth-child(4) { left: 75%; transform: translateX(-50%); }
 #overview .rate-scale > span:nth-child(5) { right: 0; }
 
+/* app.js renderReportingTrends sets this box's aspect-ratio; the chart
+   fills it (maintainAspectRatio: false). The explicit min-height: an
+   aspect-ratio box otherwise takes its content's height as its minimum, and
+   the canvas drawn at the wider size would hold it open as the window
+   narrows. */
+#overview .overview-trends-canvas { position: relative; width: 100%; min-height: 0; }
 #overview .overview-trends h3 { font-family: inherit; font-size: 24px; line-height: 1.3; font-weight: 600; margin: 0 0 0.25rem; }
 #overview .overview-trends-key:not([hidden]) { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0.2rem 0 0.4rem; font-size: 16px; color: var(--ov-ink-2); }
 #overview .trend-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }

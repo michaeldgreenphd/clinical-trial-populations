@@ -781,6 +781,63 @@ const civicWatermarkPlugin = {
     }
 };
 
+// An axis title longer than the axis it names is cut off at the canvas edge:
+// a desktop window narrowed after load keeps every chart's full-width title
+// on a chart a third of the size. After each layout, when the plot's place
+// is known, this measures each title against its axis: it uses the title's
+// `short` text when the full one does not fit, and hides it when neither
+// does; the chart's heading still names the measure. The full title comes
+// back with the room. Full and short take the same line, so swapping them
+// moves nothing; hiding or showing one frees or takes that line, which one
+// further update lays out. The choice depends only on the chart's size, so
+// that update settles at once.
+const civicAxisTitleFitPlugin = {
+    id: 'civicAxisTitleFit',
+    afterLayout(chart) {
+        const scales = chart.options && chart.options.scales;
+        const area = chart.chartArea;
+        if (!scales || !area || !chart.ctx || !(chart.width > 0 && chart.height > 0)) return;
+        const kept = chart.$axisTitles || (chart.$axisTitles = {});
+        let relayout = false;
+        for (const id of Object.keys(scales)) {
+            const title = scales[id] && scales[id].title;
+            const scale = chart.scales && chart.scales[id];
+            if (!title || !scale) continue;
+            if (!kept[id]) {
+                if (!title.display || !title.text || typeof title.text !== 'string') continue;
+                kept[id] = { text: title.text, short: typeof title.short === 'string' ? title.short : null };
+            }
+            const vertical = scale.isHorizontal ? !scale.isHorizontal() : id.charAt(0) === 'y';
+            const size = vertical ? chart.height : chart.width;
+            // Centred on the plot, which sits off-centre in the canvas: the
+            // room is twice the distance to the nearer canvas edge.
+            const centre = vertical ? (area.top + area.bottom) / 2 : (area.left + area.right) / 2;
+            const room = 2 * Math.min(centre, size - centre) - 2;
+            chart.ctx.save();
+            chart.ctx.font = Chart.helpers.toFont(title.font).string;
+            const fits = (t) => !!t && chart.ctx.measureText(t).width <= room;
+            const text = fits(kept[id].text) ? kept[id].text : (fits(kept[id].short) ? kept[id].short : null);
+            chart.ctx.restore();
+            const shown = text !== null;
+            if (shown !== !!title.display) relayout = true;
+            // The chart's options for the next layout, and the scale's own
+            // resolved options for the draw that follows this layout.
+            for (const o of [title, scale.options && scale.options.title]) {
+                if (!o) continue;
+                o.display = shown;
+                if (shown) o.text = text;
+            }
+        }
+        if (relayout && !chart.$axisTitleRelayout) {
+            chart.$axisTitleRelayout = true;
+            requestAnimationFrame(() => {
+                chart.$axisTitleRelayout = false;
+                if (chart.canvas) chart.update('none');
+            });
+        }
+    }
+};
+
 // A hairline between the lowest and highest value on each row of the FDA
 // dot plot. The length of that connector IS the finding — short where a
 // regulator is watching, long where nobody is — so it is drawn as data,
@@ -1137,11 +1194,26 @@ function demoConfig(config, spec = {}) {
     // Above the plot the title would sit under a legend, so with a legend
     // it goes back to the axis, turned.
     const titleAbove = !!spec.yTitle && !legendOn;
-    if (spec.yTitle && !titleAbove) y.title = { display: true, text: spec.yTitle, font, color: DEMO_INK.muted };
+    if (spec.yTitle && !titleAbove) y.title = { display: true, text: spec.yTitle, short: spec.yTitleShort, font, color: DEMO_INK.muted };
     o.plugins.legend = {
         display: legendOn,
         position: 'top', align: 'start',
-        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false },
+        labels: Object.assign({ font, color: DEMO_INK.ink2, boxWidth: 14, boxHeight: 10, padding: 10, usePointStyle: false,
+            // A legend entry cannot wrap, so one wider than the chart was cut
+            // off at its edge (the percent-female series on a phone). Where
+            // spec.names gives a series a shorter name, that stands in.
+            generateLabels: (chart) => {
+                const items = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                if (!spec.names) return items;
+                const room = chart.width - 44;
+                chart.ctx.save();
+                chart.ctx.font = Chart.helpers.toFont(font).string;
+                items.forEach(it => {
+                    if (spec.names[it.text] && chart.ctx.measureText(it.text).width > room) it.text = spec.names[it.text];
+                });
+                chart.ctx.restore();
+                return items;
+            } },
             spec.legend !== true && ends && unlabelled.size ? { filter: (item) => unlabelled.has(item.datasetIndex) } : {})
     };
     o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, {
@@ -1402,7 +1474,17 @@ const civicEventLinesPlugin = {
             // Inside the plot, such a label drops below the top line.
             const y = above ? chartArea.top - 10 : chartArea.top + (ev.above ? 22 : 9) + i * 11;
             ctx.font = (above && ev.font) || "9px 'DM Mono', ui-monospace, monospace";
-            const fitsRight = px + 16 + ctx.measureText(ev.label).width < chartArea.right;
+            // The caption goes right of its line, else left, and only where it
+            // stays inside the plot's width. Above the plot it never goes
+            // left, where a chart's y title sits (the Overview's "% of
+            // Studies"). With no room either side the caption is left out
+            // and the line stays: a narrowed window otherwise drew it over
+            // the y title and off the canvas edge. Every captioned chart
+            // names its markers in its footnote too.
+            const width = ctx.measureText(ev.label).width;
+            const fitsRight = px + 16 + width < chartArea.right;
+            const fitsLeft = !above && px - 16 - width > chartArea.left;
+            if (!fitsRight && !fitsLeft) { ctx.restore(); return; }
             const dir = fitsRight ? 1 : -1;
             // Leader arrow from the label to its line — with several
             // staggered labels the pointer says which line is which.
@@ -1975,7 +2057,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (catDefaults.grid) catDefaults.grid.display = false;
                 else catDefaults.grid = { display: false };
             }
-            Chart.register(civicWatermarkPlugin, civicEventLinesPlugin);
+            Chart.register(civicWatermarkPlugin, civicEventLinesPlugin, civicAxisTitleFitPlugin);
         }
         // Key every data URL by the latest run before any data is fetched
         // (resolveDataCacheVersion); the condition ontology, which carries
@@ -1988,6 +2070,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         initNavGroups();
         // Pop-ups note the control that opened them, clicked or not focused.
         initOverlayOpeners();
+        // The Overview's trend chart follows the window across its narrow width.
+        initReportingTrendsResize();
         // A shared snapshot link (?sgsnapshot=, desktop only) opens that
         // snapshot in place of the latest data, never after it.
         const requested = requestedSnapshot();
@@ -7231,9 +7315,45 @@ function formatCountries(countries) {
 // them (paintFirstView); never recounted here. The chart drawn from them is
 // replaced by the records' one without its draw-in animation, or kept when
 // the records give the same numbers, so the hand-over does not move.
+// The Overview's trend chart chooses its narrow or wide design as it draws
+// (renderReportingTrends: below 600px a key above the plot names the lines;
+// wider, each line is named at its end). A window resized across that width
+// afterwards kept the design it was drawn with: a wide chart squeezed to a
+// phone's width, its end names off the canvas. When the chart's box crosses
+// that width, this draws it again from what it was last asked to draw. The
+// box's width does not depend on the design, so one redraw settles it; a
+// hidden tab (no width) is left until it is shown.
+function initReportingTrendsResize() {
+    const canvas = document.getElementById('reporting-trends-chart');
+    const box = canvas && canvas.parentElement;
+    if (!box || typeof ResizeObserver === 'undefined') return;
+    let frame = 0;
+    // Whether the chart on screen is drawn for the other side of the width.
+    const stale = () => {
+        const chart = charts.reportingTrends;
+        return !!chart && !!canvas.civicTrendArgs && box.clientWidth > 0
+            && (box.clientWidth < 600) !== !!chart.civicNarrow;
+    };
+    new ResizeObserver(() => {
+        if (frame || !stale()) return;
+        frame = requestAnimationFrame(() => {
+            frame = 0;
+            // Read at the frame, not when it was asked for: a filter change, or
+            // the records taking over from the first view, may have drawn the
+            // chart in between, with newer arguments and perhaps already at
+            // this width.
+            if (!stale()) return;
+            const now = canvas.civicTrendArgs;
+            renderReportingTrends(now.filtered, now.counted);
+        });
+    }).observe(box);
+}
+
 function renderReportingTrends(filtered, counted) {
     const ctx = document.getElementById('reporting-trends-chart');
     if (!ctx) return;
+    // What it was last asked to draw, for initReportingTrendsResize.
+    ctx.civicTrendArgs = { filtered, counted };
 
     // byYear[year]: { total, race, ethnicity, both } and, where the parser's
     // counts exist for every year drawn, { sex, gender } (its flags, === true,
@@ -7283,6 +7403,12 @@ function renderReportingTrends(filtered, counted) {
     // end with its last value (no legend to decode); on a narrow canvas the
     // names would crowd the plot, so a key above it names them instead.
     const narrow = (ctx.parentElement && ctx.parentElement.clientWidth ? ctx.parentElement.clientWidth : 800) < 600;
+    // Redrawn because the window crossed the narrow width
+    // (initReportingTrendsResize): no entrance animation. The new shape
+    // resizes the box at once, and Chart.js holds a resize that arrives
+    // mid-animation for a draw that may not come before the animation ends;
+    // the next resize then drew it, putting the chart back at that size.
+    const redesign = !!previous && previous.civicNarrow !== undefined && previous.civicNarrow !== narrow;
     const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
     // On a narrow canvas the lines are named by a key above the chart, not
     // at their ends, so each line also has its own dash (and its key the
@@ -7345,15 +7471,22 @@ function renderReportingTrends(filtered, counted) {
     };
     const tickFont = { family: serif, size: 15 };
 
+    // The box around the canvas holds nothing else, so with Chart.js keeping
+    // the aspect ratio it was exactly as tall as the chart, and Chart.js never
+    // grows a chart past its box's height: a window narrowed and widened again
+    // left the chart at its narrow size. The box carries the shape instead
+    // and the chart fills it.
+    const shape = CHART_ASPECT_RATIO || (narrow ? 1.3 : 2.9);
+    if (ctx.parentElement && ctx.parentElement.style) ctx.parentElement.style.aspectRatio = String(shape);
+
     charts.reportingTrends = new Chart(ctx, {
         type: 'line',
         data: { labels: years, datasets },
         plugins: narrow ? [] : [endLabels],
         options: {
-            ...(fromFirstView ? { animation: false } : {}),
+            ...(fromFirstView || redesign ? { animation: false } : {}),
             responsive: true,
-            maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO || (narrow ? 1.3 : 2.9),
+            maintainAspectRatio: false,
             layout: { padding: narrow ? { top: 4, right: 4 } : { top: 28, right: 200 } },
             interaction: { mode: 'index', intersect: false },
             scales: {
@@ -7374,6 +7507,7 @@ function renderReportingTrends(filtered, counted) {
     });
     charts.reportingTrends.civicDrawn = drawn;
     charts.reportingTrends.civicFirstView = !!counted;
+    charts.reportingTrends.civicNarrow = narrow;
 }
 
 function renderRaceDistribution(filtered) {
@@ -8751,11 +8885,16 @@ function renderFdaOversight(filtered) {
         });
         if (charts.fdaReporting) { charts.fdaReporting.destroy(); charts.fdaReporting = null; }
         if (ctx) ctx.style.display = 'none';
+        // The canvas's box keeps a minimum height (styles.css), so it goes too.
+        const wrap = document.getElementById('fda-reporting-wrap');
+        if (wrap) wrap.style.display = 'none';
         if (absentNote) absentNote.hidden = false;
         return;
     }
     if (absentNote) absentNote.hidden = true;
     if (ctx) ctx.style.display = '';
+    const fdaWrap = document.getElementById('fda-reporting-wrap');
+    if (fdaWrap) fdaWrap.style.display = '';
     const hasClasses = !!(f && f.classes);
     const legacy = !!(f && !f.classes);
 
@@ -8860,7 +8999,10 @@ function renderFdaOversight(filtered) {
     // meaning the labels do not already give.
     rows.sort((a, b) => b.values.race - a.values.race);
     // The "(n=…)" suffix is useful on a wide axis and simply truncates on a
-    // phone, so it drops there and lives in the tooltip instead.
+    // phone, so it drops there and lives in the tooltip instead. A desktop
+    // window narrowed after load gets the same treatment from the chart's
+    // own width (narrow, below), since isMobileDevice is fixed at load.
+    const narrow = (chart) => isMobileDevice || chart.width < 640;
     const rowLabels = rows.map(r => isMobileDevice
         ? r.label.replace(/\s*\(n=[^)]*\)\s*$/, '')
         : r.label);
@@ -8887,9 +9029,12 @@ function renderFdaOversight(filtered) {
         },
         options: {
             responsive: true,
-            maintainAspectRatio: true,
-            // Short and wide: five rows need far less height than the bars did.
-            aspectRatio: isMobileDevice ? 1 : 2.6,
+            // Short and wide, but never shorter than five rows of dots with a
+            // value above each need: the box's aspect-ratio and min-height
+            // (styles.css .fda-reporting-canvas) set the height. A fixed
+            // aspect ratio squeezed the rows together as the window narrowed,
+            // until each row's values sat on the row above.
+            maintainAspectRatio: false,
             layout: { padding: { top: 18, right: 34, bottom: 6, left: 4 } },
             scales: {
                 x: {
@@ -8910,8 +9055,10 @@ function renderFdaOversight(filtered) {
                         // long class name wraps instead of being clipped on a
                         // narrow axis.
                         callback(value) {
-                            const text = this.getLabelForValue(value);
-                            if (!isMobileDevice || text.length <= 20) return text;
+                            let text = this.getLabelForValue(value);
+                            if (!narrow(this.chart)) return text;
+                            text = text.replace(/\s*\(n=[^)]*\)\s*$/, '');
+                            if (text.length <= 20) return text;
                             const out = [];
                             let line = '';
                             for (const word of String(text).split(' ')) {
@@ -8939,18 +9086,20 @@ function renderFdaOversight(filtered) {
                 },
                 // Every dot carries its value, including the middle one.
                 // On a wide plot all three sit above their dot, so each
-                // number is unambiguously its row's. A phone has ~36px
+                // number is unambiguously its row's. A narrow plot has ~36px
                 // between the race and sex dots — not enough for two labels
                 // side by side — so there race drops below its own marker
-                // rather than a value being dropped altogether.
+                // rather than a value being dropped. Narrower still, a value
+                // that would still land on another is left out ('auto') and
+                // stays in the tooltip, rather than the two overprinting.
                 datalabels: {
-                    display: true,
+                    display: (c) => (narrow(c.chart) ? 'auto' : true),
                     anchor: 'center',
-                    align: (c) => (isMobileDevice && c.datasetIndex === 1 ? 'bottom' : 'top'),
+                    align: (c) => (narrow(c.chart) && c.datasetIndex === 1 ? 'bottom' : 'top'),
                     offset: 7,
                     clamp: true,
                     color: '#212529',
-                    font: { size: isMobileDevice ? 10 : 11, weight: '600' },
+                    font: (c) => ({ size: narrow(c.chart) ? 10 : 11, weight: '600' }),
                     formatter: v => (typeof v.x === 'number' ? v.x.toFixed(1) : '')
                 }
             }
@@ -9387,7 +9536,21 @@ function renderAIPanelChart(panelCounts) {
             // Room at the right for the value that sits past the bar end.
             layout: { padding: { right: 40 } },
             scales: {
-                x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
+                x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } },
+                // Chart.js gives the panel names at most a share of the
+                // chart's width; in a narrow window a long one ("Gastro-
+                // enterology-Urology") ran off the left edge. There they
+                // break at a hyphen or space onto two lines.
+                y: {
+                    ticks: {
+                        callback(value) {
+                            const text = String(this.getLabelForValue(value));
+                            if (this.chart.width >= 520 || text.length <= 16) return text;
+                            const cut = Math.max(text.lastIndexOf('-', 16), text.lastIndexOf(' ', 16));
+                            return cut > 0 ? [text.slice(0, cut + (text[cut] === '-' ? 1 : 0)), text.slice(cut + 1)] : text;
+                        }
+                    }
+                }
             },
             plugins: {
                 legend: { display: false },
@@ -9452,7 +9615,7 @@ function renderAITimelineChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations' } },
+                y: { stacked: true, beginAtZero: true, title: { display: true, text: 'Number of Authorizations', short: 'Authorizations' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
@@ -9502,7 +9665,7 @@ function renderAINonKChart() {
             maintainAspectRatio: true,
             aspectRatio: CHART_ASPECT_RATIO,
             scales: {
-                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of Authorizations' } },
+                y: { stacked: true, beginAtZero: true, ticks: { precision: 0 }, title: { display: true, text: 'Number of Authorizations', short: 'Authorizations' } },
                 x: { stacked: true, title: { display: true, text: 'Year of Final Decision' } }
             },
             plugins: {
@@ -11965,7 +12128,7 @@ function sgRenderQualityByYear(filtered) {
             },
             interaction: { mode: 'index', intersect: false }
         }
-    }, { canvas: ctx, yTitle: 'Trials not in the Reported state', legend: true }));
+    }, { canvas: ctx, yTitle: 'Trials not in the Reported state', yTitleShort: 'Trials', legend: true }));
 }
 
 function sgRenderPercentFemale(filtered) {
@@ -11983,7 +12146,9 @@ function sgRenderPercentFemale(filtered) {
     // is a different estimand, so the series is withheld and named as missing.
     const aMissing = !mobile && pts.missing > 0;
     const foot = document.getElementById('sg-pf-footnote');
-    if (foot) foot.textContent = (aMissing
+    // The two series' definitions, which their legend names carry only while
+    // the chart is wide enough for them (demoConfig's legend).
+    if (foot) foot.textContent = 'Mean of within-trial % female: each trial counts once. Participant-weighted % female: sum female / (sum female + male). ' + (aMissing
         ? `Mean of within-trial % female is unavailable for this selection: ${pts.missing.toLocaleString()} of ${pts.eligible.toLocaleString()} trials in the denominator do not carry the engine's published percent female, because sex_gender_parsed.csv.gz did not load. It is read, never recomputed here. `
         : '') + (mobile
         ? 'Participant-weighted (dashed): a single large trial can move a year. The largest trial per year is named only where the engine publishes it.'
@@ -13157,8 +13322,19 @@ const INDUSTRY_ENDLABEL_GAP = 14;    // px between stacked label centres
 const INDUSTRY_ENDLABEL_PAD = 160;   // px reserved right of the plot for them
 const INDUSTRY_ENDLABEL_OVERHEAD = 90; // px of axis and title under the plot, until the first layout has measured it
 
+// A legend to the right of a narrow plot runs its sponsor names off the
+// canvas edge, and the last of ten off its foot; below the plot they wrap.
+function industryLegendPosition(width) {
+    return width > 0 && width < 640 ? 'bottom' : CHART_LEGEND_POSITION;
+}
+
 const industryTrendEndLabels = {
     id: 'industryTrendEndLabels',
+    // Before the update a resize sets off, so the legend is laid out where it
+    // will be drawn.
+    resize(chart, args) {
+        if (args && args.size) chart.options.plugins.legend.position = industryLegendPosition(args.size.width);
+    },
     // Decides from the room the chart actually has whether the names fit down
     // its side. isMobileDevice is fixed at load, so a desktop window narrowed
     // afterwards would otherwise keep the legend hidden while the labels no
@@ -13349,8 +13525,10 @@ function renderIndustryTrend(rows) {
         plugins: [industryTrendEndLabels],
         data: { labels: years, datasets },
         options: {
-            responsive: true, maintainAspectRatio: true,
-            aspectRatio: CHART_ASPECT_RATIO || 2,
+            // The box sets the height: twice as wide as tall, never under
+            // 340px (styles.css .industry-canvas-wrap), so ten sponsor lines
+            // and a legend under them keep room in a narrowed window.
+            responsive: true, maintainAspectRatio: false,
             layout: { padding: { right: useEndLabels ? INDUSTRY_ENDLABEL_PAD : 0 } },
             plugins: {
                 industryTrendEndLabels: {
@@ -13358,14 +13536,14 @@ function renderIndustryTrend(rows) {
                     font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`,
                     textColor: tokens.getPropertyValue('--text-primary').trim()
                 },
-                legend: { display: !useEndLabels, position: CHART_LEGEND_POSITION, labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
+                legend: { display: !useEndLabels, position: industryLegendPosition(canvas.parentElement ? canvas.parentElement.clientWidth : 0), labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },
                 tooltip: { callbacks: { label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y}%` } },
                 datalabels: { display: false }
             },
             scales: {
                 y: industryDemo === 'sex'
-                    ? { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial' } }
-                    : { min: 0, title: { display: true, text: (isMobileDevice ? '% ' : 'Median % ') + industryMetricLabel() + (isMobileDevice ? '' : ' per trial') } },
+                    ? { min: 20, max: 80, title: { display: true, text: isMobileDevice ? '% female' : 'Median % female per trial', short: '% female' } }
+                    : { min: 0, title: { display: true, text: (isMobileDevice ? '% ' : 'Median % ') + industryMetricLabel() + (isMobileDevice ? '' : ' per trial'), short: '% ' + industryMetricLabel() } },
                 x: { title: { display: true, text: isMobileDevice ? 'Completion year' : 'Primary completion year' } }
             }
         }
