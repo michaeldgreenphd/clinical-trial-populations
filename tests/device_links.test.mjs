@@ -561,6 +561,28 @@ test('a draft saved against an earlier build stays readable, with the evidence i
 
 // ---------------------------------------------------------------- loading and focus
 
+test('two opens of the pane while its first load is in flight share it, and a failed load is asked again', async () => {
+  const f = family(); const L = fresh(); const { el } = pane();
+  let release; const held = new Promise((r) => { release = r; });
+  let asked = 0, attempt = 0;
+  // The first request for submissions.json is held, and any second request would fail: the
+  // reader switching panes and back must not start one.
+  const fetchJSON = serve(f, { 'submissions.json': () => { asked++; return ++attempt === 1 ? held.then(() => clone(f.submissions)) : Promise.reject(new Error('HTTP 503')); } });
+  const first = L.open(el, { fetchJSON, storage: null, today: () => '2026-11-14' });
+  const second = L.open(el, { fetchJSON, storage: null, today: () => '2026-11-14' });
+  await tick(); release(); await Promise.all([first, second]); await tick();
+  assert.equal(asked, 1, 'one request for the first load');
+  assert.match(el.innerHTML, /class="dl-table dl-list"|dl-list/);
+  assert.doesNotMatch(el.innerHTML, /role="alert"/);
+  // A load that fails is drawn as a failure, and the next open asks again.
+  const M = fresh(); const p2 = pane(); let tries = 0;
+  const flaky = serve(f, { 'submissions.json': () => (++tries === 1 ? Promise.reject(new Error('HTTP 503')) : Promise.resolve(clone(f.submissions))) });
+  await M.open(p2.el, { fetchJSON: flaky, storage: null, today: () => '2026-11-14' });
+  assert.match(text(p2.el.innerHTML), /The study-link data could not be read: HTTP 503\./);
+  await M.open(p2.el, { fetchJSON: flaky, storage: null, today: () => '2026-11-14' });
+  assert.equal(tries, 2); assert.doesNotMatch(p2.el.innerHTML, /role="alert"/);
+});
+
 test('the manifest is read past the cache, and a file from an earlier build is read once more', async () => {
   const f = family(); const L = fresh(); const { el, click } = pane();
   const calls = [];

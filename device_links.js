@@ -936,7 +936,8 @@
 
     const state = { data: null, unit: 'submissions', coverage: '', pathway: '', query: '', page: 0, open: null, opener: null,
                     detail: null, detailError: null, setAside: null, setAsideError: null, setAsideLoading: false, showSetAside: false,
-                    working: {}, messages: {}, toggles: {}, exportOpen: false, exportMessage: '', confirmClear: false, request: 0 };
+                    working: {}, messages: {}, toggles: {}, exportOpen: false, exportMessage: '', confirmClear: false, request: 0,
+                    dataLoading: null };
     let head = null;        // the promise of { run, summary, current }, shared with the unit cards
     let store = null;
 
@@ -987,6 +988,26 @@
             ${methodsHTML(run, summary, state.toggles.methods)}`;
     }
 
+    // The pane's first load (head, submissions and families), shared: an open made while it is in
+    // flight (the reader switching panes and back) waits for the same load instead of starting a
+    // second one. It is cleared once it settles, so a failed load is asked again on the next open.
+    function loadData(fetchJSON) {
+        if (!state.dataLoading) {
+            const load = (async () => {
+                const h = await loadHead(fetchJSON);
+                const [submissions, families] = await Promise.all([h.current('submissions.json'), h.current('families.json')]);
+                const loaded = { run: h.run, summary: h.summary, current: h.current, submissions, families };
+                const problem = dataProblem(loaded.run, loaded.summary, { submissions, families });
+                if (problem) throw new Error(problem);
+                state.data = loaded;
+            })();
+            state.dataLoading = load;
+            const settle = () => { if (state.dataLoading === load) state.dataLoading = null; };
+            load.then(settle, settle);
+        }
+        return state.dataLoading;
+    }
+
     // deps.fetchJSON(path, reload) -> parsed JSON, throwing 'HTTP <status>' on an HTTP error.
     // deps.storage (optional) stands in for localStorage; deps.today (optional) for the date.
     async function open(el, deps) {
@@ -999,21 +1020,16 @@
         const today = () => (deps.today ? deps.today() : localDate());
         if (!state.data) {
             el.innerHTML = '<p class="note" role="status">Loading the study links and evidence…</p>';
-            let loaded;
-            try {
-                const h = await loadHead(fetchJSON);
-                const [submissions, families] = await Promise.all([h.current('submissions.json'), h.current('families.json')]);
-                loaded = { run: h.run, summary: h.summary, current: h.current, submissions, families };
-            } catch (err) {
+            try { await loadData(fetchJSON); } catch (err) {
+                // An open that shares a load which failed draws the failure only while no data is
+                // held; the pane is never replaced by an error once it has been drawn from good data.
+                if (state.data) return;
                 const message = String((err && err.message) || err);
                 el.innerHTML = /HTTP 404/.test(message)
                     ? '<div class="panel-hero"><h3>Study links and evidence</h3><p class="note">The study-link data is not available on this site.</p></div>'
                     : `<p class="note" role="alert">The study-link data could not be read: ${esc(message)}.</p>`;
                 return;
             }
-            const problem = dataProblem(loaded.run, loaded.summary, { submissions: loaded.submissions, families: loaded.families });
-            if (problem) { el.innerHTML = `<p class="note" role="alert">The study-link data could not be read: ${esc(problem)}.</p>`; return; }
-            state.data = loaded;
         }
         const data = state.data;
 
