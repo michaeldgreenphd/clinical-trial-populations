@@ -3,7 +3,7 @@
  "written_by": "civicsample-engine tests/devices/site_fixture.py",
  "command": "python3 tests/devices/site_fixture.py ../clinical-trial-populations/tests/fixtures/devices",
  "path": "tests/devices/fixture.py (stub acquisition) -> devices/artifacts.py build -> devices/contract.py -> scripts/export_device_links_site.py",
- "engine_commit": "d495f02ec594d7011081d6a4cc0926ddf162aa2a",
+ "engine_commit": "91ce5b6458dfdde91df1faf983e7e0ad146db3ed",
  "engine_uncommitted_changes": false,
  "run_id": "devices-2026-11-13-f76cac778c-6e8e77ac",
  "do_not_edit": "Regenerate with the command above; the files are checked against run.json by the site tests."
