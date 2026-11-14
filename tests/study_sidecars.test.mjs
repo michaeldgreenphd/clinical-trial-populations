@@ -73,6 +73,7 @@ const SOURCES = [
     slice('function renderGeographyCell(', '\n}\n'),
     fnSource('function showGeographyBreakdown(nctId)'),
     fnSource('function showBreakdown(nctId, categoryName)'),
+    slice('const RACE_ETHNICITY_ONLY_LABEL', '\n}\n'),
     fnSource('function breakdownHtml(study, categoryName, tab)'),
     fnSource('function breakdownCountsHtml(study, categoryName, tab)'),
     fnSource('function formatOmbCategory(ombCat)'),
