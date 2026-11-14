@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261114-results-structure2">
+    <link rel="stylesheet" href="styles.css?v=20261114-chartfit1">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -886,7 +886,7 @@
             <div class="chart-container">
                 <h3>Sex, Race &amp; Ethnicity Reporting by Regulatory Status</h3>
                 <p class="note">Share of trials in each regulatory class that report each demographic. Classes are mutually exclusive; group sizes are in the axis labels.</p>
-                <canvas id="fda-reporting-chart"></canvas>
+                <div class="fda-reporting-canvas" id="fda-reporting-wrap"><canvas id="fda-reporting-chart"></canvas></div>
                 <p class="note" id="fda-chart-absent" hidden>This archive did not record FDA regulatory status, so there is no chart for it. The latest data and the other archives carry it.</p>
             </div>
         </section>
@@ -1719,6 +1719,6 @@
     <script defer src="geo/geo_ui.js?v=20260813"></script>
     <script defer src="industry_outcomes.js?v=20261114-results-structure3"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
-    <script defer src="app.js?v=20261114-dialogfocus4"></script>
+    <script defer src="app.js?v=20261114-chartfit2"></script>
 </body>
 </html>
