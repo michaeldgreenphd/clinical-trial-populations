@@ -201,3 +201,45 @@ test('the heatmap caption states its column count and that the table scrolls', (
   assert.match(fn, /industrySyncHeatmapScrollNote\(\);/, 'renderIndustryHeatmap() no longer measures overflow after rendering');
   assert.match(app, /addEventListener\('resize'[\s\S]{0,200}industrySyncHeatmapScrollNote/, 'the overflow check is not re-run on resize');
 });
+
+// 2026-11-13 layout: the question, the population and its denominator, then the controls the
+// comparison needs; methodological options in a disclosure; no control that can never act; the
+// condition-column band after the table it shapes.
+test('the demographics pane opens on its scope line and keeps methodological options in a disclosure', () => {
+  const pane = html.match(/<div class="chart-container" id="industry-demographics-pane">([\s\S]*?)<div class="chart-container industry-outcomes-pane"/)?.[1];
+  assert.ok(pane, 'the demographics pane markup is gone');
+  const at = (s) => pane.indexOf(s);
+  assert.ok(at('id="industry-meta"') > 0 && at('id="industry-meta"') < at('class="industry-demo-nav"'),
+    'the denominator line has to sit under the title, before the characteristic tier');
+  assert.equal((pane.match(/id="industry-meta"/g) || []).length, 1, 'one denominator line');
+  assert.doesNotMatch(pane.match(/<nav class="industry-demo-nav"[\s\S]*?<\/nav>/)[0], /disabled/,
+    'a disabled "coming soon" tier is back in primary navigation');
+  const options = pane.match(/<details class="industry-options" id="industry-options">([\s\S]*?)<\/details>/)?.[1];
+  assert.ok(options, 'the Analysis options disclosure is gone');
+  for (const id of ['industry-role-toggle', 'industry-scope-toggle', 'industry-cellrange']) {
+    assert.ok(options.includes(`id="${id}"`), `${id} left the Analysis options disclosure`);
+  }
+  assert.ok(options.includes('id="industry-options-state"'), 'the closed disclosure no longer names its settings');
+  assert.ok(at('id="industry-view-heatmap"') < at('id="industry-condition-controls"'),
+    'the condition-column controls moved back above the table');
+  assert.ok(at('id="industry-reset"') > 0, 'the Reset view button is gone');
+});
+
+test('controls the adjusted model ignores are hidden with it, and Reset restores the defaults', () => {
+  const sync = app.match(/function industrySyncChrome\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(sync, 'industrySyncChrome() is gone');
+  assert.match(sync, /industry-benchmark-group[\s\S]*?\.hidden = forest/, 'the benchmark stays beside the adjusted view, which does not use it');
+  assert.match(sync, /industry-scope-group[\s\S]*?\.hidden = forest/, 'the sponsor set stays beside the adjusted view, which does not use it');
+  assert.match(sync, /reset\.hidden = industryIsDefault\(\)/, 'Reset no longer appears only when something differs from the defaults');
+  assert.match(app, /industrySyncChrome === 'function'\) industrySyncChrome\(\)/, 'renderIndustry() no longer syncs the chrome');
+  const forest = app.match(/function renderIndustryForest\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.match(forest, /industry-fixed-note[\s\S]*?Year Range and Condition filters and the benchmark do not change them/,
+    'the adjusted view no longer says, beside the chart, that its cohort is fixed');
+  const reset = app.match(/function resetIndustryView\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.ok(reset, 'resetIndustryView() is gone');
+  for (const [v, d] of [['industryDemo', "'sex'"], ['industryView', "'heatmap'"], ['industryBenchmark', "'cohort'"],
+                        ['industryRole', "'any'"], ['industryScope', "'top10'"], ['industryCellMin', 'null'], ['industryCellMax', 'null']]) {
+    assert.match(reset, new RegExp(`${v} = ${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`), `${v} is not reset to ${d}`);
+  }
+  assert.match(reset, /renderIndustry\(\);/, 'Reset does not redraw (and so does not rewrite the share URL)');
+});

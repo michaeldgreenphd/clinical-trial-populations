@@ -4952,24 +4952,6 @@ footer p {
     font-weight: 600;
 }
 
-.industry-demo-tab:disabled {
-    opacity: .55;
-    color: var(--text-secondary);
-    border-color: var(--border-color);
-    background: transparent;
-    cursor: not-allowed;
-}
-
-.industry-demo-tab:disabled::after {
-    content: ' soon';
-    font-family: var(--font-mono);
-    font-size: var(--fs-label);
-    text-transform: uppercase;
-    letter-spacing: 0.07em;
-    vertical-align: 0.12em;
-    margin-left: 0.3rem;
-}
-
 .industry-subtitle { max-width: none; }
 
 .industry-controls-left {
@@ -5891,3 +5873,65 @@ footer p {
 .oc-empty-dl dt, .oc-empty .oc-note,
 .oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-sub, .oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-open-hint,
 .oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-sub, .oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-open-hint { color: var(--c-absent-ink); }
+
+/* ===== Industry: question first (2026-11-13) =====
+   The participant-demographics pane opens with the question, the population and the data date
+   in one scope line, then the controls the comparison needs; methodological options sit in a
+   disclosure whose summary names their state. Scoped to the pane so other tabs are untouched. */
+#industry-demographics-pane > .panel-hero { padding-bottom: 0; }
+#industry-demographics-pane > .panel-hero h3 { font-size: var(--fs-xl); margin: 0 0 0.3rem; letter-spacing: -0.01em; }
+#industry-demographics-pane > .panel-hero .finding-headline { font-size: var(--fs-body); font-weight: 400; color: var(--text-secondary); text-wrap: pretty; }
+.industry-scope-line { margin: 0.55rem 0 0.9rem; font-size: var(--fs-small); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.industry-scope-line .industry-meta { font-family: inherit; font-size: inherit; color: var(--text-primary); font-weight: 600; margin: 0; }
+.industry-primary { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; }
+.industry-primary .industry-ctl-group[hidden] { display: none; }
+.industry-reset {
+    font: inherit; font-size: var(--fs-small); min-height: 2.25rem; padding: 0.4rem 0.9rem;
+    border: 1px solid var(--border-color); border-radius: var(--radius-md);
+    background: transparent; color: var(--primary-color); cursor: pointer;
+}
+.industry-reset:hover { border-color: var(--primary-color); }
+.industry-options { width: 100%; border-top: 1px solid var(--border-color); padding-top: 0.6rem; }
+.industry-options > summary { cursor: pointer; font-size: var(--fs-small); font-weight: 600; color: var(--primary-color); min-height: 1.75rem; }
+.industry-options-state { font-weight: 400; color: var(--text-secondary); margin-left: 0.4rem; }
+.industry-options > .industry-chrome { margin-top: 0.6rem; }
+.industry-options .industry-ctl-group[hidden] { display: none; }
+.industry-options > .note { margin: 0.5rem 0 0; font-size: var(--fs-small); max-width: 88ch; }
+#industry-demographics-pane .industry-subtitle { font-size: var(--fs-small); margin: 0; max-width: 88ch; }
+.industry-fixed-note {
+    margin: 0 0 1rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--primary-color);
+    background: var(--surface-sunk); font-size: var(--fs-small); max-width: 88ch;
+}
+@media (max-width: 600px) {
+    #industry-demographics-pane > .panel-hero h3 { font-size: var(--fs-lead); }
+    .industry-primary { gap: 0.6rem 0.9rem; }
+    .industry-options-state { display: block; margin: 0.15rem 0 0; }
+}
+
+/* Industry outcomes: the compact status line and the loading / failure states (2026-11-13). */
+.oc-status { margin: 0.35rem 0 0.6rem; font-size: var(--fs-small); color: var(--text-secondary); max-width: var(--oc-measure); font-variant-numeric: tabular-nums; }
+.oc-status strong { color: var(--oc-ink); }
+.oc-status-link {
+    font: inherit; background: none; border: 0; padding: 0; color: var(--primary-color);
+    text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.oc-empty-more { margin-top: 0.4rem; }
+.oc-empty-more > summary { cursor: pointer; font-size: var(--fs-small); color: var(--primary-color); }
+.oc-state-msg { margin: 1rem 0; padding: 1rem 1.1rem; border: 1px solid var(--oc-rule); border-radius: var(--radius-md); max-width: var(--oc-measure); }
+.oc-state-msg p { margin: 0 0 0.5rem; }
+.oc-retry {
+    font: inherit; font-size: var(--fs-small); min-height: 2.25rem; padding: 0.4rem 1rem;
+    border: 1px solid var(--primary-color); border-radius: var(--radius-md); background: var(--primary-color); color: #fff; cursor: pointer;
+}
+#industry-demographics-pane .industry-demo-nav { margin-bottom: 0.25rem; }
+#industry-demographics-pane > .industry-controls { margin-top: 0.75rem; }
+/* The condition-column controls in a compact band: heading and status on one line beside their
+   buttons, the picker and the benchmark source as quiet lines under them. */
+#industry-demographics-pane .industry-condition-controls { padding: 0.6rem 0; margin-bottom: 0.9rem; }
+#industry-demographics-pane .industry-condition-toolbar > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; }
+#industry-demographics-pane .industry-condition-toolbar p { margin: 0; }
+#industry-demographics-pane .industry-condition-controls summary { padding: 0.35rem 0; }
+#industry-demographics-pane #industry-condition-picker { margin-top: 0.15rem; }
+#industry-demographics-pane .industry-benchmark-source { margin-top: 0.35rem; }
+#industry-demographics-pane .industry-source-details > summary { padding: 0.2rem 0; }
+#industry-demographics-pane .industry-view-question { font-weight: 600; color: var(--text-primary); }
