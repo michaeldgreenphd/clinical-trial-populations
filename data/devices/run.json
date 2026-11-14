@@ -1,0 +1,312 @@
+{
+ "build_files": {
+  "coverage.json": "24dfc5d9e42f31576190397a71fd3dbf421eca86bdd46b36ccb7a607df0a1274",
+  "demographics.json": "477f1a944800face3a6b7644101ac981dbac1ed7f26d8bea9f87380286e2fd56",
+  "documents.json": "ac2904fe5ddd615adc3c0202d150decb33d7d511936f9f6c2ab89c773c8fad4b",
+  "families.json": "6deb42f6c92f022e0cb66a84eaa323ffda901b4231a87b2fb509cda390b82697",
+  "links.json": "156962c93c1830e78237832775a95d3092eb251d03a311c1259ac13e8ec12aa1",
+  "organizations.json": "5e9f55687c2abba51ff231171a1dc47f41e78f461d4710ce153858c3e4caa807",
+  "review_queue.json": "0d151b3deb191c07457052e2c825ba69e62d2525cdb5c322a48f6f22b2123c9d",
+  "studies.json": "fe41db14976afbacdf29e830a3519cf7328464f9cc9891ea0158840159daf362",
+  "submissions.json": "de0b3998b4c9a63fca9f6d5237d69208dcd79b0de3bf8ad31a700dc95eeeeaa2",
+  "summary.json": "bcaa5f0bc65bccc526f8351b68120c4951ff16aee2d330186b61972e617b8194"
+ },
+ "build_run_id": "devices-2026-11-14-303af7bef3",
+ "build_schema_version": 1,
+ "counting_units": {
+  "document": "one source URL for one submission; a version is one sha256 of its bytes",
+  "evidence_record": "one piece of evidence joining a submission or family to a registered study",
+  "family": "submissions grouped as one product line: candidate (same organisation and whole core name) or curated (devices/families.csv). Not a count of products unless curated",
+  "organization": "one canonical manufacturer key: spellings joined by the normalisation rules or the alias file",
+  "pair": "one distinct (submission or family, registered study) joined by at least one evidence record",
+  "source_row": "one line of FDA's AI/ML-enabled device list as downloaded; what the AI Devices tab counts today",
+  "study": "one distinct NCT id",
+  "submission": "one distinct FDA submission number; rows sharing a number are one submission"
+ },
+ "coverage_routes": {
+  "demographic_extraction": "pilot LLM extraction of demographic fields from a document",
+  "fda_document_fetch": "FDA release-database page and the documents it links (www.accessdata.fda.gov)",
+  "local_document": "PDFs an earlier fetch left on disk (data/pilot_summary_statements)",
+  "nct_citation_scan": "text of every document held for the submission, scanned for NCT ids",
+  "openfda_metadata": "openFDA device/510k.json and device/pma.json (api.fda.gov)",
+  "registry_name_organisation_search": "ClinicalTrials.gov intervention, phrase and sponsor searches",
+  "registry_submission_number_search": "ClinicalTrials.gov full-text search for the submission number"
+ },
+ "curated": {
+  "documentary_statements.csv": 0,
+  "families.csv": 0,
+  "organization_aliases.csv": 0,
+  "reviews.csv": 0
+ },
+ "evidence_kinds": {
+  "family_name_and_organisation": "family-level candidate: the device name stands in a study title or intervention and the sponsor agrees with the manufacturer. Not specific to one submission",
+  "family_name_only": "family-level candidate: the device name stands in a study title or intervention and no sponsor agrees. Not specific to one submission",
+  "other": "any other record: a documentary statement entered by a person, or a cited identifier the registry does not hold",
+  "parent_submission": "a record whose source is a listed supplement but whose evidence is the original submission's (its document, or a registry record citing its number). Not specific to the supplement",
+  "set_aside_by_rule": "kept for visibility and rejected by rule: the name returns 50 or more registry records and no sponsor agrees, or the submission number is in no returned field",
+  "submission_identifier": "submission-level: an identifier found in a retrieved source (automated validation identifier_confirmed). The citation exists; what it means is not reviewed"
+ },
+ "files": {
+  "documents.json": "31bd4548321ccf716b45cd5383af2c16d1c70578353ac79ba0db0a251812e3fc",
+  "evidence.json": "488bdcb5705cd511f95c3d85b545776b0edb8d3ed1dd2b0bcc916ff863f0f5de",
+  "evidence_set_aside.json": "12a7e064b6c40b4f4083749b45e19958c9b4eccedf8384fbf44d48ae56031b80",
+  "families.json": "dcc7b8e1105dd4de60ab0a030088b72d3d8bb640f383416e62df13cf4d03b1b3",
+  "submissions.json": "5ca7af1c824db0a0a3547bcdc4eb87c534bc7f37be270a1b113a27c7e89211f2",
+  "summary.json": "f7bdf5141ad1575ffde85d630db2f77a68f9bfd8edb353e1b6477017df5879f4"
+ },
+ "generated_at": "2026-11-14T14:45:45+00:00",
+ "method_version": "device-links-1",
+ "producer": {
+  "commit": "4164314c07fd4238457cdc2fce5c14348f9b5994",
+  "repository": "civicsample-engine",
+  "source_sha256": "2afd0501eab5b5aa52044496b84a50678a1d565575656f5457736c68f87992f5",
+  "uncommitted_changes": false
+ },
+ "records": {
+  "evidence.json": 568,
+  "evidence_set_aside.json": 1649
+ },
+ "reviews": {
+  "n_applied": 0,
+  "n_orphaned": 0,
+  "n_rows": 0
+ },
+ "run_id": "devices-2026-11-14-303af7bef3-bc3d7e29",
+ "scheduled": false,
+ "schema_version": 1,
+ "sources": {
+  "demographic_extractions": {
+   "file": "fda_demographics_extracted.json",
+   "n_documents": 8,
+   "n_extractions": 24
+  },
+  "fda_database_pages": {
+   "first_fetched_at": "2026-11-13T23:28:39+00:00",
+   "last_fetched_at": "2026-11-14T00:08:00+00:00",
+   "n_records": 1431,
+   "source": "FDA 510(k), De Novo and PMA release-database pages"
+  },
+  "fda_documents": {
+   "first_fetched_at": "2026-11-13T23:41:53+00:00",
+   "last_fetched_at": "2026-11-14T00:08:40+00:00",
+   "max_requests_per_second_per_host": 2,
+   "n_lines": 1566,
+   "sha256": "f6b047f76cd65dc42cb6511b3e24c29bb89e1ecc363cb340d5da1f44a0868d92"
+  },
+  "inventory": {
+   "file": "ai-ml-enabled-devices-enriched.csv",
+   "n_rows": 1451,
+   "sha256": "930b79b8deb1df79d4645f3b97ca1dd51f611c6db72f07fc10bf6d3f580d02b5"
+  },
+  "openfda": {
+   "first_fetched_at": "2026-11-13T23:28:12+00:00",
+   "last_fetched_at": "2026-11-13T23:28:38+00:00",
+   "n_records": 46,
+   "source": "openFDA device/510k.json and device/pma.json"
+  },
+  "registry": {
+   "first_fetched_at": "2026-11-13T23:31:12+00:00",
+   "last_fetched_at": "2026-11-14T00:28:40+00:00",
+   "n_records": 3113,
+   "registry": "ClinicalTrials.gov",
+   "registry_api_version": "2.0.5",
+   "registry_data_timestamp": "2026-11-13T10:00:06",
+   "source": "ClinicalTrials.gov API v2"
+  },
+  "text_extraction": {
+   "extraction_version": "pypdf-7.1.0-r1",
+   "ocr": false
+  }
+ },
+ "vocabularies": {
+  "automated_validation": [
+   "identifier_confirmed",
+   "quote_confirmed_in_source",
+   "identifier_not_resolved",
+   "rejected_by_rule",
+   "not_validated"
+  ],
+  "confidence": [
+   "identifier",
+   "documentary",
+   "moderate",
+   "low"
+  ],
+  "coverage_overall_precedence": [
+   "verified_link",
+   "candidate_awaiting_review",
+   "search_incomplete_or_blocked",
+   "not_searched",
+   "available_document_insufficient",
+   "document_unavailable",
+   "no_candidate_in_completed_scope"
+  ],
+  "coverage_routes": [
+   "local_document",
+   "fda_document_fetch",
+   "openfda_metadata",
+   "nct_citation_scan",
+   "registry_submission_number_search",
+   "registry_name_organisation_search",
+   "demographic_extraction"
+  ],
+  "coverage_states": [
+   "not_searched",
+   "search_incomplete_or_blocked",
+   "document_unavailable",
+   "available_document_insufficient",
+   "candidate_awaiting_review",
+   "no_candidate_in_completed_scope",
+   "verified_link"
+  ],
+  "document_outcomes": [
+   "retrieved",
+   "not_found",
+   "not_a_pdf",
+   "too_large",
+   "http_error",
+   "network_error",
+   "skipped_disk_budget"
+  ],
+  "document_types": {
+   "510k_clearance_letter": {
+    "category": "granting_letter",
+    "demographic_summary_type": false
+   },
+   "510k_decision_summary": {
+    "category": "decision_summary",
+    "demographic_summary_type": true
+   },
+   "510k_statement": {
+    "category": "510k_statement",
+    "demographic_summary_type": false
+   },
+   "510k_summary": {
+    "category": "510k_summary",
+    "demographic_summary_type": true
+   },
+   "de_novo_decision_summary": {
+    "category": "decision_summary",
+    "demographic_summary_type": true
+   },
+   "de_novo_granting_letter": {
+    "category": "granting_letter",
+    "demographic_summary_type": false
+   },
+   "other": {
+    "category": "other",
+    "demographic_summary_type": false
+   },
+   "pma_approval_order": {
+    "category": "granting_letter",
+    "demographic_summary_type": false
+   },
+   "pma_labeling": {
+    "category": "labeling",
+    "demographic_summary_type": false
+   },
+   "pma_ssed": {
+    "category": "summary_of_safety_and_effectiveness",
+    "demographic_summary_type": true
+   },
+   "unclassified_no_text": {
+    "category": "unclassified",
+    "demographic_summary_type": false
+   }
+  },
+  "duplicate_classes": [
+   "identical",
+   "alias_only",
+   "substantive_conflict"
+  ],
+  "evidence_kinds": [
+   "submission_identifier",
+   "family_name_and_organisation",
+   "family_name_only",
+   "parent_submission",
+   "set_aside_by_rule",
+   "other"
+  ],
+  "heuristic_methods": [
+   "device_name_and_organisation_match",
+   "device_name_match"
+  ],
+  "human_review": [
+   "unreviewed",
+   "accepted",
+   "rejected",
+   "unresolved"
+  ],
+  "identifier_methods": [
+   "nct_id_in_submission_document",
+   "submission_number_in_registry_record"
+  ],
+  "link_levels": [
+   "submission",
+   "family"
+  ],
+  "link_methods": [
+   "nct_id_in_submission_document",
+   "submission_number_in_registry_record",
+   "documentary_statement",
+   "nct_id_in_parent_submission_document",
+   "device_name_and_organisation_match",
+   "device_name_match"
+  ],
+  "nct_states": [
+   "resolves",
+   "not_found",
+   "resolved_to_different_id",
+   "lookup_failed",
+   "not_looked_up"
+  ],
+  "pathways": [
+   "510k",
+   "de_novo",
+   "pma",
+   "pma_supplement",
+   "unknown"
+  ],
+  "proposed_relationships": [
+   "study_cited_in_submission_document",
+   "submission_cited_in_registry_record",
+   "study_cited_in_parent_submission_document",
+   "name_and_organisation_candidate",
+   "name_only_candidate",
+   "explicitly_cited_supporting_study",
+   "related_validation_study",
+   "documented_postmarket_study"
+  ],
+  "reviewed_relationships": [
+   "explicitly_cited_supporting_study",
+   "related_validation_study",
+   "documented_postmarket_study",
+   "same_family_other_version",
+   "citation_not_about_this_device",
+   "not_related"
+  ],
+  "study_description_states": [
+   "cites_registry_identifier",
+   "describes_study_no_registry_identifier",
+   "states_no_clinical_study_only",
+   "no_study_language_found",
+   "not_assessable_no_text"
+  ],
+  "text_statuses": [
+   "text",
+   "partial",
+   "image_only",
+   "failed",
+   "not_extracted"
+  ],
+  "timing_relations": [
+   "primary_completion_on_or_before_decision",
+   "started_on_or_before_decision_not_complete",
+   "started_within_365_days_after_decision",
+   "started_more_than_365_days_after_decision",
+   "indeterminate_at_recorded_precision",
+   "start_date_absent",
+   "decision_date_absent"
+  ]
+ }
+}

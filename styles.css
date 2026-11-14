@@ -5954,3 +5954,119 @@ footer p {
     .cb-toggle .view-btn { padding: 0.45rem 0.6rem; font-size: var(--fs-small); }
     .cb-withheld-list { columns: 1; }
 }
+
+/* ── AI Devices tab: pane switch and the Study links and evidence pane (device_links.js) ──
+   Tables and quoted text, no charts: every figure is a published count beside the unit it
+   counts. A record's level (submission or family) and a draft review are told apart by words
+   and by border style, never by colour alone. */
+.ai-devices-pane-switch { width: fit-content; max-width: 100%; margin: 0 0 1rem; }
+.ai-devices-pane-switch .view-btn { white-space: nowrap; }
+.ai-devices-pane-switch .view-btn:focus-visible, .dl-toggle .view-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--card-background), inset 0 0 0 4px var(--primary-color); }
+.ai-unit-cards { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.device-links-pane { --dl-ink: #5c6a63; overflow-wrap: break-word; }   /* secondary text on the tint ground: 5.1:1 */
+.device-links-pane a { color: var(--primary-color); text-underline-offset: 2px; }
+.dl-statements { max-width: 88ch; padding-left: 1.1rem; margin: 0.5rem 0 0; }
+.dl-statements li { margin: 0.45rem 0; line-height: 1.5; }
+.dl-units { margin: 1rem 0 0; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.dl-block { border-top: 1px solid var(--border-color); margin-top: 1.5rem; padding-top: 1rem; }
+.dl-block h4 { margin: 0 0 0.5rem; font-size: var(--fs-title); }
+.dl-block h4:focus { outline: none; }
+.dl-table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+.dl-table { width: 100%; border-collapse: collapse; font-size: var(--fs-body); }
+.dl-table caption { text-align: left; caption-side: top; font-size: var(--fs-small); color: var(--text-secondary); padding-bottom: 0.5rem; max-width: 100ch; }
+.dl-table th, .dl-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: top; }
+.dl-table thead th { font-size: var(--fs-small); color: var(--text-secondary); font-weight: 600; vertical-align: bottom; }
+.dl-table tbody th { font-weight: 500; }
+.dl-table .dl-num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.dl-coverage tbody th { min-width: 14rem; }
+.dl-negative > th { font-weight: 700; }
+.dl-tag { display: inline-block; font-size: var(--fs-small); border: 1px solid var(--border-color); border-radius: var(--radius-sm); padding: 0.05rem 0.4rem; white-space: nowrap; }
+.dl-tag-negative { border: 2px solid var(--text-primary); font-weight: 600; }
+.dl-controls { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; margin: 0.75rem 0 0.5rem; }
+.dl-control { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; max-width: 100%; }
+.dl-control-search { flex: 1 1 16rem; }
+.dl-control-label { display: block; font-size: var(--fs-small); color: var(--text-secondary); }
+.dl-toggle { width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.dl-control select, .dl-control input, .dl-review-form select, .dl-review-form textarea, .dl-export-text { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--card-background); color: inherit; max-width: 100%; box-sizing: border-box; }
+.dl-control select { max-width: min(100%, 24rem); }
+.dl-open-btn { font: inherit; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--primary-color); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.dl-list tbody th .dl-open-btn { white-space: nowrap; }
+.dl-list tbody tr.dl-row th[data-label="Family"] .dl-open-btn { font-family: inherit; font-size: inherit; white-space: normal; }
+.dl-open-btn:focus-visible, .dl-btn:focus-visible, .dl-control select:focus-visible, .dl-control input:focus-visible, .dl-review-form select:focus-visible,
+.dl-review-form textarea:focus-visible, .dl-review-form summary:focus-visible, .dl-methods summary:focus-visible, .dl-export-text:focus-visible,
+.dl-radio input:focus-visible, .dl-pager .page-btn:focus-visible, .device-links-pane a:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.dl-sub { display: block; font-size: var(--fs-small); color: var(--text-secondary); font-weight: 400; }
+.dl-list td[data-label="Decision date"], .dl-list td[data-label="Pathway"] { white-space: nowrap; }
+.dl-list thead th.dl-num { white-space: normal; min-width: 3.5rem; }
+.dl-list td[data-label="Device"] { min-width: 12rem; }
+.dl-list td[data-label="Coverage state"] { min-width: 11rem; }
+.dl-quote, .dl-fields dd, .dl-export-text { overflow-wrap: anywhere; }
+.dl-open > th, .dl-open > td { border-bottom-color: transparent; }
+.dl-detail-row > td { background: var(--tint); padding: 0.75rem; }
+.dl-detail { position: sticky; left: 0.75rem; box-sizing: border-box; font-size: var(--fs-body); line-height: 1.5; max-width: min(100%, calc(100vw - 5rem)); padding: 1rem 1.25rem; background: var(--card-background); border-left: 3px solid var(--primary-color); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+.dl-detail:focus { outline: none; }
+.dl-detail:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.dl-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.dl-detail-head h5 { margin: 0 0 0.25rem; font-size: var(--fs-lead); font-weight: 600; }
+.dl-sub-h { margin: 1.1rem 0 0.3rem; font-size: var(--fs-body); font-weight: 600; }
+.dl-evidence-h { margin: 1.5rem 0 0.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: var(--fs-title); font-weight: 600; }
+.dl-mono { font-family: var(--font-mono); }
+.dl-members { margin: 0.25rem 0 0.5rem; padding-left: 1.1rem; font-size: var(--fs-body); }
+.dl-members li { margin: 0.2rem 0; }
+.dl-record { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin: 0.75rem 0; background: var(--card-background); }
+.dl-record-family { border: 1px dashed var(--dl-ink); }
+.dl-level { display: inline-block; margin: 0 0 0.5rem; padding: 0.15rem 0.5rem; font-size: var(--fs-small); font-weight: 600; border-radius: var(--radius-sm); background: var(--surface-sunk); border: 1px solid var(--dl-ink); }
+.dl-level-family { border-style: dashed; }
+.dl-record-title { margin: 0 0 0.5rem; font-size: var(--fs-body); font-weight: 600; }
+.dl-record-title a { font-family: var(--font-mono); font-size: var(--fs-small); margin-right: 0.4rem; }
+.dl-quote { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--accent-color); background: var(--tint); line-height: 1.5; }
+.dl-fields { display: grid; grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr); gap: 0.4rem 1rem; margin: 0; }
+.dl-fields dt { font-size: var(--fs-small); color: var(--text-secondary); padding-top: 0.1rem; }
+.dl-fields dd { margin: 0; min-width: 0; }
+.dl-reasons { margin: 0.25rem 0 0; padding-left: 1.1rem; }
+.dl-reasons li { margin: 0.2rem 0; }
+.dl-absent { color: var(--text-secondary); font-style: italic; font-weight: 400; }
+.dl-review { border-top: 1px solid var(--border-color); margin-top: 0.75rem; padding-top: 0.6rem; }
+.dl-published { margin: 0 0 0.4rem; }
+.dl-k { font-size: var(--fs-small); color: var(--text-secondary); margin-right: 0.5rem; }
+.dl-draft { margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; border: 1px dashed var(--dl-ink); border-radius: var(--radius-sm); background: var(--surface-sunk); }
+.dl-review-form summary, .dl-methods summary { cursor: pointer; font-weight: 600; color: var(--primary-color); }
+.dl-review-form fieldset { border: 0; padding: 0; margin: 0.6rem 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+.dl-review-form legend { padding: 0; font-size: var(--fs-small); color: var(--text-secondary); }
+.dl-review-form select, .dl-review-form textarea { display: block; width: 100%; max-width: 40rem; margin: 0.2rem 0 0.6rem; }
+.dl-radio { display: inline-flex; align-items: center; gap: 0.35rem; }
+.dl-review-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0; }
+.dl-review-msg { font-size: var(--fs-small); }
+.dl-btn { font: inherit; padding: 0.35rem 0.8rem; border: 1px solid var(--dl-ink); border-radius: var(--radius-sm); background: var(--card-background); color: inherit; cursor: pointer; }
+.dl-btn:hover:not([disabled]) { background: var(--tint); }
+.dl-btn[disabled] { opacity: 0.55; cursor: default; }
+.dl-close { flex: none; }
+.dl-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+.dl-export { margin-top: 0.75rem; }
+.dl-export-text { display: block; width: 100%; font-family: var(--font-mono); font-size: var(--fs-small); white-space: pre; overflow: auto; }
+.dl-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0; }
+.dl-pager-count { margin-right: auto; font-size: var(--fs-small); color: var(--text-secondary); }
+.dl-pager-page { font-size: var(--fs-small); }
+.dl-methods { margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+.dl-setaside:focus { outline: none; }
+.dl-detail-row .note, .dl-detail-row .dl-sub, .dl-detail-row .dl-fields dt, .dl-detail-row .dl-k { color: var(--dl-ink); }
+@media (max-width: 720px) {
+    .dl-controls { gap: 0.6rem 0.75rem; }
+    .dl-control, .dl-control select, .dl-control input { width: 100%; max-width: 100%; }
+    .dl-toggle .view-btn { padding: 0.45rem 0.6rem; font-size: var(--fs-small); }
+    /* Tables become one block per row, each cell under its own label, so nothing is read by
+       scrolling sideways and an open row's evidence is as wide as the screen. */
+    .dl-table, .dl-table tbody, .dl-table tr, .dl-table th, .dl-table td, .dl-table caption { display: block; width: auto; }
+    .dl-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .dl-table tbody tr { border: 1px solid var(--border-color); border-radius: var(--radius-md); margin: 0.6rem 0; padding: 0.5rem 0.75rem; }
+    .dl-table th, .dl-table td, .dl-table .dl-num { border: 0; padding: 0.15rem 0; text-align: left; white-space: normal; }
+    .dl-table td[data-label]::before, .dl-table th[data-label]::before { content: attr(data-label) ": "; font-size: var(--fs-small); font-weight: 400; color: var(--text-secondary); }
+    .dl-coverage tbody th { min-width: 0; }
+    .dl-table tbody tr.dl-detail-row { border: 0; padding: 0; margin: 0 0 1rem; }
+    .dl-detail-row > td { padding: 0; background: none; }
+    .dl-detail { position: static; max-width: none; padding: 0.75rem 0.85rem; background: var(--tint); }
+    .dl-detail .dl-table tbody tr, .dl-record { background: var(--card-background); }
+    .dl-fields { grid-template-columns: minmax(0, 1fr); gap: 0.1rem; }
+    .dl-fields dt { margin-top: 0.5rem; }
+    .dl-detail-head { flex-wrap: wrap; }
+}

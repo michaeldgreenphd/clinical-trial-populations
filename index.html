@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261114-results-structure2">
+    <link rel="stylesheet" href="styles.css?v=20261114-device-links2">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -893,7 +893,16 @@
 
         <!-- AI Devices Tab -->
         <section id="ai-devices" class="tab-content">
-            <div class="chart-container">
+            <!-- Two views of FDA's list: the list itself (rows, charts and table below, counted by
+                 list row), and the evidence that joins its submissions to registered studies
+                 (device_links.js, data/devices/, a build the engine writes by hand). app.js
+                 switches between them (setAIDevicesPane). -->
+            <div class="geography-view-toggle ai-devices-pane-switch" id="ai-devices-pane-switch" role="group" aria-label="AI Devices view">
+                <button type="button" class="view-btn active" data-dpane="list" aria-pressed="true">Device list</button>
+                <button type="button" class="view-btn" data-dpane="links" aria-pressed="false">Study links and evidence</button>
+            </div>
+            <div class="chart-container device-links-pane" id="ai-devices-links-pane" hidden></div>
+            <div class="chart-container" id="ai-devices-list-pane">
                 <div class="ai-devices-header">
                     <h3>FDA-Authorized AI/ML-Enabled Medical Devices</h3>
                     <p class="note">Data source: <a href="https://www.fda.gov/medical-devices/software-medical-device-samd/artificial-intelligence-enabled-medical-devices" target="_blank">FDA Artificial Intelligence-Enabled Medical Devices</a> &middot; Last updated March 5, 2026</p>
@@ -908,11 +917,13 @@
                 <div class="ai-devices-charts">
                     <div class="chart-row">
                         <div class="chart-container">
-                            <h3>Devices by Medical Panel</h3>
+                            <h3>List Rows by Medical Panel</h3>
+                            <p class="note ai-row-unit">Counted by list row.</p>
                             <canvas id="ai-panel-chart"></canvas>
                         </div>
                         <div class="chart-container">
                             <h3>Marketing Authorizations per Year, by Pathway</h3>
+                            <p class="note ai-row-unit">Counted by list row.</p>
                             <canvas id="ai-timeline-chart"></canvas>
                             <p class="chart-footnote">Markers: FDA’s 2017 Digital Health Innovation Action Plan and the 2019 proposed regulatory framework for AI/ML-based software as a medical device (SaMD).</p>
                         </div>
@@ -920,7 +931,7 @@
                     <div class="chart-row">
                         <div class="chart-container">
                             <h3>De Novo &amp; PMA Authorizations per Year</h3>
-                            <p class="note">The non-510(k) slice at its own scale &mdash; next to the 510(k) volume above, these pathways read as invisible slivers. This is the small set of AI/ML devices whose authorization carried novel-device (De Novo) or full clinical (PMA) review.</p>
+                            <p class="note">The non-510(k) slice at its own scale &mdash; next to the 510(k) volume above, these pathways read as invisible slivers. This is the small set of AI/ML devices whose authorization carried novel-device (De Novo) or full clinical (PMA) review. <span class="ai-row-unit">Counted by list row.</span></p>
                             <canvas id="ai-nonk-chart"></canvas>
                             <p class="chart-footnote">Markers: FDA’s 2017 Digital Health Innovation Action Plan and the 2019 proposed regulatory framework for AI/ML-based software as a medical device (SaMD).</p>
                         </div>
@@ -928,6 +939,7 @@
                 </div>
 
                 <div class="ai-devices-table-wrapper">
+                    <p class="note ai-row-unit" id="ai-devices-table-unit">One table row per row of FDA's list; the table is counted by list row. A submission number that stands on two list rows appears twice.</p>
                     <div class="table-controls">
                         <div class="geography-view-toggle industry-mini-toggle" id="ai-pathway-filter" title="Filter the table by premarket pathway">
                             <button type="button" class="view-btn active" data-pathway="all">All Pathways</button>
@@ -1719,6 +1731,7 @@
     <script defer src="geo/geo_ui.js?v=20260813"></script>
     <script defer src="industry_outcomes.js?v=20261114-results-structure3"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
-    <script defer src="app.js?v=20261114-dialogfocus4"></script>
+    <script defer src="device_links.js?v=20261114-device-links4"></script>
+    <script defer src="app.js?v=20261114-device-links3"></script>
 </body>
 </html>
