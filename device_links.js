@@ -986,6 +986,17 @@
             return target;
         }
         const openerSelector = () => (state.open ? `[data-dl-open="${attr(state.open.id)}"]` : null);
+        // The control that has focus in the pane, as a selector a redraw can focus again; null when
+        // focus is outside the pane or on something a selector cannot name.
+        function activeSelector() {
+            const a = typeof document !== 'undefined' ? document.activeElement : null;
+            if (!a || a === el || !el.contains || !el.contains(a)) return null;
+            if (a.id) return `#${a.id}`;
+            for (const name of (a.getAttributeNames ? a.getAttributeNames() : [])) {
+                if (name.startsWith('data-dl-')) return `[${name}="${attr(a.getAttribute(name))}"]`;
+            }
+            return null;
+        }
 
         // One load of the evidence and documents files, shared: a row opened while it is in
         // flight waits for the same load, so whichever row is open when it lands is redrawn.
@@ -1043,7 +1054,13 @@
                     state.setAsideError = null;
                 } catch (err) { state.setAsideError = String((err && err.message) || err); }
                 state.setAsideLoading = false;
-                if (request !== state.request) return;
+                if (request !== state.request) {
+                    // Another row, or this one again, was opened while the file loaded: redraw it so its
+                    // button is no longer "Loading…", without opening the records it did not ask for,
+                    // and with focus where the reader left it.
+                    if (state.open) draw(activeSelector());
+                    return;
+                }
             }
             state.showSetAside = true;
             // After a failed load the records are not drawn, so focus goes to the retry button that

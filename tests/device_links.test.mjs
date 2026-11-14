@@ -563,6 +563,23 @@ test('a failed load of the set-aside records keeps a button that asks again', as
   assert.equal(focused.at(-1), '#dl-setaside');
 });
 
+test('a set-aside load that lands after the row was reopened redraws the open row, not leaving its button disabled', async () => {
+  const f = family(); const L = fresh(); const { el, click, focused } = pane();
+  let release;
+  const held = new Promise((r) => { release = r; });
+  await L.open(el, { fetchJSON: serve(f, { 'evidence_set_aside.json': () => held.then(() => clone(f.setAside)) }), storage: null });
+  click({ dlOpen: 'K990003' }); await tick(); await tick();
+  click({ dlSetaside: '1' }); await tick();
+  assert.match(el.innerHTML, /data-dl-setaside="1" disabled>Loading…<\/button>/);
+  click({ dlClose: '1' }); click({ dlOpen: 'K990003' }); await tick(); await tick();     // a new request
+  assert.match(el.innerHTML, /data-dl-setaside="1" disabled>Loading…<\/button>/);
+  const before = focused.length;
+  release(); await tick(); await tick();
+  assert.match(el.innerHTML, /data-dl-setaside="1">Show the 1 record<\/button>/, 'the open row is redrawn when the load lands');
+  assert.doesNotMatch(el.innerHTML, /id="dl-setaside"/, 'the records are not forced open for the row reopened');
+  assert.equal(focused.length, before, 'focus is not moved');
+});
+
 test('the stylesheet is balanced: every rule block that opens is closed', () => {
   // The site has no build step, so a brace left open is served as committed and can swallow every
   // rule after it into a media query.
