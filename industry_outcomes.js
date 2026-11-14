@@ -11,6 +11,11 @@
  * reviewed is labelled as such wherever it appears, and is shown only on a local preview
  * (localhost); elsewhere a provisional build renders as evidence only.
  *
+ * It also reads the results-structure family from data/results_structure/ when it is present
+ * (run.json, summary.json, records.json): per trial, what the posted results section contains and
+ * one subgroup-results state per dimension. A trial absent from that family, or the family being
+ * absent or failing its check, reads "Not yet processed", never "none detected".
+ *
  * Loaded by index.html before app.js; app.js calls IndustryOutcomes.open(el, deps) when the
  * Industry tab's switch selects "Trial outcomes".
  */
@@ -389,9 +394,11 @@
         </div>`;
     }
 
-    const HEAD = ['Trial', 'Sponsor', 'Primary outcome', 'Results', 'Assessment'];
+    const HEAD = ['Trial', 'Sponsor', 'Primary outcome', 'Results', 'Subgroup results', 'Assessment'];
 
-    function listHTML(rows, run, shown) {
+    // structure: the results-structure family (loadStructure), or nothing; without it every row
+    // reads "Not yet processed" for subgroup results.
+    function listHTML(rows, run, shown, structure) {
         const body = rows.slice(0, shown).map(r => `
             <tr data-row="${esc(r.nct_id)}">
                 <td data-label="Trial"><button type="button" class="oc-open" data-nct="${esc(r.nct_id)}" aria-expanded="false" aria-controls="oc-detail">${esc(r.nct_id)}<span class="oc-open-hint" aria-hidden="true">Evidence</span><span class="oc-vh"> — show the evidence</span></button>
@@ -400,6 +407,7 @@
                 <td data-label="Sponsor">${esc(r.sponsor)}${r.sponsor_state !== 'attributed' ? '<div class="oc-sub">as registered; not yet curated</div>' : ''}</td>
                 <td data-label="Primary outcome">${r.primary_objective ? esc(r.primary_objective) : '<span class="oc-none">None registered</span>'}${r.n_primary_outcomes > 1 ? `<div class="oc-sub">and ${r.n_primary_outcomes - 1} more primary outcome${r.n_primary_outcomes > 2 ? 's' : ''}</div>` : ''}</td>
                 <td data-label="Results"><span class="oc-state"><span class="oc-swatch ${resultsClass(r)}" aria-hidden="true"></span>${esc(resultsLabel(r, run.cutoff))}</span></td>
+                <td data-label="Subgroup results">${subgroupCell(subgroupStates(structure, r.nct_id))}</td>
                 <td data-label="Assessment">${assessmentCell(r)}</td>
             </tr>`).join('');
         const more = rows.length > shown ? `<button type="button" class="oc-more-btn">Show ${Math.min(PAGE, rows.length - shown)} more of ${(rows.length - shown).toLocaleString()}</button>` : '';
@@ -458,7 +466,7 @@
             </div>`;
     }
 
-    function recordHTML(rec, run, machineShown) {
+    function recordHTML(rec, run, machineShown, structure) {
         const f = rec.facts;
         let a = rec.assessment;
         if (a && a.assessment_kind === 'machine_provisional' && !machineShown) a = null;
@@ -513,8 +521,358 @@
             </section>
             <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">2</span> What the method concludes</h5>${method}</section>
             <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">3</span> What a person checked</h5>${review}</section>
+            ${structureDetailHTML(rec, structure, results)}
         </div>
         <p class="oc-note oc-detail-dates">Dates and links. Results availability as of ${esc(fmtDate(run.cutoff))}; registry record last updated ${esc(fmtDate(f.last_update_post_date))}${a ? `; assessment as of ${esc(fmtDate(a.assessment_cutoff))}` : ''}${run.dates && run.dates.demographics_snapshot ? `; demographics data of ${esc(fmtDate(run.dates.demographics_snapshot))}` : ''}. ${esc(link)}</p>`;
+    }
+
+    // ---------------------------------------------------------------- posted results structure and subgroup reporting
+    //
+    // A second artifact family, data/results_structure/ (civicsample-engine outcomes/README.md,
+    // "Results structure"): run.json, summary.json and records.json, built by hand from the posted
+    // results section of each trial in the cohort's frame. This view shows, per trial, three
+    // statuses that stay apart: Results (the outcomes family's states, unchanged), Demographics
+    // (what the demographics link already says) and Subgroup results per dimension.
+    //
+    // Rules this section keeps:
+    //   - A trial absent from records.json, or the family being absent or failing structureProblem,
+    //     reads "Not yet processed". It never reads as "none detected".
+    //   - "Explicit subgroup results detected" appears only when the record carries a review a
+    //     person accepted; structureProblem refuses a family that says otherwise.
+    //   - Every count shown is a numerator and denominator published in summary.json. Nothing here
+    //     counts, sums or divides: no percentage is derived, and no row is counted.
+    //   - The build's scope is stated from summary.json: how many registry records were fetched,
+    //     how many trials the build covers, and how many fetched records it leaves out and why.
+    //     The counts are over the trials it covers, which is the cohort this pane lists.
+    //   - Posted documents and publications are not read by the method; each trial says so on its
+    //     own line, so absence in the structured fields is not presented as absence everywhere.
+    const RS_BASE = 'data/results_structure/';
+    const RS_SCHEMA_VERSION = 1;
+    const RS_DIMENSIONS = ['age', 'sex', 'race', 'ethnicity'];
+    const RS_DIMENSION_LABELS = { age: 'Age', sex: 'Sex', race: 'Race', ethnicity: 'Ethnicity', other: 'No named dimension' };
+    const NOT_YET_PROCESSED = 'not_yet_processed';
+    const SUBGROUP_DETECTED = 'explicit_subgroup_results_detected';
+    const SUBGROUP_LABELS = {
+        not_yet_processed: 'Not yet processed',
+        processing_failed_or_indeterminate: 'Processing failed or indeterminate',
+        no_explicit_subgroup_results_detected_in_reviewed_structured_fields: 'No explicit subgroup results detected in reviewed structured fields',
+        explicit_subgroup_results_detected: 'Explicit subgroup results detected',
+        not_applicable_no_posted_results: 'No posted results',
+    };
+    const SUBGROUP_STATES = Object.keys(SUBGROUP_LABELS);
+    const MODULE_LABELS = [
+        ['baseline', 'Baseline characteristics'], ['participant_flow', 'Participant flow'],
+        ['outcome_measures', 'Primary outcome'], ['adverse_events', 'Adverse events'],
+    ];
+    // Why a usable-content rule did not pass, in words. An unknown code is shown as published.
+    const USABLE_REASONS = {
+        no_groups: 'no groups are posted',
+        no_measures: 'no baseline measure is posted',
+        no_numeric_values: 'no baseline measure has a numeric value',
+        values_or_denominators_incomplete: 'values or participant counts are missing for the total and for at least one arm',
+        no_STARTED_milestone: 'no period has a started count',
+        no_COMPLETED_milestone: 'no period has a completed count',
+        counts_missing_for_a_group_or_all_zero: 'a started or completed count is missing for a group, or no participant started',
+        no_primary_measure: 'no primary measure is posted',
+        no_data_table: 'a primary measure has no data table',
+        no_unit: 'a primary measure has no unit',
+        no_number_analysed: 'a primary measure has no number analysed',
+        number_analysed_missing_for_a_group: 'the number analysed is missing for a group',
+        zero_analysed_in_every_group: 'no participant was analysed in any group',
+        no_numeric_value_for_an_analysed_group: 'an analysed group has no numeric value',
+        module_absent: 'the module is not posted',
+        no_event_groups: 'no event groups are posted',
+        numbers_at_risk_missing_for_a_group: 'the number at risk is missing for a group',
+        zero_at_risk_in_every_group: 'no participant is at risk in any group',
+        no_event_rows_and_no_group_totals: 'no event rows and no group totals are posted',
+        not_evaluated_parse_failure: 'the record could not be parsed, so the rule was not evaluated',
+    };
+
+    // Consumer-side integrity check of the results-structure family: what is wrong with the three
+    // files as this view reads them, or null. A family that fails is not shown at all.
+    function structureProblem(run, summary, recordsFile) {
+        if (!isObj(run) || run.schema_version !== RS_SCHEMA_VERSION) return 'run.json is not schema version 1';
+        if (typeof run.run_id !== 'string' || !/^results-structure-\d{4}-\d{2}-\d{2}-[0-9a-f]{10}$/.test(run.run_id)) return 'run.json has no run id';
+        const version = (run.method || {}).version;
+        if (typeof version !== 'string' || !version) return 'run.json has no method version';
+        for (const [name, f] of [['summary.json', summary], ['records.json', recordsFile]]) {
+            if (!isObj(f) || f.run_id !== run.run_id || f.schema_version !== RS_SCHEMA_VERSION || f.method_version !== version) {
+                return `${name} is from another run or method version`;
+            }
+        }
+        for (const key of ['fields_inspected', 'fields_not_inspected']) {
+            if (!Array.isArray(run[key]) || !run[key].length) return `run.json does not list ${key.replace(/_/g, ' ')}`;
+        }
+        if (!isObj(recordsFile.records)) return 'records.json has no records';
+        const den = summary.denominators;
+        if (!isObj(den) || !isObj(den.requested) || !isInt(den.requested.n) || den.requested.n !== run.n_records) return 'the requested denominator does not match run.json';
+        // The summary block maps over this list; a family without it is a failed family, not an empty one.
+        if (!Array.isArray(summary.metrics)) return 'summary.json has no metrics list';
+        for (const m of summary.metrics) {
+            if (!isObj(m)) return 'summary.json has a metric that is not an object';
+            const d = den[m.denominator];
+            if (!isObj(d) || !isInt(d.n) || !isInt(m.numerator) || m.numerator > d.n || !m.definition || !m.label) return `metric ${m.id} is incomplete`;
+        }
+        const scope = summary.scope;
+        if (!isObj(scope) || !Array.isArray(scope.rows) || scope.rows.some(r => !isObj(r) || !isInt(r.n) || !r.label)) return 'summary.json does not state the scope of the build';
+        const scoped = Object.fromEntries(scope.rows.map(r => [r.id, r]));
+        if (!scoped.frame || !scoped.included || !scoped.excluded) return 'summary.json does not state the scope of the build';
+        if (scoped.included.n !== den.requested.n) return 'the scope does not match the requested denominator';
+        if (scoped.excluded.n > 0 && !scoped.excluded.reason) return 'records are left out of the build without a stated reason';
+        const states = summary.subgroup_states;
+        if (!isObj(states) || !isObj(states.by_dimension) || !isObj(den[states.denominator]) || !isInt(den[states.denominator].n)) return 'summary.json has no subgroup state counts';
+        for (const d of RS_DIMENSIONS) {
+            const c = states.by_dimension[d];
+            if (!isObj(c) || SUBGROUP_STATES.some(s => !isInt(c[s])) || Object.keys(c).length !== SUBGROUP_STATES.length) {
+                return `subgroup state counts for ${d} do not list all five values`;
+            }
+        }
+        const tables = summary.tables;
+        if (!isObj(tables) || ['retrieval_failures', 'parsing_failures', 'missing_data', 'negative_findings'].some(t => !isObj(tables[t]) || !Array.isArray(tables[t].rows) || tables[t].rows.some(row => !isObj(row)))) {
+            return 'summary.json does not keep failures, missing data and negative findings as separate tables';
+        }
+        let seen = 0;
+        for (const [id, r] of Object.entries(recordsFile.records)) {
+            seen += 1;
+            if (!isObj(r) || r.nct_id !== id || r.method_version !== version) return `${id}: record from another method version`;
+            const sg = r.subgroup;
+            if (!isObj(sg) || !isObj(sg.by_dimension) || RS_DIMENSIONS.some(d => !SUBGROUP_STATES.includes(sg.by_dimension[d]))) {
+                return `${id}: a subgroup state is outside the vocabulary`;
+            }
+            if (sg.signals != null && !Array.isArray(sg.signals)) return `${id}: signals are not a list`;
+            const signals = sg.signals || [];
+            const reviewOk = v => isObj(v) && typeof v.dimension === 'string' && typeof v.decision === 'string';
+            if (signals.some(s => !isObj(s) || (s.review != null && (!Array.isArray(s.review) || !s.review.every(reviewOk))))) {
+                return `${id}: a signal or its review list is malformed`;
+            }
+            const failures = isObj(r.parse) ? r.parse.failures : null;
+            if ((r.parse != null && !isObj(r.parse)) || (failures != null && (!Array.isArray(failures) || failures.some(f => !isObj(f))))) {
+                return `${id}: the parse failures are not a list of records`;
+            }
+            // "Detected" for a characteristic needs an accepted human review naming that characteristic,
+            // on a signal of that characteristic or one with no named characteristic ('other'). An
+            // accepted review of another characteristic does not carry over. This is the engine's rule
+            // (outcomes/results_structure.py, apply_reviews), checked again on what was published.
+            const acceptedFor = d => signals.some(s => (s.dimension === d || s.dimension === 'other')
+                && (s.review || []).some(v => v.decision === 'accepted' && v.dimension === d));
+            const lacking = RS_DIMENSIONS.find(d => sg.by_dimension[d] === SUBGROUP_DETECTED && !acceptedFor(d));
+            if (lacking) return `${id}: ${lacking} is marked detected without an accepted human review for ${lacking}`;
+        }
+        if (seen !== run.n_records) return 'records.json does not hold the number of records run.json states';
+        return null;
+    }
+
+    // The family, or why it cannot be used. Never throws: a missing or broken family leaves every
+    // trial "Not yet processed" and the rest of the pane as it was.
+    async function loadStructure(fetchJSON) {
+        try {
+            const get = (name, reload) => fetchJSON(RS_BASE + name, reload);
+            const run = await get('run.json');
+            let [summary, recordsFile] = await Promise.all([get('summary.json'), get('records.json')]);
+            if (isObj(run) && ((summary || {}).run_id !== run.run_id || (recordsFile || {}).run_id !== run.run_id)) {
+                // A file cached from another run: once more past the cache, then give up.
+                [summary, recordsFile] = await Promise.all([get('summary.json', true), get('records.json', true)]);
+            }
+            const problem = structureProblem(run, summary, recordsFile);
+            if (problem) return { ok: false, reason: problem };
+            return { ok: true, run, summary, records: recordsFile.records };
+        } catch (e) {
+            return { ok: false, reason: /HTTP 404/.test(e.message) ? 'the files are not published on this site' : e.message };
+        }
+    }
+
+    const structureRecord = (structure, nct) => (structure && structure.ok && structure.records[nct]) || null;
+
+    // One state per dimension for a trial. No usable family, or no record for the trial, is
+    // "not yet processed" for every dimension.
+    function subgroupStates(structure, nct) {
+        const rec = structureRecord(structure, nct);
+        return Object.fromEntries(RS_DIMENSIONS.map(d => [d, rec ? rec.subgroup.by_dimension[d] : NOT_YET_PROCESSED]));
+    }
+
+    const subgroupLabel = s => SUBGROUP_LABELS[s] || SUBGROUP_LABELS[NOT_YET_PROCESSED];
+
+    // The list cell: one label when the four dimensions share a state, otherwise one line each.
+    function subgroupCell(states) {
+        const values = RS_DIMENSIONS.map(d => states[d]);
+        if (values.every(v => v === values[0])) {
+            return `<span class="oc-sg oc-sg-${esc(values[0])}">${esc(subgroupLabel(values[0]))}</span><div class="oc-sub">age, sex, race and ethnicity</div>`;
+        }
+        return '<ul class="oc-sg-list">' + RS_DIMENSIONS.map(d =>
+            `<li><span class="oc-sg-dim">${RS_DIMENSION_LABELS[d]}</span> <span class="oc-sg oc-sg-${esc(states[d])}">${esc(subgroupLabel(states[d]))}</span></li>`).join('') + '</ul>';
+    }
+
+    const count = (num, den) => `<span class="oc-fig"><strong>${num.toLocaleString()}</strong> of ${den.toLocaleString()}</span>`;
+
+    const STRUCTURE_METHOD_TEXT = `
+            <p>These figures are <strong>subgroup reporting detected by the current method</strong>: a text rule over structured fields of the posted results, after which a person reviews each signal. They are not a measure of how often trials report subgroup results.</p>
+            <p>A signal is wording in one of the inspected fields that looks like subgroup reporting. It is labelled “signal awaiting review” until a person has reviewed it, and only a signal a person accepted gives “Explicit subgroup results detected”.</p>
+            <p>Results are never inferred for a subgroup from a trial's overall result and baseline proportions. A trial that reports its participants by race at baseline and one overall estimate says nothing here about the estimate within any group.</p>
+            <p>Outcome switching is not assessed. The current registry record does not show how the registered outcomes changed over time.</p>
+            <p>Posted documents and publications: not reviewed. Protocols, statistical analysis plans, study reports and journal articles are not read, so a subgroup result reported only there is not found.</p>`;
+
+    function structureMethodsHTML(structure) {
+        if (!structure || !structure.ok) {
+            return `
+        <details class="oc-methods oc-structure-methods"><summary>Methods and limitations: subgroup reporting</summary>${STRUCTURE_METHOD_TEXT}
+            <p>The lists of fields inspected and not inspected are published with the data, which is not available here.</p>
+        </details>`;
+        }
+        const { run } = structure;
+        const acq = run.acquisition || {};
+        const reg = run.registry || {};
+        const list = items => '<ul class="oc-field-list">' + items.map(f => `<li><code>${esc(f)}</code></li>`).join('') + '</ul>';
+        const short = s => (s ? `${String(s).slice(0, 12)}…` : 'not recorded');
+        return `
+        <details class="oc-methods oc-structure-methods"><summary>Methods and limitations: subgroup reporting</summary>${STRUCTURE_METHOD_TEXT}
+            <h5>Fields inspected</h5>
+            <p>For every posted outcome measure, of every type:</p>
+            ${list(run.fields_inspected)}
+            <h5>Fields not inspected</h5>
+            ${list(run.fields_not_inspected)}
+            <h5>Usable content and comparisons</h5>
+            <p>“Usable” means a table can be read: the values and participant counts a rule needs are posted as numbers. It does not mean the content is correct or complete. Two or more groups on a primary measure is the structure of the record; the groups are not necessarily randomised arms. Participant flow counts are for the first period only.</p>
+            <h5>This build</h5>
+            <dl class="oc-prov-dl">
+                <dt>Run</dt><dd><code>${esc(run.run_id)}</code>, generated ${esc(fmtDate(run.generated_at))}${run.producer ? ` by ${esc(run.producer.repository)} <code>${esc(short(run.producer.commit))}</code>` : ''}</dd>
+                <dt>Method</dt><dd>Version ${esc(run.method.version)}; subgroup rule ${esc(run.method.subgroup_rule || 'not recorded')}</dd>
+                <dt>Registry data</dt><dd>${esc(acq.source || '')}, retrieved ${esc(fmtDate(acq.retrieved_at))}${reg.api_version ? `, API version ${esc(reg.api_version)}` : ''}${reg.data_timestamp ? `, registry data of ${esc(fmtDate(reg.data_timestamp))}` : ''}; sha256 <code>${esc(short(acq.sha256_uncompressed))}</code></dd>
+                <dt>Human reviews</dt><dd>${isObj(run.reviews) && isInt(run.reviews.n_rows) ? `${run.reviews.n_rows.toLocaleString()} review record${run.reviews.n_rows === 1 ? '' : 's'} in the review file` : 'not recorded'}</dd>
+            </dl>
+        </details>`;
+    }
+
+    // The summary block. Every number is read from summary.json with the denominator it names.
+    function structureSummaryHTML(structure) {
+        const head = '<h4 id="oc-structure-h">Posted results structure and subgroup reporting';
+        if (!structure || !structure.ok) {
+            return `
+        <section class="oc-block oc-structure" aria-labelledby="oc-structure-h">
+            ${head}</h4>
+            <p class="oc-note"><strong>Not yet processed.</strong> The results-structure data cannot be shown${structure && structure.reason ? ` (${esc(structure.reason)})` : ''}. Every trial below reads “${SUBGROUP_LABELS[NOT_YET_PROCESSED]}” for subgroup results. That is not a finding that no subgroup result was posted.</p>
+            ${structureMethodsHTML(structure)}
+        </section>`;
+        }
+        const { summary } = structure;
+        const den = summary.denominators;
+        // The scope rows as published: fetched, covered, left out (with the reason when any are).
+        const scopeRows = summary.scope.rows.map(r =>
+            `<dt>${esc(r.label)}</dt><dd><strong>${r.n.toLocaleString()}</strong>${r.id === 'excluded' && r.n > 0 ? ` <span class="oc-sub">Reason: ${esc(r.reason)}.</span>` : ''} <span class="oc-sub">${esc(r.definition || '')}</span></dd>`).join('');
+        const metricRow = m => `<tr><th scope="row">${esc(m.label)}</th><td class="num">${count(m.numerator, den[m.denominator].n)}</td><td>${esc(den[m.denominator].definition)} <span class="oc-sub">${esc(m.definition)}</span></td></tr>`;
+        const states = summary.subgroup_states;
+        const stateRows = SUBGROUP_STATES.map(s =>
+            `<tr><th scope="row">${esc(SUBGROUP_LABELS[s])}</th>${RS_DIMENSIONS.map(d => `<td class="num">${states.by_dimension[d][s].toLocaleString()}</td>`).join('')}</tr>`).join('');
+        const tables = summary.tables;
+        const tableCount = t => (isInt(t.n) && isObj(den[t.denominator]) ? count(t.n, den[t.denominator].n) : '<span class="oc-absent">count not published</span>');
+        const findingRow = r => `<tr><th scope="row">${esc(r.label)}</th><td class="num">${isObj(den[r.denominator]) && isInt(r.n) ? count(r.n, den[r.denominator].n) : '<span class="oc-absent">count not published</span>'}</td><td>${isObj(den[r.denominator]) ? esc(den[r.denominator].definition) : ''} <span class="oc-sub">${esc(r.scope ? `Scope: ${r.scope} ` : '')}${esc(r.definition || '')}</span></td></tr>`;
+        const sig = summary.signals || {};
+        const signalLine = isInt(sig.n_signals) && isInt(sig.n_trials_with_a_signal) && isObj(den[sig.denominator])
+            ? `<p class="oc-note">The current method found <strong>${sig.n_signals.toLocaleString()}</strong> signals, in ${count(sig.n_trials_with_a_signal, den[sig.denominator].n)} trials with posted results. ${isInt(sig.n_reviewed) ? `${sig.n_reviewed.toLocaleString()} of the signals have a review record; the rest are signals awaiting review.` : ''}</p>` : '';
+        const table = (caption, rows) => `
+            <div class="oc-table-scroll" tabindex="0" role="region" aria-label="${esc(caption)}">
+                <table class="oc-table oc-structure-table"><caption>${esc(caption)}</caption>
+                <thead><tr><th scope="col">Count</th><th scope="col" class="num">Trials</th><th scope="col">Out of, and definition</th></tr></thead>
+                <tbody>${rows}</tbody></table>
+            </div>`;
+        return `
+        <section class="oc-block oc-structure" aria-labelledby="oc-structure-h">
+            ${head} <span class="oc-h-sub">${den.requested.n.toLocaleString()} trials</span></h4>
+            <p class="oc-note">What the posted results section of each trial contains, and where its wording looks like subgroup reporting. Every count below is over the trials in this build, and each count names its own denominator.</p>
+            <dl class="oc-grid oc-structure-scope">${scopeRows}</dl>
+            ${table('Posted results: content that can be read', summary.metrics.map(metricRow).join(''))}
+            <h5 class="oc-sub-h">Subgroup results, by dimension <span class="oc-h-sub">each of the ${den[states.denominator].n.toLocaleString()} trials is in exactly one state per dimension</span></h5>
+            <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Subgroup result states by dimension">
+                <table class="oc-table oc-structure-states"><thead><tr><th scope="col">State</th>${RS_DIMENSIONS.map(d => `<th scope="col" class="num">${RS_DIMENSION_LABELS[d]}</th>`).join('')}</tr></thead>
+                <tbody>${stateRows}</tbody></table>
+            </div>
+            ${signalLine}
+            <p class="oc-note oc-doc-review">Posted documents and publications: not reviewed, for every trial. “No explicit subgroup results detected in reviewed structured fields” describes those fields only.</p>
+            <details class="oc-taxonomy"><summary>Failures, missing data and negative findings</summary>
+                <dl class="oc-grid">
+                    <dt>Retrieval failures</dt><dd>${tableCount(tables.retrieval_failures)} <span class="oc-sub">${esc(tables.retrieval_failures.definition || '')}</span></dd>
+                    <dt>Parsing failures</dt><dd>${tableCount(tables.parsing_failures)} <span class="oc-sub">${esc(tables.parsing_failures.definition || '')}</span></dd>
+                </dl>
+                ${table('Missing data: what the records do not contain', tables.missing_data.rows.map(findingRow).join(''))}
+                ${table('Negative findings: searches that found nothing, with their scope', tables.negative_findings.rows.map(findingRow).join(''))}
+            </details>
+            ${structureMethodsHTML(structure)}
+        </section>`;
+    }
+
+    function usableLine(m) {
+        if (m.usable === true) return 'Usable';
+        const why = String(m.reason || '').split('+').map(r => USABLE_REASONS[r] || r).join('; ');
+        return `${m.usable === false ? 'Not usable' : 'Not evaluated'}: ${why}`;
+    }
+
+    function signalHTML(s) {
+        const reviews = Array.isArray(s.review) ? s.review : [];
+        const tag = reviews.length
+            ? reviews.map(v => `<span class="oc-tag">reviewed by a person: ${esc(v.decision)} for ${esc((RS_DIMENSION_LABELS[v.dimension] || v.dimension || '').toLowerCase())}${v.reviewed_on ? `, ${esc(fmtDate(v.reviewed_on))}` : ''}</span>`).join(' ')
+            : '<span class="oc-tag oc-awaiting">signal awaiting review</span>';
+        const matched = (Array.isArray(s.matched_text) ? s.matched_text : []).map(t => `<q>${esc(t)}</q>`).join(' ');
+        return `<li class="oc-signal">${tag} <strong>${esc(RS_DIMENSION_LABELS[s.dimension] || s.dimension)}</strong>
+                    <dl class="oc-grid">
+                        <dt>Measure</dt><dd>${esc(s.measure_title)}${s.measure_type ? ` <span class="oc-sub">${esc(words(s.measure_type))}</span>` : ''}</dd>
+                        <dt>Field</dt><dd><code class="oc-loc">${esc(s.field_path)}</code></dd>
+                        <dt>Matched text</dt><dd>${matched || '<span class="oc-absent">not recorded</span>'}${s.matched_text_truncated ? ' <span class="oc-sub">(cut at 400 characters)</span>' : ''}</dd>
+                        ${s.context ? `<dt>In context</dt><dd><q>${esc(s.context)}</q></dd>` : ''}
+                    </dl></li>`;
+    }
+
+    // The trial's three statuses, kept apart, then its signals and its usable-content flags.
+    // resultsHTML is the Results line the evidence record already shows (the outcomes family's).
+    function structureDetailHTML(rec, structure, resultsHTML) {
+        const s = structureRecord(structure, rec.nct_id);
+        const states = subgroupStates(structure, rec.nct_id);
+        const link = rec.demographics_link;
+        const reported = v => (v ? 'Reported' : 'Not reported');
+        // Demographics: exactly what the demographics link carries (sex, race, ethnicity). It has
+        // no age field, so no age line is shown.
+        const demographics = link
+            ? (link.in_dataset
+                ? `<ul class="oc-sg-list"><li><span class="oc-sg-dim">Sex</span> ${reported(link.sex_reported)}</li><li><span class="oc-sg-dim">Race</span> ${reported(link.race_reported)}</li><li><span class="oc-sg-dim">Ethnicity</span> ${reported(link.ethnicity_reported)}</li></ul><div class="oc-sub">Baseline reporting, from the participant-demographics dataset.</div>`
+                : 'Not in the participant-demographics dataset.')
+            : '<span class="oc-absent">Link to the participant-demographics dataset not computed for this build.</span>';
+        const subgroup = '<ul class="oc-sg-list">' + RS_DIMENSIONS.map(d =>
+            `<li><span class="oc-sg-dim">${RS_DIMENSION_LABELS[d]}</span> <span class="oc-sg oc-sg-${esc(states[d])}">${esc(subgroupLabel(states[d]))}</span></li>`).join('') + '</ul>';
+        const docReview = s && s.document_and_publication_review && s.document_and_publication_review !== 'not_reviewed'
+            ? words(s.document_and_publication_review) : 'not reviewed';
+        let signals;
+        let usable = '';
+        if (!s) {
+            signals = `<p class="oc-note">This trial is not in the results-structure data${structure && !structure.ok && structure.reason ? ` (${esc(structure.reason)})` : ''}, so its posted results have not been read by the current method. That is not a finding that no subgroup result was posted.</p>`;
+        } else if (s.results_status === 'no_posted_results') {
+            signals = '<p class="oc-note">The registry holds no posted results for this trial, so there is nothing for the method to read.</p>';
+        } else if (s.results_status === 'not_retrieved') {
+            signals = `<p class="oc-note">The registry record was not retrieved (${esc((s.retrieval || {}).reason || 'reason not recorded')}), so its posted results have not been read.</p>`;
+        } else {
+            const failures = ((s.parse || {}).failures || []).map(f => `<li><strong>${esc(words(f.section))}</strong>: ${esc(f.reason)}</li>`).join('');
+            const list = Array.isArray(s.subgroup.signals) ? s.subgroup.signals : null;
+            signals = (failures ? `<p class="oc-note"><strong>Processing failed</strong> for part of this record:</p><ul class="oc-list">${failures}</ul>` : '') +
+                (list === null ? '<p class="oc-note">The outcome measures could not be read, so the subgroup rule was not applied.</p>'
+                    : list.length
+                        ? `<details class="oc-signals" open><summary>${isInt(s.subgroup.n_signals) ? `${s.subgroup.n_signals.toLocaleString()} ` : ''}signal${s.subgroup.n_signals === 1 ? '' : 's'} found by the current method</summary><ul class="oc-signal-list">${list.map(signalHTML).join('')}</ul></details>`
+                        : '<p class="oc-note">The current method found no signal in the fields it inspects. Posted documents and publications were not read.</p>');
+            if (isObj(s.modules)) {
+                usable = `
+                <h6 class="oc-sub-h">Posted results: content that can be read</h6>
+                <dl class="oc-grid">${MODULE_LABELS.filter(([k]) => isObj(s.modules[k])).map(([k, label]) =>
+                    `<dt>${label} <span class="oc-sub">rule ${esc(s.modules[k].rule)}</span></dt><dd>${esc(usableLine(s.modules[k]))}${s.modules[k].present ? '' : ' <span class="oc-sub">(module not posted)</span>'}</dd>`).join('')}
+                </dl>
+                <p class="oc-note">“Usable” means the table can be read as numbers; it does not mean the content is correct or complete.</p>`;
+            }
+        }
+        return `
+            <section class="oc-layer-block oc-structure-detail"><h5>Posted results structure and subgroup reporting</h5>
+                <dl class="oc-grid">
+                    <dt>Results</dt><dd>${resultsHTML}</dd>
+                    <dt>Demographics</dt><dd>${demographics}</dd>
+                    <dt>Subgroup results</dt><dd>${subgroup}</dd>
+                </dl>
+                <p class="oc-note oc-doc-review">Posted documents and publications: ${esc(docReview)}</p>
+                ${signals}${usable}
+            </section>`;
     }
 
     // ---------------------------------------------------------------- the live view
@@ -523,6 +881,8 @@
 
     async function load(fetchJSON) {
         const get = async (path, reload) => fetchJSON(BASE + path, reload);
+        // Started alongside the outcomes files; it never rejects (a missing family is a value).
+        const structure = loadStructure(fetchJSON);
         const run = await get('run.json');
         let [summary, index] = await Promise.all([get('summary.json'), get('index.json')]);
         if (summary.run_id !== run.run_id || index.run_id !== run.run_id) {
@@ -531,7 +891,7 @@
         }
         const problem = dataProblem(run, summary, index);
         if (problem) throw new Error(problem);
-        return { run, summary, index, get };
+        return { run, summary, index, get, structure: await structure };
     }
 
     function currentRows() {
@@ -554,10 +914,11 @@
             ${headHTML(run)}
             ${availabilityHTML(summary)}
             ${reviewHTML(run, summary, machineShown)}
+            ${structureSummaryHTML(state.data.structure)}
             <section class="oc-block oc-browser" aria-labelledby="oc-browser-h">
                 <h4 id="oc-browser-h">Trials <span class="oc-h-sub">search and filter the ${index.rows.length.toLocaleString()} eligible trials; open one to read its evidence in place</span></h4>
                 ${filtersHTML(index.rows, state.filters)}
-                <div class="oc-list-wrap">${listHTML(currentRows(), run, state.shown)}</div>
+                <div class="oc-list-wrap">${listHTML(currentRows(), run, state.shown, state.data.structure)}</div>
             </section>
             ${methodsHTML(run, summary)}
             <p class="chart-footnote">Run ${esc(run.run_id)}. A fixed registry pull, retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))} and not refreshed weekly; method ${esc((run.method || {}).version || 'not supplied')}; sponsor names by the curated rules where reviewed, otherwise as registered.</p>`;
@@ -567,7 +928,7 @@
     // Re-draw the list after a filter or "show more", keeping an open record open (without moving
     // focus) when its trial is still listed.
     function rerenderList(el) {
-        el.querySelector('.oc-list-wrap').innerHTML = listHTML(currentRows(), state.data.run, state.shown);
+        el.querySelector('.oc-list-wrap').innerHTML = listHTML(currentRows(), state.data.run, state.shown, state.data.structure);
         wireList(el);
         const nct = state.openNct;
         const opener = nct && [...el.querySelectorAll('.oc-open')].find(b => b.dataset.nct === nct);
@@ -634,7 +995,7 @@
             const rec = shard.records[nct];
             if (!rec) throw new Error(`${nct} is not in ${row.record}`);
             const host = (root.location && root.location.hostname) || '';
-            html = recordHTML(rec, run, showsMachine(run, host));
+            html = recordHTML(rec, run, showsMachine(run, host), data.structure);
         } catch (e) {
             html = `<div class="oc-detail-head"><p class="oc-note">Could not load the evidence record (${esc(e.message)}).</p><button type="button" class="oc-close">Close</button></div>`;
         }
@@ -682,5 +1043,7 @@
         open, openRecord, dataProblem, shardProblem, filterRows, visibleRows, showsMachine, resultsLabel, fmtDate,
         overviewHTML, availabilityHTML, reviewHTML, headHTML, methodsHTML, filtersHTML, listHTML, recordHTML,
         TRIAL_STATES, STATE_LABELS, REASONS,
+        structureProblem, loadStructure, subgroupStates, subgroupCell, structureSummaryHTML, structureMethodsHTML,
+        structureDetailHTML, SUBGROUP_LABELS, SUBGROUP_STATES, RS_DIMENSIONS,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

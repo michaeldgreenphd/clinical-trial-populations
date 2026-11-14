@@ -5812,11 +5812,12 @@ footer p {
 .oc-count { font-size: var(--fs-small); color: var(--text-secondary); margin: 0 0 0.4rem; font-variant-numeric: tabular-nums; }
 .oc-table-wrap { overflow-x: auto; max-width: 100%; }
 .oc-trials { font-size: var(--fs-body); }
-.oc-trials > tbody > tr > td:nth-child(1) { width: 34%; }
-.oc-trials > tbody > tr > td:nth-child(2) { width: 14%; }
-.oc-trials > tbody > tr > td:nth-child(3) { width: 24%; }
-.oc-trials > tbody > tr > td:nth-child(4) { width: 14%; font-size: var(--fs-small); }
+.oc-trials > tbody > tr > td:nth-child(1) { width: 30%; }
+.oc-trials > tbody > tr > td:nth-child(2) { width: 12%; }
+.oc-trials > tbody > tr > td:nth-child(3) { width: 20%; }
+.oc-trials > tbody > tr > td:nth-child(4) { width: 12%; font-size: var(--fs-small); }
 .oc-trials > tbody > tr > td:nth-child(5) { width: 14%; font-size: var(--fs-small); }
+.oc-trials > tbody > tr > td:nth-child(6) { width: 12%; font-size: var(--fs-small); }
 .oc-trials > tbody > tr:not(.oc-detail-row):hover { background: var(--tint); }
 .oc-open { font: inherit; font-family: var(--font-mono); font-size: var(--fs-small); background: none; border: none; padding: 0; color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .oc-open-hint { margin-left: 0.5rem; font-family: var(--font-sans); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; display: inline-block; color: var(--text-secondary); }
@@ -5855,6 +5856,25 @@ footer p {
 .oc-prov-dl { display: grid; grid-template-columns: 8rem 1fr; gap: 0.25rem 1rem; font-size: var(--fs-small); margin: 0; }
 .oc-prov-dl dt { color: var(--text-secondary); }
 .oc-prov-dl dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+
+/* Posted results structure and subgroup reporting (data/results_structure/). Every state is a
+   written label; weight and style only repeat what the words say. */
+.oc-sg-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.2rem; }
+.oc-sg-dim { display: inline-block; min-width: 4.4rem; color: var(--text-secondary); font-weight: 600; }
+.oc-sg-explicit_subgroup_results_detected { font-weight: 600; }
+.oc-sg-not_yet_processed, .oc-sg-not_applicable_no_posted_results { color: var(--c-absent-ink); font-style: italic; }
+.oc-structure-table, .oc-structure-states { max-width: 60rem; }
+.oc-structure-scope { grid-template-columns: 16rem 1fr; max-width: 60rem; }
+.oc-structure-table caption { caption-side: top; text-align: left; font-weight: 600; font-size: var(--fs-small); padding: 0.75rem 0 0.25rem; color: var(--oc-ink); }
+.oc-structure-table th[scope="row"], .oc-structure-states th[scope="row"] { font-weight: 500; }
+.oc-structure-table td:last-child { color: var(--text-secondary); min-width: 14rem; }
+.oc-doc-review { font-weight: 600; color: var(--oc-ink); }
+.oc-field-list { font-size: var(--fs-small); color: var(--text-secondary); max-width: var(--oc-measure); padding-left: 1.1rem; overflow-wrap: anywhere; }
+.oc-signals > summary { cursor: pointer; font-weight: 600; font-size: var(--fs-small); margin: 0.5rem 0 0.25rem; }
+.oc-signal-list { list-style: none; margin: 0; padding: 0; }
+.oc-signal { border-top: 1px dotted var(--oc-rule); padding: 0.5rem 0 0.25rem; font-size: var(--fs-small); }
+.oc-awaiting { border-style: dashed; color: var(--oc-ink); }
+.oc-structure-detail h6 { margin: 0.9rem 0 0.3rem; font-size: var(--fs-small); }
 
 @media (max-width: 720px) {
     .oc-meter-row { grid-template-columns: 1fr auto; }
