@@ -240,6 +240,20 @@ test('the trials column counts the trials behind the figure shown', () => {
     new RegExp(`<td class="cb-num">— <span class="cb-interval">of ${a.n_trials}</span></td>`));
 });
 
+test('the direction column is not shown beside the known-category figure', () => {
+  const rows = C.areaRows(fx('areas.race.json'), 'cbsa', 'with_referral_zips', '');
+  const a = rows.shown.find((r) => r.categories.some((c) => c.of_classified && c.unknown_bounds));
+  const cat = a.categories.find((c) => c.of_classified && c.unknown_bounds);
+  assert.equal(typeof C.cell(a, cat.category, 'all').settled, 'boolean');
+  assert.equal(C.cell(a, cat.category, 'classified').settled, undefined);
+  const only = { shown: [a], withheld: [] };
+  const all = C.tableHTML(only, state({ category: cat.category }), fx('run.json'));
+  const known = C.tableHTML(only, state({ category: cat.category, denominator: 'classified' }), fx('run.json'));
+  assert.match(all, /Settled|Open: unknowns could reverse it/);
+  assert.match(known, /Assessed for all participants only/);
+  assert.doesNotMatch(known, /<td>Settled<\/td>|Open: unknowns could reverse it/);
+});
+
 const published = existsSync(at('data/census/run.json'));
 test('the published family is one build whose files match its manifest', { skip: !published && 'data/census/ is not published' }, () => {
   const run = JSON.parse(read('data/census/run.json')), summary = JSON.parse(read('data/census/summary.json'));

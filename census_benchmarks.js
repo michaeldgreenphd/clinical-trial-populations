@@ -101,8 +101,11 @@
             trials: b ? b.n_trials : area.n_trials,
             observed: b ? b.observed_pct : c.observed_pct, diff: b ? b.diff_pp : c.diff_pp,
             lo: b ? null : c.lo_pp, hi: b ? null : c.hi_pp, ratio: b ? b.ratio : c.ratio,
-            settled: c.unknown_bounds ? c.unknown_bounds.direction_settled : null,
-            ceiling: c.unknown_bounds ? c.unknown_bounds.diff_pp_if_every_unknown_is_in_category : null,
+            // Whether unknown participants could reverse the direction is published for the
+            // all-participants figure only. Beside the known-category figure, which can have
+            // the other sign, it would describe a different number, so it is left out.
+            settled: b ? undefined : (c.unknown_bounds ? c.unknown_bounds.direction_settled : null),
+            ceiling: b ? undefined : (c.unknown_bounds ? c.unknown_bounds.diff_pp_if_every_unknown_is_in_category : null),
         };
     }
 
@@ -167,7 +170,8 @@
                 <td class="cb-num">${c.unavailable ? '—' : pct(c.observed)}</td>
                 <td class="cb-num cb-diff">${c.unavailable ? '—' : pts(c.diff)}${interval}</td>
                 <td class="cb-num">${pct(a.denominators && a.denominators.unknown_or_unmapped_pct_mean)}</td>
-                <td>${c.settled === false ? '<span class="cb-flag">Open: unknowns could reverse it</span>' : c.settled ? 'Settled' : '—'}</td>
+                <td>${state.denominator === 'classified' ? '<span class="cb-interval">Assessed for all participants only</span>'
+                    : c.settled === false ? '<span class="cb-flag">Open: unknowns could reverse it</span>' : c.settled ? 'Settled' : '—'}</td>
             </tr>${open ? `<tr class="cb-detail-row"><td colspan="7" id="cb-detail-${esc(a.geoid)}" tabindex="-1">${detailHTML(a, state, run)}</td></tr>` : ''}`;
         }).join('');
         const withheld = rows.withheld.length ? `
