@@ -969,18 +969,27 @@
    },
    "benchmark_unavailable_reasons": {
     "cbsa": {
+     "eligible_ages_unreadable": 1,
      "no_zcta_polygon_and_no_coordinates": 4,
      "outside_any_metro_or_micro_area": 26,
      "resolved_place_is_outside_the_registered_state": 35
     },
     "county": {
+     "eligible_ages_unreadable": 1,
      "no_zcta_polygon_and_no_coordinates": 4,
      "resolved_place_is_outside_the_registered_state": 35
     },
-    "region": {},
-    "state": {},
-    "us": {},
+    "region": {
+     "eligible_ages_unreadable": 1
+    },
+    "state": {
+     "eligible_ages_unreadable": 1
+    },
+    "us": {
+     "eligible_ages_unreadable": 1
+    },
     "zcta": {
+     "eligible_ages_unreadable": 1,
      "no_eligible_residents_estimated": 1297,
      "no_zip_in_registration": 104,
      "resolved_place_is_outside_the_registered_state": 35,
@@ -1026,6 +1035,7 @@
    "benchmark_unavailable_reasons": {
     "cbsa": {
      "area_not_in_this_window_file": 1,
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "no_zcta_polygon_and_no_coordinates": 16,
      "outside_any_metro_or_micro_area": 33,
@@ -1033,24 +1043,29 @@
      "single_sex_by_eligibility": 3827
     },
     "county": {
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "no_zcta_polygon_and_no_coordinates": 16,
      "resolved_place_is_outside_the_registered_state": 42,
      "single_sex_by_eligibility": 3829
     },
     "region": {
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "state": {
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "us": {
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "zcta": {
+     "eligible_ages_unreadable": 1,
      "no_benchmark_window": 3,
      "no_eligible_residents_estimated": 1662,
      "no_zip_in_registration": 246,
@@ -1184,7 +1199,7 @@
    "zip_has_no_zcta_in_this_window": 3741
   }
  },
- "run_id": "census-data-2026-11-08-4d541b6ec0",
+ "run_id": "census-data-2026-11-08-14e0bf1bf3-358e4e2f",
  "schema_version": 1,
  "site_count_tiers": {
   "conflicting_text": 42,
