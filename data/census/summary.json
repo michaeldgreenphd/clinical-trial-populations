@@ -954,7 +954,7 @@
     "table_rows_not_one_classification": 123,
     "under_min_participants": 1752
    },
-   "not_reported": 17407,
+   "not_reported": 17410,
    "pooled": 11361,
    "reported": 13351
   },
@@ -1010,7 +1010,7 @@
     "table_rows_not_one_classification": 173,
     "under_min_participants": 2569
    },
-   "not_reported": 12076,
+   "not_reported": 12079,
    "pooled": 15775,
    "reported": 18682
   },
@@ -1026,26 +1026,32 @@
    "benchmark_unavailable_reasons": {
     "cbsa": {
      "area_not_in_this_window_file": 1,
+     "no_benchmark_window": 3,
      "no_zcta_polygon_and_no_coordinates": 16,
      "outside_any_metro_or_micro_area": 33,
      "resolved_place_is_outside_the_registered_state": 42,
      "single_sex_by_eligibility": 3827
     },
     "county": {
+     "no_benchmark_window": 3,
      "no_zcta_polygon_and_no_coordinates": 16,
      "resolved_place_is_outside_the_registered_state": 42,
      "single_sex_by_eligibility": 3829
     },
     "region": {
+     "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "state": {
+     "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "us": {
+     "no_benchmark_window": 3,
      "single_sex_by_eligibility": 3844
     },
     "zcta": {
+     "no_benchmark_window": 3,
      "no_eligible_residents_estimated": 1662,
      "no_zip_in_registration": 246,
      "resolved_place_is_outside_the_registered_state": 42,
@@ -1056,23 +1062,24 @@
    },
    "category_cautions": {},
    "category_structure": {
-    "no_other_table_to_check_against": 29772
+    "no_other_table_to_check_against": 29775
    },
-   "classified_share_computed": 29696,
+   "classified_share_computed": 29699,
    "geography_sensitivity": {
     "False": 24755,
-    "None": 3888,
+    "None": 3891,
     "True": 1129
    },
    "not_pooled_reasons": {
     "eligible_ages_unreadable": 1,
+    "no_benchmark_window": 3,
     "over_size_cap": 222,
     "single_sex_by_eligibility": 3844,
     "under_min_participants": 3623
    },
    "not_reported": 986,
    "pooled": 22082,
-   "reported": 29772
+   "reported": 29775
   }
  },
  "enrolment_period_basis": {
@@ -1177,7 +1184,7 @@
    "zip_has_no_zcta_in_this_window": 3741
   }
  },
- "run_id": "census-data-2026-11-08-7b9307e16f",
+ "run_id": "census-data-2026-11-08-4d541b6ec0",
  "schema_version": 1,
  "site_count_tiers": {
   "conflicting_text": 42,
