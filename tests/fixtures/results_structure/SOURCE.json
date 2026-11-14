@@ -1,0 +1,7 @@
+{
+  "about": "Fictional results-structure artifact family copied from civicsample-engine tests/fixtures/results_structure/ (written by scripts/build_results_structure_fixture.py there from the fictional records in tests/outcomes/rs_fixture.py). Every trial, count and review row is invented; no real person reviewed anything in it. Recopy after an engine rule or contract change.",
+  "engine_commit": "e6731363aeaa92578f6010fa3cbbc08718c2d381",
+  "engine_branch": "claude/results-structure",
+  "schema_version": 1,
+  "method_version": "results-structure-1"
+}
