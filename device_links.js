@@ -809,6 +809,45 @@
 
     // ---------------------------------------------------------------- drafts, notes, methods
 
+    // The entry a draft was saved on, if this build still lists it: { unit, id, query } for the
+    // "show this entry" button (the query is what the list's search matches: a family is found
+    // by its first member's number), or null.
+    function entryOf(about, data) {
+        if (!about || !data || !about.entry) return null;
+        if (about.level === 'family') {
+            const fam = ((data.families || {}).families || {})[about.entry];
+            return fam && fam.submission_numbers.length ? { unit: 'families', id: about.entry, query: fam.submission_numbers[0], name: fam.family_name } : null;
+        }
+        const listed = ((data.submissions || {}).submissions || []).some(s => s.submission_number === about.entry);
+        return listed ? { unit: 'submissions', id: about.entry, query: about.entry, name: about.entry } : null;
+    }
+
+    // Drafts saved while an earlier build was shown. They are never exported (the evidence may
+    // have changed), so each is listed with everything it records: its link id, decision and
+    // note, and, for a draft saved since drafts carry it, the evidence it was a decision on. A
+    // record whose evidence changed has a new link id in a later build, so its draft cannot be
+    // reached from the record; this list is where it stays visible until the reader removes it.
+    function earlierDraftsHTML(ids, all, data) {
+        if (!ids.length) return '';
+        const items = ids.map(id => {
+            const d = all[id], a = d.about || null, entry = entryOf(a, data);
+            const decision = `${esc(label(REVIEW_LABELS, d.human_review))}${d.reviewed_relationship ? ' · ' + esc(label(RELATIONSHIP_LABELS, d.reviewed_relationship)) : ''} · dated ${esc(d.reviewed_on)}. Note: ${esc(d.note)}`;
+            const on = a
+                ? `On ${a.level === 'family' ? 'family' : 'submission'} ${esc(entry ? entry.name : a.entry)} and study ${esc(a.study)}, ${esc(METHOD_LABELS[a.method] || a.method)}. Quoted: “${esc(a.quote)}”.${entry ? '' : ' That entry is not in this build.'}`
+                : 'Saved before drafts recorded the evidence they were on; the link id is all that names it.';
+            return `<li class="dl-earlier-item"><p><code>${esc(id)}</code>${d.run_id ? `, saved against build <code>${esc(d.run_id)}</code>` : ''}: ${decision}</p>
+                    <p class="note">${on}</p>
+                    <div class="dl-review-actions">${entry ? `<button type="button" class="dl-btn" data-dl-goto="${esc(entry.unit + '|' + entry.id)}">Show this entry</button>` : ''}
+                        <button type="button" class="dl-btn" data-dl-remove-earlier="${esc(id)}">Remove this draft</button></div></li>`;
+        }).join('');
+        return `
+                <div class="dl-earlier">
+                    <h5 id="dl-earlier-h" tabindex="-1">${num(ids.length)} ${ids.length === 1 ? 'draft was' : 'drafts were'} saved against an earlier build</h5>
+                    <p class="note">These are not exported: the evidence each decided on may have changed. Where the record is in this build under the same link id, opening its entry shows the draft, and saving it again exports it against this build. Where the evidence changed, the record has a new link id and needs a new review; the decision and note below are kept until you remove them.</p>
+                    <ul class="dl-earlier-list">${items}</ul>
+                </div>`;
+    }
+
     function draftsHTML(state, run, drafts) {
         const all = drafts.all();
         const ids = Object.keys(all);
@@ -819,7 +858,7 @@
         const exported = state.exportOpen ? `
                 <div class="dl-export">
                     <p class="note"><strong>${esc(EXPORT_SENTENCE)}</strong></p>
-                    <p class="note">${num(csv.n_rows)} ${csv.n_rows === 1 ? 'row' : 'rows'}, in the column order of ${REVIEW_FILE}. The first line is that file's header; leave it out when adding to a file that already has it.${csv.skipped.length ? ` ${num(csv.skipped.length)} incomplete ${csv.skipped.length === 1 ? 'draft is' : 'drafts are'} left out.` : ''}${csv.earlier_build.length ? ` ${num(csv.earlier_build.length)} ${csv.earlier_build.length === 1 ? 'draft was' : 'drafts were'} saved against an earlier build and ${csv.earlier_build.length === 1 ? 'is' : 'are'} left out: open the record and save the draft again to export it against this build.` : ''}</p>
+                    <p class="note">${num(csv.n_rows)} ${csv.n_rows === 1 ? 'row' : 'rows'}, in the column order of ${REVIEW_FILE}. The first line is that file's header; leave it out when adding to a file that already has it.${csv.skipped.length ? ` ${num(csv.skipped.length)} incomplete ${csv.skipped.length === 1 ? 'draft is' : 'drafts are'} left out.` : ''}${csv.earlier_build.length ? ` ${num(csv.earlier_build.length)} ${csv.earlier_build.length === 1 ? 'draft was' : 'drafts were'} saved against an earlier build and ${csv.earlier_build.length === 1 ? 'is' : 'are'} left out; ${csv.earlier_build.length === 1 ? 'it is' : 'they are'} listed above with what ${csv.earlier_build.length === 1 ? 'it records' : 'they record'}.` : ''}</p>
                     <label class="dl-control-label" for="dl-export-text">Review rows (CSV)</label>
                     <textarea id="dl-export-text" class="dl-export-text" rows="${Math.min(12, csv.n_rows + 2)}" readonly>${esc(csv.text)}</textarea>
                     <div class="dl-review-actions">
@@ -829,7 +868,7 @@
                     </div>
                 </div>` : '';
         const clear = state.confirmClear
-            ? `<span class="dl-confirm" role="group" aria-label="Clear drafts">Clear ${num(ids.length)} ${ids.length === 1 ? 'draft' : 'drafts'} from this browser?
+            ? `<span class="dl-confirm" role="group" aria-label="Clear drafts">Clear ${num(ids.length)} ${ids.length === 1 ? 'draft' : 'drafts'} from this browser${csv.earlier_build.length ? `, including ${num(csv.earlier_build.length)} saved against an earlier build` : ''}?
                     <button type="button" class="dl-btn" data-dl-clear-yes="1">Clear them</button>
                     <button type="button" class="dl-btn" data-dl-clear-no="1">Keep them</button></span>`
             : `<button type="button" class="dl-btn" data-dl-clear="1"${ids.length ? '' : ' disabled'}>Clear drafts</button>`;
@@ -841,6 +880,7 @@
                     <button type="button" class="dl-btn" data-dl-export="1" aria-expanded="${Boolean(state.exportOpen)}"${ids.length ? '' : ' disabled'}>Export review rows</button>
                     ${clear}
                 </div>
+                ${earlierDraftsHTML(csv.earlier_build, all, state.data)}
                 ${exported}
             </section>`;
     }
@@ -1080,6 +1120,12 @@
             const w = state.working[id] || store.get(id) || {};
             const draft = { human_review: w.human_review || '', reviewed_relationship: w.reviewed_relationship || '',
                             note: String(w.note || '').trim(), reviewed_on: today(), run_id: data.run.run_id };
+            // What the decision was on, kept with the draft so that it stays readable if a later
+            // build gives the record a new link id (any change in its evidence does).
+            const rec = [state.detail && state.detail.evidence, state.setAside && state.setAside.file]
+                .flatMap(f => (f && f.records) || []).find(r => r.link_id === id);
+            if (rec) draft.about = { level: rec.source.entity_type, entry: rec.source.id, study: (rec.target || {}).id || '',
+                                     method: rec.method, quote: (rec.evidence || {}).quote || '' };
             const problem = draftProblem(draft, data.run);
             if (problem) { state.messages[id] = problem; state.working[id] = w; draw(`[data-dl-save="${attr(id)}"]`); return; }
             store.set(id, draft);
@@ -1122,6 +1168,15 @@
             if (d.dlClose) { closeRow(); return; }
             if (d.dlSetaside) { showSetAside(); return; }
             if (d.dlSave) { saveDraft(d.dlSave); return; }
+            if (d.dlRemoveEarlier) { store.remove(d.dlRemoveEarlier); delete state.working[d.dlRemoveEarlier]; draw(store.all()[d.dlRemoveEarlier] ? null : '#dl-drafts-h'); return; }
+            if (d.dlGoto) {
+                // Clear the filters and search for the entry, so its row is on the first page.
+                const [unit, id] = String(d.dlGoto).split('|');
+                const entry = entryOf({ level: unit === 'families' ? 'family' : 'submission', entry: id }, data);
+                if (!entry) return;
+                state.unit = unit; state.coverage = ''; state.pathway = ''; state.query = entry.query; state.page = 0;
+                openRow(id); return;
+            }
             if (d.dlRemove) { store.remove(d.dlRemove); delete state.working[d.dlRemove]; state.messages[d.dlRemove] = 'Draft removed.'; draw(`[data-dl-save="${attr(d.dlRemove)}"]`); return; }
             if (d.dlExport) { state.exportOpen = !state.exportOpen; state.exportMessage = ''; draw(state.exportOpen ? '#dl-export-text' : '[data-dl-export]'); return; }
             if (d.dlCopy) {

@@ -6030,6 +6030,10 @@ footer p {
 .dl-published { margin: 0 0 0.4rem; }
 .dl-k { font-size: var(--fs-small); color: var(--text-secondary); margin-right: 0.5rem; }
 .dl-draft { margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; border: 1px dashed var(--dl-ink); border-radius: var(--radius-sm); background: var(--surface-sunk); }
+.dl-earlier { margin-top: 0.75rem; }
+.dl-earlier-list { list-style: none; margin: 0; padding: 0; }
+.dl-earlier-item { margin: 0 0 0.5rem; padding: 0.4rem 0.6rem; border: 1px dashed var(--dl-ink); border-radius: var(--radius-sm); background: var(--surface-sunk); overflow-wrap: anywhere; }
+.dl-earlier-item p { margin: 0 0 0.3rem; }
 .dl-review-form summary, .dl-methods summary { cursor: pointer; font-weight: 600; color: var(--primary-color); }
 .dl-review-form fieldset { border: 0; padding: 0; margin: 0.6rem 0; display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
 .dl-review-form legend { padding: 0; font-size: var(--fs-small); color: var(--text-secondary); }

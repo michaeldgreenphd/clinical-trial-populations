@@ -511,6 +511,54 @@ test('a draft review never changes the published status or any count, and is lab
   assert.equal(/<li class="dl-review-line">[^<]*<\/li>/.exec(el.innerHTML)[0], before.review);
 });
 
+test('a draft saved against an earlier build stays readable, with the evidence it was on, even when the record has a new link id', async () => {
+  const f = family(); const L = fresh(); const { el, click, focused } = pane();
+  const rec = f.evidence.records.find((r) => r.source.id === 'DEN990005');
+  const famId = Object.keys(f.families.families)[0]; const fam = f.families.families[famId];
+  const earlier = 'devices-2026-01-01-0000000000-00000000';
+  const kept = { [L.STORAGE_KEY]: JSON.stringify({
+    'link:00000000000000aa': draft({ run_id: earlier, note: 'Quote names the predicate.',
+      about: { level: 'submission', entry: 'DEN990005', study: rec.target.id, method: rec.method, quote: rec.evidence.quote } }),
+    'link:00000000000000bb': draft({ run_id: earlier, note: 'Saved before drafts recorded their evidence.' }),
+    'link:00000000000000cc': draft({ run_id: earlier, about: { level: 'family', entry: famId, study: 'NCT00000000', method: 'device_name_match', quote: 'A name' } }),
+  }) };
+  const storage = { getItem: (k) => (k in kept ? kept[k] : null), setItem: (k, v) => { kept[k] = v; }, removeItem: (k) => { delete kept[k]; } };
+  await L.open(el, { fetchJSON: serve(f), storage, today: () => '2026-11-14' });
+  let t = text(el.innerHTML);
+  assert.match(t, /3 drafts were saved against an earlier build/);
+  assert.match(t, new RegExp(`link:00000000000000aa , saved against build ${earlier} : Rejected · dated 2026-11-14\\. Note: Quote names the predicate\\.`));
+  assert.ok(t.includes(`On submission DEN990005 and study ${rec.target.id}, `), 'the entry and study it was on');
+  assert.ok(t.includes(`Quoted: “${rec.evidence.quote.replace(/\s+/g, ' ').trim()}”`), 'the quoted evidence it was on');
+  assert.match(t, /link:00000000000000bb .*Note: Saved before drafts recorded their evidence\. Saved before drafts recorded the evidence they were on; the link id is all that names it\./);
+  assert.ok(t.includes(`On family ${fam.family_name} and study NCT00000000`));
+  assert.equal((el.innerHTML.match(/data-dl-goto=/g) || []).length, 2, 'an entry still in this build can be shown');
+  // none is exported, and the export says where they are
+  click({ dlExport: '1' });
+  assert.match(text(el.innerHTML), /0 rows.*3 drafts were saved against an earlier build and are left out; they are listed above with what they record\./);
+  // clearing names them before discarding them
+  click({ dlClear: '1' }); assert.match(text(el.innerHTML), /Clear 3 drafts from this browser, including 3 saved against an earlier build\?/);
+  click({ dlClearNo: '1' });
+  // "Show this entry" clears the filters, finds the entry and opens it
+  click({ dlGoto: `families|${famId}` }); await tick(); await tick();
+  assert.match(el.innerHTML, /id="dl-detail"/);
+  assert.ok(el.innerHTML.includes(`id="dl-search" value="${fam.submission_numbers[0]}"`));
+  click({ dlGoto: 'submissions|DEN990005' }); await tick(); await tick();
+  assert.match(el.innerHTML, /id="dl-detail"/); assert.ok(el.innerHTML.includes('id="dl-search" value="DEN990005"'));
+  // one can be removed on its own
+  click({ dlRemoveEarlier: 'link:00000000000000bb' });
+  assert.equal(focused.at(-1), '#dl-drafts-h');
+  assert.deepEqual(Object.keys(JSON.parse(kept[L.STORAGE_KEY])).sort(), ['link:00000000000000aa', 'link:00000000000000cc']);
+  assert.match(text(el.innerHTML), /2 drafts were saved against an earlier build/);
+  // a draft saved now carries the evidence it is on
+  el.onchange({ target: { dataset: { dlDecision: rec.link_id }, value: 'rejected', checked: true } });
+  el.oninput({ target: { dataset: { dlNote: rec.link_id }, value: 'About a predicate.' } });
+  click({ dlSave: rec.link_id });
+  assert.deepEqual(JSON.parse(kept[L.STORAGE_KEY])[rec.link_id].about,
+    { level: 'submission', entry: 'DEN990005', study: rec.target.id, method: rec.method, quote: rec.evidence.quote });
+  t = text(el.innerHTML);
+  assert.match(t, /2 drafts were saved against an earlier build/, 'a draft for this build is not listed with them');
+});
+
 // ---------------------------------------------------------------- loading and focus
 
 test('the manifest is read past the cache, and a file from an earlier build is read once more', async () => {
