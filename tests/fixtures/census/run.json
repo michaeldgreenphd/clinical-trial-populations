@@ -1,0 +1,35 @@
+{
+ "schema_version": 1,
+ "run_id": "census-data-2099-01-01-fixture0000",
+ "manual_run": true,
+ "site_basis": "one_listed_facility",
+ "method_version": "census-benchmarks-1",
+ "generated_at": "2099-01-02T00:00:00+00:00",
+ "producer": {
+  "repository": "civicsample-engine",
+  "commit": "0000000000000000",
+  "uncommitted_changes": false
+ },
+ "source_release": {
+  "tag": "data-2099-01-01"
+ },
+ "windows": [
+  "2015-2019",
+  "2020-2024"
+ ],
+ "product": "ACS 5-year estimates (90% margins of error)",
+ "default_level": {
+  "level": "cbsa",
+  "label": "Metropolitan or micropolitan statistical area",
+  "reason": "fixture"
+ },
+ "limitations": [
+  "A fictional limitation for the fixture."
+ ],
+ "registry_retrieved_at": "2099-01-01T00:00:00+00:00",
+ "parameters": {
+  "floor_trials_per_area": 50,
+  "geography_spread_flag_pp": 10.0
+ },
+ "margin_of_error_level": 0.9
+}

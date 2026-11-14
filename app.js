@@ -13561,11 +13561,35 @@ async function loadIndustryView() {
     renderIndustry();
 }
 
+// The Geography tab's two panes: the pinned registry-geography run (the rows already in the
+// tab) and site-area population benchmarks (census_benchmarks.js, a separate artifact family
+// under data/census/ with its own build and sources). The registry pane's rows are hidden by a
+// class on the section, so its markup and the geography contract's renderer are untouched.
+function setGeographyPane(pane) {
+    const section = document.getElementById('geography');
+    const census = document.getElementById('geography-census-pane');
+    if (!section || !census) return;
+    const on = pane === 'census';
+    section.classList.toggle('census-open', on);
+    census.hidden = !on;
+    document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => {
+        const active = (b.dataset.gpane === 'census') === on;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (!on) return;
+    if (window.CensusBenchmarks) window.CensusBenchmarks.open(census, { fetchJSON: outcomesFetchJSON });
+    else census.innerHTML = '<p class="note">The site-area benchmarks view did not load (census_benchmarks.js).</p>';
+}
+
 function industryRoute() {
     if (location.hash === '#industry' || location.hash.indexOf('#industry?') === 0) openIndustryView();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
+        setGeographyPane(b.dataset.gpane);
+    }));
     document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setIndustryPane(b.dataset.ipane);
         updateIndustryShareUrl();

@@ -5891,3 +5891,46 @@ footer p {
 .oc-empty-dl dt, .oc-empty .oc-note,
 .oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-sub, .oc-trials > tbody > tr:not(.oc-detail-row):hover .oc-open-hint,
 .oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-sub, .oc-trials > tbody > tr:has(+ .oc-detail-row) .oc-open-hint { color: var(--c-absent-ink); }
+
+/* ── Geography tab: pane switch and the Site-area benchmarks pane (census_benchmarks.js) ──
+   Tables, not charts: every figure is a published value beside its denominator and margin. */
+.geography-pane-switch { width: fit-content; max-width: 100%; margin: 0 0 1rem; }
+.geography-pane-switch .view-btn { white-space: nowrap; }
+.geography-pane-switch .view-btn:focus-visible, .cb-toggle .view-btn:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--card-background), inset 0 0 0 4px var(--primary-color); }
+/* While the benchmarks pane is open, everything else in the tab is the registry pane's and is
+   hidden: its rows, and the two notes that sit beside them (the spine note and the pinned-run
+   line, which describe a different source and date). Written as "all but" so that an element
+   added to the registry pane later cannot show through. */
+#geography.census-open > :not(#geography-pane-switch):not(#geography-census-pane) { display: none; }
+.census-benchmarks-pane .cb-tag { font-size: var(--fs-small); font-weight: 500; color: var(--text-secondary); margin-left: 0.5rem; white-space: nowrap; }
+.census-benchmarks-pane .cb-lede { max-width: 70ch; }
+.census-benchmarks-pane .cb-dateline, .census-benchmarks-pane .cb-area-note { max-width: 80ch; }
+.cb-controls { display: flex; flex-wrap: wrap; gap: 0.75rem 1.25rem; align-items: flex-end; margin: 1rem 0 0.5rem; }
+.cb-control { display: flex; flex-direction: column; gap: 0.25rem; min-width: 0; }
+.cb-control-label { font-size: var(--fs-small); color: var(--text-secondary); }
+.cb-toggle { width: fit-content; max-width: 100%; flex-wrap: wrap; }
+.cb-control select, .cb-control input { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border-color); border-radius: 6px; background: var(--card-background); color: inherit; max-width: 100%; }
+.cb-table-wrap { overflow-x: auto; margin: 0.75rem 0; }
+.cb-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.cb-table caption { text-align: left; font-size: var(--fs-small); color: var(--text-secondary); padding-bottom: 0.5rem; max-width: 90ch; }
+.cb-table th, .cb-table td { padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--border-color); text-align: left; vertical-align: baseline; }
+.cb-table thead th { font-size: var(--fs-small); color: var(--text-secondary); font-weight: 600; white-space: nowrap; }
+.cb-table tbody th { font-weight: 500; }
+.cb-table .cb-num { text-align: right; white-space: nowrap; }
+.cb-interval { color: var(--text-secondary); font-size: var(--fs-small); font-weight: 400; }
+.cb-area-btn { font: inherit; color: var(--primary-color); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.cb-area-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.cb-flag { font-size: var(--fs-small); }
+.cb-open > th, .cb-open > td { border-bottom-color: transparent; }
+.cb-detail-row > td { background: var(--tint); padding: 0.75rem 1rem 1rem; }
+.cb-detail-row > td:focus { outline: none; }
+.cb-withheld, .cb-methods { margin: 1rem 0; }
+.cb-withheld summary, .cb-methods summary { cursor: pointer; font-weight: 600; }
+.cb-withheld-list { columns: 3 16rem; padding-left: 1.1rem; font-size: var(--fs-small); }
+.cb-limitations { max-width: 85ch; padding-left: 1.1rem; }
+.cb-limitations li { margin: 0.4rem 0; }
+@media (max-width: 720px) {
+    .cb-controls { gap: 0.6rem 0.75rem; }
+    .cb-toggle .view-btn { padding: 0.45rem 0.6rem; font-size: var(--fs-small); }
+    .cb-withheld-list { columns: 1; }
+}
