@@ -130,7 +130,7 @@ test('a title with no short form is hidden rather than cut; a chart without titl
 
 test('the axis-title plugin is registered, and the clipped titles carry a short form', () => {
     assert.match(app, /Chart\.register\(civicWatermarkPlugin, civicEventLinesPlugin, civicAxisTitleFitPlugin\)/);
-    assert.equal((app.match(/text: 'Number of Authorizations', short: 'Authorizations'/g) || []).length, 2, 'an AI Devices chart lost its short title');
+    assert.equal((app.match(/text: 'Number of list rows', short: 'List rows'/g) || []).length, 2, 'an AI Devices chart lost its short title');
     assert.match(app, /yTitle: 'Trials not in the Reported state', yTitleShort: 'Trials'/);
     assert.match(fnSource('function demoConfig(config, spec = {})'), /short: spec\.yTitleShort/);
     assert.match(fnSource('function renderIndustryTrend(rows)'), /'Median % female per trial', short: '% female'/);

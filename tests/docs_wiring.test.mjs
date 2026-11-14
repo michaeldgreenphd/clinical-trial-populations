@@ -208,7 +208,7 @@ test('the geo/ scripts index.html loads are cache-keyed too', () => {
 // (GITHUB_BASE_REF, with fetch-depth 0) or when a developer sets
 // DOCS_WIRING_BASE to the verified PR-base SHA locally (see verify.md).
 // Anywhere else it skips and says why, rather than passing vacuously.
-const KEYED_ASSETS = ['styles.css', 'app.js', 'industry_outcomes.js', 'census_benchmarks.js', 'geo/geo_reader.js', 'geo/geo_render.js', 'geo/geo_data.js', 'geo/geo_ui.js'];
+const KEYED_ASSETS = ['styles.css', 'app.js', 'industry_outcomes.js', 'census_benchmarks.js', 'device_links.js', 'geo/geo_reader.js', 'geo/geo_render.js', 'geo/geo_data.js', 'geo/geo_ui.js'];
 
 const git = (...args) => execFileSync('git', args, { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
 

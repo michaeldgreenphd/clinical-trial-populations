@@ -89,6 +89,7 @@ Known check boundaries:
 | HTML/CSS/JS or routes | A served browser at desktop and 390px, applicable flows below, keyboard/focus checks, changed asset keys. For routes, open the affected directory redirect as well as the hash route. |
 | Industry controls/rendering | `node --test tests/industry_tab.test.mjs tests/industry_conditions.test.mjs`; populated, empty and shared-link flows; compare a displayed cell to its published inputs. |
 | Trial outcomes pane, results structure and subgroup states | `node --test tests/results_structure.test.mjs tests/industry_outcomes.test.mjs tests/outcomes_publication.test.mjs`; in a served browser open Industry, Trial outcomes: the summary block's counts against `data/results_structure/summary.json`, one trial's detail against its record in records.json, and the pane with `data/results_structure/` unavailable (every trial reads “Not yet processed”). The fixture under `tests/fixtures/results_structure/` is copied from the engine; recopy it after an engine rule change. |
+| AI Devices study links | `node --test tests/device_links.test.mjs`; in a served browser at desktop and 390px: the pane switch, a submission with identifier records and one in a family of several submissions, the set-aside records, a draft review and its export, Escape and focus. `data/devices/` changes only by the engine's `scripts/export_device_links_site.py`; the fixture under `tests/fixtures/devices/` only by its `tests/devices/site_fixture.py`. State the run id. |
 | Sex/Gender parser-v2 display | `node --test tests/sex_gender_v2.test.mjs`; v1/v2, participant eligibility, missing values, archive provenance and retry flows. Parser-rule changes belong in the manuscript bundle, then the engine. |
 | Geography reader/render/pin | `node --test tests/geo_contract.test.mjs tests/repo_wiring.test.mjs`; inspect pin/expectations, withheld reasons, absent states, separate tiers/levels, browser provenance. A pin advance also needs the external run's own validation. |
 | Published artifacts/readers/shared contract | `node --test tests/study_record_contract.test.mjs tests/study_sidecars.test.mjs tests/data_budget.test.mjs tests/snapshot_latest.test.mjs tests/first_view.test.mjs`; engine checks in its root verify.md, the readiness and connected flow below, desktop/mobile and old full/summary-only snapshots. State the producer revision and migration/compatibility path. |
@@ -192,8 +193,8 @@ At desktop and 390px, use keyboard-only controls with visible focus, verify
 chart meaning without colour, and check wide tables scroll within their own
 container. New palettes require contrast and colour-vision checks. Stop the
 server with Ctrl-C. Close the disposable profile; if using existing state,
-remove only test-created keys: localStorage `civicsample.sg` and
-`civicsample.studyColumns`, sessionStorage `betaExtractionUnlocked` and
+remove only test-created keys: localStorage `civicsample.sg`,
+`civicsample.studyColumns` and `civicsample.deviceReviewDrafts`, sessionStorage `betaExtractionUnlocked` and
 `litCurationState`. Do not clear unrelated browser data.
 
 ## Cross-repository verification
@@ -210,6 +211,7 @@ has several independently versioned artifact families:
 | Sex/Gender CSV/meta/methods and summary block | Manuscript parser vendored into engine; engine wrapper publishes parser_rules_version and source stamps. Frontend tests cover display semantics with fixtures, not regeneration. |
 | Industry JSON and sponsor bridge/audits | Engine attribution rules/sha and producer scripts. Industry JSON is a separate reader from the bridge; do not assume a published bridge means this frontend imports the engine's browser filter module. |
 | Geography | active_run.json selects an immutable run with its own CONTRACT.md and dictionaries; expectations protect consumer behavior. Complete external run bundle validates upstream analysis; advancing it is a separate reviewed change. |
+| Device linkage (`data/devices/`) | Engine's manual build and export (its devices/README.md); a hand-published family with its own run id and a sha256 per file in run.json. `device_links.js` refuses files of mixed builds or with a status it does not know; draft reviews made in the browser reach the data only through the engine's reviews file and a rebuild. |
 | LLM extraction JSON/CSVs and PDF links | Engine's manual extraction workflow, committed outputs and prompt docs; frontend only displays/reviews these. Local UI decisions are not an API write. |
 
 **Independent checks:** frontend quick path requires no engine checkout;
