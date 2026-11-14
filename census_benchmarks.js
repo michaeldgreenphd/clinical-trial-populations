@@ -58,6 +58,10 @@
     function dataProblem(run, summary, areas) {
         if (!run || run.schema_version !== SCHEMA_VERSION) return 'run.json is missing or has a schema this view does not read';
         if (!run.run_id || !run.default_level || !Array.isArray(run.limitations)) return 'run.json lacks its run id, default level or limitations';
+        // The thresholds the pane states in words are the build's own, never constants here.
+        const p = run.parameters || {};
+        if (![p.floor_trials_per_area, p.geography_spread_flag_pp, run.margin_of_error_level].every(v => typeof v === 'number'))
+            return 'run.json lacks the thresholds this view states (area floor, area-sensitivity spread, margin level)';
         if (!summary || summary.run_id !== run.run_id) return 'summary.json belongs to a different build';
         if (!summary.reference_population_assessed || typeof summary.reference_population_assessed.n !== 'number') return 'summary.json lacks the assessed-trials count';
         if (areas) {
@@ -144,7 +148,7 @@
                 because it covers nearly every site with stable estimates. Compare levels before reading a difference as a finding.</p>`;
     }
 
-    function tableHTML(rows, state) {
+    function tableHTML(rows, state, run) {
         if (!rows.shown.length && !rows.withheld.length) return '<p class="note cb-empty">No area matches.</p>';
         const label = CATEGORY_LABELS[state.category] || state.category;
         const body = rows.shown.map(a => {
@@ -161,12 +165,12 @@
                 <td class="cb-num cb-diff">${c.unavailable ? '—' : pts(c.diff)}${interval}</td>
                 <td class="cb-num">${pct(a.denominators && a.denominators.unknown_or_unmapped_pct_mean)}</td>
                 <td>${c.settled === false ? '<span class="cb-flag">Open: unknowns could reverse it</span>' : c.settled ? 'Settled' : '—'}</td>
-            </tr>${open ? `<tr class="cb-detail-row"><td colspan="7" id="cb-detail-${esc(a.geoid)}" tabindex="-1">${detailHTML(a, state)}</td></tr>` : ''}`;
+            </tr>${open ? `<tr class="cb-detail-row"><td colspan="7" id="cb-detail-${esc(a.geoid)}" tabindex="-1">${detailHTML(a, state, run)}</td></tr>` : ''}`;
         }).join('');
         const withheld = rows.withheld.length ? `
             <details class="cb-withheld"><summary>${num(rows.withheld.length)} ${rows.withheld.length === 1 ? 'area' : 'areas'} withheld:
                 too few trials to show a figure</summary>
-                <p class="note">An area is shown only with at least 50 qualifying trials. Withheld areas are listed with their count and
+                <p class="note">An area is shown only with at least ${num(run.parameters.floor_trials_per_area)} qualifying trials. Withheld areas are listed with their count and
                     are never filled from a wider level.</p>
                 <ul class="cb-withheld-list">${rows.withheld.slice(0, 400).map(a =>
                     `<li>${esc(a.name || a.geoid)} <span class="cb-interval">${num(a.n_trials)} ${a.n_trials === 1 ? 'trial' : 'trials'}</span></li>`).join('')}</ul>
@@ -179,7 +183,7 @@
             ${rows.shown.length ? `<div class="cb-table-wrap"><table class="cb-table">
                 <caption>${esc(label)}: participants compared with residents of the selected area. ${esc(denomNote)}</caption>
                 <thead><tr><th scope="col">${esc(LEVEL_LABELS[state.level])}</th><th scope="col" class="cb-num">Trials</th>
-                    <th scope="col" class="cb-num">Residents <span class="cb-interval">±90% margin</span></th>
+                    <th scope="col" class="cb-num">Residents <span class="cb-interval">±${Math.round(run.margin_of_error_level * 100)}% margin</span></th>
                     <th scope="col" class="cb-num">Participants</th>
                     <th scope="col" class="cb-num">Difference, points</th>
                     <th scope="col" class="cb-num">Unknown</th><th scope="col">Direction</th></tr></thead>
@@ -188,7 +192,7 @@
     }
 
     // Everything published for one area: every category, both denominators, the bounds.
-    function detailHTML(area, state) {
+    function detailHTML(area, state, run) {
         const d = area.denominators || {};
         const windows = Object.entries(area.windows || {}).map(([w, n]) => `${esc(w)}: ${num(n)}`).join(' · ');
         const rows = (area.categories || []).map(c => `<tr>
@@ -206,7 +210,7 @@
                 <p class="note"><strong>${esc(area.name || area.geoid)}</strong> · ${num(area.n_trials)} trials, each counted once ·
                     ${num(d.participants_in_tables)} participants in the tables, ${num(d.participants_classified)} with a reported category ·
                     survey windows ${windows || '—'} · ${num(area.trials_sensitive_to_geography)} of these trials have a reference share
-                    that moves by 10 points or more between area levels${area.concentration_flag ? ' · one trial holds more than half of the participants (affects the participant-weighted figure only)' : ''}.</p>
+                    that moves by ${num(run.parameters.geography_spread_flag_pp)} points or more between area levels${area.concentration_flag ? ' · one trial holds more than half of the participants (affects the participant-weighted figure only)' : ''}.</p>
                 <div class="cb-table-wrap"><table class="cb-table cb-detail-table">
                     <caption>All categories. "If every unknown" is the difference were all unknown participants in the category: with
                         the first difference it bounds the truth. The ratio divides the participants' share (all in the table) by the
@@ -240,7 +244,8 @@
 
     const state = { dimension: 'race', level: null, variant: 'with_referral_zips', denominator: 'all',
                     category: null, categories: [], query: '', open: null };
-    const cache = {};
+    const cache = {};          // area files by characteristic, for one build only (cacheRun)
+    let cacheRun = null;
 
     async function open(el, deps) {
         const fetchJSON = deps.fetchJSON;
@@ -265,6 +270,9 @@
         const bad = dataProblem(run, summary, null);
         if (bad) { el.innerHTML = `<p class="note">The site-area benchmark data could not be read: ${esc(bad)}.</p>`; return; }
         if (!state.level) state.level = run.default_level.level;
+        // Area files held from an earlier open belong to the build that was current then. A new
+        // manifest means a new build: they are dropped, so they are fetched again and can be retried.
+        if (cacheRun !== run.run_id) { for (const k of Object.keys(cache)) delete cache[k]; cacheRun = run.run_id; }
 
         // A draw replaces the pane's markup, and with it whichever control had focus. The caller
         // names what should hold focus afterwards: an element id, or a control by its data key.
@@ -287,7 +295,7 @@
             state.categories = first ? first.categories.map(c => c.category) : [];
             if (!state.categories.includes(state.category)) state.category = DEFAULT_CATEGORY[dimension];
             const rows = areaRows(areas, state.level, state.variant, state.query);
-            el.innerHTML = headHTML(run, summary) + controlsHTML(state, run) + tableHTML(rows, state) + methodsHTML(run, summary);
+            el.innerHTML = headHTML(run, summary) + controlsHTML(state, run) + tableHTML(rows, state, run) + methodsHTML(run, summary);
             const target = focusId ? el.querySelector('#' + focusId)
                 : control ? Array.from(el.querySelectorAll('button')).find(b => b.dataset[control.key] === control.value) : null;
             if (target) target.focus({ preventScroll: true });
@@ -304,7 +312,8 @@
             if (b.dataset.cbArea) {
                 const id = b.dataset.cbArea;
                 state.open = state.open === id ? null : id;
-                draw(state.open ? 'cb-detail-' + id : null);
+                // opening moves focus into the detail; closing returns it to the area's own button
+                if (state.open) draw('cb-detail-' + id); else draw(null, { key: 'cbArea', value: id });
             }
         };
         el.onchange = ev => { if (ev.target.id === 'cb-category') { state.category = ev.target.value; draw('cb-category'); } };

@@ -26,5 +26,10 @@
  "limitations": [
   "A fictional limitation for the fixture."
  ],
- "registry_retrieved_at": "2099-01-01T00:00:00+00:00"
+ "registry_retrieved_at": "2099-01-01T00:00:00+00:00",
+ "parameters": {
+  "floor_trials_per_area": 50,
+  "geography_spread_flag_pp": 10.0
+ },
+ "margin_of_error_level": 0.9
 }

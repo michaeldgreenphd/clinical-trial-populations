@@ -66,20 +66,20 @@ test('the two denominators show different published values and neither is comput
 
 test('the table states the difference, its interval, the unknown share and an open direction', () => {
   const rows = C.areaRows(fx('areas.race.json'), 'cbsa', 'with_referral_zips', '');
-  const html = C.tableHTML(rows, state({ category: 'white' }));
+  const html = C.tableHTML(rows, state({ category: 'white' }), fx('run.json'));
   assert.match(html, /Fictional Falls, ZZ Metro Area/);
   assert.match(html, /−6\.0/); assert.match(html, /\[−7\.9, −4\.1\]/);
   assert.match(html, /Open: unknowns could reverse it/);
   assert.match(html, /unknown included, so each share is a floor/);
   assert.match(html, /1 area withheld/); assert.match(html, /never filled from a wider level/);
   assert.doesNotMatch(html, /Sampleton[^<]*<\/button>/, 'a withheld area is listed, not offered as a row with figures');
-  const b = C.tableHTML(rows, state({ category: 'white', denominator: 'classified' }));
+  const b = C.tableHTML(rows, state({ category: 'white', denominator: 'classified' }), fx('run.json'));
   assert.match(b, /Not a correction for missing data/); assert.doesNotMatch(b, /\[−7\.9/);
 });
 
 test('an open area shows every category, both denominators, the bound and an undefined ratio', () => {
   const rows = C.areaRows(fx('areas.race.json'), 'cbsa', 'with_referral_zips', '');
-  const html = C.tableHTML(rows, state({ open: '99991' }));
+  const html = C.tableHTML(rows, state({ open: '99991' }), fx('run.json'));
   assert.match(html, /aria-expanded="true"/);
   for (const label of ['Black or African American', 'White', 'Asian']) assert.match(html, new RegExp(label));
   assert.match(html, /If every unknown/); assert.match(html, /Participants, of reported/);
@@ -101,7 +101,7 @@ test('the pane says what the comparison is before any number, and labels the def
 
 test('area names are escaped', () => {
   const areas = fx('areas.race.json'); areas.areas[0].name = '<img src=x onerror=1>';
-  const html = C.tableHTML(C.areaRows(areas, 'cbsa', 'with_referral_zips', ''), state());
+  const html = C.tableHTML(C.areaRows(areas, 'cbsa', 'with_referral_zips', ''), state(), fx('run.json'));
   assert.doesNotMatch(html, /<img/); assert.match(html, /&lt;img/);
 });
 
@@ -172,6 +172,54 @@ test('choosing a control leaves focus on that control after the redraw', async (
   el.onclick({ target: { closest: () => ({ dataset: { cbLevel: 'county' } }) } });
   await new Promise((r) => setTimeout(r, 0));
   assert.deepEqual(focused, [{ cbLevel: 'county' }]);
+});
+
+test('the thresholds stated in words are the build\'s own, and a manifest without them is refused', () => {
+  const run = clone(fx('run.json'));
+  run.parameters.floor_trials_per_area = 30; run.parameters.geography_spread_flag_pp = 7; run.margin_of_error_level = 0.95;
+  const rows = C.areaRows(fx('areas.race.json'), 'cbsa', 'with_referral_zips', '');
+  assert.ok(rows.withheld.length > 0, 'the fixture has a withheld area');
+  const html = C.tableHTML(rows, state({ open: rows.shown[0].geoid }), run);
+  assert.match(html, /at least 30 qualifying trials/);
+  assert.match(html, /moves by 7 points or more/);
+  assert.match(html, /±95% margin/);
+  assert.doesNotMatch(html, /at least 50 qualifying|by 10 points|±90% margin/);
+  const bare = clone(fx('run.json')); delete bare.parameters;
+  assert.match(C.dataProblem(bare, fx('summary.json'), null), /lacks the thresholds/);
+});
+
+test('area files held from an earlier build are dropped when the manifest names a new one', async () => {
+  const fresh = { globalThis: {} };
+  vm.runInNewContext(read('census_benchmarks.js'), fresh);
+  const F = fresh.globalThis.CensusBenchmarks;
+  const serve = (id, calls) => (path) => {
+    calls.push(path.replace('data/census/', ''));
+    const f = path.endsWith('run.json') ? fx('run.json') : path.endsWith('summary.json') ? fx('summary.json') : fx('areas.race.json');
+    return Promise.resolve({ ...clone(f), run_id: id });
+  };
+  const el = { innerHTML: '', querySelector: () => null, querySelectorAll: () => [], contains: () => true };
+  const first = [], second = [], third = [];
+  await F.open(el, { fetchJSON: serve('census-build-a', first) });
+  await F.open(el, { fetchJSON: serve('census-build-b', second) });        // a new build was published in between
+  assert.ok(second.includes('areas.race.json'), 'the area file is fetched again for the new build');
+  assert.doesNotMatch(el.innerHTML, /could not be read/);
+  await F.open(el, { fetchJSON: serve('census-build-b', third) });        // same build: the held file is reused
+  assert.ok(!third.includes('areas.race.json'));
+});
+
+test('closing an open area with its own button returns focus to that button', async () => {
+  const fresh = { globalThis: {} };
+  vm.runInNewContext(read('census_benchmarks.js'), fresh);
+  const fetchJSON = (path) => Promise.resolve(path.endsWith('run.json') ? fx('run.json') : path.endsWith('summary.json') ? fx('summary.json') : fx('areas.race.json'));
+  const focused = [];
+  const areaButton = { dataset: { cbArea: '99991' }, focus: () => focused.push('button') };
+  const el = { innerHTML: '', querySelector: (sel) => (sel === '#cb-detail-99991' ? { focus: () => focused.push('detail') } : null),
+    querySelectorAll: () => [areaButton], contains: () => true };
+  await fresh.globalThis.CensusBenchmarks.open(el, { fetchJSON });
+  const press = () => el.onclick({ target: { closest: () => areaButton } });
+  press(); await new Promise((r) => setTimeout(r, 0));
+  press(); await new Promise((r) => setTimeout(r, 0));
+  assert.deepEqual(focused, ['detail', 'button']);
 });
 
 const published = existsSync(at('data/census/run.json'));
