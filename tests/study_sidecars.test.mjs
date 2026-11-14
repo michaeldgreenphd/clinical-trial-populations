@@ -138,16 +138,19 @@ function wholeElement(markup, open) {
     return markup.slice(open.index);
 }
 
-// The first element a simple selector ('.cls', '[attr="v"]', or a list of
-// them) picks out of a piece of markup, as its own markup, or null.
+// The first element a simple selector ('.cls', '[attr="v"]', 'tag', or a
+// list of them) picks out of a piece of markup, as its own markup, or null.
+// A list is tried selector by selector, not in document order.
 function pick(markup, selector) {
     const quote = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     for (const sel of selector.split(',').map((x) => x.trim())) {
         const attr = /^\[([a-z-]+)="([^"]*)"\]$/.exec(sel);
         const cls = /^\.([\w-]+)$/.exec(sel);
-        if (!attr && !cls) throw new Error(`the stub document cannot read the selector ${sel}`);
+        const tag = /^([a-z][a-z0-9]*)$/.exec(sel);
+        if (!attr && !cls && !tag) throw new Error(`the stub document cannot read the selector ${sel}`);
         const open = attr ? new RegExp(`<([a-z0-9]+)\\b[^>]*\\s${attr[1]}="${quote(attr[2])}"[^>]*>`)
-            : new RegExp(`<([a-z0-9]+)\\b[^>]*\\sclass="(?:[^"]*\\s)?${quote(cls[1])}(?:\\s[^"]*)?"[^>]*>`);
+            : cls ? new RegExp(`<([a-z0-9]+)\\b[^>]*\\sclass="(?:[^"]*\\s)?${quote(cls[1])}(?:\\s[^"]*)?"[^>]*>`)
+            : new RegExp(`<(${tag[1]})\\b[^>]*>`);
         const m = open.exec(markup);
         if (m) return wholeElement(markup, m);
     }
@@ -995,12 +998,19 @@ test('Try again from the keyboard keeps focus, and the scroll position, inside t
     await b.flush();
     assert.match(b.doc.activeElement.innerHTML, /Try again/, 'focus is not on the new Try again');
     assert.equal(b.doc.activeElement.getAttribute('data-state'), 'sites');
-    // The pop-up's first opening does not take focus from the page.
+    // The pop-up's first opening moves focus to the dialog (it is modal:
+    // tests/overlay_dialog.test.mjs), and the redraws as its fields land keep
+    // it there rather than moving it again.
     const c = harness({ files });
     await c.run('loadData()');
-    const before = c.doc.activeElement;
     c.run(`showStudyDetails('${IDS[0]}')`);
-    assert.equal(c.doc.activeElement, before);
+    const dialog = c.el('study-details-overlay').firstElementChild;
+    assert.equal(c.doc.activeElement, dialog, 'the first opening left focus on the page behind');
+    assert.equal(dialog.attrs.role, 'dialog');
+    assert.equal(dialog.attrs['aria-modal'], 'true');
+    assert.equal(dialog.attrs['aria-labelledby'], 'study-details-overlay-title');
+    await c.flush();
+    assert.equal(c.doc.activeElement, c.el('study-details-overlay').firstElementChild, 'a redraw moved focus off the dialog');
 });
 
 test('a pop-up that fills in place does not play its entrance again', T, async () => {

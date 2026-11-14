@@ -1699,10 +1699,10 @@
     </footer>
 
     <!-- Modal Overlay for Demographic Breakdown -->
-    <div id="breakdown-overlay" class="modal-overlay" onclick="if(event.target===this) closeBreakdown()"></div>
+    <div id="breakdown-overlay" class="modal-overlay" onclick="if(event.target===this) closeBreakdown()" onkeydown="overlayKeydown(event, closeBreakdown)"></div>
 
     <!-- Modal Overlay for Study Details -->
-    <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()"></div>
+    <div id="study-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeStudyDetails()" onkeydown="overlayKeydown(event, closeStudyDetails)"></div>
 
     <!-- Modal Overlay for Beta Extraction Details -->
     <div id="extraction-details-overlay" class="modal-overlay" onclick="if(event.target===this) closeExtractionDetails()"></div>
@@ -1719,6 +1719,6 @@
     <script defer src="geo/geo_ui.js?v=20260813"></script>
     <script defer src="industry_outcomes.js?v=20261114-results-structure3"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
-    <script defer src="app.js?v=20261114-race-unknown-split2"></script>
+    <script defer src="app.js?v=20261114-dialogfocus4"></script>
 </body>
 </html>
