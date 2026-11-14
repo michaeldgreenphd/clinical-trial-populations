@@ -12479,7 +12479,10 @@ const INDUSTRY_CAT_LABELS = {
     more_than_one_race: 'More than one race', other: 'Other',
     hispanic_latino: 'Hispanic or Latino', not_hispanic_latino: 'Not Hispanic or Latino'
 };
-let industryCat = { race: 'black_african_american', ethnicity: 'hispanic_latino' };
+// The category each tier opens with; Reset restores it, and the view is not "default" while
+// any tier has another category chosen (it would reappear on returning to that tier).
+const INDUSTRY_CAT_DEFAULTS = Object.freeze({ race: 'black_african_american', ethnicity: 'hispanic_latino' });
+let industryCat = { ...INDUSTRY_CAT_DEFAULTS };
 let industryBenchmark = 'cohort';      // 'cohort' | 'parity' (sex) | 'census' (race/eth)
 let industrySexSpecific = false;       // Sex tier: include sex-specific condition categories
 let industryConditionMode = 'top';     // 'top' | 'all' | 'custom'; display only
@@ -13302,7 +13305,8 @@ function industryIsDefault() {
     const sameSponsors = !industrySelected || (industrySelected.size === top.length && top.every(s => industrySelected.has(s)));
     return industryDemo === 'sex' && industryView === 'heatmap' && industryBenchmark === 'cohort' &&
         industryRole === 'any' && industryScope === 'top10' && !industrySexSpecific &&
-        industryCellMin === null && industryCellMax === null && industryConditionMode === 'top' && sameSponsors;
+        industryCellMin === null && industryCellMax === null && industryConditionMode === 'top' && sameSponsors &&
+        Object.keys(INDUSTRY_CAT_DEFAULTS).every(k => industryCat[k] === INDUSTRY_CAT_DEFAULTS[k]);
 }
 
 function industrySyncChrome() {
@@ -13332,6 +13336,7 @@ function industrySyncChrome() {
 // page's, with their own Reset, and stay as they are.
 function resetIndustryView() {
     industryDemo = 'sex';
+    industryCat = { ...INDUSTRY_CAT_DEFAULTS };
     industryView = 'heatmap';
     industryBenchmark = 'cohort';
     industryRole = 'any';
@@ -13640,11 +13645,35 @@ async function loadIndustryView() {
     renderIndustry();
 }
 
+// The Geography tab's two panes: the pinned registry-geography run (the rows already in the
+// tab) and site-area population benchmarks (census_benchmarks.js, a separate artifact family
+// under data/census/ with its own build and sources). The registry pane's rows are hidden by a
+// class on the section, so its markup and the geography contract's renderer are untouched.
+function setGeographyPane(pane) {
+    const section = document.getElementById('geography');
+    const census = document.getElementById('geography-census-pane');
+    if (!section || !census) return;
+    const on = pane === 'census';
+    section.classList.toggle('census-open', on);
+    census.hidden = !on;
+    document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => {
+        const active = (b.dataset.gpane === 'census') === on;
+        b.classList.toggle('active', active);
+        b.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (!on) return;
+    if (window.CensusBenchmarks) window.CensusBenchmarks.open(census, { fetchJSON: outcomesFetchJSON });
+    else census.innerHTML = '<p class="note">The site-area benchmarks view did not load (census_benchmarks.js).</p>';
+}
+
 function industryRoute() {
     if (location.hash === '#industry' || location.hash.indexOf('#industry?') === 0) openIndustryView();
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
+        setGeographyPane(b.dataset.gpane);
+    }));
     document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setIndustryPane(b.dataset.ipane);
         updateIndustryShareUrl();

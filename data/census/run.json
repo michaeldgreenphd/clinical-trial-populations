@@ -1,0 +1,81 @@
+{
+ "build_files": {
+  "areas.json": "867cec48e2011829de3bc6a72298b35641d77f4c2d47240fef203e39b79b297e",
+  "summary.json": "909512d2dc71edbf5df36443ac597c85fdd8c36c0ceba86e3a7021946fc196f2",
+  "trials.jsonl.gz": "c7964ccffb6bdec4378f421e1e53cf263dd642240a0577e1cd84a9f32613802f"
+ },
+ "comparison_label": "site-area population benchmark",
+ "default_level": {
+  "label": "Metropolitan or micropolitan statistical area",
+  "level": "cbsa",
+  "reason": "Widest coverage among local levels and stable estimates; reflects commuting patterns. A default for display, not a claim about where participants live."
+ },
+ "files": {
+  "areas.ethnicity.json": "30757cf7fccdf0aa01fd4f7ab98330ba4440362418cb90ef7639aea7aa55c652",
+  "areas.race.json": "454418b02accd2b89a42da461a736c518578228f2f826cfb46bb866ff2c7257c",
+  "areas.sex.json": "7e3ff3c120513ceb3fb90e9885b7d90dd7481fca272f8f6eb6ca7ef155cbbabc",
+  "summary.json": "c28e966d1f65fb49600016e695853ba29a2dbb2eb57e5995722a40b798fbe960"
+ },
+ "generated_at": "2026-11-14T01:17:17+00:00",
+ "limitations": [
+  "The reference population is a proxy for a potential recruitment population: residents of the area around the listed site who meet the registered age and sex eligibility. It is not where participants live, the study catchment, the population with the condition, or an enrolment target. A referral centre may recruit nationally.",
+  "One listed facility is not proof of a single-site study, and the registration is read as it stands today; earlier versions and the historical recruitment location are not examined.",
+  "A ZIP code is matched to a ZCTA only by an identical published code; they are different kinds of area.",
+  "Registry coordinates are city points, not facility locations; they are used only when no ZCTA polygon exists.",
+  "An ACS 5-year estimate describes its whole window, not one year. Each trial is matched to one of four non-overlapping windows by an enrolment proxy (start to primary completion), which runs late by the length of follow-up.",
+  "Margins of error are the survey's 90% margins carried through by the Census Bureau's approximations; the interval on each area is a bootstrap over its trials and does not include survey error.",
+  "Two denominators are reported and neither replaces the other. A: everyone the registry table counts, with unknown kept as its own row, so each observed share is a floor (\"unknown_bounds\" gives the difference at that floor and at the ceiling where every unknown is in the category; \"direction_settled\" is false when their signs differ). B (\"of_classified\"): participants with a reported, classifiable category. B is not a correction that recovers the true distribution; missingness may be systematic. Tables whose rows overlap or combine race with ethnicity are not pooled.",
+  "Race comparability across windows is affected by a measurement change: the ACS question on race was revised in 2020 to be consistent with the 2020 Census question, and the Census Bureau states that ACS race data \"are not directly comparable across all years\" (2023 ACS Subject Definitions, Race, Comparability). The 2020-2024 window lies wholly after the revision and the three earlier windows wholly before it. summary.json reports the national share of each race table by window; how much of any change is measurement and how much is population is not estimated here.",
+  "The registry table describes the baseline analysis population with all arms combined, which can differ from enrolment.",
+  "Age is matched only on the reference side (eligible range); participants' own ages by race are not reported. Sex is the registry's sex field; nothing here describes gender identity or sexual orientation."
+ ],
+ "manual_run": true,
+ "margin_of_error_level": 0.9,
+ "method_version": "census-benchmarks-1",
+ "n_sources": 217,
+ "parameters": {
+  "bootstrap_resamples": 2000,
+  "cbsa_min_area_share": 0.5,
+  "floor_trials_per_area": 50,
+  "geography_spread_flag_pp": 10.0,
+  "interval_level": 0.95,
+  "min_participants_in_table": 10,
+  "referral_zip_min_trials": 200,
+  "seed": 20261113,
+  "size_cap_participants": 5000
+ },
+ "population_basis": "ClinicalTrials.gov baseline characteristics: participants in the baseline analysis population, all arms combined",
+ "producer": {
+  "commit": "cc15b60c9808144171a12c912fc9a0a8cd0f10d6",
+  "repository": "civicsample-engine",
+  "uncommitted_changes": false
+ },
+ "product": "ACS 5-year estimates (90% margins of error)",
+ "registry_retrieved_at": "2026-11-13T22:40:25+00:00",
+ "run_id": "census-data-2026-11-08-cc15b60c98-855408f1",
+ "schema_version": 1,
+ "site_basis": "one_listed_facility",
+ "source_release": {
+  "extracted_at": "2026-11-08T13:07:45.318831+00:00",
+  "pipeline_commit": "f6a2e7b74790c6f11982376441fb90c80d2c611e",
+  "sha256": "2168d258dd26d1c824f4a090b07df7f1dc8ad58d71a6a15598e5115c258c7fa2",
+  "tag": "data-2026-11-08"
+ },
+ "tables": {
+  "american_indian_alaska_native": "B01001C",
+  "asian": "B01001D",
+  "black_african_american": "B01001B",
+  "hispanic_latino": "B01001I",
+  "more_than_one_race": "B01001G",
+  "native_hawaiian_pacific_islander": "B01001E",
+  "other": "B01001F",
+  "total": "B01001",
+  "white": "B01001A"
+ },
+ "windows": [
+  "2005-2009",
+  "2010-2014",
+  "2015-2019",
+  "2020-2024"
+ ]
+}

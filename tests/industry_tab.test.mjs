@@ -242,4 +242,10 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
     assert.match(reset, new RegExp(`${v} = ${d.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')};`), `${v} is not reset to ${d}`);
   }
   assert.match(reset, /renderIndustry\(\);/, 'Reset does not redraw (and so does not rewrite the share URL)');
+  // Regression (Codex, PR 285): a Race or Ethnicity category chosen before Reset came back on that tier,
+  // and Reset hid itself while it stayed chosen.
+  assert.match(reset, /industryCat = \{ \.\.\.INDUSTRY_CAT_DEFAULTS \};/, 'Reset leaves the chosen Race or Ethnicity category');
+  assert.match(app, /let industryCat = \{ \.\.\.INDUSTRY_CAT_DEFAULTS \};/, 'the opening categories and the Reset defaults differ');
+  const isDefault = app.match(/function industryIsDefault\(\) \{[\s\S]*?\n\}/)?.[0];
+  assert.match(isDefault, /industryCat\[k\] === INDUSTRY_CAT_DEFAULTS\[k\]/, 'a non-default category does not show Reset');
 });
