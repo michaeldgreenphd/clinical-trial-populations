@@ -8861,6 +8861,102 @@ function parseCSV(text) {
     return rows;
 }
 
+// The header cards of the Device list pane.
+//
+// The list's 1,451 rows are not 1,451 devices: rows share submission numbers, and several
+// submissions can be one product line. When the device-linkage build is published
+// (data/devices/, read through device_links.js) the three counting units are shown side by
+// side with the engine's definitions. When it is absent, fails its contract, or was built from
+// a list with a different number of rows than the CSV drawn here, the cards fall back to the
+// one thing the CSV supports: a count of rows on FDA's list. The pathway cards, the charts and
+// the table always count list rows, and say so.
+//
+// counts: { total, pathwayCounts } from the CSV. units: { run, summary } from
+// DeviceLinks.loadHead, or null.
+function aiDevicesStatsHTML(counts, units) {
+    const { total, pathwayCounts } = counts;
+    const pctOf = n => total ? `${(n / total * 100).toFixed(1)}% of list rows` : '—';
+    const published = units && units.summary && units.summary.denominators && units.summary.denominators.source_rows
+        ? units.summary.denominators.source_rows.n : null;
+    const useUnits = Boolean(units && window.DeviceLinks && published === total);
+    const unitCards = useUnits
+        ? window.DeviceLinks.unitCardsHTML(units.run, units.summary)
+        : `<div class="stat-card">
+                <h3>Rows on FDA's list</h3>
+                <p class="stat-value">${total.toLocaleString()}</p>
+                <p class="stat-sub">one row per line of FDA's list; rows can share a submission number, so this is not a count of devices</p>
+            </div>`;
+    const mismatch = units && !useUnits && published !== null
+        ? `<p class="note ai-row-unit">The study-link data was built from a list of ${Number(published).toLocaleString()} rows and this page's list has ${total.toLocaleString()}, so only the row count is shown.</p>`
+        : '';
+    return `
+        <div class="stats-grid ai-unit-cards" style="margin-bottom: 1rem;">${unitCards}</div>
+        ${mismatch}
+        <div class="stats-grid" style="margin-bottom: 1.5rem;">
+            <div class="stat-card">
+                <h3>510(k) Clearances</h3>
+                <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
+                <p class="stat-sub">counted by list row · ${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
+            </div>
+            <div class="stat-card">
+                <h3>De Novo Grants</h3>
+                <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
+                <p class="stat-sub">counted by list row — novel devices with no predicate</p>
+            </div>
+            <div class="stat-card">
+                <h3>PMA Approvals</h3>
+                <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
+                <p class="stat-sub">counted by list row — full premarket approval on clinical evidence</p>
+            </div>
+        </div>
+    `;
+}
+
+let aiDevicesStatCounts = null;   // { total, pathwayCounts } of the CSV drawn
+let aiDeviceUnits = null;         // { run, summary } once the device-linkage build is read and checked
+
+function renderAIDevicesStats() {
+    const statsEl = document.getElementById('ai-devices-stats');
+    if (statsEl && aiDevicesStatCounts) statsEl.innerHTML = aiDevicesStatsHTML(aiDevicesStatCounts, aiDeviceUnits);
+}
+
+// Reads data/devices/run.json and summary.json for the unit cards. A missing folder, a failed
+// request or a failed contract leaves the cards on the CSV's row count; nothing else in the
+// pane depends on it.
+async function loadAIDeviceUnits() {
+    if (!window.DeviceLinks || aiDeviceUnits) return;
+    try {
+        const head = await window.DeviceLinks.loadHead(outcomesFetchJSON);
+        aiDeviceUnits = { run: head.run, summary: head.summary };
+    } catch (e) {
+        aiDeviceUnits = null;
+        console.warn('Device-linkage data not used for the unit cards:', e.message);
+    }
+    renderAIDevicesStats();
+}
+
+// The AI Devices tab's two panes: FDA's list as published (the pane already in the tab) and the
+// study links and evidence (device_links.js, a separate artifact family under data/devices/
+// with its own build). The list pane is the default and is left as it was drawn.
+let aiDevicesPane = 'list';
+// pane: 'links', 'list', or null to keep the pane last open.
+function setAIDevicesPane(pane) {
+    if (pane) aiDevicesPane = pane === 'links' ? 'links' : 'list';
+    const list = document.getElementById('ai-devices-list-pane');
+    const links = document.getElementById('ai-devices-links-pane');
+    if (!list || !links) return;
+    list.hidden = aiDevicesPane !== 'list';
+    links.hidden = aiDevicesPane !== 'links';
+    document.querySelectorAll('#ai-devices-pane-switch .view-btn').forEach(b => {
+        const on = b.dataset.dpane === aiDevicesPane;
+        b.classList.toggle('active', on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    if (aiDevicesPane !== 'links') return;
+    if (window.DeviceLinks) window.DeviceLinks.open(links, { fetchJSON: outcomesFetchJSON });
+    else links.innerHTML = '<p class="note">The study links view did not load (device_links.js).</p>';
+}
+
 function renderAIDevicesTab() {
     if (!aiDevicesData) return;
 
@@ -8868,7 +8964,6 @@ function renderAIDevicesTab() {
     // clearance rides substantial equivalence to a predicate; De Novo and PMA
     // are where novel evidence gets reviewed — a split that frames how much
     // clinical scrutiny this young category actually receives.
-    const statsEl = document.getElementById('ai-devices-stats');
     const panelCounts = {};
     const yearCounts = {};
     const pathwayCounts = { '510(k)': 0, 'De Novo': 0, 'PMA': 0, 'Other': 0 };
@@ -8887,32 +8982,9 @@ function renderAIDevicesTab() {
         }
     });
 
-    const total = aiDevicesData.length;
-    const pctOf = n => total ? `${(n / total * 100).toFixed(1)}%` : '—';
-    statsEl.innerHTML = `
-        <div class="stats-grid" style="margin-bottom: 1.5rem;">
-            <div class="stat-card">
-                <h3>Authorized AI/ML Devices</h3>
-                <p class="stat-value">${total.toLocaleString()}</p>
-                <p class="stat-sub">FDA marketing authorization — products, not trials</p>
-            </div>
-            <div class="stat-card">
-                <h3>510(k) Clearances</h3>
-                <p class="stat-value">${pathwayCounts['510(k)'].toLocaleString()}</p>
-                <p class="stat-sub">${pctOf(pathwayCounts['510(k)'])} — substantial equivalence to a predicate device</p>
-            </div>
-            <div class="stat-card">
-                <h3>De Novo Grants</h3>
-                <p class="stat-value">${pathwayCounts['De Novo'].toLocaleString()}</p>
-                <p class="stat-sub">novel devices with no predicate</p>
-            </div>
-            <div class="stat-card">
-                <h3>PMA Approvals</h3>
-                <p class="stat-value">${pathwayCounts['PMA'].toLocaleString()}</p>
-                <p class="stat-sub">full premarket approval on clinical evidence</p>
-            </div>
-        </div>
-    `;
+    aiDevicesStatCounts = { total: aiDevicesData.length, pathwayCounts };
+    renderAIDevicesStats();
+    loadAIDeviceUnits();
 
     // Panel bar chart
     renderAIPanelChart(panelCounts);
@@ -9178,7 +9250,7 @@ function renderAIPanelChart(panelCounts) {
         data: {
             labels,
             datasets: [{
-                label: 'Devices',
+                label: 'List rows',
                 data: values,
                 backgroundColor: colors,
                 borderRadius: 2
@@ -9192,7 +9264,7 @@ function renderAIPanelChart(panelCounts) {
             // Room at the right for the value that sits past the bar end.
             layout: { padding: { right: 40 } },
             scales: {
-                x: { beginAtZero: true, title: { display: true, text: 'Number of Devices' } }
+                x: { beginAtZero: true, title: { display: true, text: 'Number of list rows' } }
             },
             plugins: {
                 legend: { display: false },
@@ -13589,6 +13661,9 @@ function industryRoute() {
 document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('#geography-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setGeographyPane(b.dataset.gpane);
+    }));
+    document.querySelectorAll('#ai-devices-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
+        setAIDevicesPane(b.dataset.dpane);
     }));
     document.querySelectorAll('#industry-pane-switch .view-btn').forEach(b => b.addEventListener('click', () => {
         setIndustryPane(b.dataset.ipane);
