@@ -6561,7 +6561,15 @@ function breakdownCountsHtml(study, categoryName, tab) {
     if (categoryName === 'race') {
         const ombTotals = study.race?.omb_totals || {};
         grandTotal = RACE_ORDER.reduce((sum, [key]) => sum + (ombTotals[key] || 0), 0);
-        rows = RACE_ORDER.filter(([key]) => ombTotals[key] > 0).map(([key, label]) => [label, ombTotals[key]]);
+        // The Hispanic or Latino participants the table gave no race: a part of
+        // the unknown count, on its own row after it, as in breakdownHtml.
+        const ethnicityOnly = raceUnknownEthnicityOnly(study.race?.unknown_ethnicity_only, ombTotals.unknown_not_reported);
+        rows = RACE_ORDER.flatMap(([key, label]) => {
+            const count = (ombTotals[key] || 0) - (key === 'unknown_not_reported' ? ethnicityOnly : 0);
+            const out = count > 0 ? [[label, count]] : [];
+            if (key === 'unknown_not_reported' && ethnicityOnly > 0) out.push([RACE_ETHNICITY_ONLY_LABEL, ethnicityOnly]);
+            return out;
+        });
     } else {
         const fieldData = study[categoryName];
         const totals = fieldData.omb_totals || fieldData.totals || {};

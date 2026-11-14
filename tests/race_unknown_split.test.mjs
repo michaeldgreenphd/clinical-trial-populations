@@ -101,3 +101,25 @@ test('the study breakdown shows the part on its own row and subtracts it from Un
     assert.match(src, /if \(ethnicityOnly > 0\)/);
     assert.match(lineAt('const RACE_ETHNICITY_ONLY_LABEL'), new RegExp(LABEL));
 });
+
+// breakdownCountsHtml: the race pop-up drawn from counts alone (no
+// raw_categories: a split dataset whose Studies-tab extras are pending or
+// failed, or a summary row).
+function countsBreakdown(study) {
+    const context = vm.createContext({ escapeHtml: (t) => String(t).replaceAll('&', '&amp;').replaceAll('<', '&lt;') });
+    vm.runInContext(blockAt('const RACE_ETHNICITY_ONLY_LABEL', '\n}\n') + fnAt('function formatOmbCategory(ombCat)')
+        + 'function stateLine() { return ""; }\n' + fnAt('function breakdownCountsHtml(study, categoryName, tab)'), context);
+    const html = vm.runInContext(`breakdownCountsHtml(${JSON.stringify(study)}, 'race', { state: 'pending', text: '' })`, context);
+    return [...html.matchAll(/<tr>\s*<td>([^<]+)<\/td>\s*<td>([^<]+)<\/td>/g)].map((m) => [m[1], m[2]]);
+}
+
+test('the counts-only race breakdown splits unknown the same way', () => {
+    const rows = countsBreakdown({ nct_id: 'NCT00416078', race: race({ white: 39, black_african_american: 10, unknown_not_reported: 4 }, 2) });
+    assert.deepEqual(rows, [['Black or African American', '10'], ['White', '39'], ['Unknown or Not Reported', '2'], [LABEL, '2']]);
+    // without the field, unknown stays whole and no new row is drawn
+    assert.deepEqual(countsBreakdown({ nct_id: 'NCT00000001', race: race({ white: 5, unknown_not_reported: 3 }) }),
+        [['White', '5'], ['Unknown or Not Reported', '3']]);
+    // the whole unknown is the Hispanic rows: only the new row
+    assert.deepEqual(countsBreakdown({ nct_id: 'NCT00000002', race: race({ white: 5, unknown_not_reported: 3 }, 3) }),
+        [['White', '5'], [LABEL, '3']]);
+});
