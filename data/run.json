@@ -1,10 +1,10 @@
 {
-  "extracted_at": "2026-11-08T13:07:45.318831+00:00",
-  "pipeline_commit": "f6a2e7b74790c6f11982376441fb90c80d2c611e",
-  "snapshot_date": "2026-11-08",
+  "extracted_at": "2026-11-15T13:47:22.876652+00:00",
+  "pipeline_commit": "22a92b8fe67d95f99608da8b407f85431131c8b4",
+  "snapshot_date": "2026-11-15",
   "total_parts": 8,
-  "studies": 80890,
+  "studies": 80988,
   "gzip_bytes": {
-    "inline": 155440269
+    "inline": 156354113
   }
 }
