@@ -6428,7 +6428,28 @@ function initColumnPicker() {
     const picker = document.getElementById('column-picker');
     if (picker) picker.addEventListener('toggle', placeColumnPicker);
     window.addEventListener('resize', placeColumnPicker);
+    document.addEventListener('keydown', columnPickerKeydown);
     applyStudyColumns(on);
+}
+
+// Escape closes the open column menu, like the nav menus. Listened for on the
+// document, not the <details>: Safari does not focus a <summary> on click, so
+// after a mouse open the key would not reach a listener on the menu. An
+// Escape a pop-up already handled (overlayKeydown prevents its default) is
+// left alone, so one press closes one thing. Focus goes back to the button
+// when it was in the menu, whose checkboxes vanish as it closes, or nowhere;
+// focus elsewhere on the page stays put.
+function columnPickerKeydown(e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const picker = document.getElementById('column-picker');
+    if (!picker || !picker.open) return;
+    e.preventDefault();
+    picker.open = false;
+    const active = document.activeElement;
+    if (!active || active === document.body || picker.contains(active)) {
+        const summary = picker.querySelector('summary');
+        if (summary) summary.focus();
+    }
 }
 
 // Where the column menu opens: under its button, right edges lined up, unless
