@@ -5838,6 +5838,9 @@ footer p {
 .st-UNREPORTED { background: var(--card-background); box-shadow: inset 0 0 0 1.5px var(--c-absent-ink); }
 .st-CONFLICTING { background: linear-gradient(var(--c-conflict) 1px, transparent 1px) 0 0 / 5px 5px, linear-gradient(90deg, var(--c-conflict) 1px, var(--card-background) 1px) 0 0 / 5px 5px; box-shadow: inset 0 0 0 1px var(--c-conflict); }
 .st-ROLL_UP_NOT_SUPPORTED { background: repeating-linear-gradient(90deg, var(--c-absent-ink) 0 1.5px, var(--card-background) 1.5px 4px); box-shadow: inset 0 0 0 1px var(--c-absent-ink); }
+/* No decision rule (estimation only): one horizontal rule in a frame. Neutral, distinct in grayscale from the
+   vertical stripes of ROLL_UP_NOT_SUPPORTED and from the filled MET / NOT_MET swatches; it is not a failure. */
+.st-NO_DECISION_RULE { background: linear-gradient(var(--card-background) 0 calc(50% - 0.75px), var(--c-absent-ink) calc(50% - 0.75px) calc(50% + 0.75px), var(--card-background) calc(50% + 0.75px)); box-shadow: inset 0 0 0 1px var(--c-absent-ink); }
 
 /* The trial browser. */
 .oc-filters { display: flex; flex-wrap: wrap; gap: 0.6rem 1rem; align-items: flex-end; margin: 0 0 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid var(--oc-rule); }

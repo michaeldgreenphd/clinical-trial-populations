@@ -24,8 +24,13 @@
 
     const SCHEMA_VERSION = 1;
     const BASE = 'data/outcomes/';
+    // Method A's eight trial states, then NO_DECISION_RULE: estimation only, recorded only by a person's review
+    // (engine outcomes contract). A family built before it was added counts the eight alone, so its count is
+    // optional in summary.json; every other state's count is required.
     const TRIAL_STATES = ['MET', 'NOT_MET', 'INSUFFICIENT_EVIDENCE', 'NOT_APPLICABLE', 'PENDING', 'UNREPORTED',
-        'CONFLICTING', 'ROLL_UP_NOT_SUPPORTED'];
+        'CONFLICTING', 'ROLL_UP_NOT_SUPPORTED', 'NO_DECISION_RULE'];
+    const OPTIONAL_COUNTS = ['NO_DECISION_RULE'];
+    const REVIEWED_ONLY = ['NO_DECISION_RULE'];
     const RESULTS_STATES = {
         POSTED: [null],
         NOT_APPLICABLE: ['WITHDRAWN_NO_PARTICIPANTS', 'TERMINATED_NO_DATA'],
@@ -45,9 +50,11 @@
         UNREPORTED: 'No posted results; past the standard window',
         CONFLICTING: 'Sources conflict',
         ROLL_UP_NOT_SUPPORTED: 'Several primary analyses, no stated way to combine them',
+        NO_DECISION_RULE: 'No decision rule',
     };
     // Precise statements of what is missing. Never a confidence score.
     const REASONS = {
+        ESTIMATION_ONLY: 'The primary outcome was estimated, not tested against a prespecified criterion, so there is no objective to meet or miss.',
         ALPHA_NOT_DETERMINABLE: 'The registry does not state the significance threshold for this analysis, or whether the posted p-value is one- or two-sided.',
         BOUNDARY_NOT_DETERMINABLE: 'The design includes interim analyses; the boundary that applied at the deciding look is not stated in the registry.',
         MARGIN_NOT_STATED: 'A non-inferiority or equivalence analysis is posted without a numeric margin.',
@@ -115,8 +122,10 @@
         const byKind = (summary.assessment_states || {}).by_kind || {};
         for (const [kind, counts] of Object.entries(byKind)) {
             if (!KINDS.includes(kind)) return `unknown assessment kind ${kind}`;
-            if (TRIAL_STATES.some(s => !isInt(counts[s])) || Object.keys(counts).length !== TRIAL_STATES.length) {
-                return `assessment counts for ${kind} do not list all eight states`;
+            const required = TRIAL_STATES.filter(s => !OPTIONAL_COUNTS.includes(s));
+            if (!isObj(counts) || required.some(s => !isInt(counts[s])) || Object.keys(counts).some(s => !TRIAL_STATES.includes(s))
+                || OPTIONAL_COUNTS.some(s => s in counts && !isInt(counts[s]))) {
+                return `assessment counts for ${kind} do not list every state`;
             }
         }
         if (run.display_mode === 'evidence_only' && byKind.machine_provisional) return 'machine counts in an evidence-only build';
@@ -127,6 +136,7 @@
             if (!(r.results_state in RESULTS_STATES) || !RESULTS_STATES[r.results_state].includes(r.results_sub_reason)) return `${r.nct_id}: unknown results state`;
             if (r.assessment_kind != null && !KINDS.includes(r.assessment_kind)) return `${r.nct_id}: unknown assessment kind`;
             if (r.assessment_kind != null && !TRIAL_STATES.includes(r.trial_state)) return `${r.nct_id}: unknown trial state`;
+            if (r.assessment_kind != null && r.assessment_kind !== 'human_reviewed' && REVIEWED_ONLY.includes(r.trial_state)) return `${r.nct_id}: a reviewed-only state on an assessment no person reviewed`;
             if (r.assessment_kind === 'machine_provisional' && run.display_mode !== 'provisional_preview') return `${r.nct_id}: machine assessment in an evidence-only build`;
             if ((r.review_status === 'human_reviewed') !== (r.assessment_kind === 'human_reviewed')) return `${r.nct_id}: review status and assessment disagree`;
             if (!/^records\/r\d{2}\.json$/.test(r.record || '')) return `${r.nct_id}: no record shard`;
@@ -304,7 +314,7 @@
 
     function taxonomyHTML() {
         return `
-            <details class="oc-taxonomy"><summary>The eight assessment states</summary>
+            <details class="oc-taxonomy"><summary>The assessment states</summary>
                 <ul class="oc-taxo">${TRIAL_STATES.map(s => `<li>${stateBadge(s)}</li>`).join('')}</ul>
                 <p class="oc-note">“Met” and “did not meet” are decided against the trial's own prespecified criterion. The other states say why no decision can be made, or why none applies. None of them measures clinical importance or regulatory approval.</p>
             </details>`;
@@ -319,12 +329,14 @@
         const cells = Array.from({ length: n }, (_, i) => `<span class="oc-cell${i < reviewed ? ' is-reviewed' : ''}"></span>`).join('');
         const kinds = (summary.assessment_states || {}).by_kind || {};
         const rows = Object.keys(kinds).filter(k => k === 'human_reviewed' || machineShown);
-        const anyCount = rows.some(k => TRIAL_STATES.some(s => kinds[k][s] > 0));
+        // A family built before NO_DECISION_RULE existed has no count for it: that row is left out, not shown as 0.
+        const counted = TRIAL_STATES.filter(s => rows.every(k => isInt(kinds[k][s])));
+        const anyCount = rows.some(k => counted.some(s => kinds[k][s] > 0));
         const body = anyCount
             ? `<div class="oc-table-scroll" tabindex="0" role="region" aria-label="Assessment states, development collection">
                 <table class="oc-table oc-state-table"><thead><tr><th scope="col">State</th>${rows.map(k =>
                     `<th scope="col" class="num">${k === 'human_reviewed' ? 'Reviewed by a person' : 'Provisional, machine only'}</th>`).join('')}</tr></thead>
-                <tbody>${TRIAL_STATES.map(s => `<tr><th scope="row">${stateBadge(s)}</th>${rows.map(k => `<td class="num">${kinds[k][s]}</td>`).join('')}</tr>`).join('')}</tbody></table>
+                <tbody>${counted.map(s => `<tr><th scope="row">${stateBadge(s)}</th>${rows.map(k => `<td class="num">${kinds[k][s]}</td>`).join('')}</tr>`).join('')}</tbody></table>
                </div>
                <p class="oc-note">${esc(summary.assessment_states.note)} Counts are of the development collection's ${n} eligible trials, not of the cohort.</p>`
             : `<div class="oc-empty">

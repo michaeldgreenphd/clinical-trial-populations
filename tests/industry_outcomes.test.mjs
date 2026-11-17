@@ -40,7 +40,7 @@ test('the contract refuses mixed runs, dropped states and machine rows in an evi
   let s = clone(f.summary); s.run_id = 'outcomes-2026-11-09-0000000000';
   assert.match(O.dataProblem(f.run, s, f.index), /another run/);
   s = clone(f.summary); delete s.assessment_states.by_kind.human_reviewed.ROLL_UP_NOT_SUPPORTED;
-  assert.match(O.dataProblem(f.run, s, f.index), /all eight states/);
+  assert.match(O.dataProblem(f.run, s, f.index), /do not list every state/);
   const p = family('provisional_preview');
   const run = clone(p.run); run.display_mode = 'evidence_only';
   assert.match(O.dataProblem(run, p.summary, p.index), /evidence-only/);
@@ -120,7 +120,36 @@ test('absence is worded as a dated fact, never as non-compliance or a confidence
   for (const s of O.TRIAL_STATES) assert.ok(O.STATE_LABELS[s], `no label for ${s}`);
 });
 
-test('the overview names every denominator and lists all eight states', () => {
+test('NO_DECISION_RULE: counted when the family has it, optional in an older family, reviewed only', () => {
+  // Investigator's decision, 2026-11-17: estimation only is recorded only by a person's review (engine contract).
+  assert.equal(O.STATE_LABELS.NO_DECISION_RULE, 'No decision rule');
+  assert.match(O.REASONS.ESTIMATION_ONLY, /estimated, not tested against a prespecified criterion/);
+  assert.doesNotMatch(O.STATE_LABELS.NO_DECISION_RULE + O.REASONS.ESTIMATION_ONLY, /fail|did not meet/i);
+  const f = family('evidence_only');
+  // An older family (eight counts) and a newer one (nine) are both read.
+  const old = clone(f.summary); delete old.assessment_states.by_kind.human_reviewed.NO_DECISION_RULE;
+  assert.equal(O.dataProblem(f.run, old, f.index), null);
+  const nine = clone(f.summary); nine.assessment_states.by_kind.human_reviewed.NO_DECISION_RULE = 0;
+  assert.equal(O.dataProblem(f.run, nine, f.index), null);
+  // An unknown state, or a non-integer count, is still refused.
+  const extra = clone(nine); extra.assessment_states.by_kind.human_reviewed.SOMETHING_ELSE = 0;
+  assert.match(O.dataProblem(f.run, extra, f.index), /do not list every state/);
+  const bad = clone(nine); bad.assessment_states.by_kind.human_reviewed.NO_DECISION_RULE = 'x';
+  assert.match(O.dataProblem(f.run, bad, f.index), /do not list every state/);
+  // The counts table shows its row only when the family counts it, rather than an invented 0.
+  assert.doesNotMatch(O.reviewHTML(f.run, old, false), /<th scope="row">[^]*?No decision rule[^]*?<\/th>/);
+  const one = clone(nine); one.assessment_states.by_kind.human_reviewed.NO_DECISION_RULE = 1;
+  assert.match(O.reviewHTML(f.run, one, false), /No decision rule<\/span><\/th><td class="num">1<\/td>/);
+  // A reviewed trial may carry it; a machine assessment may not.
+  const idx = clone(f.index); const row = idx.rows.find((r) => r.assessment_kind === 'human_reviewed');
+  row.trial_state = 'NO_DECISION_RULE';
+  assert.equal(O.dataProblem(f.run, nine, idx), null);
+  const p = family('provisional_preview'); const pidx = clone(p.index);
+  pidx.rows.find((r) => r.assessment_kind === 'machine_provisional').trial_state = 'NO_DECISION_RULE';
+  assert.match(O.dataProblem(p.run, p.summary, pidx), /reviewed-only state on an assessment no person reviewed/);
+});
+
+test('the overview names every denominator and lists every state', () => {
   const p = family('provisional_preview');
   const html = O.overviewHTML(p.run, p.summary, true);
   const FIG = /<span class="oc-fig"><strong>\d+<\/strong> of \d+ <span class="oc-pct">\d+%<\/span><\/span>/g;
