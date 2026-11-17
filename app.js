@@ -4352,10 +4352,15 @@ function initNavGroups() {
     document.addEventListener('click', (e) => {
         if (!e.target.closest('.nav-group')) closeNavGroups();
     });
+    // One Escape closes one thing. An Escape a pop-up already handled
+    // (overlayKeydown prevents its default) is left alone, and one that closes
+    // a menu here is marked handled, so an open Studies column menu
+    // (columnPickerKeydown) waits for the next press.
     document.addEventListener('keydown', (e) => {
-        if (e.key !== 'Escape') return;
+        if (e.key !== 'Escape' || e.defaultPrevented) return;
         const open = document.querySelector('.nav-group[open]');
         if (!open) return;
+        e.preventDefault();
         open.removeAttribute('open');
         const summary = open.querySelector('summary');
         if (summary) summary.focus();
@@ -6428,7 +6433,29 @@ function initColumnPicker() {
     const picker = document.getElementById('column-picker');
     if (picker) picker.addEventListener('toggle', placeColumnPicker);
     window.addEventListener('resize', placeColumnPicker);
+    document.addEventListener('keydown', columnPickerKeydown);
     applyStudyColumns(on);
+}
+
+// Escape closes the open column menu, like the nav menus. Listened for on the
+// document, not the <details>: Safari does not focus a <summary> on click, so
+// after a mouse open the key would not reach a listener on the menu. An
+// Escape a pop-up or a nav menu already handled (overlayKeydown and
+// initNavGroups prevent its default) is left alone, so one press closes one
+// thing. Focus goes back to the button
+// when it was in the menu, whose checkboxes vanish as it closes, or nowhere;
+// focus elsewhere on the page stays put.
+function columnPickerKeydown(e) {
+    if (e.key !== 'Escape' || e.defaultPrevented) return;
+    const picker = document.getElementById('column-picker');
+    if (!picker || !picker.open) return;
+    e.preventDefault();
+    picker.open = false;
+    const active = document.activeElement;
+    if (!active || active === document.body || picker.contains(active)) {
+        const summary = picker.querySelector('summary');
+        if (summary) summary.focus();
+    }
 }
 
 // Where the column menu opens: under its button, right edges lined up, unless
