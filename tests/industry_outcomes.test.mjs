@@ -155,6 +155,19 @@ test('NO_DECISION_RULE: counted when the family has it, optional in an older fam
   const both = clone(half); both.assessment_states.by_kind.machine_provisional.NO_DECISION_RULE = 0;
   assert.equal(O.dataProblem(pv.run, both, pv.index), null);
   assert.match(O.reviewHTML(pv.run, both, true), /No decision rule<\/span><\/th><td class="num">1<\/td><td class="num">0<\/td>/);
+  // Regression (Codex, PR 298, P2): a trial listed in the state while the counts do not list it is refused.
+  const listed = clone(f.index); listed.rows.find((r) => r.assessment_kind === 'human_reviewed').trial_state = 'NO_DECISION_RULE';
+  assert.match(O.dataProblem(f.run, old, listed), /a trial in a state the assessment counts do not list/);
+  // Regression (Codex, PR 298, P2): the record shard is checked too, not only the index row.
+  const shardWith = (mutate) => { const sh = clone(pv.shards[Object.keys(pv.shards).find((k) => Object.values(pv.shards[k].records).some((r) => r.assessment))]);
+    mutate(Object.values(sh.records).find((r) => r.assessment).assessment); return sh; };
+  assert.equal(O.shardProblem(shardWith(() => {}), pv.run), null);
+  assert.match(O.shardProblem(shardWith((a) => { a.assessment_kind = 'machine_provisional'; a.trial_state = 'NO_DECISION_RULE'; }), pv.run),
+    /reviewed-only state on an assessment no person reviewed/);
+  assert.match(O.shardProblem(shardWith((a) => { a.assessment_kind = 'machine_provisional'; (a.units || [])[0] && (a.units[0].state = 'NO_DECISION_RULE'); a.trial_state = (a.units || []).length ? a.trial_state : 'NO_DECISION_RULE'; }), pv.run),
+    /reviewed-only state on an assessment no person reviewed/);
+  assert.match(O.shardProblem(shardWith((a) => { a.review = { ...(a.review || {}), machine_trial_state: 'NO_DECISION_RULE' }; }), pv.run),
+    /method's recorded state is one only a person's review records/);
   // A reviewed trial may carry it; a machine assessment may not.
   const idx = clone(f.index); const row = idx.rows.find((r) => r.assessment_kind === 'human_reviewed');
   row.trial_state = 'NO_DECISION_RULE';

@@ -153,12 +153,31 @@
             if ((r.review_status === 'human_reviewed') !== (r.assessment_kind === 'human_reviewed')) return `${r.nct_id}: review status and assessment disagree`;
             if (!/^records\/r\d{2}\.json$/.test(r.record || '')) return `${r.nct_id}: no record shard`;
         }
+        // A trial in an optional state needs that state counted: a family without the count is one built before the state
+        // existed, and cannot also list a trial in it (Codex, PR 298).
+        const reviewedCounts = isObj(byKind.human_reviewed) ? byKind.human_reviewed : {};
+        const uncounted = index.rows.find(r => r.assessment_kind != null && OPTIONAL_COUNTS.includes(r.trial_state)
+            && !(r.trial_state in reviewedCounts));
+        if (uncounted) return `${uncounted.nct_id}: a trial in a state the assessment counts do not list`;
         return null;
     }
 
     function shardProblem(shard, run) {
         if (!isObj(shard) || shard.run_id !== run.run_id || shard.schema_version !== SCHEMA_VERSION || !isObj(shard.records)) {
             return 'the evidence record is from another run';
+        }
+        // The reviewed-only rule applies to the record a trial's panel renders, not only to its index row (Codex, PR 298):
+        // only a person's review records NO_DECISION_RULE, and method A's own recorded state is never it.
+        for (const [nct, rec] of Object.entries(shard.records)) {
+            const a = isObj(rec) ? rec.assessment : null;
+            if (!isObj(a)) continue;
+            const states = [a.trial_state, ...(Array.isArray(a.units) ? a.units : []).map(u => (isObj(u) ? u.state : null))];
+            if (a.assessment_kind !== 'human_reviewed' && states.some(s => REVIEWED_ONLY.includes(s))) {
+                return `${nct}: a reviewed-only state on an assessment no person reviewed`;
+            }
+            if (REVIEWED_ONLY.includes((a.review || {}).machine_trial_state)) {
+                return `${nct}: the method's recorded state is one only a person's review records`;
+            }
         }
         return null;
     }
