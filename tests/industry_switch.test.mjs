@@ -290,12 +290,15 @@ test('the forest is redrawn once per switch, and its line still claims no window
     await h.choose('2026-02-22');
     assert.equal(h.draws() - before, 1);
     assert.equal(h.last().view, 'forest');
-    assert.equal(h.meta(), `4 of ${SPONSOR_YEARS.length} cohort trials in the current filter`);
+    // The forest is fitted on a fixed cohort, so its scope line names that cohort, not a filtered count
+    // (Codex, PR 285; tested in industry_filter_reset.test.mjs). The redraw is checked by the draw count.
+    const fixed = 'Adjusted estimates are fitted on the full cohort; the Year Range and Condition filters do not apply';
+    assert.equal(h.meta(), fixed);
     assert.match(h.text(), /adjusted estimates over all years and conditions/);
     before = h.draws();
     await h.choose('latest');
     assert.equal(h.draws() - before, 1);
-    assert.equal(h.meta(), `5 of ${SPONSOR_YEARS.length} cohort trials in the current filter`);
+    assert.equal(h.meta(), fixed);
 });
 
 test('a closed Industry view, or one whose sponsor data has not loaded, is not drawn by a switch', async () => {

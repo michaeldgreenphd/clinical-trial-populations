@@ -272,3 +272,33 @@ test('phone layout: an open row keeps only its toggle, and the selects sit two p
   assert.match(src, /<p class="oc-detail-title">\$\{esc\(f\.brief_title\)\}<\/p>/);
   assert.match(src, /\$\{esc\(rec\.sponsor\.display\)\}/);
 });
+
+// 2026-11-13 layout: one compact status line, read from summary.json, near the title; the trial
+// browser before the review section; recoverable failure that never shows a count.
+test('the head states the reviewed count from the data, for none, few and all reviewed', () => {
+  const { run, summary } = family('evidence_only');
+  const few = O.headHTML(run, summary);
+  const m = summary.metrics.find((x) => x.id === 'human_reviewed');
+  const n = summary.denominators[m.denominator].n;
+  assert.match(few, new RegExp(`<strong>${m.numerator} of ${n}</strong> development-collection trials have an assessment reviewed by a person`));
+  assert.match(few, /describe the development collection, not the cohort/);
+  const none = clone(summary); none.metrics.find((x) => x.id === 'human_reviewed').numerator = 0;
+  assert.match(O.headHTML(run, none), /<strong>0 of \d+<\/strong>[\s\S]*none is published yet/);
+  assert.match(few, /class="oc-status-link"/);
+  assert.doesNotMatch(few, /href="#/, 'a #fragment link would fire the site router');
+  assert.match(few, /fixed cohort: the weekly “Last updated” date and snapshot selector do not apply to it/);
+  assert.doesNotMatch(O.headHTML(run), /oc-status/, 'with no summary there is no status line, not a zero');
+});
+
+test('the trial browser comes before review progress, and a failed load offers recovery without a count', async () => {
+  const src = read('industry_outcomes.js');
+  const order = src.match(/el\.innerHTML = `\s*\$\{banner\}([\s\S]*?)`;/)?.[1] || '';
+  assert.ok(order.indexOf('oc-browser') > 0 && order.indexOf('oc-browser') < order.indexOf('reviewHTML('),
+    'review progress is back between the evidence and the trial browser');
+  assert.doesNotMatch(order, /chart-footnote/, 'the footnote repeating the date line is back');
+  const el = { innerHTML: '', querySelector: () => null };
+  await O.open(el, { fetchJSON: () => Promise.reject(new Error('HTTP 503')) });
+  assert.match(el.innerHTML, /Could not load the trial outcomes data \(HTTP 503\)/);
+  assert.match(el.innerHTML, /class="oc-retry"/);
+  assert.doesNotMatch(el.innerHTML.replace(/<[^>]*>/g, '').replace(/HTTP 503/, ''), /\d/, 'a failed load shows a number');
+});

@@ -193,3 +193,24 @@ test('off the Industry tab, Reset and the chips leave the hidden view alone', ()
     assert.equal(h.renders(), 0, 'the Industry view was drawn while another tab is on screen');
     assert.equal(h.run('dashboardRenders'), 2, 'Reset and the × still redraw the dashboard');
 });
+
+// Codex (PR 285, P2 x2): in Adjusted Differences the scope line still read "N of M cohort trials in the
+// current filter" (a no-match filter showed 0 above a populated chart) and the options summary still listed
+// the sponsor set and the cell window, none of which that view uses. The real renderIndustry() and
+// industrySyncChrome() from app.js.
+test('the adjusted view names its fixed cohort and only the options it uses', () => {
+    const h = harness();
+    h.run(`industryScope = 'all'; industryCellMin = 20; industryView = 'heatmap'; renderIndustry();`);
+    assert.match(h.els['industry-meta'].textContent, /^[\d,]+ of [\d,]+ cohort trials in the current filter/);
+    assert.equal(h.els['industry-options-state'].textContent,
+        'lead & collaborator sponsors · all industry sponsors · 20–∞ trials per cell');
+    h.run(`industryView = 'trend'; renderIndustry();`);
+    assert.equal(h.els['industry-options-state'].textContent, 'lead & collaborator sponsors · all industry sponsors',
+        'the cell window shapes only the heatmap');
+    h.choose('year-start', '2026');
+    h.choose('year-end', '2026');
+    h.run(`industryView = 'forest'; renderIndustry();`);
+    assert.equal(h.els['industry-meta'].textContent,
+        'Adjusted estimates are fitted on the full cohort; the Year Range and Condition filters do not apply');
+    assert.equal(h.els['industry-options-state'].textContent, 'lead & collaborator sponsors · named top sponsors');
+});
