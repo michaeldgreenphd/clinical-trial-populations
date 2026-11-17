@@ -127,6 +127,11 @@
                 || OPTIONAL_COUNTS.some(s => s in counts && !isInt(counts[s]))) {
                 return `assessment counts for ${kind} do not list every state`;
             }
+            // A reviewed-only state has no machine assessments to count; summary.json is published on its own, so
+            // the per-trial check does not cover it (Codex, PR 298).
+            if (kind !== 'human_reviewed' && REVIEWED_ONLY.some(s => (counts[s] || 0) !== 0)) {
+                return `assessment counts for ${kind} include a state only a person's review records`;
+            }
         }
         if (run.display_mode === 'evidence_only' && byKind.machine_provisional) return 'machine counts in an evidence-only build';
         const seen = new Set();

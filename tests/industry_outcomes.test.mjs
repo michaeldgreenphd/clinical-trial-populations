@@ -140,6 +140,12 @@ test('NO_DECISION_RULE: counted when the family has it, optional in an older fam
   assert.doesNotMatch(O.reviewHTML(f.run, old, false), /<th scope="row">[^]*?No decision rule[^]*?<\/th>/);
   const one = clone(nine); one.assessment_states.by_kind.human_reviewed.NO_DECISION_RULE = 1;
   assert.match(O.reviewHTML(f.run, one, false), /No decision rule<\/span><\/th><td class="num">1<\/td>/);
+  // Regression (Codex, PR 298, P2): a machine count for it is refused, since only review records it; 0 is accepted.
+  const pv = family('provisional_preview');
+  const machineZero = clone(pv.summary); machineZero.assessment_states.by_kind.machine_provisional.NO_DECISION_RULE = 0;
+  assert.equal(O.dataProblem(pv.run, machineZero, pv.index), null);
+  const machineOne = clone(machineZero); machineOne.assessment_states.by_kind.machine_provisional.NO_DECISION_RULE = 1;
+  assert.match(O.dataProblem(pv.run, machineOne, pv.index), /machine_provisional include a state only a person's review records/);
   // A reviewed trial may carry it; a machine assessment may not.
   const idx = clone(f.index); const row = idx.rows.find((r) => r.assessment_kind === 'human_reviewed');
   row.trial_state = 'NO_DECISION_RULE';
