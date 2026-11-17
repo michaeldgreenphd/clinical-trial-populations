@@ -13814,7 +13814,15 @@ function renderIndustry() {
     if (question) question.textContent = INDUSTRY_VIEW_QUESTIONS[industryView].replace('{metric}', industryMetricLabel());
     const rows = industryFilteredRows();
     const meta = document.getElementById('industry-meta');
-    if (meta) {
+    if (meta && industryView === 'forest') {
+        // Adjusted Differences is fitted once on a fixed cohort (the full cohort, or the lead-sponsored one
+        // under Lead Sponsor Only, as renderIndustryForest() chooses) and ignores the year and condition
+        // filters, so the line names that cohort rather than a filtered count that could read "0 of 30,439"
+        // above a populated chart. No model trial count is shown: the data carries none for this view.
+        const leadMode = industryRole === 'lead' && Array.isArray(industryData.contrasts_lead);
+        meta.textContent = `Adjusted estimates are fitted on the ${leadMode ? 'lead-sponsored cohort' : 'full cohort'}; ` +
+            'the Year Range and Condition filters do not apply';
+    } else if (meta) {
         const ord = industrySelectedOrdered();
         const trunc = ord.total > ord.list.length
             ? ` · sponsors ${ord.start + 1}–${ord.start + ord.list.length} of ${ord.total.toLocaleString()} (by volume)` : '';
@@ -13872,8 +13880,11 @@ function industrySyncChrome() {
     if (opts) {
         const cells = industryCellMin === null && industryCellMax === null ? 'default cell size'
             : `${industryCellMin ?? (industryData && industryData.min_cell) ?? 10}\u2013${industryCellMax ?? '\u221e'} trials per cell`;
+        // Only the settings the active comparison uses: the sponsor set does not reach Adjusted Differences,
+        // which covers the named top sponsors, and the cell window shapes only the heatmap.
         opts.textContent = [industryRole === 'lead' ? 'lead sponsors only' : 'lead & collaborator sponsors',
-            industryScope === 'all' ? 'all industry sponsors' : 'top 10', cells].join(' \u00b7 ');
+            industryView === 'forest' ? 'named top sponsors' : industryScope === 'all' ? 'all industry sponsors' : 'top 10',
+            ...(industryView === 'heatmap' ? [cells] : [])].join(' \u00b7 ');
     }
     const forest = industryView === 'forest';
     const bench = document.getElementById('industry-benchmark-group');
