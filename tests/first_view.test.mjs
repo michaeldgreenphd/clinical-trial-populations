@@ -1293,9 +1293,15 @@ test('the nav menus behave as menus from the start, before the records arrive', 
     openGroup(groups[2]);
     docListeners.click.forEach((fn) => fn({ target: { closest: (sel) => (sel === '.nav-group' ? groups[2] : null) } }));
     assert.deepEqual(openOnes(), ['tools'], 'a click inside a menu closes it');
-    docListeners.keydown.forEach((fn) => fn({ key: 'Escape' }));
+    const escape = (defaultPrevented = false) => ({ key: 'Escape', defaultPrevented, preventDefault() { this.defaultPrevented = true; } });
+    // An Escape a pop-up already handled is not the menu's.
+    docListeners.keydown.forEach((fn) => fn(escape(true)));
+    assert.deepEqual(openOnes(), ['tools'], 'an Escape a pop-up handled also closed the menu');
+    const press = escape();
+    docListeners.keydown.forEach((fn) => fn(press));
     assert.deepEqual(openOnes(), [], 'Escape leaves the menu open');
     assert.deepEqual(focused, ['tools'], 'Escape does not return focus to the menu heading');
+    assert.equal(press.defaultPrevented, true, 'the Escape that closed the menu is not marked handled, so the column menu closes too');
 });
 
 // ── 4. Off, and without the block: as before ───────────────────────────────
