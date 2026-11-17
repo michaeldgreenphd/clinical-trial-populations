@@ -276,3 +276,34 @@ test('controls the adjusted model ignores are hidden with it, and Reset restores
     'the condition controls are no longer below the heatmap; revise the empty-state wording');
   assert.match(app, /let industryRowsPerPage = INDUSTRY_ROWS_DEFAULT;/, 'the opening page size and the Reset default differ');
 });
+
+// Codex (PR 285, P2): Adjusted Differences hides the sponsor-set control, and its estimates exist only for the
+// named top sponsors. With the set on All, the menu still offered every sponsor, so picking one without an
+// estimate showed "No sponsors selected" with no control left to switch back. The real functions from app.js,
+// run on fictional sponsors.
+test('the adjusted view offers only the sponsors it has estimates for', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const grab = (name) => app.match(new RegExp(`function ${name}\\([^)]*\\) \\{[\\s\\S]*?\\n\\}`))?.[0];
+  const src = ['industryTop10', 'industryMenuCompanies', 'updateIndustrySummaryLabel'].map(grab);
+  assert.ok(src.every(Boolean), 'a sponsor-menu function is missing from app.js');
+  const ctx = {
+    industryData: { companies: ['A', 'B', 'C', 'D', 'E'], company_n: [50, 40, 30, 20, 10], top_n: 2 },
+    industryScope: 'all', industryView: 'heatmap', industrySelected: new Set(['D']),
+    document: { getElementById: () => null },
+  };
+  runInNewContext(src.join('\n') + '\nthis.menu = industryMenuCompanies; this.label = updateIndustrySummaryLabel;', ctx);
+  const summary = { textContent: '' };
+  assert.deepEqual(ctx.menu(), ['A', 'B', 'C', 'D', 'E'], 'the All set lists every sponsor in the heatmap');
+  ctx.label(summary);
+  assert.equal(summary.textContent, 'Sponsor: D');
+  runInNewContext('industryView = "forest";', ctx);
+  assert.deepEqual(ctx.menu(), ['A', 'B'], 'the adjusted view lists only the named top sponsors');
+  ctx.label(summary);
+  assert.equal(summary.textContent, 'Sponsors: none selected', 'a sponsor without an estimate is not counted as selected');
+  runInNewContext('industrySelected = new Set(["A", "B", "D"]);', ctx);
+  ctx.label(summary);
+  assert.equal(summary.textContent, 'Sponsors: All top 10');
+  const viewToggle = app.match(/#industry-view-toggle \.view-btn'\)\.forEach\(btn => \{[\s\S]*?\}\);\n    \}\);/)?.[0];
+  assert.match(viewToggle, /industryView = btn\.dataset\.iview;\s*renderIndustrySponsorMenu\(\);/,
+    'switching the view must rebuild the sponsor menu');
+});

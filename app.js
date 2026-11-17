@@ -13255,9 +13255,14 @@ function industryTop10() {
 }
 
 // The sponsor list the dropdown offers under the current Scope: the named
-// top-10, or every industry sponsor in volume order.
+// top-10, or every industry sponsor in volume order. Adjusted Differences has
+// estimates only for the named top sponsors and hides the sponsor-set control,
+// so there the menu offers those alone; a sponsor without an estimate could be
+// picked and then shown as "No sponsors selected", with no control left to
+// switch the set back.
 function industryMenuCompanies() {
     const d = industryData;
+    if (industryView === 'forest') return industryTop10();
     if (industryScope === 'all' && Array.isArray(d.company_n)) return d.companies;
     return industryTop10();
 }
@@ -13318,10 +13323,13 @@ function renderIndustrySponsorMenu() {
 
 function updateIndustrySummaryLabel(summary) {
     if (!summary) summary = document.getElementById('industry-sponsor-summary');
-    const n = industrySelected.size, total = industryMenuCompanies().length;
-    summary.textContent = (industryScope !== 'all' && n === total) ? 'Sponsors: All top 10'
+    // Count only the sponsors the menu offers: a selection made under the All
+    // set keeps its other sponsors, which the adjusted view's menu does not list.
+    const listed = industryMenuCompanies();
+    const n = listed.filter(c => industrySelected.has(c)).length, total = listed.length;
+    summary.textContent = ((industryScope !== 'all' || industryView === 'forest') && n === total) ? 'Sponsors: All top 10'
         : n === 0 ? 'Sponsors: none selected'
-        : n === 1 ? 'Sponsor: ' + [...industrySelected][0]
+        : n === 1 ? 'Sponsor: ' + listed.find(c => industrySelected.has(c))
         : `Sponsors: ${n.toLocaleString()} of ${total.toLocaleString()}`;
 }
 
@@ -14266,6 +14274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.querySelectorAll('#industry-view-toggle .view-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             industryView = btn.dataset.iview;
+            renderIndustrySponsorMenu();   // the adjusted view offers only the sponsors it has estimates for
             renderIndustry();
             redrawArchiveSummary();   // the forest applies no year/condition filter
         });

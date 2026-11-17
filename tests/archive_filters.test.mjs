@@ -609,7 +609,9 @@ function viewSwitcher(h) {
     const start = app.indexOf('    // View switcher.');
     const end = app.indexOf('    // Demographic tier tabs');
     assert.ok(start > 0 && end > start, 'app.js lost the Industry view switcher');
-    h.run(`let industryRenders = 0; function renderIndustry() { industryRenders++; }
+    // The switch also rebuilds the sponsor menu (the adjusted view offers only the top sponsors); stubbed here,
+    // tested in industry_tab.test.mjs.
+    h.run(`let industryRenders = 0; function renderIndustry() { industryRenders++; } function renderIndustrySponsorMenu() {}
         const viewBtns = ['heatmap', 'trend', 'forest'].map(v => {
             const b = document.getElementById('iview-' + v); b.dataset.iview = v; return b; });
         document.querySelectorAll = (s) => s === '#industry-view-toggle .view-btn' ? viewBtns : [];
