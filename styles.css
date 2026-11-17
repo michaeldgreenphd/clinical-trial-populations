@@ -2232,6 +2232,26 @@ footer p {
     }
 }
 
+/* A small screen: the five-column breakdown (category, original label, match
+   quality, count, percent) is 323px at its narrowest, so the pop-up's own
+   padding and the cells' side padding give way before the table would. */
+@media (max-width: 480px) {
+    .breakdown-modal {
+        padding: 1rem;
+    }
+
+    .breakdown-table th,
+    .breakdown-table td {
+        padding: 0.4rem 0.25rem;
+    }
+}
+
+@media (max-width: 400px) {
+    .breakdown-modal {
+        padding: 0.75rem;
+    }
+}
+
 /* Study Details Modal */
 .study-details-modal {
     background: white;
@@ -2494,14 +2514,20 @@ footer p {
     max-width: 800px !important;
 }
 
-.breakdown-table th:nth-child(1),
-.breakdown-table td:nth-child(1) {
-    min-width: 150px;
-}
+/* Room for the category and its original label on a wide screen. Below
+   769px these floors pushed a three-column table (category, count,
+   percent) past a 369px pop-up (#291), so there the columns size to their
+   text and the headers wrap. */
+@media (min-width: 769px) {
+    .breakdown-table th:nth-child(1),
+    .breakdown-table td:nth-child(1) {
+        min-width: 150px;
+    }
 
-.breakdown-table th:nth-child(2),
-.breakdown-table td:nth-child(2) {
-    min-width: 150px;
+    .breakdown-table th:nth-child(2),
+    .breakdown-table td:nth-child(2) {
+        min-width: 150px;
+    }
 }
 
 /* Sparkline styles for time metrics - Tufte principle: small multiples */
@@ -5453,9 +5479,9 @@ footer p {
 /* A bucket nothing in the selection published: an em dash, not a zero. */
 .sg-tile .stat-value.sg-absent { color: var(--text-secondary); font-size: calc(var(--fs-display) * 0.6); }
 
-/* The v2 tables sit in panels that clip (`overflow: hidden`), and the global
-   breakdown-table rules floor the first two columns at 150px each. At 390px
-   that leaves the last column a few pixels short, so each table scrolls
+/* The v2 tables sit in panels that clip (`overflow: hidden`), and on a wide
+   screen the global breakdown-table rules floor the first two columns at
+   150px each. Should a table still be too wide for its panel, it scrolls
    inside its own container rather than losing a column or moving the page. */
 .sg-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 .sg-table-scroll > table { margin-bottom: 0; }
