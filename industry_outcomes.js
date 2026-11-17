@@ -133,6 +133,13 @@
                 return `assessment counts for ${kind} include a state only a person's review records`;
             }
         }
+        // An optional count is present for every kind or for none: the engine writes the same states for each kind, so
+        // a family counting it for one kind only is malformed, and the counts table would drop that state's row,
+        // hiding a reviewed count (Codex, PR 298).
+        const kindCounts = Object.values(byKind).filter(isObj);
+        if (OPTIONAL_COUNTS.some(s => new Set(kindCounts.map(c => s in c)).size > 1)) {
+            return 'assessment counts list a state for one kind of assessment and not another';
+        }
         if (run.display_mode === 'evidence_only' && byKind.machine_provisional) return 'machine counts in an evidence-only build';
         const seen = new Set();
         for (const r of index.rows) {
