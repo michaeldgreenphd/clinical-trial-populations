@@ -131,6 +131,51 @@ test('a closed menu, another key, or an Escape a pop-up already handled is left 
     assert.equal(handled.summary.focused, 0);
 });
 
+// A nav menu and the column menu both open (reachable from the keyboard): one
+// Escape closes one of them, the next the other. app.js's own initNavGroups
+// and columnPickerKeydown share one stub document; both listener orders are
+// run, so the result does not rest on which one startup wires first.
+test('with a nav menu and the column menu both open, each Escape closes one', () => {
+    for (const navFirst of [true, false]) {
+        const navSummary = { focus() {} };
+        const nav = {
+            attrs: { open: '' },
+            get open() { return 'open' in this.attrs; },
+            removeAttribute(n) { delete this.attrs[n]; },
+            addEventListener() {},
+            querySelector: (sel) => (sel === 'summary' ? navSummary : null)
+        };
+        const colSummary = { focus() {} };
+        const picker = { open: true, querySelector: (sel) => (sel === 'summary' ? colSummary : null), contains: () => false };
+        const keydown = [];
+        const body = {};
+        const ctx = vm.createContext({
+            document: {
+                body,
+                activeElement: body,
+                querySelectorAll: (sel) => (sel === '.nav-group' ? [nav] : []),
+                querySelector: (sel) => (sel === '.nav-group[open]' ? (nav.open ? nav : null) : null),
+                getElementById: (id) => (id === 'column-picker' ? picker : null),
+                addEventListener: (type, fn) => { if (type === 'keydown') keydown.push(fn); }
+            }
+        });
+        vm.runInContext([fnSource('function closeNavGroups(except)'), fnSource('function initNavGroups()'),
+            fnSource('function columnPickerKeydown(e)')].join('\n'), ctx);
+        const wireNav = () => ctx.initNavGroups();
+        const wirePicker = () => ctx.document.addEventListener('keydown', ctx.columnPickerKeydown);
+        if (navFirst) { wireNav(); wirePicker(); } else { wirePicker(); wireNav(); }
+        const press = () => {
+            const e = { key: 'Escape', defaultPrevented: false, preventDefault() { this.defaultPrevented = true; } };
+            keydown.forEach((fn) => fn(e));
+        };
+        const order = navFirst ? 'nav listener first' : 'column listener first';
+        press();
+        assert.equal(nav.open !== picker.open, true, `${order}: the first Escape closed both menus (or neither)`);
+        press();
+        assert.equal(nav.open || picker.open, false, `${order}: the second Escape left a menu open`);
+    }
+});
+
 test('the menu is placed on each opening and on a resize, and is never wider than the window', () => {
     const init = fnSource('function initColumnPicker()');
     assert.match(init, /picker\.addEventListener\('toggle', placeColumnPicker\)/, 'opening the menu does not place it');
