@@ -3113,8 +3113,11 @@ function touchShard(r, n) {
 // Load detail shard n of a dataset: one promise per dataset and shard, shared
 // by every pop-up that needs it. Settles, never rejects; a failure is shown,
 // and the next call tries again, unless this shard came from a newer run.
-// Past SHARD_CACHE_LIMIT loaded shards, the least recently used are dropped,
-// never the one that has just loaded (its pop-up is about to draw it).
+// Past SHARD_CACHE_LIMIT loaded shards, the least recently used are dropped:
+// used is when a pop-up last asked for the shard (touchShard), not when its
+// load finished, so the shard that just loaded is dropped too when it is the
+// oldest (loads finish in any order). A pop-up asks for its shard as it
+// opens, so the shard of the pop-up just opened is the most recently used.
 function loadShard(r, n) {
     const held = touchShard(r, n);
     if (held && (held.state === 'loading' || held.state === 'loaded')) return held.promise;
@@ -3126,8 +3129,8 @@ function loadShard(r, n) {
     shard.promise = fetchSidecar(url, body => shardProblem(r, body, n), null, retry).then(body => {
         shard.map = body.data;
         shard.state = 'loaded';
-        const others = [...r.shards].filter(([k, s]) => k !== n && s.state === 'loaded');
-        others.slice(0, Math.max(0, others.length + 1 - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
+        const loaded = [...r.shards].filter(([, s]) => s.state === 'loaded');
+        loaded.slice(0, Math.max(0, loaded.length - SHARD_CACHE_LIMIT)).forEach(([k]) => r.shards.delete(k));
     }, async err => {
         const problem = await sidecarFailure(r, err);
         shard.state = 'failed';

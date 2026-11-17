@@ -2149,6 +2149,28 @@ test('a long session of pop-ups keeps a bounded number of shards', T, async () =
     assert.equal(h.run(`datasetReader.shards.has(${Number(records[limit + 2].nct_id.slice(3)) % 40})`), true);
 });
 
+test('the shard cache drops by use, not by the order the loads finished', T, async () => {
+    // The test above, with the first pop-up's shard answered last: loads
+    // finish in any order (a busy machine's decompression, or the network),
+    // and the shard nobody has asked for since is still the one dropped.
+    const records = Array.from({ length: 40 }, (_, i) => fullRecord(`NCT0${String(2000000 + i).padStart(7, '0')}`));
+    const files = dataset(records, { parts: 8, shards: 40, stamp: STAMP, commit: 'abc1234' });
+    const shardOf40 = (r) => Number(r.nct_id.slice(3)) % 40;
+    const first = `data/detail/${shardOf40(records[0])}.json.gz`;
+    const h = harness({ files });
+    await h.run('loadData()');
+    const limit = h.run('SHARD_CACHE_LIMIT');
+    h.hold();
+    for (const r of records.slice(0, limit + 3)) h.run(`showStudyDetails('${r.nct_id}')`);
+    await h.release((path) => path !== first);
+    assert.equal(h.run(`datasetReader.shards.get(${shardOf40(records[0])})?.state`), 'loading');
+    await h.release();
+    assert.equal(h.run('[...datasetReader.shards.values()].filter(s => s.state === "loaded").length'), limit);
+    assert.equal(h.run(`datasetReader.shards.has(${shardOf40(records[0])})`), false, 'the shard that loaded last was kept in place of newer ones');
+    assert.deepEqual(h.json('[...datasetReader.shards.keys()]'), records.slice(3, limit + 3).map(shardOf40));
+    assert.match(h.overlay(), /Harbor Clinic/, 'the open pop-up lost its shard');
+});
+
 test('the shard cache drops the least recently used shard, never the one a pop-up just retried', T, async () => {
     const records = Array.from({ length: 40 }, (_, i) => fullRecord(`NCT0${String(3000000 + i).padStart(7, '0')}`));
     const files = dataset(records, { parts: 8, shards: 64, stamp: STAMP, commit: 'abc1234' });
