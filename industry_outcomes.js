@@ -546,9 +546,20 @@
         const outcomes = f.registered_primary_outcomes.length
             ? '<ul class="oc-list">' + f.registered_primary_outcomes.map(o => `<li>${esc(o.measure)}${o.time_frame ? ` <span class="oc-sub">— ${esc(o.time_frame)}</span>` : ''}</li>`).join('') + '</ul>'
             : '<span class="oc-absent">None registered</span>';
+        // When a person amended the conclusion or could not determine it, the method layer shows the method's own
+        // recorded state (review.machine_trial_state), and the reviewed state sits with the person's decision below.
+        // Otherwise a reviewed state, NO_DECISION_RULE above all, which method A never assigns, would be attributed
+        // to the method (Codex, PR 298). The units below carry their own "amended by review" tags.
+        const overridden = a && a.assessment_kind === 'human_reviewed' && a.review && a.review.decision !== 'CONFIRM'
+            && a.review.machine_trial_state;
+        const reasonOf = (state, sub, rationale) => esc(sub ? REASONS[sub] || rationale || '' : rationale || '');
         const method = a ? `
-            <p>${stateBadge(a.trial_state, a.assessment_kind)}</p>
-            <p>${esc(a.trial_sub_reason ? REASONS[a.trial_sub_reason] || a.trial_rationale : a.trial_rationale)}</p>
+            ${overridden
+                ? `<p>${stateBadge(a.review.machine_trial_state, a.assessment_kind)}</p>
+            <p>${reasonOf(a.review.machine_trial_state, a.review.machine_trial_sub_reason, '')}</p>
+            <p class="oc-note">The method's own conclusion. A person's review replaced it; see “What a person checked”.</p>`
+                : `<p>${stateBadge(a.trial_state, a.assessment_kind)}</p>
+            <p>${reasonOf(a.trial_state, a.trial_sub_reason, a.trial_rationale)}</p>`}
             <dl class="oc-grid oc-grid-trial">
                 <dt>Multiplicity</dt><dd>${esc(words(a.multiplicity)) || '<span class="oc-absent">not recorded</span>'}</dd>
                 <dt>Prespecification</dt><dd>Registration ${esc(words((a.prespecification || {}).registration_timing)) || 'timing not recorded'}${(a.prespecification || {}).level ? `, level ${esc(a.prespecification.level)}` : ''}</dd>
@@ -559,7 +570,9 @@
                 ? '<strong>Awaiting review.</strong> This trial is in the development collection; its assessment is shown only after a person has reviewed it.'
                 : '<strong>Not assessed.</strong> Only trials in the development collection are assessed in this beta; that says nothing about this trial.'}</p>`;
         const review = a && a.assessment_kind === 'human_reviewed'
-            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
+            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${overridden
+                ? `<p>${stateBadge(a.trial_state, a.assessment_kind)}</p><p>${reasonOf(a.trial_state, a.trial_sub_reason, a.trial_rationale)}</p>`
+                : ''}${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
             : `<p>${a ? '<span class="oc-prov">Provisional, machine only</span> No person has reviewed this assessment.' : 'No person has reviewed an assessment of this trial.'}</p>`;
         const link = rec.demographics_link
             ? (rec.demographics_link.in_dataset

@@ -177,6 +177,30 @@ test('NO_DECISION_RULE: counted when the family has it, optional in an older fam
   assert.match(O.dataProblem(p.run, p.summary, pidx), /reviewed-only state on an assessment no person reviewed/);
 });
 
+test('an amended conclusion is shown as the person\'s, with the method\'s own beside it', () => {
+  // Regression (Codex, PR 298, P2): an AMEND's reviewed state, NO_DECISION_RULE above all (method A never assigns
+  // it), was shown under "What the method concludes".
+  const f = family('evidence_only');
+  const key = Object.keys(f.shards).find((k) => Object.values(f.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'));
+  const rec = clone(Object.values(f.shards[key].records).find((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'));
+  const H2 = '</span> What the method concludes</h5>', H3 = '</span> What a person checked</h5>';
+  const layers = (html) => ({ method: html.split(H2)[1].split(H3)[0], review: html.split(H3)[1] });
+  // CONFIRM: the method layer shows the trial state, as before.
+  const confirmed = layers(O.recordHTML(rec, f.run, false));
+  assert.match(confirmed.method, new RegExp(O.STATE_LABELS[rec.assessment.trial_state]));
+  assert.doesNotMatch(confirmed.method, /A person's review replaced it/);
+  // AMEND to NO_DECISION_RULE: the method layer shows the method's own state; the reviewed one is with the review.
+  const machine = rec.assessment.review.machine_trial_state;
+  Object.assign(rec.assessment, { trial_state: 'NO_DECISION_RULE', trial_sub_reason: 'ESTIMATION_ONLY' });
+  rec.assessment.review.decision = 'AMEND';
+  const amended = layers(O.recordHTML(rec, f.run, false));
+  assert.doesNotMatch(amended.method, /No decision rule/);
+  assert.match(amended.method, new RegExp(O.STATE_LABELS[machine]));
+  assert.match(amended.method, /A person's review replaced it/);
+  assert.match(amended.review, /No decision rule/);
+  assert.match(amended.review, /estimated, not tested against a prespecified criterion/);
+});
+
 test('the overview names every denominator and lists every state', () => {
   const p = family('provisional_preview');
   const html = O.overviewHTML(p.run, p.summary, true);
