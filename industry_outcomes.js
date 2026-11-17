@@ -220,26 +220,31 @@
     // The pane's one statement of who is in it, when the data was retrieved, and how many
     // assessments a person has reviewed (from summary.json, never assumed). Inclusion rules sit in
     // the disclosure; review detail lives in its own section further down.
-    function reviewStatus(summary) {
+    // machineShown: a local preview of a provisional build also shows unreviewed machine
+    // assessments (showsMachine), so the line must not claim that only reviewed ones are shown.
+    function reviewStatus(summary, machineShown = false) {
         const m = Object.fromEntries(((summary || {}).metrics || []).map(x => [x.id, x]));
         const r = m.human_reviewed;
         if (!r) return '';
         const n = (summary.denominators[r.denominator] || {}).n ?? r.denominator;
         const lead = `<strong>${r.numerator.toLocaleString()} of ${Number(n).toLocaleString()}</strong> development-collection trials have an assessment reviewed by a person`;
+        const preview = ' In this local preview, unreviewed machine assessments are also shown, labelled as provisional.';
         const tail = r.numerator === 0
-            ? '; none is published yet. Registry evidence for every trial is below.'
-            : '; only those are shown, and they describe the development collection, not the cohort.';
+            ? '; none is published yet. Registry evidence for every trial is below.' + (machineShown ? preview : '')
+            : machineShown
+                ? '; they describe the development collection, not the cohort.' + preview
+                : '; only those are shown, and they describe the development collection, not the cohort.';
         return `<p class="oc-status" role="status">${lead}${tail} <button type="button" class="oc-status-link" aria-controls="oc-review-h">About review</button></p>`;
     }
 
-    function headHTML(run, summary) {
+    function headHTML(run, summary, machineShown = false) {
         const excl = Object.entries((run.cohort || {}).exclusions || {}).filter(([, n]) => n > 0)
             .map(([k, n]) => `${n.toLocaleString()} ${esc(EXCLUSION_LABELS[k] || k)}`).join('; ');
         return `
         <div class="oc-head">
             <h3>What outcome evidence is there for each trial? <span class="oc-beta">Beta</span></h3>
             <p class="oc-dateline"><strong>${run.cohort.n_eligible.toLocaleString()} randomized Phase 3 industry trials</strong> with primary completion in 2020 · registry retrieved ${esc(fmtDate((run.acquisition || {}).retrieved_at))}, results as of ${esc(fmtDate(run.cutoff))} · a fixed cohort: the weekly “Last updated” date and snapshot selector do not apply to it.</p>
-            ${reviewStatus(summary)}
+            ${reviewStatus(summary, machineShown)}
             <details class="oc-scope"><summary>Who is included: ${run.cohort.n_eligible.toLocaleString()} of ${run.cohort.n_frame.toLocaleString()} registry records</summary>
                 <p>${esc(run.cohort.definition)}</p>
                 <p>The registry query matched ${run.cohort.n_frame.toLocaleString()} records${excl ? `; excluded: ${excl}` : ''}.${run.cohort.differs_from_frame ? ` ${esc(run.cohort.differs_from_frame)}` : ''}</p>
@@ -928,7 +933,7 @@
             : '';
         el.innerHTML = `
             ${banner}
-            ${headHTML(run, summary)}
+            ${headHTML(run, summary, machineShown)}
             ${availabilityHTML(summary)}
             ${structureSummaryHTML(state.data.structure)}
             <section class="oc-block oc-browser" aria-labelledby="oc-browser-h">

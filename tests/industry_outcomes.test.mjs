@@ -287,6 +287,13 @@ test('the head states the reviewed count from the data, for none, few and all re
   assert.match(few, /class="oc-status-link"/);
   assert.doesNotMatch(few, /href="#/, 'a #fragment link would fire the site router');
   assert.match(few, /fixed cohort: the weekly “Last updated” date and snapshot selector do not apply to it/);
+  // Regression (Codex, PR 285, P2): a local preview of a provisional build shows machine assessments too
+  // (showsMachine), so the line must not say only the reviewed ones are shown.
+  const preview = O.headHTML(run, summary, true);
+  assert.doesNotMatch(preview, /only those are shown/);
+  assert.match(preview, /unreviewed machine assessments are also shown, labelled as provisional/);
+  assert.match(O.headHTML(run, none, true), /none is published yet[\s\S]*unreviewed machine assessments are also shown/);
+  assert.doesNotMatch(O.headHTML(run, none), /machine assessments/);
   assert.doesNotMatch(O.headHTML(run), /oc-status/, 'with no summary there is no status line, not a zero');
 });
 
