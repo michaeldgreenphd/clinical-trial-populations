@@ -345,20 +345,19 @@ function loadingFigureNote(summary, model) {
 // range-frame year axis, the values at each end, the names on the lines,
 // and the 2017 Final Rule marked as the Overview chart marks it.
 //
-// It builds up in steps rather than all at once, so there is more to watch
-// while the records load: the frame and the Final Rule marker, then the Race
-// line and its labels, then the Race and ethnicity line and its labels. Each
-// element carries its start time as --lf-delay, which styles.css adds to its
-// transition; with reduced motion there are no transitions and everything
-// shows at once.
+// It builds up with the load rather than all at once, so the wait has
+// something to watch and the last pieces arrive as the records finish: the
+// frame and the Final Rule marker first, then the Race line drawn as the
+// first part of the records arrives, its values and name, then the Race and
+// ethnicity line over the later part, and its values and name at the end.
+// Each step carries the share of the load it belongs to (data-lf-from/-to
+// for a line, data-lf-at for labels); paceLoadingFigure applies them.
 function loadingFigureSVG(model, width) {
-    // Start times, in seconds after the figure is shown.
-    const LOADING_FIGURE_STEPS = {
-        frame: 0.2,      // Final Rule label, with the axis
-        firstLine: 0.6,  // the Race line starts drawing
-        perSeries: 2.1,  // each later line starts this much after the one before
-        labelsAfter: 1.3 // a line's values and name follow its start by this much
-    };
+    // Shares of the record load (0 to 1) at which each step shows.
+    const LOADING_FIGURE_STEPS = [
+        { line: [0, 0.4], labels: 0.42 },    // Race
+        { line: [0.45, 0.85], labels: 0.9 }  // Race and ethnicity
+    ];
     const W = Math.max(240, Math.round(width));
     const H = 140, L = 34, R = 40, T = 18, B = 22;
     const n = model.years.length;
@@ -402,17 +401,17 @@ function loadingFigureSVG(model, width) {
     if (ev > 0 && ev < last) {
         svg += `<line class="lf-event" x1="${f(x(ev))}" x2="${f(x(ev))}" y1="${T - 4}" y2="${axisY}"/>`;
         svg += `<text class="lf-text" x="${f(x(ev))}" y="${H - 2}" text-anchor="middle">2017</text>`;
-        svg += `<text class="lf-text lf-late" x="${f(x(ev) + 4)}" y="${T - 6}" style="--lf-delay:${LOADING_FIGURE_STEPS.frame}s">Final Rule</text>`;
+        svg += `<text class="lf-text lf-late" x="${f(x(ev) + 4)}" y="${T - 6}" data-lf-at="0">Final Rule</text>`;
     }
     series.forEach((s, k) => {
         const d = s.vals.map((p, i) => `${i ? 'L' : 'M'}${f(x(i))},${f(y(p))}`).join('');
-        const lineAt = LOADING_FIGURE_STEPS.firstLine + k * LOADING_FIGURE_STEPS.perSeries;
-        const labelsAt = `--lf-delay:${(lineAt + LOADING_FIGURE_STEPS.labelsAfter).toFixed(1)}s`;
-        svg += `<path class="lf-line" pathLength="1" d="${d}" style="stroke:${s.color};--lf-delay:${lineAt.toFixed(1)}s"/>`;
-        svg += `<circle class="lf-late" cx="${f(x(last))}" cy="${f(y(s.vals[last]))}" r="2.5" style="fill:${s.color};${labelsAt}"/>`;
-        svg += `<text class="lf-text lf-value lf-late" x="${f(x(0) - 6)}" y="${f(startY[k])}" text-anchor="end" dominant-baseline="middle" style="fill:${s.color};${labelsAt}">${pct(s.vals[0])}</text>`;
-        svg += `<text class="lf-text lf-value lf-late" x="${f(x(last) + 6)}" y="${f(endY[k])}" dominant-baseline="middle" style="fill:${s.color};${labelsAt}">${pct(s.vals[last])}</text>`;
-        svg += `<text class="lf-name lf-late" x="${f(x(last) - 2)}" y="${f(s.nameY)}" text-anchor="end" style="fill:${s.color};${labelsAt}">${s.name}</text>`;
+        const step = LOADING_FIGURE_STEPS[k];
+        const at = `data-lf-at="${step.labels}"`;
+        svg += `<path class="lf-line" pathLength="1" d="${d}" style="stroke:${s.color}" data-lf-from="${step.line[0]}" data-lf-to="${step.line[1]}"/>`;
+        svg += `<circle class="lf-late" cx="${f(x(last))}" cy="${f(y(s.vals[last]))}" r="2.5" style="fill:${s.color}" ${at}/>`;
+        svg += `<text class="lf-text lf-value lf-late" x="${f(x(0) - 6)}" y="${f(startY[k])}" text-anchor="end" dominant-baseline="middle" style="fill:${s.color}" ${at}>${pct(s.vals[0])}</text>`;
+        svg += `<text class="lf-text lf-value lf-late" x="${f(x(last) + 6)}" y="${f(endY[k])}" dominant-baseline="middle" style="fill:${s.color}" ${at}>${pct(s.vals[last])}</text>`;
+        svg += `<text class="lf-name lf-late" x="${f(x(last) - 2)}" y="${f(s.nameY)}" text-anchor="end" style="fill:${s.color}" ${at}>${s.name}</text>`;
     });
     return svg + '</svg>';
 }
@@ -436,8 +435,29 @@ function renderLoadingFigure(summary) {
             note.appendChild(span);
         });
     }
-    // Two frames, so the lines draw in from their undrawn state.
-    requestAnimationFrame(() => requestAnimationFrame(() => fig.classList.add('is-ready')));
+    // Two frames, so the figure fades in before the first step shows.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+        fig.classList.add('is-ready');
+        paceLoadingFigure(loadingFigureShare);
+    }));
+}
+
+// How far the record load has got (0 to 1), kept for a figure drawn after
+// the load started. Each line is drawn over its stretch of the load; labels
+// show once the load passes their share.
+let loadingFigureShare = 0;
+function paceLoadingFigure(share) {
+    loadingFigureShare = Math.max(loadingFigureShare, Math.max(0, Math.min(1, share)));
+    const fig = document.getElementById('loading-figure');
+    if (!fig || !fig.classList.contains('is-ready')) return;
+    const f = loadingFigureShare;
+    fig.querySelectorAll('[data-lf-from]').forEach(el => {
+        const from = Number(el.dataset.lfFrom), to = Number(el.dataset.lfTo);
+        const drawn = Math.max(0, Math.min(1, (f - from) / (to - from)));
+        el.style.strokeDashoffset = String(1 - drawn);
+        el.classList.toggle('is-on', drawn > 0);
+    });
+    fig.querySelectorAll('[data-lf-at]').forEach(el => el.classList.toggle('is-on', f >= Number(el.dataset.lfAt)));
 }
 
 // Megabytes as the loading screen shows them: decimal, whole numbers.
@@ -476,6 +496,9 @@ function updateLoadingProgress(percent, statusText, bytesText = '') {
         if (bytes) bytes.textContent = bytesText;
     });
     loadingSample.fill(percent / 100);
+    // The records arrive between 10% and 70% (loadDataInParallel); the
+    // figure's steps follow that stretch, and are complete after it.
+    paceLoadingFigure((percent - 10) / 60);
 }
 
 // Hide loading overlay after initial render is complete
