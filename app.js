@@ -50,7 +50,7 @@ const snapshotCache = new Map(); // key: 'latest' | 'YYYY-MM-DD', value: { data,
 // back to it at once, with nothing downloaded again. The entry holding the
 // data actually on screen is kept whatever key it was asked for under (two
 // switches can overlap). The small ?sg=v2 caches (a remembered 404, a meta
-// without a table, the methods and beta summaries) stay: dropping them would
+// without a table) stay: dropping them would
 // only ask for the same small files again.
 function retainSnapshots(onScreen) {
     const keep = new Set(['latest', onScreen || 'latest']);
@@ -11537,7 +11537,6 @@ window.showLitExtractionDetails = showLitExtractionDetails;
 //     record: reported_any, gender_labeled_binary_only, the label trails),
 //   - data/sex_gender_parsed_meta.json (snapshot date, rules version, states),
 //   - the `sexGender` block of dashboard-summary.json (mobile, the beta panel),
-//   - data/sex_gender/methods.json (the methods page).
 // Rules it never breaks: the four visible states are never merged, nothing
 // is derived from enrollment arithmetic, the enrollment gap the engine stores
 // is shown nowhere as a participant group, and no tile is named after a
@@ -11687,8 +11686,6 @@ function sgShareFlag() {
 let sgTable = null;        // Map nct_id -> the CSV columns the UI joins (desktop only)
 let sgMeta = null;         // sex_gender_parsed_meta.json of the loaded snapshot, or null
 let sgAvailable = false;   // the loaded snapshot carries the v2 artifacts
-const sgMethodsCache = new Map();   // snapshot key -> { methods, fromLatest } | null (confirmed absent)
-let sgMethodsPending = null;        // the in-flight sgLoadMethods(), for deep links
 let sgSnapshotKey = 'latest';       // 'latest' | date: the snapshot the tabs are showing
 let sgMetaAbsent = false;           // the parsed-table meta was confirmed absent (404), not merely unfetched
 const sgBetaSummaries = new Map();  // snapshot key -> dashboard-summary.json | null (fetch failed)
@@ -11836,11 +11833,6 @@ async function sgLoad(date) {
     }
     sgSnapshotKey = key;
     sgAvailable = !!sgMeta || !!(dashboardSummary && dashboardSummary.sexGender);
-    // Loaded even when this snapshot has no parser-v2 artifacts: otherwise the
-    // previous snapshot's methods stay in the FAQ, presenting the latest
-    // pull's dates, counts and rules as if they described what is on screen.
-    // The promise is kept so a #faq?m=<section> deep link can wait for it.
-    if (SG_V2) sgMethodsPending = sgLoadMethods().catch(e => console.warn('sg=v2: methods:', e.message));
 }
 
 // ── Rows ─────────────────────────────────────────────────────────────────
@@ -12600,143 +12592,20 @@ function sgShowBreakdown(nctId, field) {
     html += `<p class="modal-note">Parser rules: ${escapeHtml(r.parser_rules_version || sgRulesVersion() || '—')}. ` +
         `Percent female for this trial: ${sgPercentFemale(r) != null ? sgPercentFemale(r).toFixed(1) + '%'
             : (sgPercentFemaleMissing(r) ? 'in the denominator set, but the published figure did not load' : 'not in the denominator set')}. ` +
-        `<a href="#faq" onclick="return sgOpenMethods('states')">Methods</a>.</p>` +
+        `<a href="#faq" onclick="return sgOpenMethods()">How sex and gender are counted</a>.</p>` +
         `<button class="modal-close-btn" onclick="closeBreakdown()">Close</button></div>`;
     drawOverlay('breakdown-overlay', html, false);
 }
 
-// ── Methods page ─────────────────────────────────────────────────────────
-// The methods text carries the snapshot's own date, reporting-state counts
-// and parser version, so it is loaded for the snapshot on screen. Archived
-// snapshots do not currently publish one; rather than let the latest pull's
-// numbers stand in silently, the fallback is labelled as what it is.
-async function sgLoadMethods() {
-    const box = document.getElementById('sg-methods');
-    if (!box) return;
-    const key = sgSnapshotKey;
-    let entry = null;
-    let cached = sgMethodsCache.has(key);
-    if (cached) {
-        entry = sgMethodsCache.get(key);
-    } else {
-        const get = async (base, fromLatest) => {
-            try {
-                const resp = await fetchChecked(`${base}/sex_gender/methods.json`, m => m.source_extracted_at);
-                if (resp.ok) return { entry: { methods: await resp.json(), fromLatest } };
-                return { absent: resp.status === 404 || resp.status === 403 };
-            } catch (e) { return { absent: false }; }
-        };
-        const own = await get(sgBase(key), false);
-        entry = own.entry || null;
-        // The archive's own text is the only thing that can speak for it. Fall
-        // back to the latest only once the archive's file is known to be
-        // absent; a request that merely failed leaves the answer open, so the
-        // fallback is shown but never cached and the next visit retries.
-        let failed = !own.entry && !own.absent;
-        if (!entry && key !== 'latest' && own.absent) {
-            const latest = await get('data', true);
-            entry = latest.entry || null;
-            if (!latest.entry && !latest.absent) failed = true;
-        } else if (!entry && key !== 'latest') {
-            const latest = await get('data', true);
-            // Shown, not cached (see `failed`), and marked unsettled so the
-            // notice does not claim the archive never published its own.
-            entry = latest.entry ? Object.assign({}, latest.entry, { unsettled: true }) : null;
-        }
-        // Cached only when the answer is settled; `entry` is still rendered
-        // when the archive's own request merely failed, so a usable fallback
-        // is shown now and the archive is retried on the next visit.
-        if (!failed) { sgMethodsCache.set(key, entry); cached = true; }
-    }
-    if (key !== sgSnapshotKey) return;      // the snapshot changed mid-fetch
-    if (!entry) {
-        box.innerHTML = cached
-            ? `<p class="note">No methods text (<code>sex_gender/methods.json</code>) is published for ${escapeHtml(key === 'latest' ? 'this pull' : 'the ' + key + ' snapshot')}.</p>`
-            : `<p class="note">The methods text could not be fetched just now. Reselecting this snapshot retries it.</p>`;
-        return;
-    }
-    const meta = sgEffectiveMeta();
-    box.innerHTML = sgMethodsNotice(key, entry, meta) + sgMethodsHtml(entry.methods, meta);
-}
-
-// The parsed-table meta, or what stands in for it. A monthly archive keeps
-// its parser data in dashboard-summary.json with no separate meta file, and
-// that block is the evidence the snapshot was parsed and with which rules.
-function sgEffectiveMeta() {
-    if (sgMeta) return sgMeta;
-    const sg = dashboardSummary && dashboardSummary.sexGender;
-    if (!sg) return null;
-    return {
-        parser_rules_version: sg.parser_rules_version || '',
-        parser_module_version: sg.parser_module_version || '',
-        status_counts: { status: sg.statusCounts || {} },
-        from_summary: true
-    };
-}
-
-// Says whose numbers the text below is, when they are not this snapshot's.
-function sgMethodsNotice(key, entry, meta) {
-    if (!entry.fromLatest) return '';
-    // Whether the archive's own text exists is settled only by a 404; a
-    // request that merely failed is said to have failed, not to be absent.
-    const lead = entry.unsettled
-        ? `<strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot's own methods text could not be fetched just now, so what follows is the latest pull's; reselecting the snapshot retries it.`
-        : `<strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot did not archive its own methods, so what follows is the latest pull's:`;
-    // No parsed table at all. That it predates the parser is a claim only a
-    // confirmed absence can support; an unfetched meta is said to be unfetched.
-    if (!meta) {
-        if (sgMetaAbsent) {
-            return `<p class="note sg-banner"><strong>Not this snapshot's text.</strong> The ${escapeHtml(key)} snapshot predates parser v2: it has no parsed sex/gender table and no methods of its own, and its Sex and Gender tabs show the retired extraction. What follows describes the latest pull, under rules that were never applied to this snapshot.</p>`;
-        }
-        return `<p class="note sg-banner">${lead} Whether this snapshot was parsed could not be established either: its parsed-table meta could not be fetched just now.</p>`;
-    }
-    const archived = meta && meta.parser_rules_version;
-    const latest = entry.methods && entry.methods.parser_rules_version;
-    // Only claim the rules match when both versions are known and equal;
-    // with one of them missing, name what is known and claim nothing.
-    let rules = '';
-    if (archived && latest && archived !== latest) {
-        rules = ` The rules also differ: this archive was parsed with <code>${escapeHtml(archived)}</code> and the text below describes <code>${escapeHtml(latest)}</code>.`;
-    } else if (archived && latest) {
-        rules = ` Both were parsed with <code>${escapeHtml(archived)}</code>, so the rules the text describes are this archive's.`;
-    } else if (archived) {
-        rules = ` This archive was parsed with <code>${escapeHtml(archived)}</code>; the text below does not say which rules it describes.`;
-    }
-    return `<p class="note sg-banner">${lead} Its snapshot date, reporting-state counts and fidelity figures describe that pull, not this archive.` +
-        rules + `</p>`;
-}
-
-function sgMethodsHtml(m, meta) {
-    const pe = meta && meta.status_counts && meta.status_counts.status ? Number(meta.status_counts.status.parse_error || 0) : null;
-    const f = m.fidelity || {};
-    let html = `<p class="note sg-provenance-line"><strong>Parser rules version:</strong> <code>${escapeHtml(m.parser_rules_version || '')}</code> ` +
-        `(module ${escapeHtml(m.parser_module_version || '')}); snapshot ${escapeHtml(m.snapshot_date || '')}; text generated ${escapeHtml((m.generated_at || '').slice(0, 10))}.` +
-        (pe != null ? ` Parse errors on this snapshot: ${pe.toLocaleString()} (this state is counted here only).` : '') + `</p>`;
-    (m.sections || []).forEach(s => {
-        html += `<h5 id="methods-sg-${escapeHtml(s.id)}" class="sg-methods-h">${escapeHtml(s.heading)}</h5><p class="note">${escapeHtml(s.text)}</p>`;
-    });
-    if (f.status_exact) {
-        html += `<p class="note"><strong>Fidelity ceiling:</strong> ${Number(f.status_exact).toLocaleString()} of ${Number(f.status_total).toLocaleString()} trials (${escapeHtml(f.status_pct || '')}) status agreement with the manual ground truth on the ${escapeHtml(f.extract_date || '')} extract.</p>`;
-    }
-    return html;
-}
-
-function sgOpenMethods(anchor) {
+// Opens the FAQ entry "How are sex and gender counted?" and scrolls to it.
+function sgOpenMethods() {
     const faq = document.querySelector('.tab[data-tab="faq"]');
     if (faq && !faq.classList.contains('active')) faq.click();
     const det = document.getElementById('methods-sex-gender');
-    if (det) det.open = true;
-    // A section of the full methods sits in its own closed panel.
-    const full = document.getElementById('sg-methods-full');
-    if (full && anchor) full.open = true;
-    // The headings arrive from a fetch. A deep link can land first, so wait for
-    // the text rather than falling back to the top of the section.
-    const scroll = () => {
-        const target = document.getElementById(anchor ? `methods-sg-${anchor}` : 'methods-sex-gender') || det;
-        if (target) setTimeout(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-    };
-    if (sgMethodsPending && typeof sgMethodsPending.then === 'function') sgMethodsPending.then(scroll, scroll);
-    else scroll();
+    if (det) {
+        det.open = true;
+        setTimeout(() => det.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+    }
     return false;
 }
 window.sgOpenMethods = sgOpenMethods;
@@ -12748,8 +12617,8 @@ const SG_INITIAL_SEARCH = (() => { try { return location.search || ''; } catch (
 
 function sgRouteHooks() {
     const params = sgQueryParams(SG_INITIAL_HASH, SG_INITIAL_SEARCH);
-    const m = params.get('m');
-    if (m) sgOpenMethods(m);
+    // ?m=<section> (older links into the methods) opens the FAQ entry.
+    if (params.get('m')) sgOpenMethods();
     if (params.get('sgfilters') === '1') {
         const panel = document.getElementById('filters');
         const sum = document.getElementById('filter-summary-toggle');

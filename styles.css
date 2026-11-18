@@ -5477,7 +5477,6 @@ footer p {
 .sg-labels summary { cursor: pointer; font-weight: 500; }
 .sg-label-table { max-width: 60ch; }
 
-.sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
 .sg-footer { margin-top: 0.5rem; }
 
 /* A bucket nothing in the selection published: an em dash, not a zero. */
@@ -5666,8 +5665,6 @@ footer p {
 .demo-ink .chart-container h3.sg-follow { margin-top: 1.75rem; }
 .demo-ink .sg-labels-heading { font-family: inherit; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: 0; margin: 1.5rem 0 0.5rem; }
 .sg-label-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem 2.5rem; }
-.sg-methods-full { margin-top: 1rem; }
-.sg-methods-full > summary { cursor: pointer; color: var(--dm-ink-2, inherit); }
 
 /* A composition as rows: name, bar, share, count. */
 .demo-rows { margin-top: 0.2rem; container-type: inline-size; }

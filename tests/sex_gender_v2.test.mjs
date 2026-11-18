@@ -298,10 +298,11 @@ test('the markup carries the v2 filters, the methods section and the anchors the
     for (const id of ['sg-status', 'sg-reported-sex', 'sg-reported-gender', 'sg-reported-both', 'sg-glb', 'sg-participant-count']) {
         assert.ok(html.includes(`id="${id}"`), `index.html has no #${id} control`);
     }
-    assert.ok(html.includes('id="methods-sex-gender"'), 'the FAQ has no methods section for parser v2');
-    // both tabs link to the FAQ entry, which carries the full methods
+    assert.ok(html.includes('id="methods-sex-gender"'), 'the FAQ has no entry on how sex and gender are counted');
+    // both tabs link to the FAQ entry, and it carries no engine methods text
     assert.equal((html.match(/How sex and gender are counted: <a href="#faq" onclick="return sgOpenMethods\(\)">see the FAQ<\/a>\./g) || []).length, 2);
-    assert.ok(html.includes('id="sg-methods-full"') && html.includes('id="sg-methods"'), 'the full methods lost their panel');
+    assert.ok(!html.includes('id="sg-methods-full"') && !html.includes('id="sg-methods"'), 'the FAQ shows the full methods panel again');
+    assert.ok(!/methods\.json/.test(block.replace(/\/\/.*$/gm, '')), 'the site still fetches the methods text');
     assert.ok(html.includes('id="sg-retired-banner"'));
     // the legacy blocks are wrapped so the v2 blocks can replace them by class
     assert.equal((html.match(/class="sg-legacy"/g) || []).length, 2);
@@ -444,30 +445,6 @@ test('a copied link keeps whichever mode it was written with', () => {
     assert.equal(harness({ search: '', hash: '#sex' }).run('sgShareFlag()'), null);
 });
 
-test('the methods text follows the snapshot, and a fallback says whose numbers it is', async () => {
-    const urls = [];
-    const h = harness({ search: '?sg=v2', fetch: async (u) => { urls.push(u); return { ok: false, status: 404 }; } });
-    h.run("sgSnapshotKey = '2026-08-02';");
-    await h.runRaw('sgLoadMethods()');
-    assert.ok(urls.some((u) => u.startsWith('snapshots/2026-08-02/sex_gender/methods.json')),
-        `the snapshot's own methods were not tried: ${urls.join(', ')}`);
-    assert.ok(urls.some((u) => u.startsWith('data/sex_gender/methods.json')), 'the latest text was not tried as a fallback');
-    assert.match(h.els['sg-methods'].innerHTML, /No methods text/);
-    // the fallback notice names the mismatch rather than passing the latest off as the archive's
-    const notice = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'new-rules' } }, { parser_rules_version: 'old-rules' })`);
-    assert.match(notice, /Not this snapshot's text/);
-    assert.match(notice, /old-rules/);
-    assert.match(notice, /new-rules/);
-    // no notice when the text is the snapshot's own
-    assert.equal(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: false, methods: {} }, null)`), '');
-    // matching versions may be called matching; a half-known pair may not
-    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'same' } }, { parser_rules_version: 'same' })`),
-        /Both were parsed with/);
-    const halfKnown = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, { parser_rules_version: 'old-rules' })`);
-    assert.match(halfKnown, /does not say which rules it describes/);
-    assert.ok(!/same rules/.test(halfKnown), 'claimed the rules match with only one version known');
-});
-
 test('the v2 filters are disabled where no filter can bite', () => {
     const h = harness({ search: '?sg=v2' });
     h.run('sgAvailable = true; sgTable = new Map(); dashboardSummary = null; sgApplyMode();');
@@ -552,18 +529,6 @@ test('a failed artifact request is retried; a 404 is remembered', async () => {
     assert.equal(h404.run('sgAvailable'), false);
 });
 
-test('the methods section is reloaded for a snapshot with no parser-v2 artifacts', () => {
-    // Otherwise the previous snapshot's text stays in the FAQ, presenting the
-    // latest pull's dates, counts and rules as if they described this one.
-    const loadFn = block.slice(block.indexOf('async function sgLoad('), block.indexOf('// ── Rows'));
-    assert.ok(/if \(SG_V2\) sgMethodsPending = sgLoadMethods\(\)/.test(loadFn), 'the methods text is only refreshed when v2 artifacts exist');
-    const h = harness();
-    h.run('sgMetaAbsent = true;');   // a confirmed 404, the only thing that supports the claim
-    const notice = h.run("sgMethodsNotice('2026-08-02', { fromLatest: true, methods: { parser_rules_version: 'r' } }, null)");
-    assert.match(notice, /predates parser v2/);
-    assert.match(notice, /rules that were never applied to this snapshot/);
-});
-
 test('every v2 table scrolls inside its own container at 390px', () => {
     // The panels clip (overflow: hidden) and the global breakdown-table rules
     // floor the first two columns at 150px, so a table a few pixels too wide
@@ -604,28 +569,6 @@ test("a column answers from its own table, never from the other dimension's stat
     const parsed = h.run("[...sgParseCsv('nct_id,has_gender_table\\nNCT1,False\\nNCT2,True\\n', SG_CSV_KEEP).entries()]");
     assert.equal(parsed[0][1].has_gender_table, false);
     assert.equal(parsed[1][1].has_gender_table, true);
-});
-
-test('a methods request that failed is retried; a 404 is remembered', async () => {
-    let calls = 0;
-    const h = harness({ search: '?sg=v2', fetch: async () => { calls++; throw new Error('offline'); } });
-    await h.runRaw('sgLoadMethods()');
-    assert.equal(h.run("sgMethodsCache.has('latest')"), false, 'a dropped request was cached as "no methods published"');
-    assert.match(h.els['sg-methods'].innerHTML, /could not be fetched/);
-    const after = calls;
-    await h.runRaw('sgLoadMethods()');
-    assert.ok(calls > after, 'the methods text was never retried');
-    const h404 = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
-    await h404.runRaw('sgLoadMethods()');
-    assert.equal(h404.run("sgMethodsCache.has('latest')"), true, 'a definitive 404 should not be re-fetched every time');
-    assert.match(h404.els['sg-methods'].innerHTML, /No methods text/);
-});
-
-test('a methods deep link waits for the text instead of scrolling to the section top', () => {
-    assert.ok(block.includes('sgMethodsPending'), 'the in-flight methods load is not tracked');
-    const open = block.slice(block.indexOf('function sgOpenMethods('), block.indexOf('window.sgOpenMethods'));
-    assert.ok(open.includes('sgMethodsPending.then(scroll, scroll)'), 'the deep link resolves its anchor before the text arrives');
-    assert.ok(open.indexOf('const scroll = ()') < open.indexOf('sgMethodsPending.then'), 'the scroll is not deferred');
 });
 
 test('a rolled-back snapshot switch restores the parser state with the study data', () => {
@@ -750,34 +693,6 @@ test('a disabled control is not serialized into the share URL', () => {
     assert.ok(apply.includes('updateShareUrl()'), 'the URL is not resynced when a control becomes live again');
 });
 
-test('a fallback that loaded is rendered even though it is not cached', async () => {
-    const seen = [];
-    const methods = { parser_rules_version: 'latest-rules', sections: [{ id: 'source', heading: 'Where the numbers come from', text: 'x' }] };
-    const h = harness({ search: '?sg=v2', fetch: async (u) => {
-        seen.push(u);
-        if (u.startsWith('snapshots/')) throw new Error('flaky');     // the archive gives no answer
-        return { ok: true, status: 200, json: async () => methods };  // the latest loads
-    } });
-    h.run("sgSnapshotKey = '2026-08-02';");
-    await h.runRaw('sgLoadMethods()');
-    assert.ok(seen.some((u) => u.startsWith('snapshots/2026-08-02/')), "the archive's own text was not tried first");
-    assert.ok(seen.some((u) => u.startsWith('data/')), 'the latest fallback was not tried');
-    const out = h.els['sg-methods'].innerHTML;
-    assert.ok(!/The methods text could not be fetched/.test(out), 'a fallback that loaded was discarded and the failure message shown instead');
-    assert.match(out, /Not this snapshot's text/);
-    assert.match(out, /Where the numbers come from/);
-    // and it stays out of the cache, so the archive's own file is retried
-    assert.equal(h.run("sgMethodsCache.has('2026-08-02')"), false, 'an unsettled answer was cached');
-    const before = seen.length;
-    await h.runRaw('sgLoadMethods()');
-    assert.ok(seen.length > before, 'the archive was never retried');
-    // when nothing loads at all, the failure message is the right one
-    const dead = harness({ search: '?sg=v2', fetch: async () => { throw new Error('offline'); } });
-    dead.run("sgSnapshotKey = '2026-08-02';");
-    await dead.runRaw('sgLoadMethods()');
-    assert.match(dead.els['sg-methods'].innerHTML, /could not be fetched/);
-});
-
 test('a gender-only trial with a sex table gets a named Sex cell, not a blank button', () => {
     // Four rows ship with reported_sex false, reported_gender true, a sex
     // table present and the overall state "reported"; sgStatusBadge() has no
@@ -792,24 +707,6 @@ test('a gender-only trial with a sex table gets a named Sex cell, not a blank bu
     assert.match(cell, /carries no Female, Male or Unknown count/);
     // and the Gender column still reports
     assert.match(h.run(`sgDemographicCell(${JSON.stringify({ nct_id: 'NCT1', sex_gender: row(over) })}, 'gender')`), /demo-badge-check/);
-});
-
-test('a summary-only archive is not called retired: its own summary says it was parsed', () => {
-    const h = harness();
-    h.run("sgMeta = null; dashboardSummary = { sexGender: { parser_rules_version: 'archive-rules', statusCounts: { parse_error: 2 } } };");
-    const meta = h.run('sgEffectiveMeta()');
-    assert.equal(meta.parser_rules_version, 'archive-rules');
-    assert.equal(meta.status_counts.status.parse_error, 2);
-    assert.equal(meta.from_summary, true);
-    // so the notice compares rules instead of claiming the snapshot predates v2
-    const notice = h.run(`sgMethodsNotice('2026-04-26', { fromLatest: true, methods: { parser_rules_version: 'latest-rules' } }, sgEffectiveMeta())`);
-    assert.ok(!/predates parser v2/.test(notice), 'a parsed archive was labelled as predating the parser');
-    assert.match(notice, /archive-rules/);
-    assert.match(notice, /latest-rules/);
-    // with neither a meta file nor a summary block, and the meta confirmed absent, it does predate v2
-    h.run('dashboardSummary = null; sgMetaAbsent = true;');
-    assert.equal(h.run('sgEffectiveMeta()'), null);
-    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, sgEffectiveMeta())`), /predates parser v2/);
 });
 
 test('the stacked states carry a texture as well as a colour', () => {
@@ -929,24 +826,7 @@ test('a stale sgsnapshot in the query is rewritten with the hash', () => {
     assert.ok(fn.includes('location.pathname + search + '), 'the rewrite replaces only the fragment, so the query survives untouched');
 });
 
-test('an unsettled archive request is not called a confirmed absence', async () => {
-    const methods = { parser_rules_version: 'latest-rules', sections: [] };
-    const h = harness({ search: '?sg=v2', fetch: async (u) => {
-        if (u.startsWith('snapshots/')) throw new Error('flaky');
-        return { ok: true, status: 200, json: async () => methods };
-    } });
-    h.run("sgSnapshotKey = '2026-08-02'; sgMeta = null; sgMetaAbsent = false;");
-    await h.runRaw('sgLoadMethods()');
-    const out = h.els['sg-methods'].innerHTML;
-    assert.ok(!/did not archive its own methods/.test(out), 'a request that merely failed was reported as a confirmed absence');
-    assert.ok(!/predates parser v2/.test(out), 'an unfetched meta was reported as the snapshot predating the parser');
-    assert.match(out, /could not be fetched just now/);
-    // a confirmed absence still says so
-    const settled = h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, { parser_rules_version: 'r' })`);
-    assert.match(settled, /did not archive its own methods/);
-    h.run('sgMetaAbsent = true;');
-    assert.match(h.run(`sgMethodsNotice('2026-08-02', { fromLatest: true, methods: {} }, null)`), /predates parser v2/);
-    // and sgLoad records which kind of missing meta it saw
+test('sgLoad records which kind of missing meta it saw', async () => {
     const gone = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
     await gone.runRaw("sgLoad('2026-05-31')");
     assert.equal(gone.run('sgMetaAbsent'), true);
