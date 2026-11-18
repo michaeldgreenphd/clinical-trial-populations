@@ -835,6 +835,26 @@ test('sgLoad records which kind of missing meta it saw', async () => {
     assert.equal(down.run('sgMetaAbsent'), false, 'a dropped meta request was recorded as a confirmed absence');
 });
 
+test('the year charts count every trial in the year, parse errors included', () => {
+    const h = harness();
+    h.run('sgTable = null; dashboardSummary = null;');
+    const studies = [
+        { nct_id: 'A', results_date: '2021-01-01', sex_gender: row({}) },
+        { nct_id: 'B', results_date: '2021-03-01', sex_gender: row({}) },
+        { nct_id: 'C', results_date: '2021-06-01', sex_gender: row({ sex_report_status: 'parse_error', reported_sex: false }) }
+    ];
+    const y = h.run(`sgStatusByYear(${JSON.stringify(studies)})`)['2021'];
+    assert.equal(y.total, 3, 'a parse error left the year\'s denominator');
+    assert.equal(y.reported, 2);
+    assert.equal(y.parse_error, 1);
+    // the summary path reads the same five states
+    h.run(`dashboardSummary = { sexGender: { byYear: { 2021: { status_reported: 2, status_parse_error: 1 } } } };`);
+    assert.equal(h.run('sgStatusByYear([])')['2021'].total, 3);
+    // and the gender series read apart without colour
+    const marks = h.run('SG_DIMENSION_SERIES.map(x => x.outline ? "outline" : x.texture)');
+    assert.equal(new Set(marks).size, 4, 'two gender series share a mark, so colour alone tells them apart');
+});
+
 test('the reporting shares are over every selected trial, parse errors included', () => {
     const render = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
     assert.ok(render.includes('const total = SG_V2_STATES.reduce('), 'the rows left the unparsed trials out of the denominator');

@@ -12203,17 +12203,20 @@ function sgRenderQuality(agg, filtered) {
     sgRenderQualityByYear(filtered);
 }
 
-// Trials per results-posted year, stacked by state.
+// Trials per results-posted year by state, all five states, with the
+// year's total: every trial in the year, parse errors included, the same
+// denominator as the Reporting status rows.
 function sgStatusByYear(filtered) {
     const years = {};
     const add = (y, st, n) => {
-        if (!y || !SG_VISIBLE_STATES.includes(st)) return;
-        const d = years[y] || (years[y] = Object.fromEntries(SG_VISIBLE_STATES.map(s => [s, 0])));
+        if (!y || !SG_V2_STATES.includes(st)) return;
+        const d = years[y] || (years[y] = Object.assign({ total: 0 }, Object.fromEntries(SG_V2_STATES.map(s => [s, 0]))));
         d[st] += n;
+        d.total += n;
     };
     if (dashboardSummary && dashboardSummary.sexGender) {
         Object.entries(dashboardSummary.sexGender.byYear || {}).forEach(([y, v]) =>
-            SG_VISIBLE_STATES.forEach(st => add(y, st, Number(v[`status_${st}`] || 0))));
+            SG_V2_STATES.forEach(st => add(y, st, Number(v[`status_${st}`] || 0))));
     } else {
         for (const s of filtered) {
             const r = sgRow(s);
@@ -12224,17 +12227,14 @@ function sgStatusByYear(filtered) {
 }
 
 // The Sex tab's two year charts, as on the design canvas: each year's
-// trials by reporting state as a share of that year (the denominator is the
-// four visible states), and the three states that are not a report on their
-// own scale, where they are visible. The states keep their textures, so
-// colour is never the only thing telling two apart.
+// trials by reporting state as a share of all that year's trials (parse
+// errors are in the denominator but not drawn, so a year with one does not
+// reach 100%), and the three states that are not a report on their own
+// scale, where they are visible. The states keep their textures, so colour
+// is never the only thing telling two apart.
 function sgRenderQualityByYear(filtered) {
-    const counts = sgStatusByYear(filtered);
     const years = {};
-    Object.entries(counts).forEach(([y, d]) => {
-        const total = SG_VISIBLE_STATES.reduce((a, st) => a + d[st], 0);
-        if (total > 0) years[y] = Object.assign({ total }, d);
-    });
+    Object.entries(sgStatusByYear(filtered)).forEach(([y, d]) => { if (d.total > 0) years[y] = d; });
     const series = SG_VISIBLE_STATES.map(st => ({
         key: st, label: st === 'not_reported' ? 'Not reported' : SG_STATE_LABELS[st],
         color: SG_STATE_COLORS[st], texture: SG_STATE_TEXTURES[st]
@@ -12410,10 +12410,12 @@ function sgDimensionsByYear(filtered) {
     return years;
 }
 
+// Each series carries its own mark as well as its colour (solid, stripes,
+// dots, an empty outline), so the four read apart without colour.
 const SG_DIMENSION_SERIES = [
-    { key: 'sex_only', label: 'Sex only', color: '#C2477E' },
-    { key: 'both', label: 'Both sex and gender', color: '#7A4FCF' },
-    { key: 'gender_only', label: 'Gender only', color: '#B9A3EA' },
+    { key: 'sex_only', label: 'Sex only', color: '#C2477E', texture: 'solid' },
+    { key: 'both', label: 'Both sex and gender', color: '#7A4FCF', texture: 'diagonal' },
+    { key: 'gender_only', label: 'Gender only', color: '#8F6AD9', texture: 'dots' },
     { key: 'neither', label: 'Neither', color: '#ffffff', outline: '#8A968F' }
 ];
 
