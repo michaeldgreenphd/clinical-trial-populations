@@ -835,6 +835,29 @@ test('sgLoad records which kind of missing meta it saw', async () => {
     assert.equal(down.run('sgMetaAbsent'), false, 'a dropped meta request was recorded as a confirmed absence');
 });
 
+test('a second chart in a panel is named by its own heading, not the panel\'s', () => {
+    const src = app.slice(app.indexOf('function labelChartsForA11y()'), app.indexOf('// ── Shareable URLs'));
+    const el = (tag, text, cls = '') => ({ tagName: tag, textContent: text, classList: { contains: (k) => cls.split(' ').includes(k) },
+        matches: (q) => q.split(', ').includes(tag.toLowerCase()), attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } });
+    const h1 = el('H3', 'Reporting status'), rows = el('DIV', ''), h2 = el('H3', 'Trials not reporting sex, zoomed in', 'sg-follow');
+    const zoom = el('CANVAS', ''), lone = el('CANVAS', ''), lh = el('H3', 'Percent female over time'), ln = el('P', 'A note.', 'note');
+    const link = (list) => list.forEach((x, i) => { x.previousElementSibling = list[i - 1] || null; x.nextElementSibling = list[i + 1] || null; });
+    link([h1, rows, h2, zoom]); link([lh, ln, lone]);
+    const boxA = { querySelector: (q) => (q === '.note' ? null : h1) }, boxB = { querySelector: (q) => (q === '.note' ? ln : lh) };
+    zoom.closest = () => boxA; lone.closest = () => boxB;
+    const ctx = vm.createContext({ document: { querySelectorAll: () => [zoom, lone] } });
+    vm.runInContext(src, ctx);
+    vm.runInContext('labelChartsForA11y()', ctx);
+    assert.equal(zoom.attrs['aria-label'], 'Trials not reporting sex, zoomed in', 'the zoomed chart is announced with the panel\'s first heading');
+    assert.equal(lone.attrs['aria-label'], 'Percent female over time. A note.', 'a single-chart panel lost its label');
+});
+
+test('the FAQ entry states the unit of each figure and the parser\'s rule for reporting sex', () => {
+    const faq = html.slice(html.indexOf('id="methods-sex-gender"'), html.indexOf('</details>', html.indexOf('id="methods-sex-gender"')));
+    assert.match(faq, /The composition rows count participants; the reporting charts count trials\./);
+    assert.match(faq, /at least one female or male participant/, 'the FAQ requires both counts, which the parser does not');
+});
+
 test('the year charts count every trial in the year, parse errors included', () => {
     const h = harness();
     h.run('sgTable = null; dashboardSummary = null;');

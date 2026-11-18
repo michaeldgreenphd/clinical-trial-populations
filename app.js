@@ -4227,12 +4227,26 @@ function setDataPulledDate(iso) {
 
 // Every chart canvas advertises its container's title and note as its text
 // alternative — the chart's abstract for screen readers and failed loads.
+// Each canvas is named by the heading nearest above it in its panel, so a
+// panel with a second chart under its own heading (the Sex tab's "zoomed
+// in" chart) names that chart by its own heading. The note read with it is
+// the panel's first note under the panel's first heading, as before, and
+// otherwise the first note between the canvas's own heading and the canvas.
 function labelChartsForA11y() {
     document.querySelectorAll('canvas').forEach(c => {
         const box = c.closest('.chart-container');
-        const h = box && box.querySelector('h3, h2');
-        if (!h) return;
-        const note = box.querySelector('.note');
+        const first = box && box.querySelector('h3, h2');
+        if (!first) return;
+        let h = null;
+        for (let el = c.previousElementSibling; el && !h; el = el.previousElementSibling) {
+            if (el.matches('h3, h2')) h = el;
+        }
+        h = h || first;
+        let note = null;
+        if (h === first) note = box.querySelector('.note');
+        else for (let el = h.nextElementSibling; el && el !== c && !note; el = el.nextElementSibling) {
+            if (el.classList.contains('note')) note = el;
+        }
         c.setAttribute('role', 'img');
         c.setAttribute('aria-label', h.textContent.trim() + (note ? '. ' + note.textContent.trim() : ''));
     });
