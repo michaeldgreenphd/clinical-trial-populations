@@ -175,12 +175,22 @@ test('NO_DECISION_RULE: counted when the family has it, optional in an older fam
   // (counts that do not list it) is refused once the record is checked against the list.
   const eo = family('evidence_only');
   const reviewedShard = (state) => { const sh = clone(eo.shards[Object.keys(eo.shards).find((k) => Object.values(eo.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'))]);
-    Object.values(sh.records).find((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed').assessment.trial_state = state; return sh; };
+    const a = Object.values(sh.records).find((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed').assessment;
+    a.review.decision = 'AMEND'; Object.assign(a, { trial_state: state }); return sh; };
   assert.equal(O.dataProblem(eo.run, old, eo.index), null, 'an eight-count family with no row in the state');
   assert.match(O.shardProblem(reviewedShard('NO_DECISION_RULE'), eo.run, eo.index), /the record and the trial list disagree/);
   const missing = clone(eo.index); missing.rows = missing.rows.filter((r) => r.assessment_kind !== 'human_reviewed');
   assert.match(O.shardProblem(eo.shards[Object.keys(eo.shards).find((k) => Object.values(eo.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'))], eo.run, missing),
     /a record with no row in the trial list/);
+  // Regression (Codex, PR 298, P2 x2): a reviewed-only state must come from an amendment.
+  const reviewedRec = (mutate) => { const sh = clone(eo.shards[Object.keys(eo.shards).find((k) => Object.values(eo.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'))]);
+    mutate(Object.values(sh.records).find((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed').assessment); return sh; };
+  assert.match(O.shardProblem(reviewedRec((a) => { a.trial_state = 'NO_DECISION_RULE'; a.review.decision = 'CONFIRM'; }), eo.run),
+    /a reviewed-only trial state without an amending review/);
+  assert.equal(O.shardProblem(reviewedRec((a) => { a.trial_state = 'NO_DECISION_RULE'; a.review.decision = 'AMEND'; }), eo.run), null);
+  assert.match(O.shardProblem(reviewedRec((a) => { a.units[0].state = 'NO_DECISION_RULE'; a.units[0].amended_by_review = false; }), eo.run),
+    /a reviewed-only unit state not marked as amended by review/);
+  assert.equal(O.shardProblem(reviewedRec((a) => { a.units[0].state = 'NO_DECISION_RULE'; a.units[0].amended_by_review = true; }), eo.run), null);
   // A reviewed trial may carry it; a machine assessment may not.
   const idx = clone(f.index); const row = idx.rows.find((r) => r.assessment_kind === 'human_reviewed');
   row.trial_state = 'NO_DECISION_RULE';

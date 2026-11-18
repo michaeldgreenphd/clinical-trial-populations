@@ -181,6 +181,15 @@
             if (REVIEWED_ONLY.includes((a.review || {}).machine_trial_state)) {
                 return `${nct}: the method's recorded state is one only a person's review records`;
             }
+            // A reviewed-only state is a change from the method, never its own verdict: a trial in it comes from an
+            // AMEND, and a unit in it is marked amended by review (the private export always marks a changed verdict).
+            // Otherwise the panel would show it as the method's or as confirmed (Codex, PR 298).
+            if (REVIEWED_ONLY.includes(a.trial_state) && (a.review || {}).decision !== 'AMEND') {
+                return `${nct}: a reviewed-only trial state without an amending review`;
+            }
+            if ((Array.isArray(a.units) ? a.units : []).some(u => isObj(u) && REVIEWED_ONLY.includes(u.state) && u.amended_by_review !== true)) {
+                return `${nct}: a reviewed-only unit state not marked as amended by review`;
+            }
         }
         if (index && Array.isArray(index.rows)) {
             const rows = new Map(index.rows.map(r => [r.nct_id, r]));
