@@ -162,7 +162,10 @@
         return null;
     }
 
-    function shardProblem(shard, run) {
+    // index: the run's index.json. When given, each record's assessment must agree with its trial's row (kind and
+    // state), so the panel never shows a conclusion the list and the counts do not (Codex, PR 298). The run_id
+    // check already binds the files to one build; this catches files edited within one.
+    function shardProblem(shard, run, index) {
         if (!isObj(shard) || shard.run_id !== run.run_id || shard.schema_version !== SCHEMA_VERSION || !isObj(shard.records)) {
             return 'the evidence record is from another run';
         }
@@ -177,6 +180,18 @@
             }
             if (REVIEWED_ONLY.includes((a.review || {}).machine_trial_state)) {
                 return `${nct}: the method's recorded state is one only a person's review records`;
+            }
+        }
+        if (index && Array.isArray(index.rows)) {
+            const rows = new Map(index.rows.map(r => [r.nct_id, r]));
+            for (const [nct, rec] of Object.entries(shard.records)) {
+                const a = isObj(rec) && isObj(rec.assessment) ? rec.assessment : null;
+                const r = rows.get(nct);
+                if (!r) return `${nct}: a record with no row in the trial list`;
+                if ((a ? a.assessment_kind : null) !== (r.assessment_kind ?? null)
+                    || (a ? a.trial_state : null) !== (r.assessment_kind != null ? r.trial_state : null)) {
+                    return `${nct}: the record and the trial list disagree on the assessment`;
+                }
             }
         }
         return null;
@@ -1072,8 +1087,8 @@
             let shard = state.shards[row.record];
             if (!shard) {
                 shard = await get(row.record);
-                if (shardProblem(shard, run)) shard = await get(row.record, true);
-                const problem = shardProblem(shard, run);
+                if (shardProblem(shard, run, index)) shard = await get(row.record, true);
+                const problem = shardProblem(shard, run, index);
                 if (problem) throw new Error(problem);
                 state.shards[row.record] = shard;
             }

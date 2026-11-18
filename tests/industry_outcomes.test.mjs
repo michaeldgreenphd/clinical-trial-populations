@@ -31,7 +31,10 @@ test('both fixture builds pass the consumer contract', () => {
   for (const mode of ['evidence_only', 'provisional_preview']) {
     const f = family(mode);
     assert.equal(O.dataProblem(f.run, f.summary, f.index), null, mode);
-    for (const shard of Object.values(f.shards)) assert.equal(O.shardProblem(shard, f.run), null);
+    for (const shard of Object.values(f.shards)) {
+      assert.equal(O.shardProblem(shard, f.run), null);
+      assert.equal(O.shardProblem(shard, f.run, f.index), null, 'records agree with the trial list');
+    }
   }
 });
 
@@ -168,6 +171,16 @@ test('NO_DECISION_RULE: counted when the family has it, optional in an older fam
     /reviewed-only state on an assessment no person reviewed/);
   assert.match(O.shardProblem(shardWith((a) => { a.review = { ...(a.review || {}), machine_trial_state: 'NO_DECISION_RULE' }; }), pv.run),
     /method's recorded state is one only a person's review records/);
+  // Regression (Codex, PR 298, P2): a reviewed record in NO_DECISION_RULE whose trial-list row keeps another state
+  // (counts that do not list it) is refused once the record is checked against the list.
+  const eo = family('evidence_only');
+  const reviewedShard = (state) => { const sh = clone(eo.shards[Object.keys(eo.shards).find((k) => Object.values(eo.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'))]);
+    Object.values(sh.records).find((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed').assessment.trial_state = state; return sh; };
+  assert.equal(O.dataProblem(eo.run, old, eo.index), null, 'an eight-count family with no row in the state');
+  assert.match(O.shardProblem(reviewedShard('NO_DECISION_RULE'), eo.run, eo.index), /the record and the trial list disagree/);
+  const missing = clone(eo.index); missing.rows = missing.rows.filter((r) => r.assessment_kind !== 'human_reviewed');
+  assert.match(O.shardProblem(eo.shards[Object.keys(eo.shards).find((k) => Object.values(eo.shards[k].records).some((r) => r.assessment && r.assessment.assessment_kind === 'human_reviewed'))], eo.run, missing),
+    /a record with no row in the trial list/);
   // A reviewed trial may carry it; a machine assessment may not.
   const idx = clone(f.index); const row = idx.rows.find((r) => r.assessment_kind === 'human_reviewed');
   row.trial_state = 'NO_DECISION_RULE';

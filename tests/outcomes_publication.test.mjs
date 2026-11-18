@@ -71,7 +71,7 @@ test('the published outcomes data is an evidence_only build the page accepts', {
   assert.equal(reviewedRows, run.collections.human_reviewed.n);
   for (const name of Object.keys(run.files).filter((f) => f.startsWith('records/'))) {
     const shard = load(name);
-    assert.equal(O.shardProblem(shard, run), null, name);
+    assert.equal(O.shardProblem(shard, run, index), null, name);   // records agree with the trial list
     for (const [nct, rec] of Object.entries(shard.records)) {
       assert.ok(rec.assessment === null || rec.assessment.assessment_kind === 'human_reviewed', nct);
     }
