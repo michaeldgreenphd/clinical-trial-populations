@@ -1315,9 +1315,10 @@ function demoRowsHtml(rows, opts = {}) {
     for (let t = 0; t <= scale.max; t += scale.step) ticks.push(t);
     const tickHtml = ticks.map((t, i) => {
         const at = (100 * t) / scale.max;
-        // Odd inner ticks drop out on a narrow bar (styles.css), so two
-        // labels never run together.
-        const cls = i === 0 ? 'demo-tick-start' : (i === ticks.length - 1 ? 'demo-tick-end' : (i % 2 ? 'demo-tick-odd' : ''));
+        // Inner ticks drop out as the bar narrows (styles.css, measured on
+        // the tick row itself): the odd ones first, then all of them, so two
+        // labels never run together and the scale always keeps its ends.
+        const cls = i === 0 ? 'demo-tick-start' : (i === ticks.length - 1 ? 'demo-tick-end' : (i % 2 ? 'demo-tick-inner demo-tick-odd' : 'demo-tick-inner'));
         return `<span class="${cls}" style="left:${at.toFixed(2)}%">${t}${i === ticks.length - 1 ? '%' : ''}</span>`;
     }).join('');
     const step = `${((100 * scale.step) / scale.max).toFixed(3)}%`;

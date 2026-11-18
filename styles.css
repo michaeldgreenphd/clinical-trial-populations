@@ -5663,13 +5663,23 @@ footer p {
 
 /* A composition as rows: name, bar, share, count. */
 .demo-rows { margin-top: 0.2rem; container-type: inline-size; }
-@container (max-width: 560px) {
+/* The tick labels are sized against the bar they label, not the table: the
+   name column keeps its width, so a table of middling width can leave the
+   bar under 100px, where "40" and "60%" ran together. Widths cover the
+   widest scale label ("100%", 16px) with room between neighbours. */
+@container demo-ticks (max-width: 230px) {
     .demo-ticks > span.demo-tick-odd { display: none; }
+}
+@container demo-ticks (max-width: 150px) {
+    .demo-ticks > span.demo-tick-inner { display: none; }
 }
 .demo-scale,
 .demo-row {
     display: grid;
-    grid-template-columns: minmax(100px, 200px) minmax(0, 1fr) 60px minmax(80px, 100px);
+    /* The name column is capped at a third of the row: at a fixed 200px it
+       took its full width first and left the bar a stub (54px in a 1024px
+       window). Long names wrap instead. */
+    grid-template-columns: minmax(100px, min(200px, 34%)) minmax(0, 1fr) 60px minmax(80px, 100px);
     column-gap: 14px;
     align-items: center;
 }
@@ -5679,7 +5689,7 @@ footer p {
     padding-bottom: 2px;
     border-bottom: 1px solid var(--dm-ink);
 }
-.demo-ticks { position: relative; height: 22px; }
+.demo-ticks { position: relative; height: 22px; container: demo-ticks / inline-size; }
 .demo-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .demo-ticks > span.demo-tick-start { transform: none; }
 .demo-ticks > span.demo-tick-end { transform: translateX(-100%); }

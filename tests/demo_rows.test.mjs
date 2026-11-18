@@ -109,3 +109,20 @@ test('a stacked series with an empty last bar is named in the legend', () => {
     // a series that never had participants is not added to the legend
     assert.equal(run([['White', [5, 7]], ['Asian', [0, 0]]]).display, false);
 });
+
+// Safari, 2026-11-18: in a table of middling width the bar was ~80px and the
+// scale read "0 6040%" — "40" and "60%" ran together. The ticks now drop out
+// by the width of the bar they label, keeping both ends at every width.
+test('the scale above the bars keeps its ends and drops inner ticks by the bar width', () => {
+    const run = harness();
+    const html = run(`demoRowsHtml([{ label: 'White', value: 58 }, { label: 'Asian', value: 42 }])`);
+    const ticks = [...html.matchAll(/<span class="([^"]*)" style="left:[\d.]+%">([^<]+)<\/span>/g)].map((m) => [m[1], m[2]]);
+    assert.deepEqual(ticks.map((t) => t[1]), ['0', '20', '40', '60%']);
+    assert.equal(ticks[0][0], 'demo-tick-start');
+    assert.equal(ticks[3][0], 'demo-tick-end');
+    assert.ok(ticks.slice(1, 3).every(([cls]) => cls.split(' ').includes('demo-tick-inner')), 'an inner tick cannot drop out');
+    const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
+    assert.match(css, /\.demo-ticks \{[^}]*container: demo-ticks \/ inline-size;/, 'the tick row is no longer its own size container');
+    assert.match(css, /@container demo-ticks \(max-width: 150px\) \{\s*\.demo-ticks > span\.demo-tick-inner \{ display: none; \}/,
+        'a narrow bar keeps its inner ticks');
+});
