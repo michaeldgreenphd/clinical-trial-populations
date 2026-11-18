@@ -12431,7 +12431,8 @@ function sgDimensionsByYear(filtered) {
         Object.entries(dashboardSummary.sexGender.byYear || {}).forEach(([y, v]) => {
             const total = Number(v.total || 0), sex = Number(v.reported_sex || 0);
             const gender = Number(v.reported_gender || 0), both = Number(v.reported_both || 0);
-            if (total > 0) years[y] = { total, sex_only: sex - both, both, gender_only: gender - both, neither: total - sex - gender + both };
+            const unread = Number(v.status_parse_error || 0);
+            if (total > 0) years[y] = { total, sex_only: sex - both, both, gender_only: gender - both, parse_error: unread, neither: Math.max(0, total - sex - gender + both - unread) };
         });
         return years;
     }
@@ -12439,9 +12440,12 @@ function sgDimensionsByYear(filtered) {
         const r = sgRow(s);
         const y = (s.results_date || '').slice(0, 4);
         if (!r || !y) continue;
-        const d = years[y] || (years[y] = { total: 0, sex_only: 0, both: 0, gender_only: 0, neither: 0 });
+        const d = years[y] || (years[y] = { total: 0, sex_only: 0, both: 0, gender_only: 0, neither: 0, parse_error: 0 });
         const sex = r.reported_sex === true, gender = r.reported_gender === true;
-        d[sex && gender ? 'both' : (sex ? 'sex_only' : (gender ? 'gender_only' : 'neither'))]++;
+        // An unread record is not a trial that reported neither: it stays in
+        // the year's total and is not drawn, as on the Sex tab.
+        d[r.sex_report_status === 'parse_error' ? 'parse_error'
+            : (sex && gender ? 'both' : (sex ? 'sex_only' : (gender ? 'gender_only' : 'neither')))]++;
         d.total++;
     }
     return years;

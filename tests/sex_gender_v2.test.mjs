@@ -893,6 +893,17 @@ test('the year charts count every trial in the year, parse errors included', () 
     const sexSeries = block.slice(block.indexOf('const SG_SEX_YEAR_LEAD'), block.indexOf('function sgRenderQualityByYear'));
     assert.match(sexSeries, /label: 'Reported sex'/);
     assert.ok(!h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])').includes('horizontal'), 'the gender-only series shares a texture with a state');
+    // on the Gender tab an unread record is not "neither": it stays in the total, undrawn
+    h.run('dashboardSummary = null;');
+    const g = h.run(`sgDimensionsByYear(${JSON.stringify(studies)})`)['2021'];
+    assert.equal(g.total, 3);
+    assert.equal(g.parse_error, 1);
+    assert.equal(g.neither, 0, 'a parse error was drawn as a trial reporting neither sex nor gender');
+    h.run(`dashboardSummary = { sexGender: { byYear: { 2021: { total: 3, reported_sex: 2, reported_gender: 0, reported_both: 0, status_parse_error: 1 } } } };`);
+    const gs = h.run('sgDimensionsByYear([])')['2021'];
+    assert.equal(gs.neither, 0, 'the summary path drew a parse error as neither');
+    assert.equal(gs.parse_error, 1);
+    assert.ok(!h.run('SG_DIMENSION_SERIES.map(x => x.key)').includes('parse_error'), 'parse errors are drawn on the Gender charts');
     // and the gender series read apart without colour
     const marks = h.run('SG_DIMENSION_SERIES.map(x => x.outline ? "outline" : x.texture)');
     assert.equal(new Set(marks).size, 4, 'two gender series share a mark, so colour alone tells them apart');
