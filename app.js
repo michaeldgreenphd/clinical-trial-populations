@@ -12202,15 +12202,23 @@ function sgRenderQuality(agg, filtered) {
     const box = document.getElementById('sg-quality-chart');
     if (box) {
         if (charts.sgQuality) { charts.sgQuality.destroy(); charts.sgQuality = null; }
-        // The same denominator as the table below: every trial in the
-        // selection, parse errors included. Fixed state order; a zero state
-        // is a zero row. Each state keeps the texture of the chart beside it.
+        // Every trial in the selection is the denominator, parse errors
+        // included. Fixed order; a zero state is a zero row. The Reported
+        // state also holds trials that posted only a gender category, so it
+        // is split, as in the year charts beside it: trials that reported
+        // sex, then those with a gender category and no sex count.
         const counts = agg.statusCounts || {};
         const total = SG_V2_STATES.reduce((a, k) => a + Number(counts[k] || 0), 0);
-        box.innerHTML = demoRowsHtml(rows.map(r => ({
-            label: r.label, value: r.count, color: r.color, absent: r.key !== 'reported',
+        const reported = Number(counts.reported || 0);
+        const reportedSex = Math.min(reported, Number((agg.outcomes || {}).reported_sex || 0));
+        const lead = [
+            { label: 'Reported sex', value: reportedSex, color: SG_STATE_COLORS.reported, texture: 'solid' },
+            { label: 'Gender only, no sex counts', value: reported - reportedSex, color: SG_SEX_YEAR_LEAD[1].color, absent: true, texture: 'solid' }
+        ];
+        box.innerHTML = demoRowsHtml(lead.concat(rows.filter(r => r.key !== 'reported').map(r => ({
+            label: r.label, value: r.count, color: r.color, absent: true,
             texture: SG_ROW_TEXTURES[SG_STATE_TEXTURES[r.key]] || 'solid'
-        })), { noun: 'trials', total, keepOrder: true });
+        }))), { noun: 'trials', total, keepOrder: true });
         const errors = Number(counts.parse_error || 0);
         if (errors > 0) box.insertAdjacentHTML('beforeend', `<p class="note">${errors.toLocaleString()} ${errors === 1 ? 'trial' : 'trials'} in this selection could not be read. They are in the shares above.</p>`);
     }

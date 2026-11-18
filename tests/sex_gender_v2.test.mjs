@@ -890,6 +890,10 @@ test('the year charts count every trial in the year, parse errors included', () 
     assert.equal(shares.gender_only, 1);
     h.run(`dashboardSummary = { sexGender: { byYear: { 2021: { status_reported: 3, reported_sex: 2, status_parse_error: 1 } } } };`);
     assert.equal(h.run('sgSexYearShares([])')['2021'].gender_only, 1);
+    // the Reporting status rows split Reported the same way
+    const rowsSrc = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
+    assert.match(rowsSrc, /label: 'Reported sex', value: reportedSex/);
+    assert.match(rowsSrc, /label: 'Gender only, no sex counts', value: reported - reportedSex/);
     const sexSeries = block.slice(block.indexOf('const SG_SEX_YEAR_LEAD'), block.indexOf('function sgRenderQualityByYear'));
     assert.match(sexSeries, /label: 'Reported sex'/);
     assert.ok(!h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])').includes('horizontal'), 'the gender-only series shares a texture with a state');
