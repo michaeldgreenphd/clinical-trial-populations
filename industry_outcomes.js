@@ -24,8 +24,13 @@
 
     const SCHEMA_VERSION = 1;
     const BASE = 'data/outcomes/';
+    // Method A's eight trial states, then NO_DECISION_RULE: estimation only, recorded only by a person's review
+    // (engine outcomes contract). A family built before it was added counts the eight alone, so its count is
+    // optional in summary.json; every other state's count is required.
     const TRIAL_STATES = ['MET', 'NOT_MET', 'INSUFFICIENT_EVIDENCE', 'NOT_APPLICABLE', 'PENDING', 'UNREPORTED',
-        'CONFLICTING', 'ROLL_UP_NOT_SUPPORTED'];
+        'CONFLICTING', 'ROLL_UP_NOT_SUPPORTED', 'NO_DECISION_RULE'];
+    const OPTIONAL_COUNTS = ['NO_DECISION_RULE'];
+    const REVIEWED_ONLY = ['NO_DECISION_RULE'];
     const RESULTS_STATES = {
         POSTED: [null],
         NOT_APPLICABLE: ['WITHDRAWN_NO_PARTICIPANTS', 'TERMINATED_NO_DATA'],
@@ -45,9 +50,11 @@
         UNREPORTED: 'No posted results; past the standard window',
         CONFLICTING: 'Sources conflict',
         ROLL_UP_NOT_SUPPORTED: 'Several primary analyses, no stated way to combine them',
+        NO_DECISION_RULE: 'No decision rule',
     };
     // Precise statements of what is missing. Never a confidence score.
     const REASONS = {
+        ESTIMATION_ONLY: 'The primary outcome was estimated, not tested against a prespecified criterion, so there is no objective to meet or miss.',
         ALPHA_NOT_DETERMINABLE: 'The registry does not state the significance threshold for this analysis, or whether the posted p-value is one- or two-sided.',
         BOUNDARY_NOT_DETERMINABLE: 'The design includes interim analyses; the boundary that applied at the deciding look is not stated in the registry.',
         MARGIN_NOT_STATED: 'A non-inferiority or equivalence analysis is posted without a numeric margin.',
@@ -115,9 +122,23 @@
         const byKind = (summary.assessment_states || {}).by_kind || {};
         for (const [kind, counts] of Object.entries(byKind)) {
             if (!KINDS.includes(kind)) return `unknown assessment kind ${kind}`;
-            if (TRIAL_STATES.some(s => !isInt(counts[s])) || Object.keys(counts).length !== TRIAL_STATES.length) {
-                return `assessment counts for ${kind} do not list all eight states`;
+            const required = TRIAL_STATES.filter(s => !OPTIONAL_COUNTS.includes(s));
+            if (!isObj(counts) || required.some(s => !isInt(counts[s])) || Object.keys(counts).some(s => !TRIAL_STATES.includes(s))
+                || OPTIONAL_COUNTS.some(s => s in counts && !isInt(counts[s]))) {
+                return `assessment counts for ${kind} do not list every state`;
             }
+            // A reviewed-only state has no machine assessments to count; summary.json is published on its own, so
+            // the per-trial check does not cover it (Codex, PR 298).
+            if (kind !== 'human_reviewed' && REVIEWED_ONLY.some(s => (counts[s] || 0) !== 0)) {
+                return `assessment counts for ${kind} include a state only a person's review records`;
+            }
+        }
+        // An optional count is present for every kind or for none: the engine writes the same states for each kind, so
+        // a family counting it for one kind only is malformed, and the counts table would drop that state's row,
+        // hiding a reviewed count (Codex, PR 298).
+        const kindCounts = Object.values(byKind).filter(isObj);
+        if (OPTIONAL_COUNTS.some(s => new Set(kindCounts.map(c => s in c)).size > 1)) {
+            return 'assessment counts list a state for one kind of assessment and not another';
         }
         if (run.display_mode === 'evidence_only' && byKind.machine_provisional) return 'machine counts in an evidence-only build';
         const seen = new Set();
@@ -127,16 +148,60 @@
             if (!(r.results_state in RESULTS_STATES) || !RESULTS_STATES[r.results_state].includes(r.results_sub_reason)) return `${r.nct_id}: unknown results state`;
             if (r.assessment_kind != null && !KINDS.includes(r.assessment_kind)) return `${r.nct_id}: unknown assessment kind`;
             if (r.assessment_kind != null && !TRIAL_STATES.includes(r.trial_state)) return `${r.nct_id}: unknown trial state`;
+            if (r.assessment_kind != null && r.assessment_kind !== 'human_reviewed' && REVIEWED_ONLY.includes(r.trial_state)) return `${r.nct_id}: a reviewed-only state on an assessment no person reviewed`;
             if (r.assessment_kind === 'machine_provisional' && run.display_mode !== 'provisional_preview') return `${r.nct_id}: machine assessment in an evidence-only build`;
             if ((r.review_status === 'human_reviewed') !== (r.assessment_kind === 'human_reviewed')) return `${r.nct_id}: review status and assessment disagree`;
             if (!/^records\/r\d{2}\.json$/.test(r.record || '')) return `${r.nct_id}: no record shard`;
         }
+        // A trial in an optional state needs that state counted: a family without the count is one built before the state
+        // existed, and cannot also list a trial in it (Codex, PR 298).
+        const reviewedCounts = isObj(byKind.human_reviewed) ? byKind.human_reviewed : {};
+        const uncounted = index.rows.find(r => r.assessment_kind != null && OPTIONAL_COUNTS.includes(r.trial_state)
+            && !(r.trial_state in reviewedCounts));
+        if (uncounted) return `${uncounted.nct_id}: a trial in a state the assessment counts do not list`;
         return null;
     }
 
-    function shardProblem(shard, run) {
+    // index: the run's index.json. When given, each record's assessment must agree with its trial's row (kind and
+    // state), so the panel never shows a conclusion the list and the counts do not (Codex, PR 298). The run_id
+    // check already binds the files to one build; this catches files edited within one.
+    function shardProblem(shard, run, index) {
         if (!isObj(shard) || shard.run_id !== run.run_id || shard.schema_version !== SCHEMA_VERSION || !isObj(shard.records)) {
             return 'the evidence record is from another run';
+        }
+        // The reviewed-only rule applies to the record a trial's panel renders, not only to its index row (Codex, PR 298):
+        // only a person's review records NO_DECISION_RULE, and method A's own recorded state is never it.
+        for (const [nct, rec] of Object.entries(shard.records)) {
+            const a = isObj(rec) ? rec.assessment : null;
+            if (!isObj(a)) continue;
+            const states = [a.trial_state, ...(Array.isArray(a.units) ? a.units : []).map(u => (isObj(u) ? u.state : null))];
+            if (a.assessment_kind !== 'human_reviewed' && states.some(s => REVIEWED_ONLY.includes(s))) {
+                return `${nct}: a reviewed-only state on an assessment no person reviewed`;
+            }
+            if (REVIEWED_ONLY.includes((a.review || {}).machine_trial_state)) {
+                return `${nct}: the method's recorded state is one only a person's review records`;
+            }
+            // A reviewed-only state is a change from the method, never its own verdict: a trial in it comes from an
+            // AMEND, and a unit in it is marked amended by review (the private export always marks a changed verdict).
+            // Otherwise the panel would show it as the method's or as confirmed (Codex, PR 298).
+            if (REVIEWED_ONLY.includes(a.trial_state) && (a.review || {}).decision !== 'AMEND') {
+                return `${nct}: a reviewed-only trial state without an amending review`;
+            }
+            if ((Array.isArray(a.units) ? a.units : []).some(u => isObj(u) && REVIEWED_ONLY.includes(u.state) && u.amended_by_review !== true)) {
+                return `${nct}: a reviewed-only unit state not marked as amended by review`;
+            }
+        }
+        if (index && Array.isArray(index.rows)) {
+            const rows = new Map(index.rows.map(r => [r.nct_id, r]));
+            for (const [nct, rec] of Object.entries(shard.records)) {
+                const a = isObj(rec) && isObj(rec.assessment) ? rec.assessment : null;
+                const r = rows.get(nct);
+                if (!r) return `${nct}: a record with no row in the trial list`;
+                if ((a ? a.assessment_kind : null) !== (r.assessment_kind ?? null)
+                    || (a ? a.trial_state : null) !== (r.assessment_kind != null ? r.trial_state : null)) {
+                    return `${nct}: the record and the trial list disagree on the assessment`;
+                }
+            }
         }
         return null;
     }
@@ -304,7 +369,7 @@
 
     function taxonomyHTML() {
         return `
-            <details class="oc-taxonomy"><summary>The eight assessment states</summary>
+            <details class="oc-taxonomy"><summary>The assessment states</summary>
                 <ul class="oc-taxo">${TRIAL_STATES.map(s => `<li>${stateBadge(s)}</li>`).join('')}</ul>
                 <p class="oc-note">“Met” and “did not meet” are decided against the trial's own prespecified criterion. The other states say why no decision can be made, or why none applies. None of them measures clinical importance or regulatory approval.</p>
             </details>`;
@@ -319,12 +384,14 @@
         const cells = Array.from({ length: n }, (_, i) => `<span class="oc-cell${i < reviewed ? ' is-reviewed' : ''}"></span>`).join('');
         const kinds = (summary.assessment_states || {}).by_kind || {};
         const rows = Object.keys(kinds).filter(k => k === 'human_reviewed' || machineShown);
-        const anyCount = rows.some(k => TRIAL_STATES.some(s => kinds[k][s] > 0));
+        // A family built before NO_DECISION_RULE existed has no count for it: that row is left out, not shown as 0.
+        const counted = TRIAL_STATES.filter(s => rows.every(k => isInt(kinds[k][s])));
+        const anyCount = rows.some(k => counted.some(s => kinds[k][s] > 0));
         const body = anyCount
             ? `<div class="oc-table-scroll" tabindex="0" role="region" aria-label="Assessment states, development collection">
                 <table class="oc-table oc-state-table"><thead><tr><th scope="col">State</th>${rows.map(k =>
                     `<th scope="col" class="num">${k === 'human_reviewed' ? 'Reviewed by a person' : 'Provisional, machine only'}</th>`).join('')}</tr></thead>
-                <tbody>${TRIAL_STATES.map(s => `<tr><th scope="row">${stateBadge(s)}</th>${rows.map(k => `<td class="num">${kinds[k][s]}</td>`).join('')}</tr>`).join('')}</tbody></table>
+                <tbody>${counted.map(s => `<tr><th scope="row">${stateBadge(s)}</th>${rows.map(k => `<td class="num">${kinds[k][s]}</td>`).join('')}</tr>`).join('')}</tbody></table>
                </div>
                <p class="oc-note">${esc(summary.assessment_states.note)} Counts are of the development collection's ${n} eligible trials, not of the cohort.</p>`
             : `<div class="oc-empty">
@@ -503,20 +570,38 @@
         const outcomes = f.registered_primary_outcomes.length
             ? '<ul class="oc-list">' + f.registered_primary_outcomes.map(o => `<li>${esc(o.measure)}${o.time_frame ? ` <span class="oc-sub">— ${esc(o.time_frame)}</span>` : ''}</li>`).join('') + '</ul>'
             : '<span class="oc-absent">None registered</span>';
+        // When a person amended the conclusion or could not determine it, the method layer shows the method's own
+        // recorded state (review.machine_trial_state), and the reviewed state sits with the person's decision below.
+        // Otherwise a reviewed state, NO_DECISION_RULE above all, which method A never assigns, would be attributed
+        // to the method (Codex, PR 298). The units below carry their own "amended by review" tags.
+        const overridden = a && a.assessment_kind === 'human_reviewed' && a.review && a.review.decision !== 'CONFIRM'
+            && a.review.machine_trial_state;
+        // Units a person amended carry the reviewed state, and the public record has no machine state for them, so they
+        // are shown with the person's decision rather than under the method (Codex, PR 298).
+        const amendedUnits = a ? (a.units || []).filter(u => u.amended_by_review) : [];
+        const methodUnits = a ? (a.units || []).filter(u => !u.amended_by_review) : [];
+        const reasonOf = (state, sub, rationale) => esc(sub ? REASONS[sub] || rationale || '' : rationale || '');
         const method = a ? `
-            <p>${stateBadge(a.trial_state, a.assessment_kind)}</p>
-            <p>${esc(a.trial_sub_reason ? REASONS[a.trial_sub_reason] || a.trial_rationale : a.trial_rationale)}</p>
+            ${overridden
+                ? `<p>${stateBadge(a.review.machine_trial_state, a.assessment_kind)}</p>
+            <p>${reasonOf(a.review.machine_trial_state, a.review.machine_trial_sub_reason, '')}</p>
+            <p class="oc-note">The method's own conclusion. A person's review replaced it; see “What a person checked”.</p>`
+                : `<p>${stateBadge(a.trial_state, a.assessment_kind)}</p>
+            <p>${reasonOf(a.trial_state, a.trial_sub_reason, a.trial_rationale)}</p>`}
             <dl class="oc-grid oc-grid-trial">
                 <dt>Multiplicity</dt><dd>${esc(words(a.multiplicity)) || '<span class="oc-absent">not recorded</span>'}</dd>
                 <dt>Prespecification</dt><dd>Registration ${esc(words((a.prespecification || {}).registration_timing)) || 'timing not recorded'}${(a.prespecification || {}).level ? `, level ${esc(a.prespecification.level)}` : ''}</dd>
                 <dt>Method</dt><dd>Version ${esc(a.method_version)}, assessed as of ${esc(fmtDate(a.assessment_cutoff))}</dd>
             </dl>
-            ${(a.units || []).map(u => unitHTML(u, a.assessment_kind)).join('')}`
+            ${methodUnits.map(u => unitHTML(u, a.assessment_kind)).join('')}${amendedUnits.length
+                ? `<p class="oc-note">${amendedUnits.length === 1 ? 'One analysis' : `${amendedUnits.length} analyses`} amended by a person ${amendedUnits.length === 1 ? 'is' : 'are'} shown under “What a person checked”; the method's own verdict for ${amendedUnits.length === 1 ? 'it is' : 'them is'} not published.</p>` : ''}`
             : `<p>${rec.collections.audit
                 ? '<strong>Awaiting review.</strong> This trial is in the development collection; its assessment is shown only after a person has reviewed it.'
                 : '<strong>Not assessed.</strong> Only trials in the development collection are assessed in this beta; that says nothing about this trial.'}</p>`;
         const review = a && a.assessment_kind === 'human_reviewed'
-            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
+            ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${overridden
+                ? `<p>${stateBadge(a.trial_state, a.assessment_kind)}</p><p>${reasonOf(a.trial_state, a.trial_sub_reason, a.trial_rationale)}</p>`
+                : ''}${amendedUnits.map(u => unitHTML(u, a.assessment_kind)).join('')}${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
             : `<p>${a ? '<span class="oc-prov">Provisional, machine only</span> No person has reviewed this assessment.' : 'No person has reviewed an assessment of this trial.'}</p>`;
         const link = rec.demographics_link
             ? (rec.demographics_link.in_dataset
@@ -1016,8 +1101,8 @@
             let shard = state.shards[row.record];
             if (!shard) {
                 shard = await get(row.record);
-                if (shardProblem(shard, run)) shard = await get(row.record, true);
-                const problem = shardProblem(shard, run);
+                if (shardProblem(shard, run, index)) shard = await get(row.record, true);
+                const problem = shardProblem(shard, run, index);
                 if (problem) throw new Error(problem);
                 state.shards[row.record] = shard;
             }
