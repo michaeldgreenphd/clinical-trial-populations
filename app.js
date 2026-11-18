@@ -12219,42 +12219,65 @@ function sgRenderQuality(agg, filtered) {
 
 // Trials per results-posted year by state, all five states, with the
 // year's total: every trial in the year, parse errors included, the same
-// denominator as the Reporting status rows.
+// denominator as the Reporting status rows. reported_sex counts the
+// Reported trials that posted a female or male count: the Reported state
+// also holds trials that posted only a gender category.
 function sgStatusByYear(filtered) {
     const years = {};
+    const year = (y) => years[y] || (years[y] = Object.assign({ total: 0, reported_sex: 0 }, Object.fromEntries(SG_V2_STATES.map(s => [s, 0]))));
     const add = (y, st, n) => {
         if (!y || !SG_V2_STATES.includes(st)) return;
-        const d = years[y] || (years[y] = Object.assign({ total: 0 }, Object.fromEntries(SG_V2_STATES.map(s => [s, 0]))));
+        const d = year(y);
         d[st] += n;
         d.total += n;
     };
     if (dashboardSummary && dashboardSummary.sexGender) {
-        Object.entries(dashboardSummary.sexGender.byYear || {}).forEach(([y, v]) =>
-            SG_V2_STATES.forEach(st => add(y, st, Number(v[`status_${st}`] || 0))));
+        Object.entries(dashboardSummary.sexGender.byYear || {}).forEach(([y, v]) => {
+            SG_V2_STATES.forEach(st => add(y, st, Number(v[`status_${st}`] || 0)));
+            if (years[y]) years[y].reported_sex = Number(v.reported_sex || 0);
+        });
     } else {
         for (const s of filtered) {
             const r = sgRow(s);
-            if (r) add((s.results_date || '').slice(0, 4), r.sex_report_status, 1);
+            const y = (s.results_date || '').slice(0, 4);
+            if (!r) continue;
+            add(y, r.sex_report_status, 1);
+            if (y && SG_V2_STATES.includes(r.sex_report_status) && r.reported_sex === true) year(y).reported_sex++;
         }
     }
     return years;
 }
 
-// The Sex tab's two year charts, as on the design canvas: each year's
-// trials by reporting state as a share of all that year's trials (parse
-// errors are in the denominator but not drawn, so a year with one does not
-// reach 100%), and the three states that are not a report on their own
-// scale, where they are visible. The states keep their textures, so colour
-// is never the only thing telling two apart.
-function sgRenderQualityByYear(filtered) {
+// The Sex tab's year series, bottom first: trials that reported sex, then
+// the Reported trials that posted only a gender category (no sex count),
+// then the three states that are not a report. Parse errors stay in the
+// total and are not drawn.
+function sgSexYearShares(filtered) {
     const years = {};
-    Object.entries(sgStatusByYear(filtered)).forEach(([y, d]) => { if (d.total > 0) years[y] = d; });
-    const series = SG_VISIBLE_STATES.map(st => ({
+    Object.entries(sgStatusByYear(filtered)).forEach(([y, d]) => {
+        if (d.total > 0) years[y] = Object.assign({}, d, { gender_only: Math.max(0, d.reported - d.reported_sex) });
+    });
+    return years;
+}
+
+// The Sex tab's two year charts, as on the design canvas: each year's
+// trials as a share of all that year's trials (parse errors are in the
+// denominator but not drawn, so a year with one does not reach 100%), and
+// the trials that did not report sex on their own scale, where they are
+// visible. Every series carries its own texture, so colour is never the
+// only thing telling two apart.
+const SG_SEX_YEAR_LEAD = [
+    { key: 'reported_sex', label: 'Reported sex', color: SG_STATE_COLORS.reported, texture: SG_STATE_TEXTURES.reported },
+    { key: 'gender_only', label: 'Gender only, no sex counts', color: '#8F6AD9', texture: 'horizontal' }
+];
+function sgRenderQualityByYear(filtered) {
+    const years = sgSexYearShares(filtered);
+    const series = SG_SEX_YEAR_LEAD.concat(SG_VISIBLE_STATES.filter(st => st !== 'reported').map(st => ({
         key: st, label: st === 'not_reported' ? 'Not reported' : SG_STATE_LABELS[st],
         color: SG_STATE_COLORS[st], texture: SG_STATE_TEXTURES[st]
-    }));
+    })));
     sgShareChart('sgQualityYear', 'sg-quality-year-chart', years, series, { max: 100 });
-    sgShareChart('sgQualityZoom', 'sg-quality-zoom-chart', years, series.filter(x => x.key !== 'reported'), { digits: 2 });
+    sgShareChart('sgQualityZoom', 'sg-quality-zoom-chart', years, series.filter(x => x.key !== 'reported_sex'), { digits: 2 });
 }
 
 // The top of a zoomed scale: the largest stacked bar, rounded up to a half

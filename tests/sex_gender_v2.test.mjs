@@ -856,6 +856,10 @@ test('the FAQ entry states the unit of each figure and the parser\'s rule for re
     const faq = html.slice(html.indexOf('id="methods-sex-gender"'), html.indexOf('</details>', html.indexOf('id="methods-sex-gender"')));
     assert.match(faq, /The composition rows count participants; the reporting charts count trials\./);
     assert.match(faq, /at least one female or male participant/, 'the FAQ requires both counts, which the parser does not');
+    // the states are the engine's, mutually exclusive
+    assert.match(faq, /lists participants only as Unknown/);
+    assert.match(faq, /Not reported: the trial posted no sex or gender table at all\./);
+    assert.match(faq, /A trial that lists Unknown beside female or male counts is Reported\./);
 });
 
 test('the year charts count every trial in the year, parse errors included', () => {
@@ -873,6 +877,18 @@ test('the year charts count every trial in the year, parse errors included', () 
     // the summary path reads the same five states
     h.run(`dashboardSummary = { sexGender: { byYear: { 2021: { status_reported: 2, status_parse_error: 1 } } } };`);
     assert.equal(h.run('sgStatusByYear([])')['2021'].total, 3);
+    // a trial that posted only a gender category is Reported, but not a sex report
+    h.run('dashboardSummary = null;');
+    const withGender = studies.concat([{ nct_id: 'D', results_date: '2021-07-01', sex_gender: row({ reported_sex: false, reported_gender: true }) }]);
+    const shares = h.run(`sgSexYearShares(${JSON.stringify(withGender)})`)['2021'];
+    assert.equal(shares.reported, 3);
+    assert.equal(shares.reported_sex, 2, 'a gender-only trial was counted as reporting sex');
+    assert.equal(shares.gender_only, 1);
+    h.run(`dashboardSummary = { sexGender: { byYear: { 2021: { status_reported: 3, reported_sex: 2, status_parse_error: 1 } } } };`);
+    assert.equal(h.run('sgSexYearShares([])')['2021'].gender_only, 1);
+    const sexSeries = block.slice(block.indexOf('const SG_SEX_YEAR_LEAD'), block.indexOf('function sgRenderQualityByYear'));
+    assert.match(sexSeries, /label: 'Reported sex'/);
+    assert.ok(!h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])').includes('horizontal'), 'the gender-only series shares a texture with a state');
     // and the gender series read apart without colour
     const marks = h.run('SG_DIMENSION_SERIES.map(x => x.outline ? "outline" : x.texture)');
     assert.equal(new Set(marks).size, 4, 'two gender series share a mark, so colour alone tells them apart');
