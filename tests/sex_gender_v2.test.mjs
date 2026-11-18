@@ -858,6 +858,8 @@ test('the FAQ entry states the unit of each figure and the parser\'s rule for re
     const faq = html.slice(html.indexOf('id="methods-sex-gender"'), html.indexOf('</details>', html.indexOf('id="methods-sex-gender"')));
     assert.match(faq, /The composition rows count participants; the reporting charts count trials\./);
     assert.match(faq, /at least one female or male participant/, 'the FAQ requires both counts, which the parser does not');
+    // a share in fixed markup goes stale with the data; the tab shows it with its denominator
+    assert.ok(!/\d+(\.\d+)?%/.test(faq), 'the FAQ states a fixed percentage');
     // the states are the engine's, mutually exclusive
     assert.match(faq, /lists participants only as Unknown/);
     assert.match(faq, /Not reported: the trial posted no sex or gender table at all\./);
