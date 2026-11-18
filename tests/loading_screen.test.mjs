@@ -183,6 +183,7 @@ test('updateLoadingProgress writes to every open loading screen', () => {
     const ctx = vm.createContext({
         document: { querySelectorAll: (sel) => (sel === '[data-load-progress]' ? [a, b] : []) },
         loadingSample: { fill: (f) => { filledWith = f; } },
+        paceLoadingFigure: () => {},
         String, Math
     });
     vm.runInContext(updater, ctx);
@@ -288,6 +289,49 @@ test('each line name sits clear of its line, above the upper and below the lower
     assert.ok(race && both, 'a line lost its name');
     assert.ok(span(pts[0], race).every((py) => race.y < py - 4), 'the Race name touches its line');
     assert.ok(span(pts[1], both).every((py) => both.y - 10 > py), 'the Race and ethnicity name touches its line');
+});
+
+test('the figure builds up with the load: frame, Race line, its labels, then Race and ethnicity, ending with the load', () => {
+    const { call, svg } = figureHarness();
+    const out = svg(call('loadingFigureModel', summaryFixture), 416);
+    const lines = [...out.matchAll(/<path class="lf-line"[^>]*data-lf-from="([\d.]+)" data-lf-to="([\d.]+)"/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    const names = Object.fromEntries([...out.matchAll(/<text class="lf-name lf-late"[^>]*data-lf-at="([\d.]+)"[^>]*>([^<]+)</g)].map((m) => [m[2], Number(m[1])]));
+    const frame = Number((out.match(/data-lf-at="([\d.]+)">Final Rule</) || [])[1]);
+    assert.equal(lines.length, 2, 'a line has no stretch of the load');
+    assert.equal(frame, 0, 'the Final Rule marker does not show with the frame');
+    assert.ok(lines[0][1] <= names['Race'], 'the Race labels come before their line is drawn');
+    assert.ok(names['Race'] <= lines[1][0], 'the second line starts before the Race labels show');
+    assert.ok(lines[1][1] <= names['Race and ethnicity'], 'the Race and ethnicity labels come before their line is drawn');
+    assert.ok(names['Race and ethnicity'] >= 0.85 && names['Race and ethnicity'] <= 1, 'the last labels do not arrive near the end of the load');
+    // Every label of a series shows at its series' share.
+    for (const color of ['#0F7A4F', '#2E6FB7']) {
+        const own = [...out.matchAll(new RegExp(`class="[^"]*lf-late"[^>]*style="fill:${color}" data-lf-at="([\\d.]+)"`, 'g'))].map((m) => m[1]);
+        assert.equal(own.length, 4, `a ${color} label lost its share`);
+        assert.ok(own.every((v) => v === own[0]), `the ${color} labels are not shown together`);
+    }
+});
+
+test('the figure follows the record load, and never steps back', () => {
+    const src = fnSource('function paceLoadingFigure(share)');
+    const els = [];
+    const mk = (data) => { const cls = new Set(); const el = { dataset: data, style: {}, classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)), has: (c) => cls.has(c) } }; els.push(el); return el; };
+    const line = mk({ lfFrom: '0.45', lfTo: '0.85' });
+    const label = mk({ lfAt: '0.9' });
+    const fig = { classList: { contains: () => true }, querySelectorAll: (q) => (q === '[data-lf-from]' ? [line] : [label]) };
+    const ctx = vm.createContext({ document: { getElementById: () => fig } });
+    vm.runInContext('let loadingFigureShare = 0;' + src, ctx);
+    const pace = (v) => vm.runInContext('paceLoadingFigure', ctx)(v);
+    pace(0.3);
+    assert.equal(line.style.strokeDashoffset, '1');
+    assert.equal(line.classList.has('is-on'), false, 'a line not yet begun shows');
+    pace(0.65);
+    assert.equal(Number(line.style.strokeDashoffset).toFixed(2), '0.50');
+    assert.equal(label.classList.has('is-on'), false);
+    pace(0.2);
+    assert.equal(Number(line.style.strokeDashoffset).toFixed(2), '0.50', 'a later, smaller share undrew the line');
+    pace(0.95);
+    assert.equal(line.style.strokeDashoffset, '0');
+    assert.equal(label.classList.has('is-on'), true, 'the last labels did not show at the end of the load');
 });
 
 test('the summary is fetched once and shared; a failure is not remembered', T, async () => {

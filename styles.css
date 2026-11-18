@@ -100,8 +100,11 @@
 }
 
 /* The headline trend, drawn from the summary while the records load: it
-   stays invisible (keeping its place) until its numbers arrive, then the
-   lines draw in and the labels follow. */
+   stays invisible (keeping its place) until its numbers arrive, then builds
+   up with the load: the frame, the Race line and its labels, then the Race
+   and ethnicity line and its labels as the records finish. app.js
+   (paceLoadingFigure) sets each line's drawn length and marks each step
+   .is-on. */
 .loading-figure {
     margin: 2rem 0 0;
     opacity: 0;
@@ -171,11 +174,14 @@
     stroke-linecap: round;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    transition: stroke-dashoffset 1.6s cubic-bezier(0.3, 0.6, 0.2, 1);
+    /* Hidden until its stretch of the load begins: an undrawn line with
+       round caps can otherwise leave a dot at its first point. */
+    opacity: 0;
+    transition: stroke-dashoffset 0.6s ease-out;
 }
 
-.loading-figure.is-ready .lf-line {
-    stroke-dashoffset: 0;
+.lf-line.is-on {
+    opacity: 1;
 }
 
 .lf-text {
@@ -196,10 +202,10 @@
 
 .lf-late {
     opacity: 0;
-    transition: opacity 0.5s ease-out 1.2s;
+    transition: opacity 0.5s ease-out;
 }
 
-.loading-figure.is-ready .lf-late {
+.lf-late.is-on {
     opacity: 1;
 }
 
@@ -5466,14 +5472,11 @@ footer p {
 .sg-cell-muted { color: var(--text-secondary); font-size: var(--fs-small); }
 
 .sg-quality-table th[scope="row"] { text-align: left; font-weight: 500; }
-.sg-quality-table td, .sg-label-table td, .sg-beta-table td { font-variant-numeric: tabular-nums; }
+.sg-label-table td { font-variant-numeric: tabular-nums; }
 .sg-labels { margin: 0.5rem 0; }
 .sg-labels summary { cursor: pointer; font-weight: 500; }
 .sg-label-table { max-width: 60ch; }
 
-.sg-beta { border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin: 1rem 0; }
-.sg-beta summary { cursor: pointer; font-weight: 600; }
-.sg-beta h5, .sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
 .sg-footer { margin-top: 0.5rem; }
 
 /* A bucket nothing in the selection published: an em dash, not a zero. */
@@ -5655,15 +5658,33 @@ footer p {
 .demo-ink .sg-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .demo-ink .methodology-disclaimer { font-family: inherit; }
 
+/* Sex and Gender tabs, as on the canvas: one line under the tiles saying
+   what the counts are over, a second heading inside a panel, and the label
+   lists in three columns. */
+.demo-ink .sg-tiles-note { font-size: 18px; color: var(--dm-ink-2); margin: 0.25rem 0 1rem; max-width: none; }
+.demo-ink .chart-container h3.sg-follow { margin-top: 1.75rem; }
+.demo-ink .sg-labels-heading { font-family: inherit; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: 0; margin: 1.5rem 0 0.5rem; }
+.sg-label-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem 2.5rem; }
+
 /* A composition as rows: name, bar, share, count. */
 .demo-rows { margin-top: 0.2rem; container-type: inline-size; }
-@container (max-width: 560px) {
+/* The tick labels are sized against the bar they label, not the table: the
+   name column keeps its width, so a table of middling width can leave the
+   bar under 100px, where "40" and "60%" ran together. Widths cover the
+   widest scale label ("100%", 16px) with room between neighbours. */
+@container demo-ticks (max-width: 230px) {
     .demo-ticks > span.demo-tick-odd { display: none; }
+}
+@container demo-ticks (max-width: 150px) {
+    .demo-ticks > span.demo-tick-inner { display: none; }
 }
 .demo-scale,
 .demo-row {
     display: grid;
-    grid-template-columns: minmax(100px, 200px) minmax(0, 1fr) 60px minmax(80px, 100px);
+    /* The name column is capped at a third of the row: at a fixed 200px it
+       took its full width first and left the bar a stub (54px in a 1024px
+       window). Long names wrap instead. */
+    grid-template-columns: minmax(100px, min(200px, 34%)) minmax(0, 1fr) 60px minmax(80px, 100px);
     column-gap: 14px;
     align-items: center;
 }
@@ -5673,7 +5694,7 @@ footer p {
     padding-bottom: 2px;
     border-bottom: 1px solid var(--dm-ink);
 }
-.demo-ticks { position: relative; height: 22px; }
+.demo-ticks { position: relative; height: 22px; container: demo-ticks / inline-size; }
 .demo-ticks > span { position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap; }
 .demo-ticks > span.demo-tick-start { transform: none; }
 .demo-ticks > span.demo-tick-end { transform: translateX(-100%); }
