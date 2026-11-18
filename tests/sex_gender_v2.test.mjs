@@ -299,6 +299,8 @@ test('the markup carries the v2 filters, the methods section and the anchors the
         assert.ok(html.includes(`id="${id}"`), `index.html has no #${id} control`);
     }
     assert.ok(html.includes('id="methods-sex-gender"'), 'the FAQ has no entry on how sex and gender are counted');
+    // the status filter is the overall state, which counts gender-only trials as Reported
+    assert.ok(html.includes('<label for="sg-status">Sex and gender reporting status:</label>'), 'the status filter is labelled as sex-only');
     // both tabs link to the FAQ entry, and it carries no engine methods text
     assert.equal((html.match(/How sex and gender are counted: <a href="#faq" onclick="return sgOpenMethods\(\)">see the FAQ<\/a>\./g) || []).length, 2);
     assert.ok(!html.includes('id="sg-methods-full"') && !html.includes('id="sg-methods"'), 'the FAQ shows the full methods panel again');
