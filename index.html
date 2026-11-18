@@ -22,7 +22,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-    <link rel="stylesheet" href="styles.css?v=20261117-industry6">
+    <link rel="stylesheet" href="styles.css?v=20261118-sexgender">
     <!-- Non-render-blocking font loading -->
     <link rel="preload" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap"></noscript>
@@ -358,11 +358,11 @@
                     </div>
                 </div>
 
-                <!-- ?sg=v2 (parser v2) filters. Shown only while the beta is on;
+                <!-- Sex and gender filters, shown while the current counts are on;
                      they compose with every filter above in getFilteredData(). -->
                 <div class="filter-row sg-v2-filter sg-hidden">
                     <div class="filter-group">
-                        <label for="sg-status">Sex/gender status (parser v2):</label>
+                        <label for="sg-status">Sex reporting status:</label>
                         <select id="sg-status">
                             <option value="all">All states</option>
                             <option value="reported">Reported</option>
@@ -527,48 +527,39 @@
 
         <!-- Sex Tab -->
         <section id="sex" class="tab-content demo-ink">
-            <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
-                 absent); the legacy blocks below render under this banner. -->
-            <div id="sg-retired-banner" class="sg-banner sg-retired-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
+            <!-- A snapshot without the current counts (or whose files did not
+                 load): the legacy blocks below render under this banner. -->
+            <div id="sg-retired-banner" class="sg-banner sg-retired-banner sg-hidden"></div>
 
-            <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on -->
+            <!-- The current sex counts (the parser from the sex and gender
+                 paper), as designed on the canvas's Sex board; the legacy
+                 blocks below show only for a snapshot without them. -->
             <div id="sg-sex-v2" class="sg-v2 sg-hidden">
-                <p class="sg-provenance" id="sg-sex-provenance"></p>
                 <div class="stats-grid" id="sg-sex-tiles"></div>
+                <p class="note sg-tiles-note">Participants, across trials that posted sex as participant counts.</p>
                 <div class="chart-row">
                     <div class="chart-container">
                         <h3>Sex composition</h3>
-                        <p class="note">Female, Male and Explicit Unknown participants, over trials with reported sex and a participant-count table (reported_sex AND is_participant_count): the same denominator set as the tiles. Explicit Unknown is the hatched grey row below the rule.</p>
                         <div id="sg-sex-donut" class="demo-rows"></div>
                     </div>
                     <div class="chart-container">
-                        <h3>Percent female over time (two series)</h3>
-                        <p class="note" id="sg-pf-subtitle"></p>
+                        <h3>Percent female over time</h3>
                         <canvas id="sg-pf-chart"></canvas>
-                        <p class="chart-footnote" id="sg-pf-footnote"></p>
                     </div>
                 </div>
                 <div class="chart-row">
                     <div class="chart-container">
                         <h3>Reporting status</h3>
-                        <p class="note">Four states from the parser's <code>sex_report_status</code>, per trial in the current selection. Not Reported (Missing) is a state of its own and is never derived from enrollment arithmetic; a zero shows as a zero bar. Each state's texture matches the chart beside it.</p>
                         <div id="sg-quality-chart" class="demo-rows"></div>
-                        <details class="sg-labels demo-table"><summary>The four states as a table</summary><div id="sg-quality-table" class="sg-sub"></div></details>
-                        <div id="sg-quality-sub" class="sg-sub"></div>
-                        <div id="sg-analysis-table" class="sg-sub"></div>
-                        <p class="chart-footnote"><a href="#faq" onclick="return sgOpenMethods('states')">Methods: the five states, what changed, and the fidelity ceiling</a></p>
+                        <h3 class="sg-follow">Trials not reporting sex, zoomed in</h3>
+                        <canvas id="sg-quality-zoom-chart"></canvas>
                     </div>
                     <div class="chart-container">
-                        <h3>Reporting status by results-posted year</h3>
-                        <p class="note">Trials per year in the three states that are not a report, stacked; a year with no Not Reported trials shows none. Reported trials, most of every year, are in the tooltip and in the rows beside this. Each state carries a texture: Explicit Unknown is diagonal stripes, Uninformative is dots, Not Reported (Missing) is a grid.</p>
+                        <h3>Share of trials reporting sex, by year</h3>
                         <canvas id="sg-quality-year-chart"></canvas>
                     </div>
                 </div>
-                <details id="sg-beta-panel" class="sg-beta" ontoggle="if (this.open) sgRenderBetaPanel()">
-                    <summary>Beta: old tiles versus new tiles for this snapshot</summary>
-                    <div id="sg-beta-body"><p class="note">Open to load.</p></div>
-                </details>
-                <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('source')">Sex and gender methods (parser v2, paper rules)</a></p>
+                <p class="note sg-footer">How sex and gender are counted: <a href="#faq" onclick="return sgOpenMethods()">see the FAQ</a>.</p>
                 <p class="chart-footnote demo-footnote">Dashed 2017 marker: the FDAAA Final Rule (42 CFR Part 11) took effect January 18, 2017, clarifying and enforcing sponsors’ obligation to report trial results — see <a href="#faq" onclick="return openFaqEntry('faq-fdaaa')">the FAQ entry on FDAAA</a> for the policy history.</p>
             </div>
 
@@ -605,31 +596,38 @@
 
         <!-- Gender Tab -->
         <section id="gender" class="tab-content demo-ink">
-            <!-- ?sg=v2: this snapshot predates parser v2 (or its files are
-                 absent); the legacy blocks below render under this banner. The
-                 Sex section carries the same notice: only the active tab's
-                 section is rendered, so each tab needs its own. -->
-            <div id="sg-retired-banner-gender" class="sg-banner sg-retired-banner sg-hidden"><strong>Retired rule.</strong> This snapshot has no parser-v2 sex/gender table, so the Sex and Gender tabs show the legacy extraction. Pre-cutover snapshots are never re-parsed; the two rules are never drawn on one chart.</div>
+            <!-- As on the Sex tab: only the active tab's section is rendered,
+                 so each tab carries its own banner. -->
+            <div id="sg-retired-banner-gender" class="sg-banner sg-retired-banner sg-hidden"></div>
 
-            <!-- Parser v2 (paper rules) view; swapped in by class when ?sg=v2 is on.
-                 Five buckets, never a tile named after one source label. -->
+            <!-- The current gender counts, as designed on the canvas's Gender
+                 board. Five buckets, never a tile named after one source label. -->
             <div id="sg-gender-v2" class="sg-v2 sg-hidden">
-                <p class="sg-provenance" id="sg-gender-provenance"></p>
-                <div class="stats-grid" id="sg-gender-tiles"></div>
-                <p class="note" id="sg-gender-counts"></p>
+                <p class="note sg-tiles-note" id="sg-gender-counts"></p>
                 <div class="chart-row">
                     <div class="chart-container">
                         <h3>Gender buckets</h3>
-                        <p class="note">Participants in the five buckets over trials with reported sex and a participant-count table. A trial reports gender only if it posted a gender-diverse or cis/trans-qualified category with a non-zero count; a "Gender" table holding only Female/Male (or Woman/Man) is sex data and is counted as sex. Explicit Unknown is the hatched grey row below the rule.</p>
                         <div id="sg-gender-donut" class="demo-rows"></div>
                     </div>
                     <div class="chart-container">
-                        <h3>Source labels behind the buckets</h3>
-                        <p class="note">The registry labels the parser mapped into each bucket, with the number of trials carrying each. Transgender and Non-binary appear here as labels, not as tiles.</p>
-                        <div id="sg-gender-labels"></div>
+                        <h3>Trials reporting gender over time</h3>
+                        <canvas id="sg-gender-trend-chart"></canvas>
                     </div>
                 </div>
-                <p class="note sg-footer"><a href="#faq" onclick="return sgOpenMethods('gender_rule')">Sex and gender methods (parser v2, paper rules)</a></p>
+                <div class="chart-row">
+                    <div class="chart-container">
+                        <h3>Share of trials reporting gender, by year</h3>
+                        <canvas id="sg-gender-share-chart"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3>Trials reporting gender, zoomed in</h3>
+                        <p class="note">The purple part of each bar in the share chart, on a scale that shows it.</p>
+                        <canvas id="sg-gender-zoom-chart"></canvas>
+                    </div>
+                </div>
+                <h3 class="sg-labels-heading">Labels behind the buckets</h3>
+                <div id="sg-gender-labels" class="sg-label-columns"></div>
+                <p class="note sg-footer">How sex and gender are counted: <a href="#faq" onclick="return sgOpenMethods()">see the FAQ</a>.</p>
             </div>
 
             <div class="sg-legacy">
@@ -1509,7 +1507,7 @@
                 <details class="faq-section">
                     <summary><h4>How is the "Not Reported (Missing)" category calculated?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the retired rule.</strong> Race and Ethnicity still use it. With the <code>?sg=v2</code> beta on, the Sex and Gender tabs follow the parser instead: <a href="#faq" onclick="return sgOpenMethods('states')">see the parser v2 methods</a>.</p>
+                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the earlier method.</strong> Race and Ethnicity still use it. The Sex and Gender tabs count differently: <a href="#faq" onclick="return sgOpenMethods()">see how sex and gender are counted</a>.</p>
                         <p class="note">In the "Full Distribution with Data Quality" charts, the light "Not Reported (Missing)" layer is calculated as:</p>
                         <p><code>Not Reported = Total Enrollment - Sum(All Reported Categories)</code></p>
                         <p class="note">"Explicitly Unknown" is different: it is a category sponsors actively reported (see "What is the difference between 'Not Reported' and 'Explicit Unknown'?" below). Together the layers sum to 100% of enrollment, providing a complete picture of data completeness. In rare years where reported counts exceed registered enrollment &mdash; a registry data-quality quirk &mdash; the larger of the two is used as the denominator so percentages never exceed 100%.</p>
@@ -1554,18 +1552,31 @@
                 <details class="faq-section">
                     <summary><h4>How are Sex and Gender defined on this dashboard?</h4></summary>
                     <div class="faq-answer">
-                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the retired rule.</strong> Race and Ethnicity still use it. With the <code>?sg=v2</code> beta on, the Sex and Gender tabs follow the parser instead: <a href="#faq" onclick="return sgOpenMethods('gender_rule')">see the parser v2 methods</a>.</p>
+                        <p class="note sg-v2 sg-hidden sg-faq-retired"><strong>This describes the earlier method.</strong> Race and Ethnicity still use it. The Sex and Gender tabs count differently: <a href="#faq" onclick="return sgOpenMethods()">see how sex and gender are counted</a>.</p>
                         <p class="note">They are extracted separately and never cross-mapped. <strong>Sex</strong> refers to biological sex as reported in a trial's baseline characteristics, standardized to Female, Male, and Unknown or Not Reported. <strong>Gender</strong> refers to gender identity, standardized to Woman, Man, Non-binary, Transgender, Other, and Unknown or Not Reported &mdash; and is only parsed from baseline tables explicitly labeled as gender.</p>
                         <p class="note" style="margin-top: 0.5rem;">Because the pipeline keeps these strictly decoupled (a "Female" label is never counted as "Woman", and vice versa), the Gender tab reflects only trials that genuinely collected gender identity &mdash; which remains rare in the registry.</p>
                     </div>
                 </details>
 
-                <!-- ?sg=v2: the parser-v2 methods, rendered from data/sex_gender/methods.json
-                     (the engine writes the text; this page only shows it). -->
+                <!-- The FAQ entry from the canvas's FAQ board; the engine's full
+                     methods (data/sex_gender/methods.json) fill the closed panel. -->
                 <details class="faq-section" id="methods-sex-gender">
-                    <summary><h4>Sex and gender under parser v2 (paper rules): methods</h4></summary>
-                    <div class="faq-answer" id="sg-methods">
-                        <p class="note">This section fills from <code>data/sex_gender/methods.json</code> when the <code>?sg=v2</code> beta is on.</p>
+                    <summary><h4>How are sex and gender counted?</h4></summary>
+                    <div class="faq-answer">
+                        <h5>Where do these numbers come from?</h5>
+                        <p class="note">Each trial’s baseline table on ClinicalTrials.gov, read by the parser from our sex and gender paper. They count participants, not trials.</p>
+                        <h5>When does a trial report sex?</h5>
+                        <p class="note">When it posts female and male participant counts. About 99% of trials do.</p>
+                        <h5>What do Explicit Unknown, Uninformative and Not reported mean?</h5>
+                        <p class="note">Explicit Unknown: the trial listed some participants as unknown. Uninformative: a sex table was posted but holds no usable counts, for example empty or all zero. Not reported: no sex counts were posted.</p>
+                        <h5>When does a trial report gender?</h5>
+                        <p class="note">Only when it lists a gender-diverse or cis/trans-qualified category with at least one participant. A table titled “Gender” that lists only female and male is counted as sex.</p>
+                        <h5>Why are there two lines for percent female?</h5>
+                        <p class="note">Solid: the average of each trial’s percent female, so every trial counts once. Dashed: all female participants over all female and male participants, so large trials count more.</p>
+                        <details class="sg-methods-full" id="sg-methods-full">
+                            <summary>Full methods</summary>
+                            <div id="sg-methods"><p class="note">The full methods load with the data.</p></div>
+                        </details>
                     </div>
                 </details>
 
@@ -1749,6 +1760,6 @@
     <script defer src="industry_outcomes.js?v=20261117-results-structure6"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
     <script defer src="device_links.js?v=20261114-device-links6"></script>
-    <script defer src="app.js?v=20261117-shardlru"></script>
+    <script defer src="app.js?v=20261118-sexgender"></script>
 </body>
 </html>

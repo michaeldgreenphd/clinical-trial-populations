@@ -1099,7 +1099,7 @@ test('a failed load on the loading screen keeps its error: parts still in flight
     const p = page();
     // The loading screen's own writer, as the parts loop calls it.
     p.run(fnSource("function updateLoadingProgress(percent, statusText, bytesText = '')").replace('function updateLoadingProgress', 'function __writeProgress'));
-    p.run('var loadingSample = { fill() {} };');
+    p.run('var loadingSample = { fill() {} }; var paceLoadingFigure = () => {};');
     const overlay = p.el('loading-overlay');
     const status = p.el('loading-status');
     p.run('__writeProgress')(40, 'Loading trial records', '60 of 152 MB');

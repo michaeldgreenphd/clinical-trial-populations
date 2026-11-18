@@ -131,7 +131,6 @@ test('a title with no short form is hidden rather than cut; a chart without titl
 test('the axis-title plugin is registered, and the clipped titles carry a short form', () => {
     assert.match(app, /Chart\.register\(civicWatermarkPlugin, civicEventLinesPlugin, civicAxisTitleFitPlugin\)/);
     assert.equal((app.match(/text: 'Number of list rows', short: 'List rows'/g) || []).length, 2, 'an AI Devices chart lost its short title');
-    assert.match(app, /yTitle: 'Trials not in the Reported state', yTitleShort: 'Trials'/);
     assert.match(fnSource('function demoConfig(config, spec = {})'), /short: spec\.yTitleShort/);
     assert.match(fnSource('function renderIndustryTrend(rows)'), /'Median % female per trial', short: '% female'/);
 });
@@ -278,9 +277,8 @@ test("a demographic chart's legend entry too wide for the chart takes its short 
     const demo = fnSource('function demoConfig(config, spec = {})');
     assert.match(demo, /generateLabels: \(chart\) => \{[\s\S]*?if \(!spec\.names\) return items;[\s\S]*?if \(spec\.names\[it\.text\] && chart\.ctx\.measureText\(it\.text\)\.width > room\) it\.text = spec\.names\[it\.text\];/,
         'a legend entry wider than the chart is no longer swapped for its short name');
-    // The short names drop the definitions in brackets; the footnote keeps them.
+    // The short names drop the definitions in brackets; the FAQ entry keeps them.
     const pf = fnSource('function sgRenderPercentFemale(filtered)');
-    assert.match(pf, /foot\.textContent = 'Mean of within-trial % female: each trial counts once\. Participant-weighted % female: sum female \/ \(sum female \+ male\)\. '/);
     assert.match(pf, /names: \{ \[aLabel\]: 'Mean of within-trial % female', \[bLabel\]: 'Participant-weighted' \}/);
 });
 

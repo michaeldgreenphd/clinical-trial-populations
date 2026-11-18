@@ -103,12 +103,6 @@ test('the four quality states render in fixed order, and a zero state is a zero 
     assert.deepEqual(rows.map((r) => r.label), ['Reported', 'Explicit Unknown', 'Uninformative', 'Not Reported (Missing)']);
     // parse_error is the methods page's only; it never joins the visible four
     assert.ok(!rows.some((r) => r.key === 'parse_error'));
-    const table = h.run('sgQualityTableHtml(sgQualityRows({ reported: 79270, explicit_unknown_only: 66, uninformative: 720, not_reported: 0 }))');
-    for (const state of ['Reported', 'Explicit Unknown', 'Uninformative', 'Not Reported (Missing)']) {
-        assert.ok(table.includes(state), `${state} row is missing from the quality table`);
-    }
-    assert.match(table, /data-state="not_reported"><th scope="row">[^<]*<span class="sg-swatch"[^>]*><\/span>Not Reported \(Missing\)<\/th><td>0<\/td><td>0\.0%<\/td>/,
-        'the Not Reported row must render with a 0 count and a 0.0% share');
     // an empty selection still lists all four states
     const empty = h.run('sgQualityRows({})');
     assert.deepEqual(empty.map((r) => r.count), [0, 0, 0, 0]);
@@ -167,10 +161,7 @@ test('aggregates: totals over reported_sex AND is_participant_count; the exclude
     assert.deepEqual(agg.uninformativeReasons, { no_measurements: 1 });
     assert.equal(agg.declaredNotCollected, 1);
     assert.equal(agg.outcomes.reported_gender, 1);
-    assert.equal(agg.glbKnown, false, 'gender_labeled_binary_only is unknown without the CSV join, so the sentence is omitted');
-    assert.equal(h.run(`sgGlbSentence(${JSON.stringify(agg)})`), '');
-    agg.glbKnown = true; agg.outcomes.gender_labeled_binary_only = 7;
-    assert.equal(h.run(`sgGlbSentence(${JSON.stringify(agg)})`), 'Gender-titled tables with only Female/Male, counted as sex: 7.');
+    assert.equal(agg.glbKnown, false, 'gender_labeled_binary_only is unknown without the CSV join');
     // percent female is computed here, never read: series (a) mean and (b) weighted, largest trial kept
     const years = h.run(`sgYearSeries(${JSON.stringify(studies)})`);
     const pts = h.run(`sgSeriesPoints(${JSON.stringify(years)})`);
@@ -179,7 +170,7 @@ test('aggregates: totals over reported_sex AND is_participant_count; the exclude
     assert.equal(pts.largest[1], null, 'the desktop path ranked the rows and named a largest trial of its own');
 });
 
-test('the summary block yields the same shape for mobile, and the beta panel labels the exclusion as reported_sex AND NOT is_participant_count', () => {
+test('the summary block yields the same shape for mobile', () => {
     const h = harness();
     const summary = {
         cards: { sexCount: 77906, genderCount: 1676 },
@@ -197,10 +188,7 @@ test('the summary block yields the same shape for mobile, and the beta panel lab
     assert.equal(agg.statusCounts.not_reported, 0);
     assert.equal(agg.totals.gender_diverse, 20220);
     assert.equal(agg.outcomes.gender_labeled_binary_only, 2955);
-    const beta = h.run(`sgBetaHtml(sgBetaRows(${JSON.stringify(summary)}))`);
-    assert.match(beta, /Excluded from composition \(reported_sex AND NOT is_participant_count\): 112 trials/);
-    assert.match(beta, /pull\/15/);
-    assert.match(beta, /removed at cutover/);
+    assert.deepEqual(agg.excluded, { trials: 112, female: 804166, male: 666273 });
 });
 
 test('no tile is named Transgender or Non-binary; the five buckets are the display', () => {
@@ -311,9 +299,9 @@ test('the markup carries the v2 filters, the methods section and the anchors the
         assert.ok(html.includes(`id="${id}"`), `index.html has no #${id} control`);
     }
     assert.ok(html.includes('id="methods-sex-gender"'), 'the FAQ has no methods section for parser v2');
-    // the tile is built in app.js; its note links to the methods anchor
-    assert.ok(block.includes("sgOpenMethods('unknown_tile')"), 'the Explicit Unknown tile does not link to the methods anchor');
-    assert.ok(block.includes('Registrant-reported Unknown categories only.'), 'the Explicit Unknown tile lost its one-line note');
+    // both tabs link to the FAQ entry, which carries the full methods
+    assert.equal((html.match(/How sex and gender are counted: <a href="#faq" onclick="return sgOpenMethods\(\)">see the FAQ<\/a>\./g) || []).length, 2);
+    assert.ok(html.includes('id="sg-methods-full"') && html.includes('id="sg-methods"'), 'the full methods lost their panel');
     assert.ok(html.includes('id="sg-retired-banner"'));
     // the legacy blocks are wrapped so the v2 blocks can replace them by class
     assert.equal((html.match(/class="sg-legacy"/g) || []).length, 2);
@@ -340,14 +328,8 @@ test('share links carry the v2 filters, the methods deep link survives the hash 
     const tile = h.run("sgTileHtml({ key: 'female', label: 'Female', color: '#000', value: 51775992.7, note: 'n' }, '')");
     assert.match(tile, /51,775,993/);
     assert.ok(!tile.includes('992.7'), 'a tile shows a fractional participant count');
-    const beta = h.run(`sgBetaHtml(sgBetaRows({
-        sexDistribution: { female: 1, male: 1, unknown: 1 }, genderDistribution: {}, cards: {},
-        sexGender: { totals: { female: 51775992.7, male: 45070116.3, explicit_unknown: 259436, gender_diverse: 0, ambiguous: 0 },
-                     outcomes: {}, excludedFromComposition: { trials: 112, female: 804166.56, male: 666273.91 }, denominatorTrials: 79107 }
-    }))`);
-    assert.match(beta, /51,775,993/);
-    assert.match(beta, /804,167 female \/ 666,274 male units/);
-    assert.ok(!/\d\.\d/.test(beta.replace(/parsers\.R@[^<]*/, '')), 'the beta panel shows a fractional participant count');
+    assert.ok(!/stat-sub/.test(h.run("sgTileHtml({ key: 'female', label: 'Female', color: '#000', value: 1, note: '' }, '')")),
+        'a tile without a note still carries an empty note line');
 });
 
 test('the flag survives the routing stubs, which move the query into the hash', () => {
@@ -373,28 +355,6 @@ test('the retired-rule banner is in both tab sections, since only the active sec
     assert.ok(gender.includes('sg-retired-banner'), 'the Gender section has no banner, so the notice is invisible there');
     // and the toggle is by class, so both move together
     assert.ok(block.includes("querySelectorAll('.sg-retired-banner')"), 'the banner is toggled by id, so the second one never shows');
-});
-
-test('the beta panel reads the summary of the snapshot on screen, not the latest one', async () => {
-    const urls = [];
-    const h = harness({ search: '?sg=v2', fetch: async (u) => { urls.push(u); return { ok: false, status: 404 }; } });
-    h.run("sgSnapshotKey = '2026-08-02';");
-    await h.runRaw('sgRenderBetaPanel()');
-    assert.ok(urls.some((u) => u.startsWith('snapshots/2026-08-02/dashboard-summary.json')),
-        `the panel fetched ${urls.join(', ') || 'nothing'} instead of the selected snapshot's summary`);
-    assert.match(h.els['sg-beta-body'].innerHTML, /2026-08-02 snapshot/);
-    // switching snapshots re-fetches rather than reusing the first one's cache
-    urls.length = 0;
-    h.run("sgSnapshotKey = 'latest';");
-    await h.runRaw('sgRenderBetaPanel()');
-    assert.ok(urls.some((u) => u.startsWith('data/dashboard-summary.json')),
-        `the panel fetched ${urls.join(', ') || 'nothing'} for the latest pull`);
-    // the rendered panel names the snapshot it is reporting on
-    const summary = { extracted_at: '2026-09-15T00:09:44Z', cards: {}, sexDistribution: {}, genderDistribution: {},
-        sexGender: { totals: {}, outcomes: {}, excludedFromComposition: {}, denominatorTrials: 79107, parser_rules_version: 'r' } };
-    const panel = h.run(`sgBetaHtml(sgBetaRows(${JSON.stringify(summary)}), 'the 2026-09-15 snapshot')`);
-    assert.match(panel, /for the 2026-09-15 snapshot/);
-    assert.match(panel, /extracted 2026-09-15/);
 });
 
 test("percent female is the engine's published estimand, and is never recomputed here", () => {
@@ -435,7 +395,7 @@ test('a year series withholds the within-trial mean rather than averaging a subs
     const render = block.slice(block.indexOf('function sgRenderPercentFemale'), block.indexOf('function sgRenderSexDonut'));
     assert.ok(render.includes('pts.missing > 0'), 'the mean is drawn even when a trial in the denominator has no published figure');
     assert.ok(render.includes('aMissing ? pts.labels.map(() => null) : pts.a'), 'the withheld series still plots its points');
-    assert.match(render, /unavailable for this selection/);
+    assert.match(render, /unavailable: not published for every trial here/);
 });
 
 test('a bucket no trial in the selection published renders as absent, never as a zero', () => {
@@ -482,28 +442,6 @@ test('a copied link keeps whichever mode it was written with', () => {
     optedOut.run("location.search = '';");
     assert.equal(optedOut.run('sgShareFlag()'), 'v1', 'a remembered v1 is dropped from the link');
     assert.equal(harness({ search: '', hash: '#sex' }).run('sgShareFlag()'), null);
-});
-
-test('the beta comparison leaves an unpublished figure absent instead of zero', () => {
-    const h = harness();
-    // a summary that publishes nothing but the two sex totals
-    const rows = h.run(`sgBetaRows({ cards: {}, sexDistribution: { female: 10 }, genderDistribution: {},
-        sexGender: { totals: { female: 7 }, outcomes: {}, excludedFromComposition: {} } })`);
-    assert.equal(rows.sex[0][1], 10);
-    assert.equal(rows.sex[0][2], 7);
-    assert.equal(rows.sex[1][1], null, 'an unpublished old total became a zero');
-    assert.equal(rows.sex[1][2], null, 'an unpublished parser-v2 total became a zero');
-    assert.equal(rows.gender[2][1], null, 'the three old gender tiles summed to zero when none was published');
-    assert.equal(rows.excluded.trials, null);
-    assert.equal(rows.denominatorTrials, null);
-    const html = h.run(`sgBetaHtml(${JSON.stringify(rows)}, 'the latest pull')`);
-    assert.ok(!/>0</.test(html), 'the comparison table rendered an absent figure as 0');
-    assert.match(html, /over — trials with reported sex/);
-    // and a published zero is still a zero
-    const zero = h.run(`sgBetaRows({ cards: {}, sexDistribution: { male: 0 }, genderDistribution: {},
-        sexGender: { totals: { male: 0 }, outcomes: {}, excludedFromComposition: {} } })`);
-    assert.equal(zero.sex[1][1], 0);
-    assert.equal(zero.sex[1][2], 0);
 });
 
 test('the methods text follows the snapshot, and a fallback says whose numbers it is', async () => {
@@ -632,14 +570,8 @@ test('every v2 table scrolls inside its own container at 390px', () => {
     // loses a column instead of scrolling. Measured at 390px: the quality
     // table fits at 99.0% and overflows at 100.0%; the beta tables overflow.
     const h = harness();
-    const quality = h.run('sgQualityTableHtml(sgQualityRows({ reported: 0, explicit_unknown_only: 61, uninformative: 0, not_reported: 0 }))');
-    assert.match(quality, /^<div class="sg-table-scroll"><table/);
-    assert.match(quality, /100\.0%/);
-    const labels = h.run("sgLabelTableHtml([['Non-binary', 83]], 252)");
-    assert.match(labels, /<div class="sg-table-scroll"><table/);
-    const beta = h.run(`sgBetaHtml(sgBetaRows({ cards: {}, sexDistribution: { female: 1 }, genderDistribution: {},
-        sexGender: { totals: { female: 1 }, outcomes: {}, excludedFromComposition: {}, denominatorTrials: 1 } }), 'the latest pull')`);
-    assert.equal((beta.match(/<div class="sg-table-scroll">/g) || []).length, 3, 'each beta comparison table needs its own scroller');
+    // The tabs no longer carry these tables (the canvas boards left them out);
+    // the scroller remains for the tables the pop-ups still show.
     assert.ok(styles.includes('.sg-table-scroll'), 'styles.css has no rule for the scroll container');
     assert.match(styles.slice(styles.indexOf('.sg-table-scroll')), /overflow-x: auto/);
 });
@@ -755,21 +687,6 @@ test('a drill-down with no source labels says whether they were shipped', () => 
     assert.ok(!/Source labels need the parsed table/.test(d.els['breakdown-overlay'].innerHTML));
 });
 
-test('a failed beta-summary fetch is retried; a 404 is remembered', async () => {
-    let calls = 0;
-    const h = harness({ search: '?sg=v2', fetch: async () => { calls++; throw new Error('offline'); } });
-    await h.runRaw('sgRenderBetaPanel()');
-    assert.equal(h.run("sgBetaSummaries.has('latest')"), false, 'a dropped request was cached as "no summary published"');
-    assert.match(h.els['sg-beta-body'].innerHTML, /could not be fetched/);
-    const after = calls;
-    await h.runRaw('sgRenderBetaPanel()');
-    assert.ok(calls > after, 'the panel never retried');
-    const h404 = harness({ search: '?sg=v2', fetch: async () => ({ ok: false, status: 404 }) });
-    await h404.runRaw('sgRenderBetaPanel()');
-    assert.equal(h404.run("sgBetaSummaries.has('latest')"), true, 'a definitive 404 should not be re-fetched every time');
-    assert.match(h404.els['sg-beta-body'].innerHTML, /No dashboard-summary\.json/);
-});
-
 test('dismissing a filter chip rewrites the share URL', () => {
     const fn = app.slice(app.indexOf('function removeFilter('), app.indexOf('window.removeFilter'));
     assert.ok(fn.includes('updateShareUrl()'), 'the chip is dismissed but the address still carries the filter');
@@ -812,24 +729,6 @@ test('the modal divides by the engine\'s published total, not by a sum of the ro
     assert.ok(!/%/.test(table(noTotal)), 'a share was invented with no published total');
     assert.match(noTotal, /n_total_parsed/);
     assert.ok(h.run("SG_CSV_KEEP.includes('n_total_parsed')"));
-});
-
-test('the beta panel shows the three published legacy categories, not their sum', () => {
-    const h = harness();
-    const rows = h.run(`sgBetaRows({ cards: {}, sexDistribution: {}, genderDistribution: { nonbinary: 3498, transgender: 1371, other: 589 },
-        sexGender: { totals: { gender_diverse: 20220 }, outcomes: {}, excludedFromComposition: {} } })`);
-    const labels = rows.gender.map((r) => r[0]);
-    assert.ok(labels.some((l) => /^Non-binary \(old\)/.test(l)));
-    assert.ok(labels.some((l) => /^Transgender \(old\)/.test(l)));
-    assert.ok(labels.some((l) => /^Other \(old\)/.test(l)));
-    const olds = rows.gender.filter((r) => /\(old\) → Gender diverse/.test(r[0])).map((r) => r[1]);
-    assert.deepEqual(olds, [3498, 1371, 589], 'the three published categories are not shown as published');
-    assert.ok(!olds.includes(3498 + 1371 + 589), 'the page is still summing them into a statistic of its own');
-    // the new bucket stands on its own row
-    const gd = rows.gender.find((r) => /^Gender diverse \(new\)/.test(r[0]));
-    assert.equal(gd[1], null);
-    assert.equal(gd[2], 20220);
-    assert.ok(!block.includes('const sum = (...vs)'), 'the summing helper is still in the block');
 });
 
 test('a legacy FAQ answer that contradicts parser v2 says so while the beta is on', () => {
@@ -919,9 +818,10 @@ test('the stacked states carry a texture as well as a colour', () => {
     const textures = h.run('SG_VISIBLE_STATES.map(s => SG_STATE_TEXTURES[s])');
     assert.equal(textures.length, 4);
     assert.equal(new Set(textures).size, 4, 'two states share a texture, so colour is still the only thing separating them');
-    // both status charts ask for them, so a state looks the same in each
+    // both year charts ask for them, so a state looks the same in each
     const render = block.slice(block.indexOf('function sgRenderQualityByYear'), block.indexOf('function sgRenderPercentFemale'));
-    assert.ok(render.includes('sgTexture(ctx, SG_STATE_COLORS[st], SG_STATE_TEXTURES[st])'), 'the stacked bars are painted with flat colour');
+    assert.ok(render.includes('color: SG_STATE_COLORS[st], texture: SG_STATE_TEXTURES[st]'), 'the year charts dropped the state textures');
+    assert.ok(render.includes('sgTexture(ctx, x.color, x.texture)'), 'the stacked bars are painted with flat colour');
     // the reporting-status rows name the same texture as CSS classes
     const horizontal = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
     assert.ok(horizontal.includes('texture: SG_ROW_TEXTURES[SG_STATE_TEXTURES[r.key]]'), 'the status rows use a different encoding from the stacked bars');
@@ -931,9 +831,8 @@ test('the stacked states carry a texture as well as a colour', () => {
     // and a context-less environment degrades to the colour rather than throwing
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'dots')"), '#0F7A4F');
     assert.equal(h.run("sgTexture(null, '#0F7A4F', 'solid')"), '#0F7A4F');
-    // the note tells the reader what the textures mean
-    const note = html.slice(html.indexOf('Reporting status by results-posted year'));
-    assert.match(note.slice(0, 900), /Explicit Unknown is diagonal stripes, Uninformative is dots, Not Reported \(Missing\) is a grid/);
+    // the legend shows each texture beside its name
+    assert.ok(render.includes("{ canvas: ctx, legend: true, yTicks: 'pct' }"), 'the year charts lost the legend that names the textures');
 });
 
 test('the bucket compositions are named rows, with Explicit Unknown set apart as absence', () => {
@@ -1057,33 +956,10 @@ test('an unsettled archive request is not called a confirmed absence', async () 
 });
 
 test('the reporting shares are over every selected trial, parse errors included', () => {
-    const h = harness();
-    const rows = 'sgQualityRows({ reported: 3, explicit_unknown_only: 0, uninformative: 0, not_reported: 0, parse_error: 1 })';
-    const withErrors = h.run(`sgQualityTableHtml(${rows}, { reported: 3, explicit_unknown_only: 0, uninformative: 0, not_reported: 0, parse_error: 1 })`);
-    assert.match(withErrors, /Share of selection/);
-    assert.match(withErrors, /75\.0%/, 'the share left the unparsed trial out of the denominator');
-    assert.ok(!/100\.0%/.test(withErrors), 'Reported reached 100% while a selected trial was never parsed');
-    assert.match(withErrors, /1 trial in this selection could not be parsed/);
-    assert.ok(!/<tr data-state="parse_error"/.test(withErrors), 'parse errors are listed here rather than on the methods page');
-    const clean = h.run(`sgQualityTableHtml(${rows.replace('parse_error: 1', 'parse_error: 0')}, { reported: 3, parse_error: 0 })`);
-    assert.match(clean, /100\.0%/);
-    assert.ok(!/could not be parsed/.test(clean));
-    // the renderer passes the full status counts through
-    assert.ok(block.includes('sgQualityTableHtml(rows, agg.statusCounts)'));
-});
-
-test('a late failure from a snapshot no longer on screen leaves the panel alone', async () => {
-    let reject;
-    const pending = new Promise((_, r) => { reject = r; });
-    const h = harness({ search: '?sg=v2', fetch: () => pending });
-    h.run("sgSnapshotKey = '2026-04-26';");
-    const first = h.runRaw('sgRenderBetaPanel()');          // waiting on the old snapshot's fetch
-    h.run("sgSnapshotKey = 'latest';");
-    h.els['sg-beta-body'].innerHTML = 'RENDERED FOR LATEST';
-    reject(new Error('late failure'));
-    await first;
-    assert.equal(h.els['sg-beta-body'].innerHTML, 'RENDERED FOR LATEST', "the old snapshot's failure overwrote the panel");
-    assert.equal(h.run("sgBetaSummaries.has('2026-04-26')"), false);
+    const render = block.slice(block.indexOf('function sgRenderQuality('), block.indexOf('function sgStatusByYear'));
+    assert.ok(render.includes('const total = SG_V2_STATES.reduce('), 'the rows left the unparsed trials out of the denominator');
+    assert.ok(render.includes("{ noun: 'trials', total, keepOrder: true }"));
+    assert.match(render, /could not be read\. They are in the shares above\./);
 });
 
 test('a query-style archive link still opens the archive after the query is rewritten', () => {
@@ -1103,11 +979,11 @@ test('the retired-rule banner is reserved for a confirmed absence; a failed fetc
     // the two texts differ in what they claim
     const retired = h.run("sgBannerHtml('retired')");
     const unavailable = h.run("sgBannerHtml('unavailable')");
-    assert.match(retired, /Retired rule/);
-    assert.match(retired, /no parser-v2 sex\/gender table/);
-    assert.ok(!/Retired rule/.test(unavailable), 'a failed fetch was labelled as the retired rule');
+    assert.match(retired, /made before the current sex and gender counts/);
+    assert.ok(!/made before/.test(unavailable), 'a failed fetch was described as an older snapshot');
     assert.match(unavailable, /could not be fetched just now/);
-    assert.match(unavailable, /says nothing about whether the snapshot was parsed/);
+    assert.match(unavailable, /does not mean the snapshot lacks them/);
+    for (const t of [retired, unavailable]) assert.ok(!/parser|v2|rule\b/i.test(t.replace('sgRetry', '')), `the banner still uses jargon: ${t}`);
     assert.match(unavailable, /sgRetry\(\)/);
     // and the mode picks by the confirmed-absence flag, not by availability alone
     const apply = block.slice(block.indexOf('function sgApplyMode()'), block.indexOf('// ── Sex tab'));

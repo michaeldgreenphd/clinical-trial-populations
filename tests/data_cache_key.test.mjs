@@ -361,5 +361,4 @@ test('every data file is fetched through keyedFetch, and the latest JSON files a
     assert.match(fnSource('async function loadIndustryView()'), /fetchChecked\('data\/industry_sponsors\.json', d => d\.source_extracted_at\)/);
     assert.match(app, /fetchChecked\(`\$\{sgBase\(date\)\}\/sex_gender_parsed_meta\.json`, m => m\.source_extracted_at\)/);
     assert.match(app, /fetchChecked\(`\$\{base\}\/sex_gender\/methods\.json`, m => m\.source_extracted_at\)/);
-    assert.match(app, /fetchChecked\(`\$\{sgBase\(key\)\}\/dashboard-summary\.json`, s => s\.extracted_at\)/);
 });

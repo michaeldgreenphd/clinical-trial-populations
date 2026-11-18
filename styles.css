@@ -5472,14 +5472,12 @@ footer p {
 .sg-cell-muted { color: var(--text-secondary); font-size: var(--fs-small); }
 
 .sg-quality-table th[scope="row"] { text-align: left; font-weight: 500; }
-.sg-quality-table td, .sg-label-table td, .sg-beta-table td { font-variant-numeric: tabular-nums; }
+.sg-label-table td { font-variant-numeric: tabular-nums; }
 .sg-labels { margin: 0.5rem 0; }
 .sg-labels summary { cursor: pointer; font-weight: 500; }
 .sg-label-table { max-width: 60ch; }
 
-.sg-beta { border: 1px dashed var(--border-color); border-radius: var(--radius-md); padding: 0.75rem 1rem; margin: 1rem 0; }
-.sg-beta summary { cursor: pointer; font-weight: 600; }
-.sg-beta h5, .sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
+.sg-methods-h { margin: 0.9rem 0 0.3rem; font-size: var(--fs-base); }
 .sg-footer { margin-top: 0.5rem; }
 
 /* A bucket nothing in the selection published: an em dash, not a zero. */
@@ -5660,6 +5658,16 @@ footer p {
 .demo-ink .demo-footnote a,
 .demo-ink .sg-footer a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .demo-ink .methodology-disclaimer { font-family: inherit; }
+
+/* Sex and Gender tabs, as on the canvas: one line under the tiles saying
+   what the counts are over, a second heading inside a panel, and the label
+   lists in three columns. */
+.demo-ink .sg-tiles-note { font-size: 18px; color: var(--dm-ink-2); margin: 0.25rem 0 1rem; max-width: none; }
+.demo-ink .chart-container h3.sg-follow { margin-top: 1.75rem; }
+.demo-ink .sg-labels-heading { font-family: inherit; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: 0; margin: 1.5rem 0 0.5rem; }
+.sg-label-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem 2.5rem; }
+.sg-methods-full { margin-top: 1rem; }
+.sg-methods-full > summary { cursor: pointer; color: var(--dm-ink-2, inherit); }
 
 /* A composition as rows: name, bar, share, count. */
 .demo-rows { margin-top: 0.2rem; container-type: inline-size; }

@@ -98,60 +98,6 @@ test('a record without the block, or with another schema version, is unavailable
     assert.ok(!/Sex only/.test(detail), 'a dimension was invented for a record without the block');
 });
 
-test('the reporting-dimension table counts records by the published field, Unavailable in the denominator', () => {
-    const h = harness();
-    const studies = [
-        { nct_id: 'A', sex_gender_analysis: lean() },
-        { nct_id: 'B', sex_gender_analysis: lean({ reporting_dimension: 'both', gender_categories_status: 'derived', d3_total: 10, d5_strict: 9 }) },
-        { nct_id: 'C', sex_gender_analysis: lean({ reporting_dimension: 'neither', neither_reason: 'measure_absent', composition_eligible: false }) },
-        { nct_id: 'D', sex_gender_analysis: lean({ reporting_dimension: 'neither', neither_reason: 'explicit_unknown_or_not_collected', composition_eligible: false }) },
-        { nct_id: 'E', sex_gender_analysis: lean({ gender_categories_status: 'excluded', d3_total: 20, d5_strict: 20, reporting_dimension: 'both' }) },
-        { nct_id: 'F', sex_gender: row() }
-    ];
-    const agg = h.run(`sgAnalysisAggregate(${JSON.stringify(studies)})`);
-    assert.equal(agg.available, 5);
-    assert.equal(agg.unavailable, 1);
-    assert.deepEqual(agg.dimensions, { sex_only: 1, both: 2, gender_only: 0, neither: 2, parse_error: 0 });
-    assert.deepEqual(agg.neither, { measure_absent: 1, explicit_unknown_or_not_collected: 1 });
-    assert.equal(agg.compositionEligible, 3);
-    assert.equal(agg.d3, undefined, 'the D3/D5 sums came back (R-GC-05 holds them off the site)');
-    const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
-    assert.match(table, /Unavailable \(record predates the analysis layer\)<\/th><td>1<\/td><td>16\.7%/);
-    assert.match(table, /Sex only<\/th><td>1<\/td><td>16\.7%/);
-    assert.match(table, /no sex or gender measure/);
-    assert.match(table, /Incomplete composition is not evaluated/);
-    assert.ok(!/D3|D5/.test(table), 'the reporting-dimension table mentions D3/D5');
-});
-
-test('no block in the selection is said so, never shown as zeros', () => {
-    const h = harness();
-    const agg = h.run(`sgAnalysisAggregate(${JSON.stringify([{ nct_id: 'F', sex_gender: row() }, { nct_id: 'G', sex_gender: row() }])})`);
-    const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
-    assert.match(table, /Newer analysis unavailable/);
-    assert.match(table, /2 records predate the layer/);
-    assert.ok(!/<td>0<\/td>/.test(table), 'zeros were shown for a selection with no block');
-    assert.match(h.run('sgAnalysisTableHtml(null)'), /publishes no/);
-});
-
-test('the summary block gives the same shape for phones and aggregate archives', () => {
-    const h = harness();
-    const blk = {
-        schema_version: 'sex_gender_analysis/1.0', rules_version: 'r', layer: 'as_run', trials: 4, recordsInDataset: 6,
-        reportingDimension: { sex_only: 2, both: 1, gender_only: 0, neither: 1, parse_error: 0 },
-        neitherReason: { measure_absent: 1 }, explicitUnknownWithValues: 1, compositionEligible: 3,
-        genderCategoriesStatus: { derived: 1, not_applicable: 3 },
-        d3: { participants: 7, trials: 1, denominator: 'x' }, d5: { participants: null, trials: 0, denominator: 'y' }
-    };
-    const agg = h.run(`sgAnalysisFromSummary(${JSON.stringify(blk)})`);
-    assert.equal(agg.available, 4);
-    assert.equal(agg.unavailable, 2);
-    assert.equal(agg.d3, undefined, 'the summary reader took the D3/D5 block (R-GC-05 holds it off the site)');
-    assert.equal(h.run('sgAnalysisFromSummary(null)'), null);
-    assert.equal(h.run(`sgAnalysisFromSummary(${JSON.stringify({ ...blk, schema_version: 'other' })})`), null);
-    const table = h.run(`sgAnalysisTableHtml(${JSON.stringify(agg)})`);
-    assert.match(table, /Unavailable \(record predates the analysis layer\)<\/th><td>2<\/td><td>33\.3%/);
-});
-
 test('the pop-up names the block as read, with the open rules, and shows no D3/D5 count', () => {
     const h = harness();
     const study = { nct_id: 'NCT1', sex_gender: row(), sex_gender_analysis: lean({ reporting_dimension: 'both', gender_categories_status: 'derived', d3_total: 10, d5_strict: 9, explicit_unknown_with_values: true, unresolved: ['R-FS-01', 'R-IC-01', 'R-PO-01', 'R-GC-05'] }) };
@@ -171,17 +117,16 @@ test('the pop-up names the block as read, with the open rules, and shows no D3/D
     assert.match(h.els['breakdown-overlay'].innerHTML, /Newer analysis \(sex_gender_analysis\/1\.0, as run\)/);
 });
 
-test('the Sex tab renders the reporting-dimension table; the Gender tab has no D3/D5 table (R-GC-05)', () => {
-    assert.ok(html.includes('id="sg-analysis-table"'), 'the Sex tab has no container for the reporting-dimension table');
+// The Sex tab follows the design canvas's Sex board, which has no
+// reporting-dimension table; the per-trial pop-up still carries the layer.
+test('the Sex tab carries no reporting-dimension table; the Gender tab has no D3/D5 table (R-GC-05)', () => {
+    assert.ok(!html.includes('id="sg-analysis-table"'), 'the Sex tab shows the reporting-dimension table the canvas board left out');
     assert.ok(!html.includes('sg-gender-categories') && !/Gender-identity categories \(newer analysis\)/.test(html),
         'the Gender tab shows the D3/D5 table the owner held back');
-    assert.ok(block.includes('sgRenderAnalysisTable(filtered)'));
     for (const name of ['sgGenderCategoriesHtml', 'sgRenderGenderCategories', 'd3_total', 'd5_strict', 'gender_categories_status']) {
         assert.ok(!block.includes(name), `the site reads or renders ${name} (held off the site by R-GC-05)`);
     }
-    const h = harness();
-    h.run(`sgTable = null; dashboardSummary = null; sgAvailable = true; sgRenderAnalysisTable([${JSON.stringify({ nct_id: 'A', sex_gender_analysis: lean() })}]);`);
-    assert.match(h.els['sg-analysis-table'].innerHTML, /Sex only<\/th><td>1<\/td>/);
+    assert.ok(block.includes('function sgAnalysisDetailHtml(study)'), 'the pop-up lost the analysis layer');
 });
 
 test('the analysis reader derives nothing from the legacy buckets', () => {
