@@ -100,8 +100,10 @@
 }
 
 /* The headline trend, drawn from the summary while the records load: it
-   stays invisible (keeping its place) until its numbers arrive, then the
-   lines draw in and the labels follow. */
+   stays invisible (keeping its place) until its numbers arrive, then builds
+   up in steps: the frame, the Race line and its labels, then the Race and
+   ethnicity line and its labels. app.js sets each element's start time as
+   --lf-delay (LOADING_FIGURE_STEPS in loadingFigureSVG). */
 .loading-figure {
     margin: 2rem 0 0;
     opacity: 0;
@@ -171,11 +173,16 @@
     stroke-linecap: round;
     stroke-dasharray: 1;
     stroke-dashoffset: 1;
-    transition: stroke-dashoffset 1.6s cubic-bezier(0.3, 0.6, 0.2, 1);
+    /* Hidden until its turn: an undrawn line with round caps can otherwise
+       leave a dot at its first point while the line before it draws. */
+    opacity: 0;
+    transition: stroke-dashoffset 1.6s cubic-bezier(0.3, 0.6, 0.2, 1) var(--lf-delay, 0s),
+                opacity 0s linear var(--lf-delay, 0s);
 }
 
 .loading-figure.is-ready .lf-line {
     stroke-dashoffset: 0;
+    opacity: 1;
 }
 
 .lf-text {
@@ -196,7 +203,7 @@
 
 .lf-late {
     opacity: 0;
-    transition: opacity 0.5s ease-out 1.2s;
+    transition: opacity 0.5s ease-out var(--lf-delay, 0s);
 }
 
 .loading-figure.is-ready .lf-late {

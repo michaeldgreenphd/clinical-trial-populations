@@ -290,6 +290,26 @@ test('each line name sits clear of its line, above the upper and below the lower
     assert.ok(span(pts[1], both).every((py) => both.y - 10 > py), 'the Race and ethnicity name touches its line');
 });
 
+test('the figure builds up in order: frame, Race line, its labels, then Race and ethnicity', () => {
+    const { call, svg } = figureHarness();
+    const out = svg(call('loadingFigureModel', summaryFixture), 416);
+    const at = (re) => [...out.matchAll(re)].map((m) => Number(m[1]));
+    const lines = at(/<path class="lf-line"[^>]*--lf-delay:([\d.]+)s/g);
+    const names = Object.fromEntries([...out.matchAll(/<text class="lf-name lf-late"[^>]*--lf-delay:([\d.]+)s[^>]*>([^<]+)</g)].map((m) => [m[2], Number(m[1])]));
+    const [frame] = at(/--lf-delay:([\d.]+)s">Final Rule</g);
+    assert.equal(lines.length, 2, 'a line has no start time');
+    assert.ok(frame < lines[0], 'the Final Rule marker comes after the first line');
+    assert.ok(lines[0] < names['Race'], 'the Race labels come before their line');
+    assert.ok(names['Race'] < lines[1], 'the second line starts before the Race labels show');
+    assert.ok(lines[1] < names['Race and ethnicity'], 'the Race and ethnicity labels come before their line');
+    // Every label of a series shares its series' start time.
+    for (const [k, color] of [[0, '#0F7A4F'], [1, '#2E6FB7']]) {
+        const own = at(new RegExp(`class="[^"]*lf-late"[^>]*style="fill:${color};--lf-delay:([\\d.]+)s"`, 'g'));
+        assert.equal(own.length, 4, `series ${k} lost a label`);
+        assert.ok(own.every((v) => v === own[0]), `series ${k}'s labels are not shown together`);
+    }
+});
+
 test('the summary is fetched once and shared; a failure is not remembered', T, async () => {
     const src = fnSource('function fetchLatestSummary()');
     let calls = 0;
