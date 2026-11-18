@@ -212,6 +212,15 @@ test('an amended conclusion is shown as the person\'s, with the method\'s own be
   assert.match(amended.method, /A person's review replaced it/);
   assert.match(amended.review, /No decision rule/);
   assert.match(amended.review, /estimated, not tested against a prespecified criterion/);
+  // Regression (Codex, PR 298, P2): an amended unit's reviewed state is not shown under the method either.
+  for (const u of rec.assessment.units) Object.assign(u, { state: 'NO_DECISION_RULE', sub_reason: 'ESTIMATION_ONLY', amended_by_review: true });
+  const units = layers(O.recordHTML(rec, f.run, false));
+  assert.doesNotMatch(units.method, /No decision rule|estimated, not tested/);
+  assert.match(units.method, /amended by a person (is|are) shown under “What a person checked”/);
+  assert.match(units.review, new RegExp(`oc-unit-id">${rec.assessment.units[0].au_id}<`));
+  // An unamended unit stays under the method.
+  rec.assessment.units[0].amended_by_review = false; rec.assessment.units[0].state = machine; rec.assessment.units[0].sub_reason = null;
+  assert.match(layers(O.recordHTML(rec, f.run, false)).method, new RegExp(`oc-unit-id">${rec.assessment.units[0].au_id}<`));
 });
 
 test('the overview names every denominator and lists every state', () => {

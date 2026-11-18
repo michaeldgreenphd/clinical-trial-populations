@@ -567,6 +567,10 @@
         // to the method (Codex, PR 298). The units below carry their own "amended by review" tags.
         const overridden = a && a.assessment_kind === 'human_reviewed' && a.review && a.review.decision !== 'CONFIRM'
             && a.review.machine_trial_state;
+        // Units a person amended carry the reviewed state, and the public record has no machine state for them, so they
+        // are shown with the person's decision rather than under the method (Codex, PR 298).
+        const amendedUnits = a ? (a.units || []).filter(u => u.amended_by_review) : [];
+        const methodUnits = a ? (a.units || []).filter(u => !u.amended_by_review) : [];
         const reasonOf = (state, sub, rationale) => esc(sub ? REASONS[sub] || rationale || '' : rationale || '');
         const method = a ? `
             ${overridden
@@ -580,14 +584,15 @@
                 <dt>Prespecification</dt><dd>Registration ${esc(words((a.prespecification || {}).registration_timing)) || 'timing not recorded'}${(a.prespecification || {}).level ? `, level ${esc(a.prespecification.level)}` : ''}</dd>
                 <dt>Method</dt><dd>Version ${esc(a.method_version)}, assessed as of ${esc(fmtDate(a.assessment_cutoff))}</dd>
             </dl>
-            ${(a.units || []).map(u => unitHTML(u, a.assessment_kind)).join('')}`
+            ${methodUnits.map(u => unitHTML(u, a.assessment_kind)).join('')}${amendedUnits.length
+                ? `<p class="oc-note">${amendedUnits.length === 1 ? 'One analysis' : `${amendedUnits.length} analyses`} amended by a person ${amendedUnits.length === 1 ? 'is' : 'are'} shown under “What a person checked”; the method's own verdict for ${amendedUnits.length === 1 ? 'it is' : 'them is'} not published.</p>` : ''}`
             : `<p>${rec.collections.audit
                 ? '<strong>Awaiting review.</strong> This trial is in the development collection; its assessment is shown only after a person has reviewed it.'
                 : '<strong>Not assessed.</strong> Only trials in the development collection are assessed in this beta; that says nothing about this trial.'}</p>`;
         const review = a && a.assessment_kind === 'human_reviewed'
             ? `<p>Reviewed by a person on ${esc(fmtDate(a.review.reviewed_on))}: ${esc(a.review.decision === 'CONFIRM' ? 'confirmed the method\'s conclusion' : a.review.decision === 'AMEND' ? `amended it (the method had said: ${STATE_LABELS[a.review.machine_trial_state] || a.review.machine_trial_state})` : 'could not determine the outcome')}.</p>${overridden
                 ? `<p>${stateBadge(a.trial_state, a.assessment_kind)}</p><p>${reasonOf(a.trial_state, a.trial_sub_reason, a.trial_rationale)}</p>`
-                : ''}${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
+                : ''}${amendedUnits.map(u => unitHTML(u, a.assessment_kind)).join('')}${a.human_evidence && a.human_evidence.length ? evidenceList(a.human_evidence) : ''}`
             : `<p>${a ? '<span class="oc-prov">Provisional, machine only</span> No person has reviewed this assessment.' : 'No person has reviewed an assessment of this trial.'}</p>`;
         const link = rec.demographics_link
             ? (rec.demographics_link.in_dataset
