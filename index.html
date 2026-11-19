@@ -473,7 +473,12 @@
             <div class="chart-row">
                 <div class="chart-container">
                     <h3>Race Distribution (NIH/OMB Categories)</h3>
+                    <label class="ai-toggle-label race-mena-toggle" for="race-mena-toggle">
+                        <input type="checkbox" id="race-mena-toggle" aria-describedby="race-mena-note">
+                        <span class="ai-toggle-text">Show Middle Eastern or North African apart from White (2024 OMB category)</span>
+                    </label>
                     <div id="race-distribution-chart" class="demo-rows"></div>
+                    <p class="note" id="race-mena-note" aria-live="polite"></p>
                 </div>
                 <div class="chart-container">
                     <h3>Race Over Time</h3>
@@ -1755,6 +1760,6 @@
     <script defer src="industry_outcomes.js?v=20261119-results-structure8"></script>
     <script defer src="census_benchmarks.js?v=20261114-census6"></script>
     <script defer src="device_links.js?v=20261114-device-links6"></script>
-    <script defer src="app.js?v=20261118-sexgender"></script>
+    <script defer src="app.js?v=20261119-mena"></script>
 </body>
 </html>

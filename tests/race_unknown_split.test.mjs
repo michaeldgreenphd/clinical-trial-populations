@@ -42,6 +42,7 @@ function raceDistribution({ summary = null, studies = [] }) {
         document: { getElementById: () => ({ set innerHTML(v) { context.html = v; } }) },
     });
     vm.runInContext(lineAt('const DONUT_ABSENT_LABELS =') + blockAt('const RACE_ETHNICITY_ONLY_LABEL', '\n}\n')
+        + blockAt('// ── Middle Eastern or North African apart from White', '// (end of the Middle Eastern or North African block)') + '\n'
         + fnAt('function demoScale(maxPct)') + fnAt('function demoRowsHtml(rows, opts = {})')
         + 'function demoRowsFromTotals(totals, colors) { captured = totals; return ('
         + fnAt('function demoRowsFromTotals(totals, colors)').replace('function demoRowsFromTotals(totals, colors)', 'function (totals, colors)')
