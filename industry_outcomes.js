@@ -564,6 +564,7 @@
                 f.documents.map(d => `<tr><td><a href="${esc(d.url)}" target="_blank" rel="noopener">${esc(d.label)}</a></td><td>${esc(fmtDate(d.document_date)) || '<span class="oc-absent">not stated</span>'}</td><td>${esc(fmtDate(d.upload_date)) || '<span class="oc-absent">not stated</span>'}</td></tr>`).join('')}</tbody></table>
                <p class="oc-note">A posted document is a file on the registry; it does not show which analysis it covers, or that it was finalised before results were known.</p>`
             : '<p><span class="oc-absent">No protocol or statistical analysis plan is posted on the registry.</span></p>';
+        const reported = reportedResultsHTML(structureRecord(structure, rec.nct_id), structure, rec.results.state === 'POSTED');
         const results = rec.results.state === 'POSTED'
             ? `Posted ${esc(fmtDate(f.results_first_post_date))}`
             : `<strong>No posted results as of ${esc(fmtDate(rec.results.as_of))}.</strong> ${esc(REASONS[rec.results.sub_reason] || '')}`;
@@ -621,7 +622,8 @@
             <section class="oc-layer-block"><h5><span class="oc-layer-n" aria-hidden="true">1</span> What the registry reports</h5>
                 <dl class="oc-grid">
                     <dt>Primary outcome${f.registered_primary_outcomes.length === 1 ? '' : 's'}</dt><dd>${outcomes}</dd>
-                    <dt>Results</dt><dd>${results}</dd>
+                    <dt>Results</dt><dd>${results}</dd>${reported ? `
+                    <dt>Primary results as posted</dt><dd>${reported}</dd>` : ''}
                     <dt>Primary completion</dt><dd>${esc(fmtDate(f.primary_completion_date)) || '<span class="oc-absent">not stated</span>'}${f.primary_completion_type === 'ESTIMATED' ? ' (estimated)' : ''}${f.why_stopped ? `; stopped: ${esc(f.why_stopped)}` : ''}</dd>
                     <dt>Documents</dt><dd>${docs}</dd>
                 </dl>
@@ -818,6 +820,87 @@
             <p>Outcome switching is not assessed. The current registry record does not show how the registered outcomes changed over time.</p>
             <p>Posted documents and publications: not reviewed. Protocols, statistical analysis plans, study reports and journal articles are not read, so a subgroup result reported only there is not found.</p>`;
 
+    // ---------------------------------------------------------------- reported primary results (layer B)
+    //
+    // What the registry reports for each posted primary measure, from the results-structure records
+    // (civicsample-engine outcomes/results_structure.py, `primary_measures`): the measure, its analysis
+    // population, its groups with every denominator row in its own units, and each posted analysis.
+    // Every value is shown as the registry posted it (strings, never re-computed or rounded here), and
+    // nothing is judged: no colour, no "significant", no met or not met. An absent value says so.
+
+    const SIDES = { TWO_SIDED: 'two-sided', ONE_SIDED: 'one-sided' };
+    // The page renders outside the loader's error handling, so every list and object here is checked
+    // before use: a family that passes structureProblem must render whatever shape a field has.
+    const listOf = v => (Array.isArray(v) ? v.filter(isObj) : []);
+
+    function intervalText(a) {
+        const pct = a.ci_percent != null && a.ci_percent !== '' ? `${a.ci_percent}% ` : '';
+        const sides = SIDES[a.ci_sides] ? `, ${SIDES[a.ci_sides]}` : '';
+        const lo = a.ci_lower_limit, hi = a.ci_upper_limit;
+        if (lo != null && hi != null) return `${pct}CI ${lo} to ${hi}${sides}`;
+        if (lo != null) return `${pct}CI lower limit ${lo}${sides}`;
+        if (hi != null) return `${pct}CI upper limit ${hi}${sides}`;
+        return 'no confidence interval posted';
+    }
+
+    function reportedAnalysisHTML(a, titles) {
+        const ids = Array.isArray(a.group_ids) ? a.group_ids.filter(id => typeof id === 'string') : [];
+        // An analysis may name one group only (the registry allows it; the comparison is then described in
+        // free text this release does not copy), so a single name is labelled rather than read as a comparison.
+        const groups = ids.length > 1 ? ids.map(id => esc(titles[id] || id)).join(' vs ')
+            : ids.length ? `${esc(titles[ids[0]] || ids[0])} <span class="oc-sub">(the only group this analysis names)</span>`
+                : '<span class="oc-absent">compared groups not stated</span>';
+        const interval = intervalText(a);
+        const estimate = a.estimate_value != null
+            ? `${esc(a.estimate_type || 'Estimate')} ${esc(a.estimate_value)} (${esc(interval)})`
+            : a.estimate_type ? `${esc(a.estimate_type)}: <span class="oc-absent">value not posted</span> (${esc(interval)})`
+                : interval === 'no confidence interval posted' ? '<span class="oc-absent">no estimate or confidence interval posted</span>'
+                    : `<span class="oc-absent">no estimate posted</span> (${esc(interval)})`;
+        const parts = [estimate,
+            a.p_value != null ? `p-value ${esc(a.p_value)}` : '<span class="oc-absent">no p-value posted</span>'];
+        if (a.statistical_method) parts.push(esc(a.statistical_method));
+        if (a.non_inferiority_type) parts.push(`stated type: ${esc(words(a.non_inferiority_type))}`);
+        return `<li><span class="oc-rep-groups">${groups}</span>: ${parts.join('; ')}</li>`;
+    }
+
+    function reportedMeasureHTML(m) {
+        const titles = Object.fromEntries(listOf(m.groups).filter(g => typeof g.id === 'string').map(g => [g.id, g.title || g.id]));
+        const denoms = listOf(m.denominators).map(d => {
+            const counts = listOf(d.counts).map(c => `${esc(titles[c.group_id] || c.group_id)} ${esc(c.value != null ? c.value : 'not stated')}`).join('; ');
+            return `<li>${counts || '<span class="oc-absent">no counts</span>'} <span class="oc-sub">(${esc(d.units || 'units not stated')})</span></li>`;
+        }).join('');
+        const analyses = listOf(m.analyses).length
+            ? `<ul class="oc-list oc-rep-analyses">${listOf(m.analyses).map(a => reportedAnalysisHTML(a, titles)).join('')}</ul>`
+            : '<p class="oc-absent">No statistical analysis posted for this measure.</p>';
+        return `
+            <div class="oc-reported">
+                <p class="oc-rep-title"><strong>${esc(m.title || 'Untitled measure')}</strong>${m.time_frame ? ` <span class="oc-sub">— ${esc(m.time_frame)}</span>` : ''}</p>
+                ${m.unit || m.param_type ? `<p class="oc-sub">${[m.param_type ? `Reported as ${esc(words(m.param_type))}` : '', m.unit ? `unit: ${esc(m.unit)}` : ''].filter(Boolean).join('; ')}</p>` : ''}
+                <p>Analysis population, as stated for the measure: ${m.population ? `<q>${esc(m.population)}</q>` : '<span class="oc-absent">not stated</span>'}</p>
+                ${denoms ? `<p>Analysed:</p><ul class="oc-list">${denoms}</ul>` : '<p class="oc-absent">No number analysed is posted.</p>'}
+                ${analyses}
+            </div>`;
+    }
+
+    // The value of the "Primary results as posted" row, or '' when the row has nothing to add (no
+    // posted results: the Results row already says so). `posted`: the outcomes record's own state.
+    function reportedResultsHTML(s, structure, posted) {
+        if (!isObj(s)) {
+            return posted ? `<span class="oc-absent">Not in this release's results data${structure && !structure.ok && structure.reason ? ` (${esc(structure.reason)})` : ''}, so the posted values are not shown here.</span>` : '';
+        }
+        if (s.results_status === 'no_posted_results') return '';
+        if (s.results_status === 'not_retrieved') return `<span class="oc-absent">The registry record was not retrieved (${esc((s.retrieval || {}).reason || 'reason not recorded')}).</span>`;
+        if (s.results_status !== 'posted') return '<span class="oc-absent">The posted results could not be read.</span>';
+        const pm = s.primary_measures;
+        if (!Array.isArray(pm)) return '<span class="oc-absent">The primary outcome measures could not be read.</span>';
+        if (!pm.length) return '<span class="oc-absent">No primary outcome measure is posted.</span>';
+        // A family built before the values were copied has the measures but not their values.
+        if (pm.some(m => !isObj(m) || !Array.isArray(m.groups))) return '<span class="oc-absent">This release\'s data does not include the posted values.</span>';
+        const when = structure && isObj(structure.run) && isObj(structure.run.acquisition) ? fmtDate(structure.run.acquisition.retrieved_at) : '';
+        return pm.map(reportedMeasureHTML).join('') +
+            `<p class="oc-note">Copied from the registry as posted${when ? `, retrieved ${esc(when)}` : ''}. An estimate or a p-value is not, by itself, a conclusion about whether the trial met its objective.</p>`;
+    }
+
     function structureMethodsHTML(structure) {
         if (!structure || !structure.ok) {
             return `
@@ -837,6 +920,9 @@
             ${list(run.fields_inspected)}
             <h5>Fields not inspected</h5>
             ${list(run.fields_not_inspected)}
+            ${Array.isArray(run.fields_copied) && run.fields_copied.length ? `<h5>Fields copied</h5>
+            <p>Shown as posted under “Primary results as posted”, for every posted primary measure:</p>
+            ${list(run.fields_copied)}` : ''}
             <h5>Usable content and comparisons</h5>
             <p>“Usable” means a table can be read: the values and participant counts a rule needs are posted as numbers. It does not mean the content is correct or complete. Two or more groups on a primary measure is the structure of the record; the groups are not necessarily randomised arms. Participant flow counts are for the first period only.</p>
             <h5>This build</h5>
@@ -1163,7 +1249,7 @@
     root.IndustryOutcomes = {
         open, openRecord, dataProblem, shardProblem, filterRows, visibleRows, showsMachine, resultsLabel, fmtDate,
         overviewHTML, availabilityHTML, reviewHTML, headHTML, methodsHTML, filtersHTML, listHTML, recordHTML,
-        TRIAL_STATES, STATE_LABELS, REASONS,
+        TRIAL_STATES, STATE_LABELS, REASONS, reportedResultsHTML,
         structureProblem, loadStructure, subgroupStates, subgroupCell, structureSummaryHTML, structureMethodsHTML,
         structureDetailHTML, SUBGROUP_LABELS, SUBGROUP_STATES, RS_DIMENSIONS,
     };

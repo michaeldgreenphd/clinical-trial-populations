@@ -5903,6 +5903,14 @@ footer p {
 .oc-grid > dt { color: var(--text-secondary); font-weight: 600; }
 .oc-grid > dd { margin: 0; min-width: 0; }
 .oc-grid .oc-list { margin: 0; padding-left: 1.1rem; }
+/* Primary results as posted: one block per measure, values as the registry posted them. */
+.oc-reported { margin: 0 0 0.75rem; }
+.oc-reported + .oc-reported { border-top: 1px solid var(--border-color); padding-top: 0.6rem; }
+.oc-reported p { margin: 0.2rem 0; }
+.oc-rep-title { overflow-wrap: anywhere; }
+.oc-rep-analyses li { overflow-wrap: anywhere; }
+.oc-rep-groups { font-weight: 600; }
+.oc-rep-groups .oc-sub { font-weight: normal; }
 .oc-unit { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px dotted var(--oc-rule); }
 .oc-unit h6 { margin: 0; font-size: var(--fs-small); }
 .oc-unit-id { font-family: var(--font-mono); color: var(--text-secondary); margin-right: 0.35rem; }
