@@ -211,6 +211,57 @@ test('no altered copy of the fixture passes the check and then fails to render',
   assert.ok(refused > 1000 && rendered > 1000, `the check ran on both sides (${refused} refused, ${rendered} rendered)`);
 });
 
+test('primary results as posted: each primary measure shown verbatim, with every absence said', () => {
+  const s = structure();
+  const rec = (nct) => clone(s.records[nct]);
+  // NCT99000001: one primary measure with a population, two groups, a participant denominator and one analysis.
+  const html = O.reportedResultsHTML(rec('NCT99000001'), s, true);
+  assert.match(html, /<strong>Change in fictional score<\/strong> <span class="oc-sub">— Week 12<\/span>/);
+  assert.match(html, /Analysis population, as stated for the measure: <q>Fictional: all randomised participants with a week 12 score\.<\/q>/);
+  assert.match(html, /<li>Zorbatinib 98; Placebo 97 <span class="oc-sub">\(Participants\)<\/span><\/li>/);
+  assert.match(html, /<span class="oc-rep-groups">Zorbatinib vs Placebo<\/span>: Mean Difference \(Final Values\) -3\.1 \(95% CI -4\.5 to -1\.7, two-sided\); p-value &lt;0\.001; ANCOVA<\/li>/);
+  assert.match(html, /Copied from the registry as posted, retrieved /);
+  assert.match(html, /not, by itself, a conclusion about whether the trial met its objective/);
+  assert.doesNotMatch(html.replace(/whether the trial met its objective/, ''), /significan|positive|negative|favou?r|\bmet\b|not met|success|fail/i);
+  // Values are never re-computed: a trailing zero and a bound stay as posted; a missing part says so.
+  const r = rec('NCT99000001'); const a = r.primary_measures[0].analyses[0];
+  Object.assign(a, { estimate_value: '0.710', ci_lower_limit: null, ci_sides: 'ONE_SIDED', p_value: null, statistical_method: null });
+  const partial = O.reportedResultsHTML(r, s, true);
+  assert.match(partial, /Mean Difference \(Final Values\) 0\.710 \(95% CI upper limit -1\.7, one-sided\); <span class="oc-absent">no p-value posted<\/span><\/li>/);
+  a.estimate_value = null; a.ci_upper_limit = null;
+  assert.match(O.reportedResultsHTML(r, s, true), /Mean Difference \(Final Values\): <span class="oc-absent">value not posted<\/span> \(no confidence interval posted\)/);
+  // No estimate type, value or interval: one phrase. One group named: labelled, not read as a comparison.
+  a.estimate_type = null; a.group_ids = ['OG001'];
+  assert.match(O.reportedResultsHTML(r, s, true), /<span class="oc-rep-groups">Placebo <span class="oc-sub">\(the only group this analysis names\)<\/span><\/span>: <span class="oc-absent">no estimate or confidence interval posted<\/span>/);
+  // A measure with no analysis, no population and no denominator row.
+  r.primary_measures[0].analyses = []; r.primary_measures[0].population = null; r.primary_measures[0].denominators = [];
+  const bare = O.reportedResultsHTML(r, s, true);
+  assert.match(bare, /No statistical analysis posted for this measure\./);
+  assert.match(bare, /Analysis population, as stated for the measure: <span class="oc-absent">not stated<\/span>/);
+  assert.match(bare, /No number analysed is posted\./);
+  // Every absence of the whole row, kept apart.
+  assert.equal(O.reportedResultsHTML(rec('NCT99000002'), s, false), '', 'no posted results: the Results row says so');
+  assert.match(O.reportedResultsHTML(null, s, true), /Not in this release's results data/);
+  assert.equal(O.reportedResultsHTML(null, s, false), '');
+  const unread = rec('NCT99000001'); unread.primary_measures = null;
+  assert.match(O.reportedResultsHTML(unread, s, true), /The primary outcome measures could not be read\./);
+  const none = rec('NCT99000001'); none.primary_measures = [];
+  assert.match(O.reportedResultsHTML(none, s, true), /No primary outcome measure is posted\./);
+  const older = rec('NCT99000001'); delete older.primary_measures[0].groups;
+  assert.match(O.reportedResultsHTML(older, s, true), /This release's data does not include the posted values\./);
+  // Registry text is escaped.
+  const tagged = rec('NCT99000001'); tagged.primary_measures[0].title = '<img src=x>'; tagged.primary_measures[0].groups[0].title = 'A & B';
+  const esc = O.reportedResultsHTML(tagged, s, true);
+  assert.match(esc, /&lt;img src=x&gt;/); assert.match(esc, /A &amp; B vs Placebo/); assert.doesNotMatch(esc, /<img/);
+  // In the panel: the row sits under "What the registry reports", and the methods list the copied fields.
+  const { run, shards } = outcomes();
+  const trial = Object.values(shards).flatMap((sh) => Object.values(sh.records)).find((t) => t.nct_id === 'NCT99000001');
+  const panel = O.recordHTML(trial, run, false, s);
+  const layer1 = panel.slice(panel.indexOf('What the registry reports'), panel.indexOf('What the method concludes'));
+  assert.ok(trial.results.state !== 'POSTED' || layer1.includes('<dt>Primary results as posted</dt>'), 'the row is in layer 1');
+  assert.match(O.structureMethodsHTML(s), /Fields copied[\s\S]*analyses\[\]\.paramValue/);
+});
+
 test('a stale cached file is fetched once more before the family is given up', async () => {
   const f = files();
   const calls = [];
