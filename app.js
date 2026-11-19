@@ -1013,6 +1013,74 @@ function raceUnknownEthnicityOnly(part, unknown) {
     return Number.isFinite(p) && p > 0 ? Math.min(p, u) : 0;
 }
 
+// ── Middle Eastern or North African apart from White ─────────────────────
+// The engine publishes race.mena_in_white (and raceDistribution.mena_in_white
+// in the summary): the participants of rows that name Middle Eastern or North
+// African groups only, which the race categories here (the 1997 OMB ones, as
+// the registry's race template offers them) count as White. It is a PART of
+// omb_totals.white, never an addition. OMB's 2024 revision of the standard
+// makes Middle Eastern or North African a category of its own; the Race
+// distribution's toggle shows the rows that way, White without them beside a
+// row of their own, from the same published counts. Nothing is estimated: a
+// trial that used the registry's template has no such row, and its Middle
+// Eastern or North African participants stay in White either way. A record or
+// summary published before the engine wrote the field has no such key: the
+// toggle is then unavailable and White is shown whole.
+const RACE_MENA_LABEL = 'Middle Eastern or North African';
+const RACE_WHITE_WITHOUT_MENA_LABEL = 'White, without Middle Eastern or North African';
+let raceMenaApart = false;          // the toggle; off shows the 1997 categories
+let raceDistributionLast = [];      // what renderRaceDistribution last drew, to redraw on toggle
+function raceMenaInWhite(part, white) {
+    const p = Number(part);
+    const w = Number(white) || 0;
+    return Number.isFinite(p) && p > 0 ? Math.min(p, w) : 0;
+}
+// The same totals, in the same order, with White split in two.
+function raceSplitWhite(totals, mena) {
+    const out = {};
+    for (const [label, count] of Object.entries(totals)) {
+        if (label === 'White') {
+            out[RACE_WHITE_WITHOUT_MENA_LABEL] = count - mena;
+            out[RACE_MENA_LABEL] = mena;
+        } else {
+            out[label] = count;
+        }
+    }
+    return out;
+}
+function raceMenaPct(mena, white) {
+    const p = white > 0 ? (mena / white) * 100 : 0;
+    return `${p === 0 ? '0' : p < 0.1 ? p.toFixed(3) : p.toFixed(1)}%`;
+}
+// The toggle's state and the note under the rows. textContent only.
+function raceMenaControls(known, apart, white, mena) {
+    const toggle = document.getElementById('race-mena-toggle');
+    if (toggle) {
+        toggle.disabled = !known;
+        toggle.checked = apart;
+        if (typeof toggle.addEventListener === 'function' && !(toggle.dataset && toggle.dataset.menaBound)) {
+            if (toggle.dataset) toggle.dataset.menaBound = '1';
+            toggle.addEventListener('change', () => {
+                raceMenaApart = toggle.checked;
+                renderRaceDistribution(raceDistributionLast);
+            });
+        }
+    }
+    const note = document.getElementById('race-mena-note');
+    if (!note) return;
+    if (!known) {
+        note.textContent = 'Not available for this data: it was published before Middle Eastern or North African rows were counted apart.';
+    } else if (!apart) {
+        note.textContent = 'White includes Middle Eastern or North African participants, as the registry’s race template (the 1997 OMB categories) does.';
+    } else {
+        note.textContent = `White: ${white.toLocaleString()} with Middle Eastern or North African participants, `
+            + `${(white - mena).toLocaleString()} without them (${mena.toLocaleString()} fewer, ${raceMenaPct(mena, white)} of White). `
+            + 'Only rows that name these groups move; most trials used the registry’s race template, which has no such category, '
+            + 'so theirs stay in White.';
+    }
+}
+// (end of the Middle Eastern or North African block)
+
 // ── Demographics tabs: the Overview's ink on paper ──────────────────────
 // Race, Ethnicity, Sex and Gender take the Overview's type and palette (the
 // redesign agreed on the design canvas, 2026-11-08). Presentation only:
@@ -7622,13 +7690,20 @@ function renderReportingTrends(filtered, counted) {
 function renderRaceDistribution(filtered) {
     const ctx = document.getElementById('race-distribution-chart');
     if (!ctx) return;
+    raceDistributionLast = filtered;
 
     let totals;
+    // The Middle Eastern or North African part of White, and whether the data
+    // carries it at all (block comment above raceMenaInWhite).
+    let mena = 0;
+    let menaKnown = false;
     if (dashboardSummary) {
         const d = dashboardSummary.raceDistribution;
         // A summary written before the engine published the part has no
         // unknown_ethnicity_only key: Unknown then stays whole.
         const part = raceUnknownEthnicityOnly(d.unknown_ethnicity_only, d.unknown_not_reported);
+        menaKnown = Object.prototype.hasOwnProperty.call(d, 'mena_in_white');
+        mena = raceMenaInWhite(d.mena_in_white, d.white);
         totals = {
             'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
             'Asian': d.asian || 0, 'Black/African American': d.black_african_american || 0,
@@ -7655,13 +7730,20 @@ function renderRaceDistribution(filtered) {
             totals['Unknown'] += (omb.unknown_not_reported || 0) - part;
             totals[RACE_ETHNICITY_ONLY_LABEL] += part;
             totals['Other'] += omb.other || 0;
+            if (Object.prototype.hasOwnProperty.call(study.race, 'mena_in_white')) menaKnown = true;
+            mena += raceMenaInWhite(study.race.mena_in_white, omb.white);
         });
     }
+
+    const white = totals['White'];
+    const apart = raceMenaApart && menaKnown;
+    if (apart) totals = raceSplitWhite(totals, mena);
 
     if (charts.raceDistribution) { charts.raceDistribution.destroy(); charts.raceDistribution = null; }
     // One hue for every race: the rows name the categories, so the bar
     // length is the only thing the colour has to carry.
     ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white }), { empty: 'No participants with reported race in this selection.' });
+    raceMenaControls(menaKnown, apart, white, mena);
 }
 
 function renderRaceTrends(filtered) {
