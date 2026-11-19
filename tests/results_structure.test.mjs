@@ -218,7 +218,16 @@ test('primary results as posted: each primary measure shown verbatim, with every
   const html = O.reportedResultsHTML(rec('NCT99000001'), s, true);
   assert.match(html, /<strong>Change in fictional score<\/strong> <span class="oc-sub">— Week 12<\/span>/);
   assert.match(html, /Analysis population, as stated for the measure: <q>Fictional: all randomised participants with a week 12 score\.<\/q>/);
-  assert.match(html, /<li>Zorbatinib 98; Placebo 97 <span class="oc-sub">\(Participants\)<\/span><\/li>/);
+  // The number analysed heads the table of group values, as on the registry's results page.
+  assert.match(html, /<thead><tr><th scope="col"><span class="oc-vh">Row<\/span><\/th><th scope="col">Zorbatinib<\/th><th scope="col">Placebo<\/th><\/tr><\/thead>/);
+  assert.match(html, /<tr class="oc-rv-n"><th scope="row">Number analysed <span class="oc-sub">\(Participants\)<\/span><\/th><td>98<\/td><td>97<\/td><\/tr>/);
+  assert.match(html, /<tr><th scope="row">Mean<\/th><td><span class="oc-rv-value">-4\.2<\/span><\/td><td><span class="oc-rv-value">-1\.1<\/span><\/td><\/tr>/);
+  assert.doesNotMatch(html, /<p>Analysed:<\/p>/, 'the table carries the number analysed; it is not repeated');
+  // A family copied before the group values (the 2026-11-19 publication) keeps the list and shows no table.
+  const before = rec('NCT99000001'); delete before.primary_measures[0].classes;
+  const beforeHTML = O.reportedResultsHTML(before, s, true);
+  assert.match(beforeHTML, /<li>Zorbatinib 98; Placebo 97 <span class="oc-sub">\(Participants\)<\/span><\/li>/);
+  assert.doesNotMatch(beforeHTML, /oc-rv-table|No value is posted/);
   assert.match(html, /<span class="oc-rep-groups">Zorbatinib vs Placebo<\/span>: Mean Difference \(Final Values\) -3\.1 \(95% CI -4\.5 to -1\.7, two-sided\); p-value &lt;0\.001; ANCOVA<\/li>/);
   assert.match(html, /Copied from the registry as posted, retrieved /);
   assert.match(html, /not, by itself, a conclusion about whether the trial met its objective/);
@@ -260,6 +269,88 @@ test('primary results as posted: each primary measure shown verbatim, with every
   const layer1 = panel.slice(panel.indexOf('What the registry reports'), panel.indexOf('What the method concludes'));
   assert.ok(trial.results.state !== 'POSTED' || layer1.includes('<dt>Primary results as posted</dt>'), 'the row is in layer 1');
   assert.match(O.structureMethodsHTML(s), /Fields copied[\s\S]*analyses\[\]\.paramValue/);
+});
+
+test('the value each group posted: every part shown as posted, in the registry\'s nesting', () => {
+  const s = structure();
+  const measure = () => clone(s.records.NCT99000001.primary_measures[0]);
+  const m0 = (r) => ({ comment: null, group_id: 'OG000', lower_limit: null, spread: null, upper_limit: null, value: '1', ...r });
+  const m1 = (r) => m0({ group_id: 'OG001', ...r });
+  const one = (cats, extra = {}) => [{ title: null, denominators: [], categories: cats, ...extra }];
+  const html = (m) => O.reportedResultsHTML({ ...clone(s.records.NCT99000001), primary_measures: [m] }, s, true);
+  const rowOf = (h, label) => { const i = h.indexOf(`<th scope="row">${label}</th>`); assert.ok(i > 0, `no row ${label}`); return h.slice(i, h.indexOf('</tr>', i)); };
+
+  // A standard deviation: the spread in brackets, the caption naming the type; a trailing zero kept.
+  let m = measure();
+  Object.assign(m, { dispersion_type: 'Standard Deviation', classes: one([{ title: null, measurements: [m0({ value: '20.30', spread: '6.70' }), m1({ value: '19.7', spread: '6.39' })] }]) });
+  let h = html(m);
+  assert.match(h, /<p class="oc-rv-caption" aria-hidden="true">Values posted for each group, with the Standard Deviation in brackets<\/p>/);
+  assert.match(h, /<caption class="oc-vh">Values posted for each group, with the Standard Deviation in brackets<\/caption>/, 'read with the table');
+  assert.doesNotMatch(h, /returns one number twice/);
+  assert.equal(rowOf(h, 'Mean'), '<th scope="row">Mean</th><td><span class="oc-rv-value">20.30 (6.70)</span></td><td><span class="oc-rv-value">19.7 (6.39)</span></td>');
+  // A lower limit the type does not name is shown after the value, not dropped...
+  m.classes[0].categories[0].measurements[0].lower_limit = '5.00';
+  assert.match(rowOf(html(m), 'Mean'), /20\.30 \(6\.70\)<\/span><span class="oc-rv-extra oc-sub">also posted: lower limit 5\.00<\/span>/);
+  // ...unless it is the spread's own number returned twice: shown once, and the note says so.
+  m.classes[0].categories[0].measurements[0].lower_limit = '6.70';
+  h = html(m);
+  assert.match(rowOf(h, 'Mean'), /<td><span class="oc-rv-value">20\.30 \(6\.70\)<\/span><\/td>/);
+  assert.match(h, /<\/div><p class="oc-note">For some values on this measure the registry returns one number twice, as the spread and as the lower limit; it is shown once, in brackets\.<\/p>/);
+
+  // An interval: the limits in brackets; a spread the registry also returns is kept beside them,
+  // unless it is the lower limit's own number.
+  m = measure();
+  Object.assign(m, { param_type: 'NUMBER', dispersion_type: '95% Confidence Interval',
+    classes: one([{ title: null, measurements: [m0({ value: '37.9', spread: '3.1', lower_limit: '31.4', upper_limit: '44.7' }), m1({ value: '0.0', lower_limit: '0.0', upper_limit: '5.6' })] }]) });
+  h = rowOf(html(m), 'Number');
+  assert.match(h, /<span class="oc-rv-value">37\.9 \(31\.4 to 44\.7\)<\/span><span class="oc-rv-extra oc-sub">also posted: spread 3\.1<\/span>/);
+  m.classes[0].categories[0].measurements[0].spread = '31.4';
+  assert.match(rowOf(html(m), 'Number'), /<td><span class="oc-rv-value">37\.9 \(31\.4 to 44\.7\)<\/span><\/td>/);
+  assert.match(html(m), /returns one number twice/);
+  assert.match(h, /<span class="oc-rv-value">0\.0 \(0\.0 to 5\.6\)<\/span><\/td>/);
+  // A part the type names but the record lacks says so; 'NA' stays 'NA' with its comment.
+  m.classes[0].categories[0].measurements[1] = m1({ value: 'NA', comment: 'Not estimable: too few events.' });
+  assert.match(rowOf(html(m), 'Number'), /NA \(<span class="oc-absent">not posted<\/span>\)<\/span><span class="oc-rv-extra oc-sub">Not estimable: too few events\.<\/span>/);
+  // Limits with no dispersion type: no brackets (nothing names them), shown as posted beside the value.
+  m.dispersion_type = null; m.classes[0].categories[0].measurements[0] = m0({ value: '42', lower_limit: '44.8', upper_limit: '67.2' });
+  h = html(m);
+  assert.match(h, /<caption class="oc-vh">Values posted for each group<\/caption>/);
+  assert.match(rowOf(h, 'Number'), /<span class="oc-rv-value">42<\/span><span class="oc-rv-extra oc-sub">also posted: limits 44\.8 to 67\.2<\/span>/);
+
+  // Titled classes: a class with several rows or its own denominators gets a heading row; a class
+  // with one untitled row is that row. A group with no value says so; a value for a group the list
+  // does not name gets its own column headed by its id.
+  m = measure();
+  m.classes = [
+    { title: 'Week 12', denominators: [{ units: 'Participants', counts: [{ group_id: 'OG000', value: '90' }, { group_id: 'OG001', value: '88' }] }],
+      categories: [{ title: 'Responder', measurements: [m0({ value: '40' }), m1({ value: '21' })] }, { title: '<b>Non-responder</b>', measurements: [m0({ value: '50' })] }] },
+    { title: 'Week 24', denominators: [], categories: [{ title: null, measurements: [m0({ value: '38' }), m1({ value: '20' }), m0({ group_id: 'OG009', value: '3' })] }] },
+  ];
+  h = html(m);
+  assert.match(h, /<th scope="col">Zorbatinib<\/th><th scope="col">Placebo<\/th><th scope="col">OG009<\/th><\/tr><\/thead>/);
+  assert.match(h, /<tbody><tr class="oc-rv-class"><th scope="rowgroup" colspan="4">Week 12<\/th><\/tr><tr class="oc-rv-n"><th scope="row">Number analysed <span class="oc-sub">\(Participants\)<\/span><\/th><td>90<\/td><td>88<\/td><td><span class="oc-absent">not posted<\/span><\/td><\/tr><tr><th scope="row">Responder<\/th>/);
+  assert.match(rowOf(h, '&lt;b&gt;Non-responder&lt;/b&gt;'), /<td><span class="oc-rv-value">50<\/span><\/td><td><span class="oc-absent">not posted<\/span><\/td><td><span class="oc-absent">not posted<\/span><\/td>$/);
+  assert.match(rowOf(h, 'Week 24'), /<td><span class="oc-rv-value">3<\/span><\/td>$/);
+  assert.doesNotMatch(h, /rowgroup[^>]*>Week 24/, 'a one-row class is its own row');
+  assert.doesNotMatch(h, /<b>/);
+  assert.doesNotMatch(h, /oc-rv-more/, 'a short table is shown');
+
+  // A long table opens on request, and no row count is computed for the reader.
+  m.denominators = [];
+  m.classes = Array.from({ length: 13 }, (_, i) => ({ title: `Visit ${i}`, denominators: [], categories: [{ title: null, measurements: [m0(), m1()] }] }));
+  h = html(m);
+  assert.match(h, /<details class="oc-rv-more"><summary>Values posted for each group <span class="oc-sub">\(a long table; open to show it\)<\/span><\/summary>/);
+  assert.doesNotMatch(h, /oc-rv-caption/, 'the summary is the visible caption');
+  assert.match(h, /<th scope="row">Visit 12<\/th>/);
+  m.classes.pop();
+  assert.doesNotMatch(html(m), /oc-rv-more/, 'twelve rows are shown');
+
+  // A measure with no value for any group: said, and the number analysed stays as a list.
+  m = measure(); m.classes = [];
+  h = html(m);
+  assert.match(h, /<p class="oc-absent">No value is posted for any group on this measure\.<\/p>/);
+  assert.match(h, /<li>Zorbatinib 98; Placebo 97 <span class="oc-sub">\(Participants\)<\/span><\/li>/);
+  assert.doesNotMatch(h, /oc-rv-table/);
 });
 
 test('a stale cached file is fetched once more before the family is given up', async () => {
