@@ -863,12 +863,118 @@
         return `<li><span class="oc-rep-groups">${groups}</span>: ${parts.join('; ')}</li>`;
     }
 
+    // ---- the value each group reports (civicsample-engine#80, `primary_measures[].classes`)
+    //
+    // The registry's own nesting: classes (a time point, a subgroup or a row, untitled when there is
+    // one) hold categories, and each category holds one measurement per group. The table puts the
+    // groups in columns, in the registry's order, and one row per category, with any class that has
+    // more than one row given its own heading row. Number analysed rows come first, as on the
+    // registry's results page.
+    //
+    // A cell shows the value as posted and, in brackets, the part of the dispersion its type names:
+    // the spread for a standard deviation, standard error or coefficient of variation, the lower to
+    // upper limit for an interval or a range. That is how the registry's own results page reads. A
+    // part the type does not name but the record posts anyway is shown after the value as "also
+    // posted", never dropped (2 values in the 2026-11-19 build post limits with no dispersion type).
+    // One exception: the registry's API returns some values' single number twice, as the spread and
+    // as the lower limit (48 values in that build, every one identical). That number is shown once,
+    // in brackets, and a note under the table says so.
+    const LIMIT_TYPES = /interval|range/i;
+    const SPREAD_TYPES = /deviation|error|coefficient/i;
+    // A table with more body rows than this opens on request (29 of the 723 primary measures in the
+    // 2026-11-19 build, the longest 102 rows), so the analyses and the method's layer stay in reach.
+    const VALUE_ROWS_SHOWN = 12;
+
+    const limitsText = (lo, hi) => (lo != null && hi != null ? `${esc(lo)} to ${esc(hi)}`
+        : lo != null ? `lower limit ${esc(lo)}` : hi != null ? `upper limit ${esc(hi)}` : '');
+    const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
+
+    // `seen.twice` is set when a cell's number is posted both as its spread and as its lower limit.
+    function valueCellHTML(x, dispersion, seen) {
+        if (!isObj(x)) return '<td><span class="oc-absent">not posted</span></td>';
+        const type = typeof dispersion === 'string' ? dispersion : '';
+        const limits = limitsText(x.lower_limit, x.upper_limit);
+        const spread = x.spread != null ? esc(x.spread) : '';
+        const asLimits = LIMIT_TYPES.test(type), asSpread = !asLimits && SPREAD_TYPES.test(type);
+        const twice = x.spread != null && x.lower_limit != null && String(x.spread) === String(x.lower_limit)
+            && (asLimits || (asSpread && x.upper_limit == null));
+        if (twice) seen.twice = true;
+        const shown = asLimits ? limits : asSpread ? spread : '';
+        const also = [];
+        if (spread && !asSpread && !twice) also.push(`spread ${spread}`);
+        if (limits && !asLimits && !twice) also.push(limits.includes(' to ') ? `limits ${limits}` : limits);
+        const value = x.value != null ? esc(x.value) : '<span class="oc-absent">value not posted</span>';
+        const bracket = asLimits || asSpread ? ` (${shown || '<span class="oc-absent">not posted</span>'})` : '';
+        return `<td><span class="oc-rv-value">${value}${bracket}</span>`
+            + (also.length ? `<span class="oc-rv-extra oc-sub">also posted: ${also.join('; ')}</span>` : '')
+            + (x.comment ? `<span class="oc-rv-extra oc-sub">${esc(x.comment)}</span>` : '') + '</td>';
+    }
+
+    // The table for one measure, or '' when the family has no values for it.
+    function valuesTableHTML(m, titles) {
+        if (!Array.isArray(m.classes)) return '';
+        const classes = listOf(m.classes);
+        const cols = [];
+        const addCol = id => { if (typeof id === 'string' && !cols.includes(id)) cols.push(id); };
+        listOf(m.groups).forEach(g => addCol(g.id));
+        // A value naming a group the measure's list does not (none in the 2026-11-19 build) still gets a column.
+        classes.forEach(c => listOf(c.categories).forEach(k => listOf(k.measurements).forEach(x => addCol(x.group_id))));
+        if (!classes.some(c => listOf(c.categories).length) || !cols.length) return '';
+        const label = m.param_type ? capFirst(words(m.param_type)) : 'Value';
+        const dispersion = typeof m.dispersion_type === 'string' ? m.dispersion_type : '';
+        const seen = { twice: false };
+        const nRows = denoms => listOf(denoms).map(d => {
+            const counts = listOf(d.counts);
+            const cells = cols.map(id => {
+                const c = counts.find(k => k.group_id === id);
+                return `<td>${c ? (c.value != null ? esc(c.value) : '<span class="oc-absent">not stated</span>') : '<span class="oc-absent">not posted</span>'}</td>`;
+            }).join('');
+            return `<tr class="oc-rv-n"><th scope="row">Number analysed <span class="oc-sub">(${esc(d.units || 'units not stated')})</span></th>${cells}</tr>`;
+        });
+        // One list of rows per <tbody>: the measure's number analysed, then each class.
+        const bodies = [nRows(m.denominators)];
+        for (const c of classes) {
+            const cats = listOf(c.categories);
+            const dens = nRows(c.denominators);
+            const heading = c.title && (cats.length > 1 || cats.some(k => k.title) || dens.length);
+            const body = [];
+            if (heading) body.push(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="${cols.length + 1}">${esc(c.title)}</th></tr>`);
+            body.push(...dens);
+            for (const k of cats) {
+                const ms = listOf(k.measurements);
+                const name = k.title || (heading ? label : c.title || label);
+                body.push(`<tr><th scope="row">${esc(name)}</th>${cols.map(id => valueCellHTML(ms.find(x => x.group_id === id), dispersion, seen)).join('')}</tr>`);
+            }
+            bodies.push(body);
+        }
+        const caption = `Values posted for each group${dispersion ? `, with the ${esc(dispersion)} in brackets` : ''}`;
+        // The caption is read with the table; its visible copy sits above the scrolling box, so a
+        // table wider than a phone does not cut it off.
+        const table = `
+                <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Values posted for each group: ${esc(m.title || 'untitled measure')}">
+                    <table class="oc-table oc-rv-table"><caption class="oc-vh">${caption}</caption>
+                    <thead><tr><th scope="col"><span class="oc-vh">Row</span></th>${cols.map(id => `<th scope="col">${esc(titles[id] || id)}</th>`).join('')}</tr></thead>
+                    ${bodies.filter(b => b.length).map(b => `<tbody>${b.join('')}</tbody>`).join('')}</table>
+                </div>`;
+        const twiceNote = seen.twice ? '<p class="oc-note">For some values on this measure the registry returns one number twice, as the spread and as the lower limit; it is shown once, in brackets.</p>' : '';
+        // The number of rows decides the layout only; it is not shown.
+        return bodies.flat().length > VALUE_ROWS_SHOWN
+            ? `<details class="oc-rv-more"><summary>${caption} <span class="oc-sub">(a long table; open to show it)</span></summary>${table}</details>${twiceNote}`
+            : `<p class="oc-rv-caption" aria-hidden="true">${caption}</p>${table}${twiceNote}`;
+    }
+
     function reportedMeasureHTML(m) {
         const titles = Object.fromEntries(listOf(m.groups).filter(g => typeof g.id === 'string').map(g => [g.id, g.title || g.id]));
+        const table = valuesTableHTML(m, titles);
         const denoms = listOf(m.denominators).map(d => {
             const counts = listOf(d.counts).map(c => `${esc(titles[c.group_id] || c.group_id)} ${esc(c.value != null ? c.value : 'not stated')}`).join('; ');
             return `<li>${counts || '<span class="oc-absent">no counts</span>'} <span class="oc-sub">(${esc(d.units || 'units not stated')})</span></li>`;
         }).join('');
+        // The table carries the number analysed in its first rows; without one, the list says it.
+        const analysed = table ? (denoms ? '' : '<p class="oc-absent">No number analysed is posted.</p>')
+            : denoms ? `<p>Analysed:</p><ul class="oc-list">${denoms}</ul>` : '<p class="oc-absent">No number analysed is posted.</p>';
+        // A family with the values copied (an array, even empty) says when a measure has none.
+        const noValues = !table && Array.isArray(m.classes) ? '<p class="oc-absent">No value is posted for any group on this measure.</p>' : '';
         const analyses = listOf(m.analyses).length
             ? `<ul class="oc-list oc-rep-analyses">${listOf(m.analyses).map(a => reportedAnalysisHTML(a, titles)).join('')}</ul>`
             : '<p class="oc-absent">No statistical analysis posted for this measure.</p>';
@@ -877,7 +983,7 @@
                 <p class="oc-rep-title"><strong>${esc(m.title || 'Untitled measure')}</strong>${m.time_frame ? ` <span class="oc-sub">— ${esc(m.time_frame)}</span>` : ''}</p>
                 ${m.unit || m.param_type ? `<p class="oc-sub">${[m.param_type ? `Reported as ${esc(words(m.param_type))}` : '', m.unit ? `unit: ${esc(m.unit)}` : ''].filter(Boolean).join('; ')}</p>` : ''}
                 <p>Analysis population, as stated for the measure: ${m.population ? `<q>${esc(m.population)}</q>` : '<span class="oc-absent">not stated</span>'}</p>
-                ${denoms ? `<p>Analysed:</p><ul class="oc-list">${denoms}</ul>` : '<p class="oc-absent">No number analysed is posted.</p>'}
+                ${analysed}${table}${noValues}
                 ${analyses}
             </div>`;
     }

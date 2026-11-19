@@ -5911,6 +5911,24 @@ footer p {
 .oc-rep-analyses li { overflow-wrap: anywhere; }
 .oc-rep-groups { font-weight: 600; }
 .oc-rep-groups .oc-sub { font-weight: normal; }
+/* The value each group posted (civicsample-engine#80): groups in columns, scrolling inside their
+   own container when they outrun the panel. Group and row titles are registry text, so they keep
+   their case. The table is as wide as its content, not the panel. */
+.oc-reported .oc-table-scroll { margin: 0.35rem 0 0.5rem; }
+.oc-rv-table { width: auto; }
+.oc-reported .oc-rv-caption { font-size: var(--fs-small); color: var(--text-secondary); margin: 0.4rem 0 0; }
+.oc-rv-table th, .oc-rv-table td { padding: 0.35rem 0.6rem; }
+.oc-rv-table thead th { text-transform: none; letter-spacing: normal; font-size: var(--fs-small); color: var(--oc-ink); min-width: 5rem; max-width: 16rem; overflow-wrap: break-word; }
+.oc-rv-table tbody th[scope="row"] { font-weight: normal; color: var(--text-secondary); max-width: 18rem; overflow-wrap: break-word; }
+.oc-rv-table td { font-variant-numeric: tabular-nums; }
+.oc-rv-value { white-space: nowrap; }
+.oc-rv-extra { display: block; max-width: 16rem; overflow-wrap: anywhere; }
+.oc-rv-class th { font-weight: 600; color: var(--oc-ink); padding-top: 0.6rem; }
+.oc-rv-more > summary { cursor: pointer; font-size: var(--fs-small); margin: 0.35rem 0; }
+@media (max-width: 480px) {
+    .oc-rv-table th, .oc-rv-table td { padding: 0.3rem 0.4rem; }
+    .oc-rv-table tbody th[scope="row"] { max-width: 9rem; }
+}
 .oc-unit { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px dotted var(--oc-rule); }
 .oc-unit h6 { margin: 0; font-size: var(--fs-small); }
 .oc-unit-id { font-family: var(--font-mono); color: var(--text-secondary); margin-right: 0.35rem; }
