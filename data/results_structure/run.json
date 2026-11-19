@@ -2,9 +2,9 @@
  "schema_version": 1,
  "producer": {
   "repository": "civicsample-engine",
-  "commit": "6d4fd08af366b4a65e9d1c9daa54acc1e7c5022a",
+  "commit": "61928d034e1e63a73ea29df967fe23822d0d80f1",
   "uncommitted_changes": false,
-  "source_sha256": "cb2131b05515edcc856e4374970a32e4961811d474c42099d1631e86c669f140"
+  "source_sha256": "a2829d21dfaf543b55a9b69289887a7e5c2db11adc1b1cdd7fcab404bd7eaf59"
  },
  "manual_run": true,
  "method": {
@@ -174,6 +174,8 @@
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].unitOfMeasure",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].paramType",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].populationDescription",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].dispersionType",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].reportingStatus",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].groups[].id",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].groups[].title",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].denoms[].units",
@@ -188,7 +190,18 @@
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].ciUpperLimit",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].pValue",
   "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].statisticalMethod",
-  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].nonInferiorityType"
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].nonInferiorityType",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].title",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].denoms[].units",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].denoms[].counts[].groupId",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].denoms[].counts[].value",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].title",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].groupId",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].value",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].spread",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].lowerLimit",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].upperLimit",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].classes[].categories[].measurements[].comment"
  ],
  "subgroup_states": [
   "not_yet_processed",
@@ -209,10 +222,10 @@
   "Participant flow counts are for the first period only.",
   "The registry record is read as retrieved on the stated date; registry records change."
  ],
- "run_id": "results-structure-2026-11-19-9a3ff2e956",
- "generated_at": "2026-11-19T13:51:06+00:00",
+ "run_id": "results-structure-2026-11-19-95e957547e",
+ "generated_at": "2026-11-19T15:34:17+00:00",
  "files": {
-  "records.json": "ced74e5f142e766b5f93df3acf2ad8d8e0d2ce8d39026c50c3f5ab4475f8e942",
-  "summary.json": "a55d2ba263d72a89516131caad78eacc49f960c1365c97f7a0f5da32c4c2182a"
+  "records.json": "5080e8b342c039771fa72a0a6a08c5197561ea74e139edd4b8dabce3dede1a5a",
+  "summary.json": "bcb11581b3959f46ff4a083d7ffaf0810e6b7375c733271f294c3f81b3d6f8b8"
  }
 }
