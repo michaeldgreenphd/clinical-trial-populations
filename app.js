@@ -1035,6 +1035,12 @@ function raceMenaInWhite(part, white) {
     const w = Number(white) || 0;
     return Number.isFinite(p) && p > 0 ? Math.min(p, w) : 0;
 }
+// Whether a published value is a count: a finite number, not below zero.
+// A key that is absent, null, empty or anything else is not a measurement,
+// and a selection with such a value cannot be split (absence is not zero).
+function raceMenaIsCount(value) {
+    return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
 // The same totals, in the same order, with White split in two.
 function raceSplitWhite(totals, mena) {
     const out = {};
@@ -1069,7 +1075,7 @@ function raceMenaControls(known, apart, white, mena) {
     const note = document.getElementById('race-mena-note');
     if (!note) return;
     if (!known) {
-        note.textContent = 'Not available for this data: it was published before Middle Eastern or North African rows were counted apart.';
+        note.textContent = 'Not available for this data: it does not carry a Middle Eastern or North African count for every trial shown (data published before those rows were counted apart).';
     } else if (!apart) {
         note.textContent = 'White includes Middle Eastern or North African participants, as the registry’s race template (the 1997 OMB categories) does.';
     } else {
@@ -7697,12 +7703,17 @@ function renderRaceDistribution(filtered) {
     // carries it at all (block comment above raceMenaInWhite).
     let mena = 0;
     let menaKnown = false;
+    // From the records: known only when every trial that reports race in the
+    // selection carries a count; one without (older data, or null) would
+    // leave its Middle Eastern or North African participants uncounted.
+    let menaReporting = 0;
+    let menaCounted = 0;
     if (dashboardSummary) {
         const d = dashboardSummary.raceDistribution;
         // A summary written before the engine published the part has no
         // unknown_ethnicity_only key: Unknown then stays whole.
         const part = raceUnknownEthnicityOnly(d.unknown_ethnicity_only, d.unknown_not_reported);
-        menaKnown = Object.prototype.hasOwnProperty.call(d, 'mena_in_white');
+        menaKnown = raceMenaIsCount(d.mena_in_white);
         mena = raceMenaInWhite(d.mena_in_white, d.white);
         totals = {
             'American Indian/Alaska Native': d.american_indian_alaska_native || 0,
@@ -7730,9 +7741,11 @@ function renderRaceDistribution(filtered) {
             totals['Unknown'] += (omb.unknown_not_reported || 0) - part;
             totals[RACE_ETHNICITY_ONLY_LABEL] += part;
             totals['Other'] += omb.other || 0;
-            if (Object.prototype.hasOwnProperty.call(study.race, 'mena_in_white')) menaKnown = true;
+            menaReporting += 1;
+            if (raceMenaIsCount(study.race.mena_in_white)) menaCounted += 1;
             mena += raceMenaInWhite(study.race.mena_in_white, omb.white);
         });
+        menaKnown = menaReporting > 0 && menaCounted === menaReporting;
     }
 
     const white = totals['White'];

@@ -80,8 +80,8 @@ test('off by default: White is whole, as the 1997 categories count it', () => {
 test('on: White without MENA and a MENA row, from the same counts; nothing is added', () => {
     const studies = [
         { race: race({ white: 140, black_african_american: 20 }, 35) },
-        { race: race({ white: 60, unknown_not_reported: 5 }, 0) },
-        { race: race({ white: 10 }) },                                   // published before the field
+        { race: race({ white: 70, unknown_not_reported: 5 }, 0) },
+        { race: { reported: false } },                                   // reports no race: not counted
     ];
     const off = raceDistribution({ studies });
     const on = raceDistribution({ studies, apart: true });
@@ -110,10 +110,29 @@ test('data without the field: the toggle is unavailable and White stays whole, e
     assert.ok(!(MENA in old.totals));
     assert.equal(old.disabled, true);
     assert.equal(old.checked, false);
-    assert.match(old.note, /Not available for this data/);
+    assert.match(old.note, /Not available for this data: it does not carry a Middle Eastern or North African count/);
     const oldSummary = raceDistribution({ summary: { raceDistribution: { white: 80 } }, apart: true });
     assert.equal(oldSummary.totals.White, 80);
     assert.equal(oldSummary.disabled, true);
+});
+
+test('a null or non-numeric value is not a count: the toggle is unavailable', () => {
+    for (const value of [null, '', '12', NaN, -1]) {
+        const r = raceDistribution({ studies: [{ race: race({ white: 50 }, value) }], apart: true });
+        assert.equal(r.disabled, true, `value ${JSON.stringify(value)} enabled the toggle`);
+        assert.equal(r.totals.White, 50);
+        assert.ok(!(MENA in r.totals));
+    }
+    const summary = raceDistribution({ summary: { raceDistribution: { white: 80, mena_in_white: null } }, apart: true });
+    assert.equal(summary.disabled, true);
+    assert.equal(summary.totals.White, 80);
+});
+
+test('a selection mixing trials with and without a count is not split', () => {
+    const r = raceDistribution({ studies: [{ race: race({ white: 140 }, 35) }, { race: race({ white: 10 }) }], apart: true });
+    assert.equal(r.disabled, true);
+    assert.equal(r.totals.White, 150);
+    assert.ok(!(MENA in r.totals));
 });
 
 test('a part larger than White is capped, never drawn below zero', () => {
