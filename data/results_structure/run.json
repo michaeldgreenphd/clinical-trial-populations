@@ -2,9 +2,9 @@
  "schema_version": 1,
  "producer": {
   "repository": "civicsample-engine",
-  "commit": "b723aa4fc34beab6a40347ff1fb49a5e924a15c6",
+  "commit": "6d4fd08af366b4a65e9d1c9daa54acc1e7c5022a",
   "uncommitted_changes": false,
-  "source_sha256": "38953813f713683f5811cdddafb3c295b2083820c6d0654d7d3c4423800c855c"
+  "source_sha256": "cb2131b05515edcc856e4374970a32e4961811d474c42099d1631e86c669f140"
  },
  "manual_run": true,
  "method": {
@@ -27,11 +27,11 @@
   "source": "clinicaltrials.gov API v2",
   "endpoint": "https://clinicaltrials.gov/api/v2/studies",
   "request": "filter.ids in batches of 25, no fields parameter (full record), format=json",
-  "retrieved_from": "2026-11-14T00:41:41+00:00",
-  "retrieved_to": "2026-11-14T00:41:57+00:00",
-  "retrieved_at": "2026-11-14T00:41:41+00:00",
+  "retrieved_from": "2026-11-19T13:38:09+00:00",
+  "retrieved_to": "2026-11-19T13:38:26+00:00",
+  "retrieved_at": "2026-11-19T13:38:09+00:00",
   "api_version": "2.0.5",
-  "data_timestamp": "2026-11-13T10:00:06",
+  "data_timestamp": "2026-11-19T10:00:07",
   "n_requested": 648,
   "n_records": 648,
   "n_requests": 27,
@@ -40,16 +40,16 @@
   "n_failed_requests": 0,
   "min_seconds_between_requests": 0.5,
   "requested_ids_sha256": "b504f64e2371f35fd4dde94184a48eef7d3afb2cdc1d037ce524ef177ba69aba",
-  "sha256_uncompressed": "cc8e86b9b06ddc0b5cf229a5d2c6af1430ecc5d0fc1554fd090a8085c1ede39e",
-  "archive": "records-2026-11-14-cc8e86b9b06d-dcec4894.jsonl.gz"
+  "sha256_uncompressed": "d5e1d8feda6d0ea999a64654313ae6be27373a29fa6d8a25428afb80b5e12fcf",
+  "archive": "records-2026-11-19-d5e1d8feda6d-c9c328d6.jsonl.gz"
  },
  "retrieval_window": {
-  "from": "2026-11-14T00:41:41+00:00",
-  "to": "2026-11-14T00:41:57+00:00"
+  "from": "2026-11-19T13:38:09+00:00",
+  "to": "2026-11-19T13:38:26+00:00"
  },
  "registry": {
   "api_version": "2.0.5",
-  "data_timestamp": "2026-11-13T10:00:06"
+  "data_timestamp": "2026-11-19T10:00:07"
  },
  "parameters": {
   "source": "archive",
@@ -168,6 +168,28 @@
   "publications and clinical study reports",
   "historical versions of the registry record"
  ],
+ "fields_copied": [
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].title",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].timeFrame",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].unitOfMeasure",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].paramType",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].populationDescription",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].groups[].id",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].groups[].title",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].denoms[].units",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].denoms[].counts[].groupId",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].denoms[].counts[].value",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].groupIds",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].paramType",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].paramValue",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].ciPctValue",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].ciNumSides",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].ciLowerLimit",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].ciUpperLimit",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].pValue",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].statisticalMethod",
+  "resultsSection.outcomeMeasuresModule.outcomeMeasures[].analyses[].nonInferiorityType"
+ ],
  "subgroup_states": [
   "not_yet_processed",
   "processing_failed_or_indeterminate",
@@ -187,10 +209,10 @@
   "Participant flow counts are for the first period only.",
   "The registry record is read as retrieved on the stated date; registry records change."
  ],
- "run_id": "results-structure-2026-11-14-685f8baf6c",
- "generated_at": "2026-11-14T03:18:54+00:00",
+ "run_id": "results-structure-2026-11-19-9a3ff2e956",
+ "generated_at": "2026-11-19T13:51:06+00:00",
  "files": {
-  "records.json": "2de9cf65e041d68c2332e63f7b533b2c23fdcb7fd74088329dd472ec91f4e290",
-  "summary.json": "ad4eb7f19e62bbee7e76f005352a35e2de52528e35d964835527824efc61c145"
+  "records.json": "ced74e5f142e766b5f93df3acf2ad8d8e0d2ce8d39026c50c3f5ab4475f8e942",
+  "summary.json": "a55d2ba263d72a89516131caad78eacc49f960c1365c97f7a0f5da32c4c2182a"
  }
 }
