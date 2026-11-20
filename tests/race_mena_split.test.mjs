@@ -18,6 +18,7 @@ import vm from 'node:vm';
 
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const css = readFileSync(new URL('../styles.css', import.meta.url), 'utf8');
 const fnAt = (sig) => {
     const at = app.indexOf(sig);
     assert.ok(at >= 0, `app.js lost ${sig}`);
@@ -145,4 +146,25 @@ test('the toggle is a labelled checkbox described by the note', () => {
     assert.match(html, /<label class="ai-toggle-label race-mena-toggle" for="race-mena-toggle">/);
     assert.match(html, /<input type="checkbox" id="race-mena-toggle" aria-describedby="race-mena-note">/);
     assert.match(html, /<p class="note" id="race-mena-note" aria-live="polite"><\/p>/);
+});
+
+// 2026-11-20: on data published before the count existed, the toggle was
+// disabled but kept its clickable look (pointer, hover highlight, tinted box),
+// and the reason sat in a note under the rows. It now looks unavailable and
+// says why on hover.
+test('an unavailable toggle looks unavailable and says why where the reader points', () => {
+    const label = { title: '', removeAttribute(k) { delete this[k]; } };
+    const toggle = { closest: (q) => (q === 'label' ? label : null), dataset: {} };
+    const note = {};
+    const context = vm.createContext({ document: { getElementById: (id) => (id === 'race-mena-toggle' ? toggle : note) } });
+    vm.runInContext(blockAt('// ── Middle Eastern or North African apart from White', '// (end of the Middle Eastern or North African block)'), context);
+    vm.runInContext('raceMenaControls(false, false, 0, 0)', context);
+    assert.equal(toggle.disabled, true);
+    assert.match(label.title, /^Not available for this data: it does not carry a Middle Eastern or North African count/);
+    assert.equal(note.textContent, label.title, 'the tooltip and the note give different reasons');
+    vm.runInContext('raceMenaControls(true, false, 100, 5)', context);
+    assert.equal(toggle.disabled, false);
+    assert.ok(!('title' in label), 'an available toggle still carries the unavailable tooltip');
+    assert.match(css, /\.ai-toggle-label:has\(input:disabled\) \{[^}]*cursor: not-allowed;[^}]*border-style: dashed;/);
+    assert.match(css, /\.ai-toggle-label:has\(input:disabled\):hover \{\s*border-color: var\(--border-color\);/);
 });

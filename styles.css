@@ -471,6 +471,21 @@ body { padding-bottom: var(--records-pending-height, 0px); }
     accent-color: var(--primary-color);
 }
 
+/* A toggle the data cannot answer (the 2024 OMB split on data published
+   before it was counted) is shown as unavailable: no pointer, no hover
+   highlight, muted text, a dashed edge. It kept all four before, and read
+   as a control that ignored clicks. The reason is the label's tooltip. */
+.ai-toggle-label:has(input:disabled) {
+    cursor: not-allowed;
+    color: var(--text-secondary);
+    background: transparent;
+    border-style: dashed;
+}
+
+.ai-toggle-label:has(input:disabled):hover {
+    border-color: var(--border-color);
+}
+
 * {
     box-sizing: border-box;
     margin: 0;

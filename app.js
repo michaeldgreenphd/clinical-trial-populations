@@ -1058,12 +1058,23 @@ function raceMenaPct(mena, white) {
     const p = white > 0 ? (mena / white) * 100 : 0;
     return `${p === 0 ? '0' : p < 0.1 ? p.toFixed(3) : p.toFixed(1)}%`;
 }
+// Why the toggle cannot be used, in the note under the rows and on the
+// toggle itself, where the reader is pointing.
+const RACE_MENA_UNAVAILABLE = 'Not available for this data: it does not carry a Middle Eastern or North African count for every trial shown (data published before those rows were counted apart).';
 // The toggle's state and the note under the rows. textContent only.
 function raceMenaControls(known, apart, white, mena) {
     const toggle = document.getElementById('race-mena-toggle');
     if (toggle) {
         toggle.disabled = !known;
         toggle.checked = apart;
+        // A disabled checkbox in a box that still looked clickable read as a
+        // broken control; the label carries the reason as its tooltip, and
+        // styles.css shows the box as unavailable.
+        const label = typeof toggle.closest === 'function' ? toggle.closest('label') : null;
+        if (label) {
+            if (known) label.removeAttribute('title');
+            else label.title = RACE_MENA_UNAVAILABLE;
+        }
         if (typeof toggle.addEventListener === 'function' && !(toggle.dataset && toggle.dataset.menaBound)) {
             if (toggle.dataset) toggle.dataset.menaBound = '1';
             toggle.addEventListener('change', () => {
@@ -1075,7 +1086,7 @@ function raceMenaControls(known, apart, white, mena) {
     const note = document.getElementById('race-mena-note');
     if (!note) return;
     if (!known) {
-        note.textContent = 'Not available for this data: it does not carry a Middle Eastern or North African count for every trial shown (data published before those rows were counted apart).';
+        note.textContent = RACE_MENA_UNAVAILABLE;
     } else if (!apart) {
         note.textContent = 'White includes Middle Eastern or North African participants, as the registry’s race template (the 1997 OMB categories) does.';
     } else {
