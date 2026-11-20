@@ -2162,6 +2162,28 @@ function phoneOverview() {
     renderPhoneScope();
 }
 
+// A canvas draws its text once, in whatever face is loaded at that moment,
+// and DM Sans arrives without blocking the page. With the font file 3s late,
+// the Overview's first chart drew in the system fallback and stayed in it:
+// the page's own text switches to DM Sans by itself, a canvas does not. When
+// a DM Sans face finishes loading, every chart lays out and draws again
+// (without animation), so text measured to fit is measured in the face it is
+// drawn in. 'DM Sans Figures' (styles.css) is the page's digits only; charts
+// name 'DM Sans' itself, so only that family triggers a redraw.
+function redrawChartsWhenFontsArrive() {
+    if (!document.fonts || !document.fonts.addEventListener || typeof Chart === 'undefined') return;
+    let queued = false;
+    document.fonts.addEventListener('loadingdone', (event) => {
+        const faces = Array.from(event.fontfaces || []);
+        if (queued || !faces.some((face) => String(face.family).replace(/["']/g, '') === 'DM Sans')) return;
+        queued = true;
+        requestAnimationFrame(() => {
+            queued = false;
+            Object.values(Chart.instances).forEach((chart) => chart.update('none'));
+        });
+    });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -2171,6 +2193,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif";
             Chart.defaults.font.size = 14;
             Chart.defaults.font.lineHeight = 1.4;
+            redrawChartsWhenFontsArrive();
             Chart.defaults.color = '#6c757d';
             // Tufte pass: category axes drop their gridlines entirely, value
             // axes fade to a whisper, and axis border boxes disappear.

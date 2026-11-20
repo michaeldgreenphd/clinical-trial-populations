@@ -1,4 +1,4 @@
-// Three typography fixes from the review of the DM Sans change:
+// Typography fixes from the review of the DM Sans change:
 //  1. DM Sans has no tabular figures, so numbers are lined up by a
 //     digits-only face, 'DM Sans Figures' (fonts/README.md). The shipped files
 //     are read here: each maps exactly 0-9, and all ten share one advance.
@@ -6,6 +6,8 @@
 //     and count keep one baseline and still grow with enlarged text.
 //  3. The FDA dot plot gets more height whenever race's value drops below its
 //     dot, which is when each row carries labels above and below.
+//  4. Charts draw in DM Sans even when it arrives after them: a canvas keeps
+//     the face it was drawn in, so every chart redraws when DM Sans loads.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
@@ -125,4 +127,33 @@ test('the FDA plot is taller whenever its labels split above and below the dots'
   assert.match(fn, /onResize: \(chart, size\) => splitLabels\(size\.width\)/, 'and again on every resize');
   // The label rule the height is sized for: race below its dot when narrow.
   assert.match(fn, /align: \(c\) => \(narrow\(c\.chart\) && c\.datasetIndex === 1 \? 'bottom' : 'top'\)/);
+});
+
+test('charts lay out and draw again when a DM Sans face finishes loading', async () => {
+  const { runInNewContext } = await import('node:vm');
+  const start = app.indexOf('function redrawChartsWhenFontsArrive(');
+  const src = app.slice(start, app.indexOf('\n}\n', start) + 2);
+  assert.match(app, /Chart\.defaults\.font\.lineHeight = 1\.4;\s*\n\s*redrawChartsWhenFontsArrive\(\);/, 'wired in where the chart defaults are set');
+  let listener = null;
+  const frames = [];
+  const updates = [];
+  const chart = (id) => ({ update: (mode) => updates.push(`${id}:${mode}`) });
+  const ctx = {
+    document: { fonts: { addEventListener: (type, fn) => { if (type === 'loadingdone') listener = fn; } } },
+    Chart: { instances: { 0: chart('a'), 1: chart('b') } },
+    requestAnimationFrame: (fn) => frames.push(fn),
+  };
+  runInNewContext(`${src}\nredrawChartsWhenFontsArrive();`, ctx);
+  assert.ok(listener, 'listens for fonts finishing');
+  const flush = () => { while (frames.length) frames.shift()(); };
+  listener({ fontfaces: [{ family: 'DM Sans Figures' }] });
+  flush();
+  assert.deepEqual(updates, [], 'the digits-only face is the page\'s, not the charts\'');
+  listener({ fontfaces: [{ family: '"DM Sans"' }] });
+  listener({ fontfaces: [{ family: 'DM Sans' }] });
+  flush();
+  assert.deepEqual(updates, ['a:none', 'b:none'], 'one redraw per frame, without animation');
+  listener({ fontfaces: [{ family: 'DM Sans' }] });
+  flush();
+  assert.deepEqual(updates, ['a:none', 'b:none', 'a:none', 'b:none'], 'a later weight redraws again');
 });
