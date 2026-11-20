@@ -9219,6 +9219,15 @@ function renderFdaOversight(filtered) {
     // class reports below ~24%, and 0-24 is empty space that squeezes the
     // range that actually exists.
     const axMin = Math.max(0, Math.floor((Math.min(...allValues) - 8) / 5) * 5);
+    // Where race's value drops below its dot (narrow, below), each row carries
+    // a value above and one below, and the box needs more height than when
+    // all three sit above: at 360px the race value below one row printed
+    // level with the values above the next. The class follows the same test
+    // as the labels, at creation and on every resize (styles.css).
+    const splitLabels = (width) => {
+        if (fdaWrap) fdaWrap.classList.toggle('fda-split-labels', narrow({ width }));
+    };
+    splitLabels(fdaWrap ? fdaWrap.clientWidth : 0);
 
     charts.fdaReporting = new Chart(ctx, {
         type: 'scatter',
@@ -9241,6 +9250,7 @@ function renderFdaOversight(filtered) {
             // aspect ratio squeezed the rows together as the window narrowed,
             // until each row's values sat on the row above.
             maintainAspectRatio: false,
+            onResize: (chart, size) => splitLabels(size.width),
             layout: { padding: { top: 18, right: 34, bottom: 18, left: 4 } },
             scales: {
                 x: {

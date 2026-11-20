@@ -11,7 +11,7 @@
     --text-primary: #212529;
     --text-secondary: #6c757d;
     --border-color: #d8e6e0;
-    --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    --font-sans: 'DM Sans Figures', 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
     /* A compact, shared scale. rem units respect the reader's text size;
        supporting text stays at 14px and body copy/controls at 16px by default. */
     --fs-label: 0.875rem;    /* 14px — labels, metadata, table headings */
@@ -42,6 +42,17 @@
     --radius-md: 6px;
     --radius-lg: 8px;
 }
+
+/* DM Sans has no tabular figures (no tnum feature, in the Google Fonts file or
+   upstream 4.004), so font-variant-numeric: tabular-nums cannot line numbers
+   up in it. 'DM Sans Figures' is DM Sans's own digits 0-9, unchanged in shape,
+   each set on one shared width per weight; unicode-range keeps it to the
+   digits, so every other character still comes from DM Sans. How the files
+   were made: fonts/README.md. */
+@font-face { font-family: 'DM Sans Figures'; font-weight: 400; font-display: swap; unicode-range: U+0030-0039; src: url('fonts/dm-sans-figures-v17-400.woff2') format('woff2'); }
+@font-face { font-family: 'DM Sans Figures'; font-weight: 500; font-display: swap; unicode-range: U+0030-0039; src: url('fonts/dm-sans-figures-v17-500.woff2') format('woff2'); }
+@font-face { font-family: 'DM Sans Figures'; font-weight: 600; font-display: swap; unicode-range: U+0030-0039; src: url('fonts/dm-sans-figures-v17-600.woff2') format('woff2'); }
+@font-face { font-family: 'DM Sans Figures'; font-weight: 700; font-display: swap; unicode-range: U+0030-0039; src: url('fonts/dm-sans-figures-v17-700.woff2') format('woff2'); }
 
 ::selection {
     background: var(--accent-light);
@@ -483,6 +494,8 @@ strong, b {
 body {
     font-family: var(--font-sans);
     font-size: var(--fs-body);
+    /* Equal-width digits come from 'DM Sans Figures' (after :root);
+       this asks the same of the system fonts used if it fails to load. */
     font-variant-numeric: lining-nums tabular-nums;
     background: var(--background);
     color: var(--text-primary);
@@ -2069,6 +2082,10 @@ footer p {
     aspect-ratio: 2.6;
     min-height: 360px;
 }
+/* Narrow plots put race's value below its dot, so each row carries text above
+   and below; 440px keeps one row's lower value clear of the next row's upper
+   ones at the 14px label size (renderFdaOversight sets the class). */
+.fda-reporting-canvas.fda-split-labels { min-height: 440px; }
 
 /* Modal overlay */
 .modal-overlay {
@@ -5544,11 +5561,17 @@ footer p {
     margin: 0 0 2rem;
     border-bottom: 1px solid var(--ov-rule);
 }
-/* Relative line heights keep wrapped labels readable when text is enlarged. */
-#overview .overview-rates > * { padding: 5px 0; border-top: 1px solid var(--ov-rule); line-height: 1.5; }
+/* One line box for every cell, so the 24px value, 16px label and 14px count
+   can share a baseline: in it the smaller text sits higher, so the label,
+   group and count are set down 0.1875rem more than the value (measured in
+   Chromium: all three baselines level). A line-height relative to each cell's
+   own font size gives each a different line box and dropped the value about
+   7px below its label. In rem, the line box and offsets grow with enlarged
+   text. */
+#overview .overview-rates > * { padding: 0.3125rem 0; border-top: 1px solid var(--ov-rule); line-height: 1.875rem; }
 #overview .overview-rates .rate-label,
-#overview .overview-rates .rate-group { padding-top: 7px; }
-#overview .overview-rates .rate-count { padding-top: 9px; }
+#overview .overview-rates .rate-group,
+#overview .overview-rates .rate-count { padding-top: 0.5rem; }
 #overview .overview-rates .rate-top { border-top-color: var(--ov-ink); }
 #overview .overview-rates .rate-group-spacer { border-top-color: var(--ov-ink); }
 #overview .overview-rates .rate-start { border-top-color: var(--ov-rule-strong); }
