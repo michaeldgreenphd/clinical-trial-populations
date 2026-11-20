@@ -76,7 +76,7 @@ test('a single series named by its end label keeps a legend on a narrow panel', 
         const context = vm.createContext({
             demoNarrow: () => narrow, demoPattern: () => '#000', demoCompact: (v) => String(v), demoInkPlugin: {},
         });
-        vm.runInContext(lineAt('const DEMO_SERIF =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
+        vm.runInContext(lineAt('const DEMO_FONT =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
             + fnAt('function demoConfig(config, spec = {})'), context);
         context.cfg = { type: 'line', data: { datasets: Array.from({ length: n }, (_, i) => ({ label: 'S' + i, data: [1, 2] })) }, options: {} };
         context.spec = spec;
@@ -95,7 +95,7 @@ test('a stacked series with an empty last bar is named in the legend', () => {
         const context = vm.createContext({
             demoNarrow: () => false, demoPattern: () => '#000', demoCompact: (v) => String(v), demoInkPlugin: {},
         });
-        vm.runInContext(lineAt('const DEMO_SERIF =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
+        vm.runInContext(lineAt('const DEMO_FONT =') + 'const DEMO_INK = { muted: "#666", rule: "#ddd", ink2: "#333", absent: "#999" };\n'
             + fnAt('function demoConfig(config, spec = {})'), context);
         context.cfg = { type: 'bar', data: { datasets: sets.map(([label, data]) => ({ label, data })) }, options: {} };
         const legend = vm.runInContext('demoConfig(cfg, { endLabels: true }).options.plugins.legend', context);
