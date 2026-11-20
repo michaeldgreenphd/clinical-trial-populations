@@ -810,7 +810,7 @@ const civicWatermarkPlugin = {
     afterDraw(chart) {
         const ctx = chart.ctx;
         ctx.save();
-        ctx.font = "9px 'DM Mono', ui-monospace, monospace";
+        ctx.font = "12px 'DM Sans', sans-serif";
         ctx.fillStyle = 'rgba(108, 117, 125, 0.55)';
         ctx.textAlign = 'right';
         ctx.textBaseline = 'bottom';
@@ -1094,7 +1094,7 @@ function raceMenaControls(known, apart, white, mena) {
 // demoConfig() restyles the finished Chart.js config and demoRowsHtml()
 // draws a composition as labelled rows instead of a doughnut. No figure is
 // added, dropped or recomputed here.
-const DEMO_SERIF = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+const DEMO_FONT = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif";
 const DEMO_INK = {
     ink: '#1d2420', ink2: '#4b5650', muted: '#6b756f',
     rule: '#e4e7e3', ruleStrong: '#9aa39d', paper: '#fcfbf8',
@@ -1177,7 +1177,7 @@ const demoInkPlugin = {
         if (!area) return;
         g.save();
         if (opts.yTitle) {
-            g.font = `${opts.small ? 13 : 15}px ${DEMO_SERIF}`;
+            g.font = `${opts.small ? 14 : 16}px ${DEMO_FONT}`;
             g.fillStyle = DEMO_INK.muted;
             g.textAlign = 'left';
             g.textBaseline = 'bottom';
@@ -1203,7 +1203,7 @@ const demoInkPlugin = {
             if (over > 0) items.forEach(it => { it.y -= over; });
             g.textAlign = 'left';
             g.textBaseline = 'middle';
-            g.font = `15px ${DEMO_SERIF}`;
+            g.font = `16px ${DEMO_FONT}`;
             for (const it of items) {
                 g.fillStyle = DEMO_INK.ink;
                 g.fillText(it.name, area.right + 10, it.y);
@@ -1223,7 +1223,7 @@ const demoInkPlugin = {
             }
             g.textAlign = 'center';
             g.textBaseline = 'bottom';
-            g.font = `${opts.small ? 13 : 15}px ${DEMO_SERIF}`;
+            g.font = `${opts.small ? 14 : 16}px ${DEMO_FONT}`;
             g.fillStyle = DEMO_INK.ink;
             for (const j of marks) {
                 const pt = pts[j];
@@ -1256,7 +1256,7 @@ const demoInkPlugin = {
 function demoConfig(config, spec = {}) {
     const narrow = demoNarrow(spec.canvas);
     const o = config.options || (config.options = {});
-    const font = { family: DEMO_SERIF, size: narrow ? 13 : 15 };
+    const font = { family: DEMO_FONT, size: narrow ? 14 : 16 };
     const ds = config.data.datasets;
     if (spec.order) {
         const rank = (d) => { const i = spec.order.indexOf(d.label); return i < 0 ? spec.order.length : i; };
@@ -1330,7 +1330,7 @@ function demoConfig(config, spec = {}) {
             spec.legend !== true && ends && unlabelled.size ? { filter: (item) => unlabelled.has(item.datasetIndex) } : {})
     };
     o.plugins.tooltip = Object.assign({}, o.plugins.tooltip, {
-        titleFont: { family: DEMO_SERIF, size: 14, weight: '600' }, bodyFont: { family: DEMO_SERIF, size: 14 }
+        titleFont: { family: DEMO_FONT, size: 14, weight: '600' }, bodyFont: { family: DEMO_FONT, size: 14 }
     });
     o.plugins.demoInk = {
         on: true, small: narrow, yTitle: titleAbove ? spec.yTitle : '', endLabels: ends,
@@ -1342,7 +1342,7 @@ function demoConfig(config, spec = {}) {
     if (ends) {
         try {
             const m = document.createElement('canvas').getContext('2d');
-            m.font = `15px ${DEMO_SERIF}`;
+            m.font = `16px ${DEMO_FONT}`;
             const sample = spec.format ? spec.format(100) : '100.0';
             ds.forEach(d => {
                 const name = (spec.names && spec.names[d.label]) || d.label;
@@ -1351,7 +1351,7 @@ function demoConfig(config, spec = {}) {
         } catch (e) { endRoom = Math.max(endRoom, 220); }
         endRoom = Math.min(endRoom || 200, 320);
     }
-    const pad = { top: titleAbove ? 26 : 8, right: ends ? endRoom : (spec.peakLabels ? 22 : 4), bottom: 12, left: 0 };
+    const pad = { top: titleAbove ? 26 : 8, right: ends ? endRoom : (spec.peakLabels ? 22 : 4), bottom: 18, left: 0 };
     if (spec.peakLabels) pad.top = Math.max(pad.top, 30);
     o.layout = Object.assign({}, o.layout, { padding: pad });
     config.plugins = (config.plugins || []).filter(p => p !== demoInkPlugin).concat([demoInkPlugin]);
@@ -1485,7 +1485,7 @@ function donutConfig(totals, colors, noun) {
             aspectRatio: CHART_ASPECT_RATIO,
             // Room for the outside labels; on mobile the legend needs it instead.
             radius: isMobileDevice ? '90%' : '68%',
-            layout: { padding: isMobileDevice ? 0 : { left: 8, right: 8, top: 4 } },
+            layout: { padding: isMobileDevice ? { bottom: 18 } : { left: 8, right: 8, top: 4, bottom: 18 } },
             plugins: {
                 donutCentreFinding: top >= 0 ? {
                     value: pct(values[top]).toFixed(1) + '%',
@@ -1498,7 +1498,7 @@ function donutConfig(totals, colors, noun) {
                     display: isMobileDevice || values.some(v => pct(v) < DONUT_LABEL_MIN_PCT),
                     position: isMobileDevice ? 'bottom' : 'bottom',
                     labels: {
-                        boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 11 },
+                        boxWidth: 10, boxHeight: 10, padding: 12, font: { size: 14 },
                         filter: (item) => isMobileDevice
                             || pct(values[item.index]) < DONUT_LABEL_MIN_PCT
                     }
@@ -1512,7 +1512,7 @@ function donutConfig(totals, colors, noun) {
                     anchor: 'end', align: 'end', offset: 7, clamp: true,
                     textAlign: 'center',
                     color: '#212529',
-                    font: { size: 11, weight: '500', lineHeight: 1.25 }
+                    font: { size: 14, weight: '500', lineHeight: 1.25 }
                 },
                 tooltip: {
                     callbacks: {
@@ -1525,12 +1525,12 @@ function donutConfig(totals, colors, noun) {
     };
 }
 
-// Event annotations: a dashed vertical marker with a mono caption, drawn
+// Event annotations: a dashed vertical marker with a caption, drawn
 // behind the data. Charts opt in via options.plugins.eventLines or by
 // canvas id below — regulatory context rendered as data, not prose.
 const CHART_EVENT_LINES = {
     'reporting-trends-chart': [{ x: '2017', label: 'FDAAA Final Rule effective', above: true,
-        font: "italic 15px 'Source Serif 4', Georgia, serif" }],
+        font: "italic 14px 'DM Sans', sans-serif" }],
     // The Demographics tabs draw the 2017 marker without a caption: the
     // tab's footnote names it and links the FAQ entry, as on the canvas.
     'race-trends-chart':      [{ x: '2017', label: '' }],
@@ -1587,7 +1587,7 @@ const civicEventLinesPlugin = {
             const above = ev.above && chartArea.top >= 22 && chart.options.plugins?.legend?.display === false;
             // Inside the plot, such a label drops below the top line.
             const y = above ? chartArea.top - 10 : chartArea.top + (ev.above ? 22 : 9) + i * 11;
-            ctx.font = (above && ev.font) || "9px 'DM Mono', ui-monospace, monospace";
+            ctx.font = (above && ev.font) || "12px 'DM Sans', sans-serif";
             // The caption goes right of its line, else left, and only where it
             // stays inside the plot's width. Above the plot it never goes
             // left, where a chart's y title sits (the Overview's "% of
@@ -2157,14 +2157,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Match chart typography to the page. Chart.js otherwise renders
         // legends, ticks, and axis titles in its own default font stack.
         if (typeof Chart !== 'undefined') {
-            Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+            Chart.defaults.font.family = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif";
+            Chart.defaults.font.size = 14;
+            Chart.defaults.font.lineHeight = 1.4;
             Chart.defaults.color = '#6c757d';
             // Tufte pass: category axes drop their gridlines entirely, value
             // axes fade to a whisper, and axis border boxes disappear.
             // (Direct property writes only — Chart.defaults are proxy-backed
             // and cloning them with Object.assign creates cyclic options.)
             Chart.defaults.scale.grid.color = 'rgba(27, 67, 50, 0.07)';
-            Chart.defaults.layout.padding = { top: 0, right: 0, bottom: 12, left: 0 };
+            Chart.defaults.layout.padding = { top: 0, right: 0, bottom: 18, left: 0 };
             if (Chart.defaults.scale.border) Chart.defaults.scale.border.display = false;
             const catDefaults = Chart.defaults.scales && Chart.defaults.scales.category;
             if (catDefaults) {
@@ -4644,7 +4646,7 @@ function disableFiltersForMobile() {
         const shown = (dashboardSummary?.recentStudies || []).length;
         const note = document.createElement('p');
         note.className = 'mobile-studies-note note';
-        note.style.cssText = 'background:#eff6ff;border-left:3px solid #3b82f6;padding:0.5rem 0.75rem;margin:0 0 0.75rem;font-size:0.85rem;color:#1e40af;';
+        note.style.cssText = 'background:#eff6ff;border-left:3px solid #3b82f6;padding:0.5rem 0.75rem;margin:0 0 0.75rem;font-size:var(--fs-small);color:#1e40af;';
         note.textContent = `Showing ${shown.toLocaleString()} most recent studies (of ${total.toLocaleString()} total). Full table with search and filters available on desktop.`;
         readyContent.prepend(note);
     }
@@ -6067,7 +6069,7 @@ function publicationsHtml(study, tab, redraw) {
                     <a href="${url}" target="_blank" style="color: var(--primary-color);">
                         ${escapeHtml(pubLabel(ref, idx))}
                     </a>
-                    <span style="font-size: 0.75rem; color: #6b7280; margin-left: 0.5rem;">(${source}${ref.pmid ? ' \u2022 PMID ' + ref.pmid : ''})</span>
+                    <span style="font-size: var(--fs-small); color: #6b7280; margin-left: 0.5rem;">(${source}${ref.pmid ? ' \u2022 PMID ' + ref.pmid : ''})</span>
                 </div>
             </div>
         `;
@@ -7592,7 +7594,7 @@ function renderReportingTrends(filtered, counted) {
     // mid-animation for a draw that may not come before the animation ends;
     // the next resize then drew it, putting the chart back at that size.
     const redesign = !!previous && previous.civicNarrow !== undefined && previous.civicNarrow !== narrow;
-    const serif = "'Source Serif 4', Georgia, 'Times New Roman', serif";
+    const chartFont = "'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif";
     // On a narrow canvas the lines are named by a key above the chart, not
     // at their ends, so each line also has its own dash (and its key the
     // same dash): no series is told apart by colour alone. Wide canvases name
@@ -7638,21 +7640,21 @@ function renderReportingTrends(filtered, counted) {
             g.save();
             g.textBaseline = 'middle';
             for (const it of items) {
-                g.font = `16px ${serif}`;
+                g.font = `16px ${chartFont}`;
                 g.fillStyle = '#1d2420';
                 g.fillText(it.label, area.right + 12, it.y);
                 const w = g.measureText(`${it.label} `).width;
                 g.fillStyle = '#6b756f';
                 g.fillText(it.value, area.right + 12 + w, it.y);
             }
-            g.font = `15px ${serif}`;
+            g.font = `14px ${chartFont}`;
             g.fillStyle = '#6b756f';
             g.textBaseline = 'bottom';
             g.fillText('% of Studies', area.left, area.top - 8);
             g.restore();
         }
     };
-    const tickFont = { family: serif, size: 15 };
+    const tickFont = { family: chartFont, size: 14 };
 
     // The box around the canvas holds nothing else, so with Chart.js keeping
     // the aspect ratio it was exactly as tall as the chart, and Chart.js never
@@ -9239,7 +9241,7 @@ function renderFdaOversight(filtered) {
             // aspect ratio squeezed the rows together as the window narrowed,
             // until each row's values sat on the row above.
             maintainAspectRatio: false,
-            layout: { padding: { top: 18, right: 34, bottom: 6, left: 4 } },
+            layout: { padding: { top: 18, right: 34, bottom: 18, left: 4 } },
             scales: {
                 x: {
                     min: axMin,
@@ -9303,7 +9305,7 @@ function renderFdaOversight(filtered) {
                     offset: 7,
                     clamp: true,
                     color: '#212529',
-                    font: (c) => ({ size: narrow(c.chart) ? 10 : 11, weight: '600' }),
+                    font: { size: 14, weight: '600' },
                     formatter: v => (typeof v.x === 'number' ? v.x.toFixed(1) : '')
                 }
             }
@@ -9887,7 +9889,7 @@ function renderAIPanelChart(panelCounts) {
                     offset: 4,
                     clamp: true,
                     color: '#495057',
-                    font: { size: 11, weight: '500' },
+                    font: { size: 14, weight: '500' },
                     formatter: v => v.toLocaleString()
                 }
             }
@@ -11425,7 +11427,7 @@ function renderLitExtractionTable(extractedList, modelId) {
             }
             const nAction = groupRows.filter(r => (r.status === 'addition' || r.status === 'conflict') && !r.resolution).length;
             const actionNote = nAction > 0
-                ? `<div style="font-size:0.75rem;color:#6b7280;margin-top:2px;">${nAction} unresolved</div>`
+                ? `<div style="font-size:var(--fs-small);color:#6b7280;margin-top:2px;">${nAction} unresolved</div>`
                 : '';
             const reportingLine = badge ? `<div style="margin-top:4px;">${badge}</div>` : '';
             return `${discBadge(status)}${reportingLine}${actionNote}`;
@@ -11549,7 +11551,7 @@ function showLitExtractionDetails(idx) {
         const body = gRows.map(r => `
             <div style="padding:0.6rem 0;border-bottom:1px solid #f1f5f9;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:0.75rem;">
-                    <strong style="font-size:0.9rem;color:#1f2937;">${escapeHtml(r.label)}</strong>
+                    <strong style="font-size:var(--fs-body);color:#1f2937;">${escapeHtml(r.label)}</strong>
                     ${discBadge(r.status)}
                 </div>
                 <div class="disc-cell" style="margin-top:4px;">
@@ -13578,7 +13580,7 @@ function renderIndustryTrend(rows) {
             plugins: {
                 industryTrendEndLabels: {
                     enabled: useEndLabels,
-                    font: `${labelSize}px ${tokens.getPropertyValue('--font-mono').trim()}`,
+                    font: `${labelSize}px ${tokens.getPropertyValue('--font-sans').trim()}`,
                     textColor: tokens.getPropertyValue('--text-primary').trim()
                 },
                 legend: { display: !useEndLabels, position: industryLegendPosition(canvas.parentElement ? canvas.parentElement.clientWidth : 0), labels: { usePointStyle: true, boxWidth: 8, boxHeight: 8, padding: 10, filter: it => it.text !== '50% parity' } },

@@ -12,17 +12,16 @@
     --text-secondary: #6c757d;
     --border-color: #d8e6e0;
     --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-    --font-mono: 'DM Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
-    /* Type scale — 7 steps replacing 33 hand-picked rem values. Every
-       font-size in this file references one of these; nothing sets a raw
-       size, so the ramp cannot regrow one declaration at a time. */
-    --fs-label: 0.6875rem;   /* 11px — mono tile labels, axis ticks, eyebrows */
-    --fs-small: 0.75rem;     /* 12px — captions, secondary detail, chart notes */
-    --fs-body: 0.875rem;     /* 14px — body copy, table cells, controls */
-    --fs-title: 1rem;        /* 16px — panel and card titles */
-    --fs-lead: 1.1875rem;    /* 19px — section leads, headline findings */
-    --fs-xl: 1.5rem;         /* 24px — page and tab headings */
-    --fs-display: 2.25rem;   /* 36px — stat-tile values */
+    /* A compact, shared scale. rem units respect the reader's text size;
+       supporting text stays at 14px and body copy/controls at 16px by default. */
+    --fs-label: 0.875rem;    /* 14px — labels, metadata, table headings */
+    --fs-small: 0.875rem;    /* 14px — captions and secondary detail */
+    --fs-body: 1rem;        /* 16px — body copy, table cells, controls */
+    --fs-title: 1.125rem;   /* 18px — panel and card titles */
+    --fs-lead: 1.25rem;     /* 20px — section leads */
+    --fs-xl: 1.5rem;        /* 24px — section headings */
+    --fs-headline: 2rem;    /* 32px — the Overview's main finding */
+    --fs-display: 2.25rem;  /* 36px — stat-tile values */
 
     /* Surface tiers. Every card used to share one padding signature, one
        radius and one border, so the filter panel, a stat tile and the key
@@ -185,7 +184,7 @@
 }
 
 .lf-text {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     fill: var(--text-secondary);
 }
@@ -269,7 +268,7 @@
     justify-content: space-between;
     gap: 1rem;
     margin: 0.625rem 0 0;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
@@ -357,7 +356,7 @@
     z-index: 7000;
     padding: 0.5rem 16px 0.625rem;
     background: var(--background);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
@@ -483,6 +482,8 @@ strong, b {
 
 body {
     font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    font-variant-numeric: lining-nums tabular-nums;
     background: var(--background);
     color: var(--text-primary);
     line-height: 1.6;
@@ -490,9 +491,16 @@ body {
     text-rendering: optimizeLegibility;
 }
 
+small { font-size: var(--fs-small); }
+
+button, input, select, textarea {
+    font-family: inherit;
+    font-size: var(--fs-body);
+}
+
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-sans);
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: -0.015em;
 }
 
@@ -535,10 +543,10 @@ header .subtitle {
 }
 
 header .last-updated {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    text-transform: none;
+    letter-spacing: 0.01em;
     opacity: 0.7;
     margin: 0;
     white-space: nowrap;
@@ -666,7 +674,7 @@ header .last-updated {
 .nav-menu .tab { text-align: left; width: 100%; }
 
 .nav-beta {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -731,10 +739,10 @@ main {
 }
 
 .filter-summary-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    letter-spacing: 0.01em;
+    text-transform: none;
     color: var(--text-secondary);
 }
 
@@ -786,7 +794,7 @@ main {
 }
 
 .finding-context {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     margin: 0.5rem 0 0;
@@ -960,7 +968,7 @@ main {
     transform: translateX(-50%);
     background: var(--primary-dark);
     color: #fff;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     font-weight: 500;
     padding: 3px 7px;
@@ -1107,7 +1115,7 @@ main {
 }
 
 .stat-card h3 {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
@@ -1363,7 +1371,7 @@ main {
 }
 
 .rows-per-page .rows-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -1377,7 +1385,7 @@ main {
     border-left: 1px solid var(--border-color);
     background: transparent;
     padding: 0.35rem 0.7rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     cursor: pointer;
@@ -1389,7 +1397,7 @@ main {
 }
 
 .pager-range {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
@@ -1397,9 +1405,9 @@ main {
     white-space: nowrap;
 }
 
-/* The React/Tailwind approval-queue island inherits the site typeface so
-   the beta queue reads in DM Sans like everything else. */
-#approval-queue-root { font-family: var(--font-sans); }
+/* Keep the isolated Tailwind island on the same family, including IDs. */
+#approval-queue-root,
+#approval-queue-root .font-mono { font-family: var(--font-sans); }
 
 /* Muted inline values ("No", em dashes) — previously referenced by markup
    but never defined, so they rendered at full contrast. */
@@ -1443,7 +1451,7 @@ main {
     border: none;
     background: none;
     padding: 0;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     font-weight: 600;
     color: var(--primary-color);
@@ -1456,7 +1464,7 @@ main {
 
 /* Footer provenance: when the data was last pulled from the registry. */
 .footer-extracted {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-body);
     opacity: 0.85;
 }
@@ -1607,7 +1615,7 @@ main {
     align-items: center;
     gap: 0.5rem 0.75rem;
     margin: -0.25rem 0 1rem;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
@@ -1654,7 +1662,7 @@ main {
 }
 
 .detail-state-text {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
 }
 
 .detail-state.is-failed {
@@ -1672,7 +1680,7 @@ main {
     border-radius: var(--radius-sm);
     background: var(--card-background);
     color: var(--primary-color);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     cursor: pointer;
 }
@@ -1698,14 +1706,14 @@ main {
 .detail-action[hidden] { display: none; }
 
 .cell-pending {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     color: var(--text-secondary);
     letter-spacing: 0.08em;
 }
 
 .cell-failed,
 .cell-na {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     color: var(--text-secondary);
     border-bottom: 1px dotted var(--text-secondary);
@@ -1830,7 +1838,7 @@ main {
 }
 
 .studies-table .nct-link {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--primary-color);
     text-decoration: none;
@@ -2990,7 +2998,7 @@ footer p {
 }
 
 .geography-stats .stat-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
@@ -3107,7 +3115,7 @@ footer p {
 }
 
 .detail-table .nct-link {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
 }
 
@@ -3596,7 +3604,7 @@ footer p {
     display: inline-block;
     padding: 2px 9px;
     border-radius: var(--radius-sm);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     letter-spacing: 0.03em;
     line-height: 1.5;
@@ -3622,7 +3630,7 @@ footer p {
 
 /* Premarket pathway label in the AI Devices table (colored per pathway). */
 .ai-pathway {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     font-weight: 600;
     letter-spacing: 0.03em;
@@ -3864,7 +3872,7 @@ footer p {
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     color: var(--text-secondary);
 }
 
@@ -4693,7 +4701,7 @@ footer p {
 }
 
 .industry-meta {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     color: var(--text-secondary);
     margin-bottom: 1.25rem;
@@ -4722,7 +4730,7 @@ footer p {
 .industry-legend { display: flex; flex-wrap: wrap; gap: 0.6rem 1.25rem; margin-bottom: 0.75rem; font-size: var(--fs-small); color: var(--text-secondary); }
 .industry-legend > span { display: inline-flex; align-items: center; gap: 0.4rem; }
 .industry-legend i { display: inline-block; width: 1rem; height: 1rem; border: 1px solid var(--border-color); }
-.industry-legend-thin { font-family: var(--font-mono); }
+.industry-legend-thin { font-family: var(--font-sans); }
 .industry-heatmap-caption { text-align: left; padding: 0.75rem; font-size: var(--fs-small); color: var(--text-secondary); }
 
 .industry-heatmap-wrap {
@@ -4765,7 +4773,7 @@ footer p {
 
 .industry-heatmap-base {
     display: block;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     font-weight: 400;
     text-transform: none;
@@ -4775,7 +4783,7 @@ footer p {
 
 .industry-heatmap td {
     text-align: center;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-variant-numeric: tabular-nums;
     padding: 0.85rem 0.4rem;
     border: 2px solid var(--card-background);
@@ -4801,7 +4809,7 @@ footer p {
 
 .industry-ctl-label,
 .industry-cellrange-label {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -4816,7 +4824,7 @@ footer p {
     padding: 0.42rem 0.1rem;
     border: none;
     background: transparent;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-primary);
     text-align: center;
@@ -4866,7 +4874,7 @@ footer p {
 }
 
 .industry-forest-head {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.07em;
@@ -4939,7 +4947,7 @@ footer p {
     align-items: baseline;
     gap: 0.45rem;
     white-space: nowrap;
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
@@ -5030,7 +5038,7 @@ footer p {
 }
 
 .industry-faq-title {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     font-weight: 500;
     text-transform: uppercase;
@@ -5053,7 +5061,7 @@ footer p {
     gap: 0.5rem;
     padding: 0.3rem 0.4rem;
     border-bottom: 1px solid var(--border-color);
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     text-transform: uppercase;
     letter-spacing: 0.07em;
@@ -5085,7 +5093,7 @@ footer p {
 }
 
 .industry-sponsor-n {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     font-variant-numeric: tabular-nums;
     color: var(--text-secondary);
@@ -5251,7 +5259,7 @@ footer p {
     background: #f3f1f7; border: 1px solid #d9d3e8;   /* deliberately NOT the tier-1 green */
 }
 .geo-tier3-label { font-weight: 700; color: #4d3f77; }
-#geo-run-pin { margin-top: 1rem; font-family: var(--mono, monospace); font-size: var(--fs-small); }
+#geo-run-pin { margin-top: 1rem; font-family: var(--font-sans); font-size: var(--fs-small); }
 
 /* Trials-first reframe: measure toggle, headlines, demographics-on-demand */
 .geo-hidden { display: none !important; }
@@ -5338,7 +5346,7 @@ footer p {
 .pip-na { box-shadow: inset 0 0 0 1px var(--text-secondary); }
 
 .pip-count {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-label);
     color: var(--text-secondary);
 }
@@ -5430,7 +5438,7 @@ footer p {
 }
 
 .sg-provenance {
-    font-family: var(--font-mono);
+    font-family: var(--font-sans);
     font-size: var(--fs-small);
     color: var(--text-secondary);
     margin: 0 0 1rem;
@@ -5446,7 +5454,11 @@ footer p {
     vertical-align: baseline;
 }
 
-.sg-tile .stat-value { font-size: calc(var(--fs-display) * 0.85); }
+.sg-tile .stat-value { font-size: var(--fs-headline); }
+@media (max-width: 600px) {
+    /* Eight-digit participant counts still fit in the two-column tile row. */
+    .sg-tile .stat-value { font-size: var(--fs-xl); }
+}
 .sg-tile-note { display: inline-block; margin-top: 0.35rem; color: var(--text-primary); }
 
 .sg-sub { margin-top: 0.75rem; }
@@ -5480,7 +5492,7 @@ footer p {
 .sg-footer { margin-top: 0.5rem; }
 
 /* A bucket nothing in the selection published: an em dash, not a zero. */
-.sg-tile .stat-value.sg-absent { color: var(--text-secondary); font-size: calc(var(--fs-display) * 0.6); }
+.sg-tile .stat-value.sg-absent { color: var(--text-secondary); font-size: var(--fs-xl); }
 
 /* The v2 tables sit in panels that clip (`overflow: hidden`), and on a wide
    screen the global breakdown-table rules floor the first two columns at
@@ -5489,54 +5501,51 @@ footer p {
 .sg-table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; max-width: 100%; }
 .sg-table-scroll > table { margin-bottom: 0; }
 
-/* ===== Overview: ink on paper =====
-   The Overview's own type and rows (the redesign agreed on the design canvas,
-   2026-11-07): Source Serif 4 in four sizes (36 / 24 / 20 / 16 px), lining
-   tabular figures, rules instead of cards, rows grouped by what they report,
-   and single spacing. Scoped to #overview so no other tab moves. The series
-   colours are COLORS.reporting in app.js; the bars below repeat them. */
+/* ===== Overview: ruled rows with the shared type scale =====
+   The series colours are COLORS.reporting in app.js; the bars repeat them. */
 #overview {
+    container: overview / inline-size;
     --ov-ink: #1d2420;
     --ov-ink-2: #4b5650;
     --ov-muted: #6b756f;
     --ov-rule: #e4e7e3;
     --ov-rule-strong: #9aa39d;
     --ov-track: #d9ded9;
-    font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
-    font-size: 20px;
-    line-height: 1.35;
+    font-family: var(--font-sans);
+    font-size: var(--fs-body);
+    line-height: 1.5;
     color: var(--ov-ink);
 }
 #overview .num, #overview .overview-rates, #overview .finding-headline { font-variant-numeric: lining-nums tabular-nums; }
 
 #overview .overview-finding { padding-bottom: 0.9rem; border-bottom: 0; }
 #overview .finding-headline {
-    font-size: 36px;
-    line-height: 1.2;
+    font-size: var(--fs-headline);
+    max-width: 40ch;
+    line-height: 1.25;
     font-weight: 600;
     letter-spacing: 0;
 }
 #overview .finding-headline strong { font-weight: 600; }
 #overview .finding-context {
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--fs-small);
     color: var(--ov-muted);
     margin-top: 0.35rem;
 }
 
 #overview .overview-rates {
     display: grid;
-    /* At least 786px (columns 120 + 200 + 76 + 170 + 140, gaps 4 x 20); the
-       rows stack below 900px, where the page has less than that to give. */
+    /* Stack when the available measure is too small for these five columns.
+       The rem container query also follows an enlarged root text size. */
     grid-template-columns: minmax(120px, 150px) minmax(200px, 1.3fr) minmax(76px, 0.4fr) minmax(170px, 0.9fr) minmax(140px, 1.8fr);
     column-gap: 20px;
     align-items: stretch;       /* every cell spans its row, so the rules line up */
     margin: 0 0 2rem;
     border-bottom: 1px solid var(--ov-rule);
 }
-/* One line box for every cell, so the different sizes share a baseline:
-   the smaller text is set down by the difference in its ascent. */
-#overview .overview-rates > * { padding: 5px 0; border-top: 1px solid var(--ov-rule); line-height: 30px; }
+/* Relative line heights keep wrapped labels readable when text is enlarged. */
+#overview .overview-rates > * { padding: 5px 0; border-top: 1px solid var(--ov-rule); line-height: 1.5; }
 #overview .overview-rates .rate-label,
 #overview .overview-rates .rate-group { padding-top: 7px; }
 #overview .overview-rates .rate-count { padding-top: 9px; }
@@ -5545,8 +5554,8 @@ footer p {
 #overview .overview-rates .rate-start { border-top-color: var(--ov-rule-strong); }
 #overview .rate-group { grid-row: span 3; align-self: stretch; font-weight: 600; color: var(--ov-ink-2); }
 #overview .rate-label.rate-all { grid-column: 1 / 3; }
-#overview .rate-value { font-size: 24px; font-weight: 600; }
-#overview .rate-count { font-size: 16px; color: var(--ov-muted); }
+#overview .rate-value { font-size: var(--fs-xl); font-weight: 600; }
+#overview .rate-count { font-size: var(--fs-small); color: var(--ov-muted); }
 #overview .rate-bar {
     position: relative;
     min-height: 14px;
@@ -5576,9 +5585,9 @@ footer p {
 #overview .rate-fill-gender { background: #7A4FCF; }
 #overview .rate-fill-sex-gender { background: #842270; }
 #overview .rate-fill-all-four { background: #906C79; }
-#overview .rate-scale { background: none; font-size: 16px; color: var(--ov-muted); }
+#overview .rate-scale { background: none; font-size: var(--fs-small); color: var(--ov-muted); }
 #overview .rate-scale::before { display: none; }
-#overview .rate-scale > span { position: absolute; top: 9px; line-height: 21px; }
+#overview .rate-scale > span { position: absolute; top: 9px; line-height: 1.5; }
 #overview .rate-scale > span:nth-child(1) { left: 0; }
 #overview .rate-scale > span:nth-child(2) { left: 25%; transform: translateX(-50%); }
 #overview .rate-scale > span:nth-child(3) { left: 50%; transform: translateX(-50%); }
@@ -5591,15 +5600,14 @@ footer p {
    the canvas drawn at the wider size would hold it open as the window
    narrows. */
 #overview .overview-trends-canvas { position: relative; width: 100%; min-height: 0; }
-#overview .overview-trends h3 { font-family: inherit; font-size: 24px; line-height: 1.3; font-weight: 600; margin: 0 0 0.25rem; }
-#overview .overview-trends-key:not([hidden]) { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0.2rem 0 0.4rem; font-size: 16px; color: var(--ov-ink-2); }
+#overview .overview-trends h3 { font-family: inherit; font-size: var(--fs-xl); line-height: 1.3; font-weight: 600; margin: 0 0 0.25rem; }
+#overview .overview-trends-key:not([hidden]) { display: flex; flex-wrap: wrap; gap: 2px 16px; margin: 0.2rem 0 0.4rem; font-size: var(--fs-small); color: var(--ov-ink-2); }
 #overview .trend-key { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
-#overview .overview-trends .chart-footnote { font-family: inherit; font-size: 16px; line-height: 1.4; color: var(--ov-muted); margin-top: 0.4rem; }
+#overview .overview-trends .chart-footnote { font-family: inherit; font-size: var(--fs-small); line-height: 1.4; color: var(--ov-muted); margin-top: 0.4rem; }
 
-/* Narrow windows and phones: each row stacks its name and value over its
-   count and bar; the group names become row headings. The breakpoint is
-   where the five columns' minimum (786px) no longer fits the page. */
-@media (max-width: 900px) {
+/* Narrow windows or enlarged text: stack each row's name and value over
+   its count and bar; group names become row headings. */
+@container overview (max-width: 52rem) {
     #overview .overview-rates { grid-template-columns: 1fr auto; column-gap: 12px; }
     #overview .overview-rates .rate-group-spacer { display: none; }
     #overview .rate-group, #overview .rate-label.rate-all { grid-column: 1 / -1; grid-row: auto; }
@@ -5609,16 +5617,12 @@ footer p {
     #overview .rate-scale { display: none; }
 }
 @media (max-width: 720px) {
-    #overview { font-size: 18px; }
-    #overview .finding-headline { font-size: 28px; }
+    #overview { font-size: var(--fs-body); }
+    #overview .finding-headline { font-size: var(--fs-xl); }
 }
 
-/* ===== Demographics tabs: the Overview's ink on paper =====
-   Race, Ethnicity, Sex and Gender in the Overview's type (the redesign on
-   the design canvas, 2026-11-08): Source Serif 4 at 24 / 20 / 16 px, lining
-   tabular figures, rules instead of cards, compositions as labelled rows.
-   Scoped to .demo-ink so no other tab moves. The bar colours come from
-   DEMO_COLORS in app.js; the absence textures below match demoPattern(). */
+/* ===== Demographics: shared type, compositions as labelled rows =====
+   Bar colours come from DEMO_COLORS in app.js; absence textures match demoPattern(). */
 .demo-ink {
     --dm-ink: #1d2420;
     --dm-ink-2: #4b5650;
@@ -5628,14 +5632,14 @@ footer p {
     --dm-rule-strong: #9aa39d;
     --dm-paper: #fcfbf8;
     --dm-absent: #8A968F;
-    font-family: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-sans);
     color: var(--dm-ink);
     font-variant-numeric: lining-nums tabular-nums;
 }
 .demo-ink .chart-row { gap: 1.5rem 3rem; }
 .demo-ink .chart-container > h3 {
     font-family: inherit;
-    font-size: 20px;
+    font-size: var(--fs-lead);
     line-height: 1.25;
     font-weight: 600;
     letter-spacing: 0;
@@ -5648,7 +5652,7 @@ footer p {
 .demo-ink .chart-footnote,
 .demo-ink .sg-provenance {
     font-family: inherit;
-    font-size: 16px;
+    font-size: var(--fs-small);
     line-height: 1.4;
     color: var(--dm-muted);
 }
@@ -5661,9 +5665,9 @@ footer p {
 /* Sex and Gender tabs, as on the canvas: one line under the tiles saying
    what the counts are over, a second heading inside a panel, and the label
    lists in three columns. */
-.demo-ink .sg-tiles-note { font-size: 18px; color: var(--dm-ink-2); margin: 0.25rem 0 1rem; max-width: none; }
+.demo-ink .sg-tiles-note { font-size: var(--fs-body); color: var(--dm-ink-2); margin: 0.25rem 0 1rem; max-width: none; }
 .demo-ink .chart-container h3.sg-follow { margin-top: 1.75rem; }
-.demo-ink .sg-labels-heading { font-family: inherit; font-size: 20px; line-height: 1.25; font-weight: 600; letter-spacing: 0; margin: 1.5rem 0 0.5rem; }
+.demo-ink .sg-labels-heading { font-family: inherit; font-size: var(--fs-lead); line-height: 1.25; font-weight: 600; letter-spacing: 0; margin: 1.5rem 0 0.5rem; }
 .sg-label-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0.5rem 2.5rem; }
 
 /* A composition as rows: name, bar, share, count. */
@@ -5689,7 +5693,7 @@ footer p {
     align-items: center;
 }
 .demo-scale {
-    font-size: 16px;
+    font-size: var(--fs-small);
     color: var(--dm-muted);
     padding-bottom: 2px;
     border-bottom: 1px solid var(--dm-ink);
@@ -5700,10 +5704,10 @@ footer p {
 .demo-ticks > span.demo-tick-end { transform: translateX(-100%); }
 .demo-row { min-height: 34px; border-bottom: 1px solid var(--dm-rule-soft); }
 .demo-row.demo-first-absent { border-top: 1px solid var(--dm-ink); margin-top: 10px; }
-.demo-label { font-size: 18px; line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
-.demo-pct { font-size: 18px; text-align: right; }
-.demo-n { font-size: 16px; color: var(--dm-muted); text-align: right; white-space: nowrap; }
-.demo-empty { font-size: 18px; font-style: italic; color: var(--dm-ink-2); margin: 0.6rem 0; }
+.demo-label { font-size: var(--fs-body); line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
+.demo-pct { font-size: var(--fs-body); text-align: right; }
+.demo-n { font-size: var(--fs-small); color: var(--dm-muted); text-align: right; white-space: nowrap; }
+.demo-empty { font-size: var(--fs-body); font-style: italic; color: var(--dm-ink-2); margin: 0.6rem 0; }
 .demo-absent .demo-label,
 .demo-absent .demo-pct { font-style: italic; color: var(--dm-ink-2); }
 .demo-bar {
@@ -5736,8 +5740,8 @@ footer p {
 .demo-fill[style*="width:0.00%"] { min-width: 0; box-shadow: none; }
 
 /* The source labels behind the gender buckets: short bars, trial counts. */
-.demo-list-head { font-size: 18px; font-weight: 600; margin: 0.6rem 0 0.2rem; }
-.demo-list-head span { font-size: 16px; font-weight: 400; color: var(--dm-muted); }
+.demo-list-head { font-size: var(--fs-body); font-weight: 600; margin: 0.6rem 0 0.2rem; }
+.demo-list-head span { font-size: var(--fs-small); font-weight: 400; color: var(--dm-muted); }
 .demo-list-row {
     display: grid;
     grid-template-columns: minmax(110px, 260px) minmax(0, 1fr) 48px;
@@ -5745,7 +5749,7 @@ footer p {
     align-items: center;
     min-height: 26px;
     border-bottom: 1px solid var(--dm-rule-soft);
-    font-size: 16px;
+    font-size: var(--fs-small);
 }
 .demo-list-label { overflow-wrap: anywhere; }
 .demo-list-bar { position: relative; height: 10px; }
@@ -5753,8 +5757,8 @@ footer p {
 .demo-list-n { text-align: right; color: var(--dm-muted); }
 .demo-ink details.demo-table { margin-top: 0.6rem; }
 .demo-ink details.demo-table > summary,
-.demo-ink #sg-gender-labels details > summary { font-size: 16px; color: var(--dm-ink-2); cursor: pointer; }
-.demo-ink #sg-gender-counts { font-size: 18px; font-style: normal; color: var(--dm-ink); max-width: none; }
+.demo-ink #sg-gender-labels details > summary { font-size: var(--fs-small); color: var(--dm-ink-2); cursor: pointer; }
+.demo-ink #sg-gender-counts { font-size: var(--fs-body); font-style: normal; color: var(--dm-ink); max-width: none; }
 .demo-ink #sg-gender-counts .text-muted { color: var(--dm-muted); }
 
 /* Phones: the share and count sit on the name's line, the bar under it. */
@@ -5766,7 +5770,7 @@ footer p {
         padding: 6px 0;
     }
     .demo-row .demo-bar { grid-column: 1 / -1; grid-row: 2; }
-    .demo-label, .demo-pct { font-size: 17px; }
+    .demo-label, .demo-pct { font-size: var(--fs-body); }
     .demo-list-row { grid-template-columns: minmax(0, 1fr) 70px 40px; }
 }
 
@@ -5879,7 +5883,7 @@ footer p {
 .oc-trials > tbody > tr > td:nth-child(5) { width: 14%; font-size: var(--fs-small); }
 .oc-trials > tbody > tr > td:nth-child(6) { width: 12%; font-size: var(--fs-small); }
 .oc-trials > tbody > tr:not(.oc-detail-row):hover { background: var(--tint); }
-.oc-open { font: inherit; font-family: var(--font-mono); font-size: var(--fs-small); background: none; border: none; padding: 0; color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.oc-open { font: inherit; font-family: var(--font-sans); font-size: var(--fs-small); background: none; border: none; padding: 0; color: var(--primary-color); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 .oc-open-hint { margin-left: 0.5rem; font-family: var(--font-sans); font-size: var(--fs-label); text-transform: uppercase; letter-spacing: 0.05em; text-decoration: none; display: inline-block; color: var(--text-secondary); }
 .oc-open-hint::after { content: ' ▸'; }
 .oc-open[aria-expanded="true"] .oc-open-hint::after { content: ' ▾'; }
@@ -5931,10 +5935,10 @@ footer p {
 }
 .oc-unit { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px dotted var(--oc-rule); }
 .oc-unit h6 { margin: 0; font-size: var(--fs-small); }
-.oc-unit-id { font-family: var(--font-mono); color: var(--text-secondary); margin-right: 0.35rem; }
+.oc-unit-id { font-family: var(--font-sans); color: var(--text-secondary); margin-right: 0.35rem; }
 .oc-doc-table { max-width: 36rem; }
 .oc-evidence { margin: 0; padding-left: 1.1rem; }
-.oc-loc { font-family: var(--font-mono); font-size: var(--fs-label); color: var(--text-secondary); word-break: break-all; }
+.oc-loc { font-family: var(--font-sans); font-size: var(--fs-label); color: var(--text-secondary); word-break: break-all; }
 .oc-detail-dates { margin-top: 0.9rem; }
 .oc-methods { border-top: 1px solid var(--oc-rule); margin-top: 1.5rem; padding-top: 0.75rem; }
 .oc-methods h5 { margin: 0.9rem 0 0.3rem; font-size: var(--fs-small); }
@@ -6137,7 +6141,7 @@ footer p {
 .dl-toggle { width: fit-content; max-width: 100%; flex-wrap: wrap; }
 .dl-control select, .dl-control input, .dl-review-form select, .dl-review-form textarea, .dl-export-text { font: inherit; padding: 0.4rem 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--card-background); color: inherit; max-width: 100%; box-sizing: border-box; }
 .dl-control select { max-width: min(100%, 24rem); }
-.dl-open-btn { font: inherit; font-family: var(--font-mono); font-size: var(--fs-small); color: var(--primary-color); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
+.dl-open-btn { font: inherit; font-family: var(--font-sans); font-size: var(--fs-small); color: var(--primary-color); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; text-decoration: underline; text-underline-offset: 2px; }
 .dl-list tbody th .dl-open-btn { white-space: nowrap; }
 .dl-list tbody tr.dl-row th[data-label="Family"] .dl-open-btn { font-family: inherit; font-size: inherit; white-space: normal; }
 .dl-open-btn:focus-visible, .dl-btn:focus-visible, .dl-control select:focus-visible, .dl-control input:focus-visible, .dl-review-form select:focus-visible,
@@ -6158,7 +6162,7 @@ footer p {
 .dl-detail-head h5 { margin: 0 0 0.25rem; font-size: var(--fs-lead); font-weight: 600; }
 .dl-sub-h { margin: 1.1rem 0 0.3rem; font-size: var(--fs-body); font-weight: 600; }
 .dl-evidence-h { margin: 1.5rem 0 0.25rem; padding-top: 1rem; border-top: 1px solid var(--border-color); font-size: var(--fs-title); font-weight: 600; }
-.dl-mono { font-family: var(--font-mono); }
+.dl-mono { font-family: var(--font-sans); }
 .dl-members { margin: 0.25rem 0 0.5rem; padding-left: 1.1rem; font-size: var(--fs-body); }
 .dl-members li { margin: 0.2rem 0; }
 .dl-record { border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.85rem 1rem; margin: 0.75rem 0; background: var(--card-background); }
@@ -6166,7 +6170,7 @@ footer p {
 .dl-level { display: inline-block; margin: 0 0 0.5rem; padding: 0.15rem 0.5rem; font-size: var(--fs-small); font-weight: 600; border-radius: var(--radius-sm); background: var(--surface-sunk); border: 1px solid var(--dl-ink); }
 .dl-level-family { border-style: dashed; }
 .dl-record-title { margin: 0 0 0.5rem; font-size: var(--fs-body); font-weight: 600; }
-.dl-record-title a { font-family: var(--font-mono); font-size: var(--fs-small); margin-right: 0.4rem; }
+.dl-record-title a { font-family: var(--font-sans); font-size: var(--fs-small); margin-right: 0.4rem; }
 .dl-quote { margin: 0 0 0.75rem; padding: 0.5rem 0.75rem; border-left: 3px solid var(--accent-color); background: var(--tint); line-height: 1.5; }
 .dl-fields { display: grid; grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr); gap: 0.4rem 1rem; margin: 0; }
 .dl-fields dt { font-size: var(--fs-small); color: var(--text-secondary); padding-top: 0.1rem; }
@@ -6195,7 +6199,7 @@ footer p {
 .dl-close { flex: none; }
 .dl-confirm { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
 .dl-export { margin-top: 0.75rem; }
-.dl-export-text { display: block; width: 100%; font-family: var(--font-mono); font-size: var(--fs-small); white-space: pre; overflow: auto; }
+.dl-export-text { display: block; width: 100%; font-family: var(--font-sans); font-size: var(--fs-small); white-space: pre; overflow: auto; }
 .dl-pager { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin: 0.5rem 0; }
 .dl-pager-count { margin-right: auto; font-size: var(--fs-small); color: var(--text-secondary); }
 .dl-pager-page { font-size: var(--fs-small); }
