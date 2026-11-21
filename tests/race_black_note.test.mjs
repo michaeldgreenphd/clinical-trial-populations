@@ -6,8 +6,10 @@
  * most of its rows come from the registry's "Race (NIH/OMB)" template, whose
  * wording is the registry's. The row's label carries that as a tooltip:
  * focusable, shown on hover and on focus, and the label's accessible
- * description. No other row has one, and a row without a note is drawn as it
- * was.
+ * description. The note is the row's last cell, spanning the row in the flow,
+ * so the panel's overflow cannot clip it (a review finding: placed over the
+ * rows below, it was cut off when its row was the last one). No other row has
+ * one, and a row without a note is drawn as it was.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -68,8 +70,18 @@ const race = (omb, mena) => ({ race: { reported: true,
 function labels(html) {
     const out = {};
     for (const m of html.matchAll(/<div class="demo-row[^"]*" role="listitem">(<span class="demo-label[\s\S]*?)<span class="demo-bar"/g)) {
-        const name = m[1].replace(/<span class="demo-note[\s\S]*$/, '').replace(/<[^>]+>/g, '').replace('&#9432;', '');
+        const name = m[1].replace(/<[^>]+>/g, '').replace('&#9432;', '');
         out[name] = m[1];
+    }
+    return out;
+}
+
+// Each row's whole element, by its label's visible name.
+function rowsByName(html) {
+    const out = {};
+    for (const m of html.matchAll(/<div class="demo-row[^"]*" role="listitem">[\s\S]*?<\/div>/g)) {
+        const label = m[0].match(/<span class="demo-label[^>]*>([\s\S]*?)<span class="demo-(?:note-mark|bar)|<span class="demo-label[^>]*>([^<]*)<\/span>/);
+        out[(label[1] ?? label[2]).replace(/<[^>]+>/g, '')] = m[0];
     }
     return out;
 }
@@ -78,10 +90,13 @@ test('a row with a note: its label is focusable and described by the note', () =
     const run = rowsHarness();
     const html = run(`demoRowsHtml([{ label: 'A & B', value: 3, color: '#000', note: 'x < y' }, { label: 'C', value: 1, color: '#000' }], { idPrefix: 'p' })`);
     const l = labels(html);
-    assert.match(l['A &amp; B'], /^<span class="demo-label demo-label-noted" tabindex="0" aria-describedby="p-note-0">A &amp; B/);
-    assert.match(l['A &amp; B'], /<span class="demo-note" role="tooltip" id="p-note-0">x &lt; y<\/span><\/span>$/);
-    assert.match(l['A &amp; B'], /<span class="demo-note-mark" aria-hidden="true">&#9432;<\/span>/);
+    assert.equal(l['A &amp; B'], '<span class="demo-label demo-label-noted" tabindex="0" aria-describedby="p-note-0">A &amp; B'
+        + '<span class="demo-note-mark" aria-hidden="true">&#9432;</span></span>');
     assert.equal(l.C, '<span class="demo-label">C</span>');
+    // The note is the row's last cell, after the count, not inside the label.
+    const rows = rowsByName(html);
+    assert.match(rows['A &amp; B'], /<span class="demo-n">[\s\S]*?<\/span><\/span><span class="demo-note" role="tooltip" id="p-note-0">x &lt; y<\/span><\/div>$/);
+    assert.doesNotMatch(rows.C, /demo-note/);
 });
 
 test('rows without a note are drawn as before', () => {
@@ -105,10 +120,10 @@ test('the Race distribution gives only the Black row the note', () => {
     const l = labels(html);
     assert.deepEqual(Object.keys(l).sort(), ['Asian', 'Black/African American', 'White']);
     assert.match(l['Black/African American'], /demo-label-noted/);
-    assert.match(l['Black/African American'], /id="race-distribution-note-\d+"/);
+    assert.match(l['Black/African American'], /aria-describedby="race-distribution-note-\d+"/);
     assert.equal(l.White, '<span class="demo-label">White</span>');
     assert.equal(l.Asian, '<span class="demo-label">Asian</span>');
-    const note = l['Black/African American'].match(/role="tooltip"[^>]*>([^<]*)</)[1];
+    const note = rowsByName(html)['Black/African American'].match(/role="tooltip"[^>]*>([^<]*)</)[1];
     assert.match(note, /OMB’s name for the category/);
     assert.match(note, /every Black participant, not only African Americans/);
     assert.match(note, /registry’s “Race \(NIH\/OMB\)” template/);
@@ -118,8 +133,9 @@ test('the note stays on the Black row with Middle Eastern or North African apart
     const html = raceDistribution([race({ white: 60, black_african_american: 30 }, 5)], true);
     const l = labels(html);
     assert.match(l['Black/African American'], /demo-label-noted/);
-    for (const [name, el] of Object.entries(l)) {
-        if (name !== 'Black/African American') assert.doesNotMatch(el, /demo-note/, name);
+    for (const [name, row] of Object.entries(rowsByName(html))) {
+        if (name !== 'Black/African American') assert.doesNotMatch(row, /demo-note|demo-label-noted/, name);
+        else assert.match(row, /<span class="demo-note" role="tooltip" id="race-distribution-note-\d+">/);
     }
 });
 
@@ -130,9 +146,20 @@ test('no Black participants, no row and no note', () => {
 
 test('the note is hidden until the label is hovered or focused', () => {
     assert.match(css, /\.demo-note \{\s*display: none;/);
-    assert.match(css, /\.demo-label-noted:hover \.demo-note,\s*\.demo-label-noted:focus \.demo-note \{ display: block; \}/);
+    assert.match(css, /\.demo-label-noted:hover ~ \.demo-note,\s*\.demo-label-noted:focus ~ \.demo-note,\s*\.demo-note:hover \{ display: block; \}/);
     assert.match(css, /\.demo-label-noted:focus-visible \{ outline:/);
-    // Opaque, so the rows beneath do not show through its text.
     const rule = css.slice(css.indexOf('.demo-note {'), css.indexOf('}', css.indexOf('.demo-note {')));
     assert.match(rule, /background: #[0-9a-f]{6};/i);
+});
+
+test('the note spans its row in the flow, within the panel', () => {
+    // Absolutely placed, it was clipped by .chart-container's overflow: hidden
+    // when its row was last, and ran past the panel at 390px.
+    const rule = css.slice(css.indexOf('.demo-note {'), css.indexOf('}', css.indexOf('.demo-note {')));
+    assert.doesNotMatch(rule, /position:/);
+    assert.match(rule, /grid-column: 1 \/ -1;/);
+    assert.match(rule, /box-sizing: border-box;/);
+    assert.match(rule, /max-width: min\([^)]*, 100%\);/);
+    const noted = css.slice(css.indexOf('.demo-label-noted {'), css.indexOf('}', css.indexOf('.demo-label-noted {')));
+    assert.doesNotMatch(noted, /position:/);
 });

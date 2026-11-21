@@ -1380,9 +1380,9 @@ function demoConfig(config, spec = {}) {
 //          empty?: the sentence shown when there are no rows,
 //          idPrefix?: makes a note's id unique on the page }
 // A row's note is a tooltip on its label: the label takes keyboard focus,
-// the note shows on hover and on focus (styles.css, .demo-note), and it is
-// the label's accessible description. A row without a note is drawn as
-// before.
+// the note shows on hover and on focus (styles.css, .demo-note) as the row's
+// last cell, spanning the row under the label and bar, and it is the label's
+// accessible description. A row without a note is drawn as before.
 // No rows is a state of its own: the selection reported nothing, which is
 // said in words rather than drawn as a list of zeros.
 function demoScale(maxPct) {
@@ -1422,17 +1422,21 @@ function demoRowsHtml(rows, opts = {}) {
         const fill = tex ? '' : ` style="width:${width.toFixed(2)}%;background:${r.color}"`;
         const fillTex = tex ? ` style="width:${width.toFixed(2)}%"` : '';
         const shareText = total > 0 ? `${share.toFixed(1)}%` : '—';
+        // A row's note is the row's last cell, spanning its full width and in
+        // the flow (styles.css .demo-note): placed over the rows below, it was
+        // clipped by the panel's overflow when its row was the last one.
         const noteId = `${opts.idPrefix || 'demo'}-note-${i}`;
         const label = r.note
             ? `<span class="demo-label demo-label-noted" tabindex="0" aria-describedby="${noteId}">${escapeHtml(r.label)}` +
-              `<span class="demo-note-mark" aria-hidden="true">&#9432;</span>` +
-              `<span class="demo-note" role="tooltip" id="${noteId}">${escapeHtml(r.note)}</span></span>`
+              `<span class="demo-note-mark" aria-hidden="true">&#9432;</span></span>`
             : `<span class="demo-label">${escapeHtml(r.label)}</span>`;
+        const note = r.note ? `<span class="demo-note" role="tooltip" id="${noteId}">${escapeHtml(r.note)}</span>` : '';
         return `<div class="demo-row${r.absent ? ' demo-absent' : ''}${first ? ' demo-first-absent' : ''}" role="listitem">` +
             label +
             `<span class="demo-bar" aria-hidden="true" style="--demo-step:${step}"><span class="demo-fill${tex}"${fill || fillTex}></span></span>` +
             `<span class="demo-pct">${shareText}</span>` +
             `<span class="demo-n">${Math.round(r.value).toLocaleString()}<span class="sr-only"> ${escapeHtml(noun)}</span></span>` +
+            note +
             `</div>`;
     }).join('');
     return `<div class="demo-scale" aria-hidden="true"><span></span><span class="demo-ticks">${tickHtml}</span><span></span><span></span></div>` +
