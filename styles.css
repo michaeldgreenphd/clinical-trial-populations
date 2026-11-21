@@ -5743,6 +5743,39 @@ footer p {
 .demo-row { min-height: 34px; border-bottom: 1px solid var(--dm-rule-soft); }
 .demo-row.demo-first-absent { border-top: 1px solid var(--dm-ink); margin-top: 10px; }
 .demo-label { font-size: var(--fs-body); line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
+/* A row label with a note (demoRowsHtml's row.note; the Race distribution's
+   Black row): a dotted underline and a mark say there is more; the note shows
+   on hover and on keyboard focus, below the label, and stays while the
+   pointer is over it. */
+.demo-label-noted {
+    position: relative;
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.demo-label-noted:focus-visible { outline: 2px solid var(--dm-ink); outline-offset: 2px; }
+.demo-note-mark { margin-left: 0.3em; font-size: var(--fs-small); color: var(--dm-muted); }
+.demo-note {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 1000;
+    margin-top: 4px;
+    width: max-content;
+    max-width: min(22rem, 80vw);
+    padding: 0.5rem 0.75rem;
+    /* Opaque, so the rows beneath do not show through the text. */
+    background: #1c1c1c;
+    color: #fff;
+    font-size: var(--fs-small);
+    font-style: normal;
+    line-height: 1.35;
+    border-radius: 0.25rem;
+    white-space: normal;
+}
+.demo-label-noted:hover .demo-note,
+.demo-label-noted:focus .demo-note { display: block; }
 .demo-pct { font-size: var(--fs-body); text-align: right; }
 .demo-n { font-size: var(--fs-small); color: var(--dm-muted); text-align: right; white-space: nowrap; }
 .demo-empty { font-size: var(--fs-body); font-style: italic; color: var(--dm-ink-2); margin: 0.6rem 0; }
