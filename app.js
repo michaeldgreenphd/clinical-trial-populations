@@ -4955,6 +4955,58 @@ function populateConditionsDropdown() {
     });
 }
 
+// Where a trial enrolled, read from the countries it lists (study.countries),
+// for the Country filter's three location options. The registry lists Puerto
+// Rico, Guam, American Samoa, the Northern Mariana Islands, the U.S. Virgin
+// Islands and the U.S. Minor Outlying Islands as countries of their own; they
+// count as the United States here, as the geography tab counts them among US
+// states and territories. A trial listing no country has no location and
+// matches none of the three options. A trial's race, ethnicity and sex tables
+// give one total for all its sites, so a trial enrolling in the United States
+// and elsewhere is a group of its own: its participants cannot be split by
+// country. Outside the United States most race rows come from the registry's
+// "Race (NIH/OMB)" template, whose wording ("Black or African American") is
+// the registry's, not the participants' own.
+const US_JURISDICTIONS = new Set([
+    'United States', 'Puerto Rico', 'Guam', 'American Samoa', 'Northern Mariana Islands',
+    'Virgin Islands (U.S.)', 'U.S. Virgin Islands', 'United States Minor Outlying Islands'
+]);
+const ENROLLMENT_SCOPES = Object.freeze([
+    Object.freeze({ value: 'scope:us_only', key: 'us_only', label: 'United States only' }),
+    Object.freeze({ value: 'scope:us_and_other', key: 'us_and_other', label: 'United States and other countries' }),
+    Object.freeze({ value: 'scope:outside_us', key: 'outside_us', label: 'Outside the United States' })
+]);
+
+// 'us_only', 'us_and_other', 'outside_us', or 'none' when the trial lists no
+// country. A listed entry is an object with a country name, as published;
+// a bare string is read the same way.
+function enrollmentScope(study) {
+    const names = (Array.isArray(study && study.countries) ? study.countries : [])
+        .map(c => (typeof c === 'string' ? c : c && c.country))
+        .filter(n => typeof n === 'string' && n.trim())
+        .map(n => n.trim());
+    if (!names.length) return 'none';
+    const inUs = names.filter(n => US_JURISDICTIONS.has(n)).length;
+    if (inUs === names.length) return 'us_only';
+    return inUs ? 'us_and_other' : 'outside_us';
+}
+
+// Whether a study passes the Country filter's value: 'all', one of the
+// location options (ENROLLMENT_SCOPES), or a country name it lists.
+function studyMatchesCountryFilter(study, value) {
+    if (!value || value === 'all') return true;
+    const scope = ENROLLMENT_SCOPES.find(s => s.value === value);
+    if (scope) return enrollmentScope(study) === scope.key;
+    const countries = Array.isArray(study && study.countries) ? study.countries : [];
+    return countries.some(c => (typeof c === 'string' ? c : c && c.country) === value);
+}
+
+// The active-filter chip for the Country filter's value.
+function countryFilterLabel(value) {
+    const scope = ENROLLMENT_SCOPES.find(s => s.value === value);
+    return scope ? `Enrolled: ${scope.label}` : `Country: ${value}`;
+}
+
 function populateCountriesDropdown() {
     const select = document.getElementById('country');
     if (!select || !data) return;
@@ -4978,13 +5030,26 @@ function populateCountriesDropdown() {
     // Clear existing options (except "All")
     select.innerHTML = '<option value="all">All Countries</option>';
 
-    // Add country options
+    // Where the trial enrolled (enrollmentScope), then each country
+    const scopes = document.createElement('optgroup');
+    scopes.label = 'Where the trial enrolled';
+    ENROLLMENT_SCOPES.forEach(scope => {
+        const option = document.createElement('option');
+        option.value = scope.value;
+        option.textContent = scope.label;
+        scopes.appendChild(option);
+    });
+    select.appendChild(scopes);
+
+    const countries = document.createElement('optgroup');
+    countries.label = 'Country listed';
     sortedCountries.forEach(country => {
         const option = document.createElement('option');
         option.value = country;
         option.textContent = country;
-        select.appendChild(option);
+        countries.appendChild(option);
     });
+    select.appendChild(countries);
 }
 
 function resetFilters() {
@@ -5091,7 +5156,7 @@ function updateActiveFilters() {
 
     const country = document.getElementById('country').value;
     if (country !== 'all') {
-        filters.push({ label: `Country: ${country}`, reset: () => {
+        filters.push({ label: countryFilterLabel(country), reset: () => {
             document.getElementById('country').value = 'all';
         }});
     }
@@ -5302,11 +5367,10 @@ function getFilteredData() {
         if (conditionPrimaryFilter !== 'all' || conditionSecondaryFilter !== 'all') {
             if (!studyMatchesConditionFilter(study, conditionPrimaryFilter, conditionSecondaryFilter)) return false;
         }
-        if (countryFilter !== 'all') {
-            const countries = study.countries || [];
-            const countryNames = countries.map(c => c.country);
-            if (!countryNames.includes(countryFilter)) return false;
-        }
+        // Only away from the default view, like the condition filter above:
+        // the default view runs no country check (tests/first_view.test.mjs,
+        // and the engine's first-view gate, which slices getFilteredData).
+        if (countryFilter !== 'all' && !studyMatchesCountryFilter(study, countryFilter)) return false;
 
         // Participant count range — null/undefined enrollment is excluded
         // whenever either bound is active
