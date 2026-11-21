@@ -5743,6 +5743,40 @@ footer p {
 .demo-row { min-height: 34px; border-bottom: 1px solid var(--dm-rule-soft); }
 .demo-row.demo-first-absent { border-top: 1px solid var(--dm-ink); margin-top: 10px; }
 .demo-label { font-size: var(--fs-body); line-height: 1.25; padding: 4px 0; overflow-wrap: anywhere; }
+/* A row label with a note (demoRowsHtml's row.note; the Race distribution's
+   Black row): a dotted underline and a mark say there is more. The note is
+   the row's last cell: shown on hover and on keyboard focus of the label, it
+   spans the row under the label and bar, in the flow, so it pushes the rows
+   below down. Placed over them (position: absolute) it was clipped by the
+   panel's overflow: hidden when its row was the last one, and at 390px it ran
+   past the panel's inner width (a review finding). */
+.demo-label-noted {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+}
+.demo-label-noted:focus-visible { outline: 2px solid var(--dm-ink); outline-offset: 2px; }
+.demo-note-mark { margin-left: 0.3em; font-size: var(--fs-small); color: var(--dm-muted); }
+.demo-note {
+    display: none;
+    grid-column: 1 / -1;
+    justify-self: start;
+    box-sizing: border-box;
+    max-width: min(40rem, 100%);
+    margin: 2px 0 8px;
+    padding: 0.5rem 0.75rem;
+    /* Opaque, so it reads the same over any panel background. */
+    background: #1c1c1c;
+    color: #fff;
+    font-size: var(--fs-small);
+    font-style: normal;
+    line-height: 1.35;
+    border-radius: 0.25rem;
+    white-space: normal;
+}
+.demo-label-noted:hover ~ .demo-note,
+.demo-label-noted:focus ~ .demo-note,
+.demo-note:hover { display: block; }
 .demo-pct { font-size: var(--fs-body); text-align: right; }
 .demo-n { font-size: var(--fs-small); color: var(--dm-muted); text-align: right; white-space: nowrap; }
 .demo-empty { font-size: var(--fs-body); font-style: italic; color: var(--dm-ink-2); margin: 0.6rem 0; }
