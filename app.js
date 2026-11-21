@@ -1373,11 +1373,16 @@ function demoConfig(config, spec = {}) {
 // absence below a rule, in italics and textured. Each share is the row's
 // count over the sum of the rows given, as the doughnut it replaces showed.
 //
-// rows   [{ label, value, color, texture?, absent? }]
+// rows   [{ label, value, color, texture?, absent?, note? }]
 // opts   { noun: 'participants', total?: denominator when it is not the
 //          sum of the rows (the reporting states count parse errors too),
 //          keepOrder?: true to keep the order given,
-//          empty?: the sentence shown when there are no rows }
+//          empty?: the sentence shown when there are no rows,
+//          idPrefix?: makes a note's id unique on the page }
+// A row's note is a tooltip on its label: the label takes keyboard focus,
+// the note shows on hover and on focus (styles.css, .demo-note) as the row's
+// last cell, spanning the row under the label and bar, and it is the label's
+// accessible description. A row without a note is drawn as before.
 // No rows is a state of its own: the selection reported nothing, which is
 // said in words rather than drawn as a list of zeros.
 function demoScale(maxPct) {
@@ -1408,7 +1413,7 @@ function demoRowsHtml(rows, opts = {}) {
     }).join('');
     const step = `${((100 * scale.step) / scale.max).toFixed(3)}%`;
     let ruled = false;
-    const body = ordered.map(r => {
+    const body = ordered.map((r, i) => {
         const share = pct(r.value);
         const width = Math.min(100, (100 * share) / scale.max);
         const first = r.absent && !ruled && !opts.keepOrder;
@@ -1417,11 +1422,21 @@ function demoRowsHtml(rows, opts = {}) {
         const fill = tex ? '' : ` style="width:${width.toFixed(2)}%;background:${r.color}"`;
         const fillTex = tex ? ` style="width:${width.toFixed(2)}%"` : '';
         const shareText = total > 0 ? `${share.toFixed(1)}%` : '—';
+        // A row's note is the row's last cell, spanning its full width and in
+        // the flow (styles.css .demo-note): placed over the rows below, it was
+        // clipped by the panel's overflow when its row was the last one.
+        const noteId = `${opts.idPrefix || 'demo'}-note-${i}`;
+        const label = r.note
+            ? `<span class="demo-label demo-label-noted" tabindex="0" aria-describedby="${noteId}">${escapeHtml(r.label)}` +
+              `<span class="demo-note-mark" aria-hidden="true">&#9432;</span></span>`
+            : `<span class="demo-label">${escapeHtml(r.label)}</span>`;
+        const note = r.note ? `<span class="demo-note" role="tooltip" id="${noteId}">${escapeHtml(r.note)}</span>` : '';
         return `<div class="demo-row${r.absent ? ' demo-absent' : ''}${first ? ' demo-first-absent' : ''}" role="listitem">` +
-            `<span class="demo-label">${escapeHtml(r.label)}</span>` +
+            label +
             `<span class="demo-bar" aria-hidden="true" style="--demo-step:${step}"><span class="demo-fill${tex}"${fill || fillTex}></span></span>` +
             `<span class="demo-pct">${shareText}</span>` +
             `<span class="demo-n">${Math.round(r.value).toLocaleString()}<span class="sr-only"> ${escapeHtml(noun)}</span></span>` +
+            note +
             `</div>`;
     }).join('');
     return `<div class="demo-scale" aria-hidden="true"><span></span><span class="demo-ticks">${tickHtml}</span><span></span><span></span></div>` +
@@ -7855,7 +7870,17 @@ function renderRaceDistribution(filtered) {
     if (charts.raceDistribution) { charts.raceDistribution.destroy(); charts.raceDistribution = null; }
     // One hue for every race: the rows name the categories, so the bar
     // length is the only thing the colour has to carry.
-    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white }), { empty: 'No participants with reported race in this selection.' });
+    // The Black row's tooltip says what its name is: OMB's name for every
+    // Black participant, and, outside the United States, mostly the
+    // registry's template wording (the Country filter's location options
+    // separate those trials). In the 2026-11-15 inputs, 3,960 of the 4,115
+    // race tables posting "Black or African American" in trials enrolling
+    // only outside the United States are the registry's "Race (NIH/OMB)"
+    // template.
+    const blackNote = '“Black or African American” is OMB’s name for the category: it counts every Black participant, not only African Americans. Outside the United States most of these rows come from the registry’s “Race (NIH/OMB)” template, so the wording is the registry’s, not the participants’ own.';
+    ctx.innerHTML = demoRowsHtml(demoRowsFromTotals(totals, { default: DEMO_COLORS.race.white })
+        .map(r => (r.label === 'Black/African American' ? Object.assign({}, r, { note: blackNote }) : r)),
+        { empty: 'No participants with reported race in this selection.', idPrefix: 'race-distribution' });
     raceMenaControls(menaKnown, apart, white, mena);
 }
 
