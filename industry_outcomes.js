@@ -788,7 +788,15 @@
             // primary measures failed to parse has no table to mark, and its parse failure says so.
             const primaryFailed = Array.isArray(failures) && failures.some(f => f.section === 'primary_measures');
             for (const g of signals) {
-                if (!Array.isArray(g.rows) || g.measure_type !== 'PRIMARY') continue;
+                if (!Array.isArray(g.rows)) continue;
+                // Every posted primary measure is copied, so a copied measure at the signal's index
+                // says the signal is on a primary measure; a signal that disagrees with it on its type
+                // or title is refused, as the engine's check does.
+                const at = Array.isArray(r.primary_measures) ? r.primary_measures.find(m => isObj(m) && m.measure_index === g.measure_index) : null;
+                if (at && (g.measure_type !== 'PRIMARY' || g.measure_title !== at.title)) {
+                    return `${id}: a signal's measure type or title disagrees with the copied primary measure`;
+                }
+                if (g.measure_type !== 'PRIMARY') continue;
                 if (!Array.isArray(r.primary_measures)) {
                     if (!primaryFailed) return `${id}: a signal's rows point at primary measures the record neither copies nor records a failure for`;
                     continue;

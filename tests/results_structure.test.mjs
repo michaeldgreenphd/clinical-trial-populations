@@ -532,7 +532,8 @@ test('the check refuses rows that are not on a title-level signal or do not name
   assert.equal(problem((r) => { for (const rec of Object.values(r)) for (const g of rec.subgroup.signals || []) delete g.rows; }), null);
   // On a primary measure the record copies, each row is the posted row or group at its position,
   // with its title (the fixture's primary measure has groups Zorbatinib and Placebo, and one untitled class).
-  const onPrimary = (field, rows, index = 0) => (r) => Object.assign(sex(r), { measure_type: 'PRIMARY', measure_index: index, field, rows });
+  const onPrimary = (field, rows, index = 0) => (r) => Object.assign(sex(r), { measure_type: 'PRIMARY', measure_index: index, field, rows,
+    measure_title: (r.NCT99000001.primary_measures.find((m) => m.measure_index === index) || {}).title || sex(r).measure_title });
   assert.equal(problem(onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }, { group_id: 'OG001', title: 'Placebo' }])), null);
   for (const change of [
     onPrimary('group_titles', [{ group_id: 'OG000', title: 'Placebo' }]),
@@ -542,6 +543,11 @@ test('the check refuses rows that are not on a title-level signal or do not name
     onPrimary('category_titles', [{ class_index: 0, category_index: 0, title: 'Female' }]),
     onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }], 7),
   ]) assert.match(problem(change), /a signal's rows do not match the posted table/);
+  // A signal on a copied primary measure whose own type or title disagrees with it is refused.
+  for (const restate of [{ measure_type: 'SECONDARY' }, { measure_type: null }, { measure_title: 'Another measure' }]) {
+    assert.match(problem((r) => { onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }])(r); Object.assign(sex(r), restate); }),
+      /a signal's measure type or title disagrees with the copied primary measure/);
+  }
   // A record whose primary measures failed to parse has no table; its parse failure must say so.
   const failed = (stated) => (r) => {
     onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }])(r);
