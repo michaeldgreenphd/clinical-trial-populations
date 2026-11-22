@@ -1,7 +1,7 @@
 {
   "about": "Fictional results-structure artifact family copied from civicsample-engine tests/fixtures/results_structure/ (written by scripts/build_results_structure_fixture.py there from the fictional records in tests/outcomes/rs_fixture.py). Every trial, count and review row is invented; no real person reviewed anything in it. Recopy after an engine rule or contract change.",
-  "engine_commit": "9bbc60f3632b7fd29be1a0e3f14b952ff89f61de",
-  "engine_branch": "claude/quirky-cannon-yi93se (michaeldgreenphd/civicsample-engine#80)",
+  "engine_commit": "27e3da92c375eafa040f4d7ab08cc8908ab7eb53",
+  "engine_branch": "claude/quirky-cannon-yi93se (civicsample-engine: subgroup signal rows)",
   "schema_version": 1,
   "method_version": "results-structure-1"
 }

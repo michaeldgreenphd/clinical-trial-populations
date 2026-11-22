@@ -659,6 +659,23 @@
     const RS_SCHEMA_VERSION = 1;
     const RS_DIMENSIONS = ['age', 'sex', 'race', 'ethnicity'];
     const RS_DIMENSION_LABELS = { age: 'Age', sex: 'Sex', race: 'Race', ethnicity: 'Ethnicity', other: 'No named dimension' };
+    // The signals of rule SG2's level rule on posted titles; only they list `rows` (civicsample-engine,
+    // outcomes/results_structure.py signal_rows). Every other signal has rows null, or none in a
+    // family built before rows were added.
+    const ROW_FIELDS = ['class_titles', 'category_titles', 'group_titles'];
+    // Whether one row of a title-level signal is the posted class, category or group of the copied
+    // primary measure `pm` at its position, with the same title.
+    function rowResolves(g, x, pm) {
+        if (g.field === 'group_titles') {
+            const grp = (Array.isArray(pm.groups) ? pm.groups : []).find(v => isObj(v) && v.id === x.group_id);
+            return Boolean(grp) && grp.title === x.title;
+        }
+        const c = Array.isArray(pm.classes) ? pm.classes[x.class_index] : undefined;
+        if (!isObj(c)) return false;
+        if (g.field === 'class_titles') return c.title === x.title;
+        const k = Array.isArray(c.categories) ? c.categories[x.category_index] : undefined;
+        return isObj(k) && k.title === x.title;
+    }
     const NOT_YET_PROCESSED = 'not_yet_processed';
     const SUBGROUP_DETECTED = 'explicit_subgroup_results_detected';
     const SUBGROUP_LABELS = {
@@ -754,9 +771,38 @@
             if (signals.some(s => !isObj(s) || (s.review != null && (!Array.isArray(s.review) || !s.review.every(reviewOk))))) {
                 return `${id}: a signal or its review list is malformed`;
             }
+            // Rows, where a family has them: only on a title-level signal, never empty, and each row
+            // names its position (class, class and category, or group id) and its title.
+            const rowOk = (s, x) => isObj(x) && typeof x.title === 'string' && (s.field === 'group_titles'
+                ? typeof x.group_id === 'string' : isInt(x.class_index) && (s.field !== 'category_titles' || isInt(x.category_index)));
+            if (signals.some(s => s.rows != null && (!ROW_FIELDS.includes(s.field) || !Array.isArray(s.rows) || !s.rows.length || !s.rows.every(x => rowOk(s, x))))) {
+                return `${id}: a signal's rows are malformed`;
+            }
             const failures = isObj(r.parse) ? r.parse.failures : null;
             if ((r.parse != null && !isObj(r.parse)) || (failures != null && (!Array.isArray(failures) || failures.some(f => !isObj(f))))) {
                 return `${id}: the parse failures are not a list of records`;
+            }
+            // On a primary measure the record copies, each row must be the posted row or group at its
+            // position, with its title, as the engine's check also requires (results_structure_build.py
+            // _rows_problem); otherwise a mark would land on another row, or on none. A record whose
+            // primary measures failed to parse has no table to mark, and its parse failure says so.
+            const primaryFailed = Array.isArray(failures) && failures.some(f => f.section === 'primary_measures');
+            for (const g of signals) {
+                if (!Array.isArray(g.rows)) continue;
+                // Every posted primary measure is copied, so a copied measure at the signal's index
+                // says the signal is on a primary measure; a signal that disagrees with it on its type
+                // or title is refused, as the engine's check does.
+                const at = Array.isArray(r.primary_measures) ? r.primary_measures.find(m => isObj(m) && m.measure_index === g.measure_index) : null;
+                if (at && (g.measure_type !== 'PRIMARY' || g.measure_title !== at.title)) {
+                    return `${id}: a signal's measure type or title disagrees with the copied primary measure`;
+                }
+                if (g.measure_type !== 'PRIMARY') continue;
+                if (!Array.isArray(r.primary_measures)) {
+                    if (!primaryFailed) return `${id}: a signal's rows point at primary measures the record neither copies nor records a failure for`;
+                    continue;
+                }
+                const pm = r.primary_measures.find(m => isObj(m) && m.measure_index === g.measure_index);
+                if (!pm || !g.rows.every(x => rowResolves(g, x, pm))) return `${id}: a signal's rows do not match the posted table`;
             }
             // "Detected" for a characteristic needs an accepted human review naming that characteristic,
             // on a signal of that characteristic or one with no named characteristic ('other'). An
@@ -885,6 +931,99 @@
     // 2026-11-19 build, the longest 102 rows), so the analyses and the method's layer stay in reach.
     const VALUE_ROWS_SHOWN = 12;
 
+    // ---- rows the subgroup rule matched (civicsample-engine, `subgroup.signals[].rows`)
+    //
+    // A signal of rule SG2's level rule on class, category or group titles lists the posted rows or
+    // group columns whose titles carry a level. In the table each one is marked with the
+    // characteristic the rule read and with where its review stands: no review record (the rule's
+    // reading of a title only), accepted by a person, reviewed and unresolved, or reviewed in part. A
+    // row whose signal a person rejected is not marked. Without an accepted review a mark is never a
+    // finding that the row is a subgroup result, and the note under the table says so.
+    //
+    // Where one signal's review stands, read the way the engine settles it (civicsample-engine,
+    // outcomes/results_structure.py, apply_reviews and _decision_for). A signal of one of the four
+    // characteristics is settled by the review naming that characteristic. A signal with no named
+    // characteristic ('other'; on titles, national-origin levels) can be reviewed under 'other' or
+    // under any of the four: for each of the four, a review naming it decides, and failing that the
+    // 'other' review does (rejected there, or accepted as a subgroup by another characteristic,
+    // settles it as not that one). So such a signal is accepted when any review accepts it, rejected
+    // when that leaves it rejected for all four, unresolved when one of the four is left unresolved,
+    // and otherwise reviewed in part: rejected for some characteristics and not settled for the rest.
+    function reviewState(g) {
+        const reviews = (Array.isArray(g.review) ? g.review : []).filter(isObj);
+        const own = g.dimension === 'other' ? reviews : reviews.filter(v => v.dimension === g.dimension).slice(0, 1);
+        const accepted = own.filter(v => v.decision === 'accepted');
+        if (accepted.length) return { status: 'accepted', dims: accepted.map(v => v.dimension), reviews: accepted, rejectedFor: [] };
+        const of = status => ({ status, dims: [g.dimension], reviews: own, rejectedFor: [] });
+        if (!own.length) return of('awaiting');
+        if (g.dimension !== 'other') return of(own[0].decision === 'rejected' ? 'rejected' : 'unresolved');
+        const whole = own.find(v => v.dimension === 'other');
+        const each = RS_DIMENSIONS.map(d => {
+            const v = own.find(x => x.dimension === d);
+            return v ? v.decision : whole ? (whole.decision === 'unresolved' ? 'unresolved' : 'rejected') : null;
+        });
+        if (each.every(x => x === 'rejected')) return of('rejected');
+        if (each.some(x => x !== 'rejected' && x != null)) return of('unresolved');
+        return { ...of('partial'), rejectedFor: RS_DIMENSIONS.filter((d, i) => each[i] === 'rejected') };
+    }
+    const dimWord = (g, d) => (RS_DIMENSIONS.includes(d) ? RS_DIMENSION_LABELS[d].toLowerCase() : g.rule_dimension === 'origin' ? 'national-origin' : '');
+    const andList = l => (l.length > 1 ? `${l.slice(0, -1).join(', ')} and ${l.at(-1)}` : l.join(''));
+    function rowMark(g) {
+        const r = reviewState(g);
+        if (r.status === 'rejected') return null;
+        const dim = andList([...new Set(r.dims.map(d => dimWord(g, d)).filter(Boolean))]);
+        const what = `${dim ? `${dim} ` : ''}subgroup`;
+        const text = r.status === 'accepted' ? `${what}, reviewed` : r.status === 'unresolved' ? `possible ${what}, review unresolved`
+            : r.status === 'partial' ? `possible ${what}, reviewed in part` : `possible ${what}`;
+        const dates = [...new Set(r.reviews.map(v => v.reviewed_on).filter(x => typeof x === 'string' && x))].sort();
+        return { status: r.status, dim, text, dates, rejectedFor: r.rejectedFor.map(d => dimWord(g, d)) };
+    }
+    // The marks for one primary measure of a results-structure record `s`: by class position, by
+    // "class/category" position and by group id, each a list of distinct marks.
+    function rowMarks(s, m) {
+        const marks = { classes: new Map(), cats: new Map(), groups: new Map(), list: [] };
+        const signals = isObj(s) && isObj(s.subgroup) && Array.isArray(s.subgroup.signals) ? s.subgroup.signals : [];
+        for (const g of signals) {
+            if (!isObj(g) || !ROW_FIELDS.includes(g.field) || g.measure_type !== 'PRIMARY' || !isObj(m)
+                || g.measure_index !== m.measure_index || !Array.isArray(g.rows)) continue;
+            const mark = rowMark(g);
+            if (!mark) continue;
+            marks.list.push(mark);
+            const add = (map, key) => { const l = map.get(key) || []; if (!l.some(x => x.text === mark.text)) l.push(mark); map.set(key, l); };
+            for (const x of g.rows.filter(isObj)) {
+                if (g.field === 'class_titles') add(marks.classes, x.class_index);
+                else if (g.field === 'category_titles') add(marks.cats, `${x.class_index}/${x.category_index}`);
+                else add(marks.groups, x.group_id);
+            }
+        }
+        return marks;
+    }
+    // A mark sits inside a header cell, so its words join the header's accessible name and are read
+    // with every cell under it; a hidden "(note: …)" keeps them apart from the title as posted.
+    const markHTML = l => (l || []).map(x => ` <span class="oc-rv-flag oc-rv-flag-${x.status}"><span class="oc-vh">(note: </span>${esc(x.text)}<span class="oc-vh">)</span></span>`).join('');
+    // One sentence per label. Two signals of one measure can share a label and have different review
+    // dates; the sentence then gives every date, and each signal's own is in its entry under the
+    // trial's subgroup signals.
+    function marksNoteHTML(marks) {
+        const byLabel = new Map();
+        for (const x of marks.list) {
+            const key = `${x.text}|${x.rejectedFor.join(',')}`;
+            const e = byLabel.get(key);
+            if (e) { e.several = true; e.dates = [...new Set([...e.dates, ...x.dates])].sort(); } else byLabel.set(key, { ...x, several: false });
+        }
+        const distinct = [...byLabel.values()];
+        if (!distinct.length) return '';
+        const read = x => (x.dim ? `${x.dim} levels` : 'subgroup levels');
+        const on = x => (x.dates.length ? ` on ${esc(andList(x.dates.map(fmtDate)))}` : '');
+        return `<p class="oc-note oc-rv-flag-note">${distinct.map(x => (x.status === 'accepted'
+            ? `“${esc(x.text)}”: a person reviewed the subgroup rule's ${x.several ? 'signals' : 'signal'} on these titles and accepted ${x.several ? 'them' : 'it'}${on(x)}.`
+            : x.status === 'unresolved'
+                ? `“${esc(x.text)}”: the subgroup rule read ${read(x)} in these titles, and a person who reviewed the signal could not settle it.`
+                : x.status === 'partial'
+                    ? `“${esc(x.text)}”: the subgroup rule read ${read(x)} in these titles. A person reviewed the signal and rejected it for ${esc(andList(x.rejectedFor))}; it is not settled for the other characteristics, so it is not a finding that these are subgroup results.`
+                    : `“${esc(x.text)}”: the subgroup rule read ${read(x)} in these titles. No person has reviewed this signal, so it is not a finding that these are subgroup results.`)).join(' ')}</p>`;
+    }
+
     const limitsText = (lo, hi) => (lo != null && hi != null ? `${esc(lo)} to ${esc(hi)}`
         : lo != null ? `lower limit ${esc(lo)}` : hi != null ? `upper limit ${esc(hi)}` : '');
     const capFirst = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -910,16 +1049,24 @@
             + (x.comment ? `<span class="oc-rv-extra oc-sub">${esc(x.comment)}</span>` : '') + '</td>';
     }
 
-    // The table for one measure, or '' when the family has no values for it.
-    function valuesTableHTML(m, titles) {
-        if (!Array.isArray(m.classes)) return '';
-        const classes = listOf(m.classes);
+    // The table for one measure, or '' when the family has no values for it. `marks` (rowMarks) marks
+    // the rows and group columns a subgroup signal points at, by their position as posted.
+    // The group columns of a measure's values table: its groups, then any group a value names that
+    // the list does not (none in the 2026-11-19 build).
+    function valueColumns(m) {
         const cols = [];
         const addCol = id => { if (typeof id === 'string' && !cols.includes(id)) cols.push(id); };
         listOf(m.groups).forEach(g => addCol(g.id));
-        // A value naming a group the measure's list does not (none in the 2026-11-19 build) still gets a column.
-        classes.forEach(c => listOf(c.categories).forEach(k => listOf(k.measurements).forEach(x => addCol(x.group_id))));
-        if (!classes.some(c => listOf(c.categories).length) || !cols.length) return '';
+        listOf(m.classes).forEach(c => listOf(c.categories).forEach(k => listOf(k.measurements).forEach(x => addCol(x.group_id))));
+        return cols;
+    }
+    // Whether valuesTableHTML draws a table for the measure; a signal's detail says its rows are
+    // marked only when one is drawn.
+    const hasValuesTable = m => isObj(m) && Array.isArray(m.classes) && listOf(m.classes).some(c => listOf(c.categories).length)
+        && valueColumns(m).length > 0;
+    function valuesTableHTML(m, titles, marks = rowMarks(null, m)) {
+        if (!hasValuesTable(m)) return '';
+        const cols = valueColumns(m);
         const label = m.param_type ? capFirst(words(m.param_type)) : 'Value';
         const dispersion = typeof m.dispersion_type === 'string' ? m.dispersion_type : '';
         const seen = { twice: false };
@@ -931,41 +1078,49 @@
             }).join('');
             return `<tr class="oc-rv-n"><th scope="row">Number analysed <span class="oc-sub">(${esc(d.units || 'units not stated')})</span></th>${cells}</tr>`;
         });
-        // One list of rows per <tbody>: the measure's number analysed, then each class.
+        // One list of rows per <tbody>: the measure's number analysed, then each class. Classes and
+        // categories are walked at their posted positions, which is what a signal's rows point at.
         const bodies = [nRows(m.denominators)];
-        for (const c of classes) {
+        m.classes.forEach((c, ci) => {
+            if (!isObj(c)) return;
             const cats = listOf(c.categories);
             const dens = nRows(c.denominators);
-            const heading = c.title && (cats.length > 1 || cats.some(k => k.title) || dens.length);
+            const classMark = markHTML(marks.classes.get(ci));
+            // A marked class with no category rows still gets its heading row, so its mark is drawn.
+            const heading = c.title && (cats.length > 1 || cats.some(k => k.title) || dens.length || (classMark && !cats.length));
             const body = [];
-            if (heading) body.push(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="${cols.length + 1}">${esc(c.title)}</th></tr>`);
+            if (heading) body.push(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="${cols.length + 1}">${esc(c.title)}${classMark}</th></tr>`);
             body.push(...dens);
-            for (const k of cats) {
+            (Array.isArray(c.categories) ? c.categories : []).forEach((k, ki) => {
+                if (!isObj(k)) return;
                 const ms = listOf(k.measurements);
                 const name = k.title || (heading ? label : c.title || label);
-                body.push(`<tr><th scope="row">${esc(name)}</th>${cols.map(id => valueCellHTML(ms.find(x => x.group_id === id), dispersion, seen)).join('')}</tr>`);
-            }
+                // Without a heading row the class title names this row, so the class's mark goes here.
+                const mark = markHTML(marks.cats.get(`${ci}/${ki}`)) + (heading ? '' : classMark);
+                body.push(`<tr><th scope="row">${esc(name)}${mark}</th>${cols.map(id => valueCellHTML(ms.find(x => x.group_id === id), dispersion, seen)).join('')}</tr>`);
+            });
             bodies.push(body);
-        }
+        });
         const caption = `Values posted for each group${dispersion ? `, with the ${esc(dispersion)} in brackets` : ''}`;
         // The caption is read with the table; its visible copy sits above the scrolling box, so a
         // table wider than a phone does not cut it off.
         const table = `
                 <div class="oc-table-scroll" tabindex="0" role="region" aria-label="Values posted for each group: ${esc(m.title || 'untitled measure')}">
                     <table class="oc-table oc-rv-table"><caption class="oc-vh">${caption}</caption>
-                    <thead><tr><th scope="col"><span class="oc-vh">Row</span></th>${cols.map(id => `<th scope="col">${esc(titles[id] || id)}</th>`).join('')}</tr></thead>
+                    <thead><tr><th scope="col"><span class="oc-vh">Row</span></th>${cols.map(id => `<th scope="col">${esc(titles[id] || id)}${markHTML(marks.groups.get(id))}</th>`).join('')}</tr></thead>
                     ${bodies.filter(b => b.length).map(b => `<tbody>${b.join('')}</tbody>`).join('')}</table>
                 </div>`;
-        const twiceNote = seen.twice ? '<p class="oc-note">For some values on this measure the registry returns one number twice, as the spread and as the lower limit; it is shown once, in brackets.</p>' : '';
+        const twiceNote = (seen.twice ? '<p class="oc-note">For some values on this measure the registry returns one number twice, as the spread and as the lower limit; it is shown once, in brackets.</p>' : '')
+            + marksNoteHTML(marks);
         // The number of rows decides the layout only; it is not shown.
         return bodies.flat().length > VALUE_ROWS_SHOWN
             ? `<details class="oc-rv-more"><summary>${caption} <span class="oc-sub">(a long table; open to show it)</span></summary>${table}</details>${twiceNote}`
             : `<p class="oc-rv-caption" aria-hidden="true">${caption}</p>${table}${twiceNote}`;
     }
 
-    function reportedMeasureHTML(m) {
+    function reportedMeasureHTML(m, marks = rowMarks(null, m)) {
         const titles = Object.fromEntries(listOf(m.groups).filter(g => typeof g.id === 'string').map(g => [g.id, g.title || g.id]));
-        const table = valuesTableHTML(m, titles);
+        const table = valuesTableHTML(m, titles, marks);
         const denoms = listOf(m.denominators).map(d => {
             const counts = listOf(d.counts).map(c => `${esc(titles[c.group_id] || c.group_id)} ${esc(c.value != null ? c.value : 'not stated')}`).join('; ');
             return `<li>${counts || '<span class="oc-absent">no counts</span>'} <span class="oc-sub">(${esc(d.units || 'units not stated')})</span></li>`;
@@ -1003,7 +1158,7 @@
         // A family built before the values were copied has the measures but not their values.
         if (pm.some(m => !isObj(m) || !Array.isArray(m.groups))) return '<span class="oc-absent">This release\'s data does not include the posted values.</span>';
         const when = structure && isObj(structure.run) && isObj(structure.run.acquisition) ? fmtDate(structure.run.acquisition.retrieved_at) : '';
-        return pm.map(reportedMeasureHTML).join('') +
+        return pm.map(m => reportedMeasureHTML(m, rowMarks(s, m))).join('') +
             `<p class="oc-note">Copied from the registry as posted${when ? `, retrieved ${esc(when)}` : ''}. An estimate or a p-value is not, by itself, a conclusion about whether the trial met its objective.</p>`;
     }
 
@@ -1104,17 +1259,32 @@
         return `${m.usable === false ? 'Not usable' : 'Not evaluated'}: ${why}`;
     }
 
-    function signalHTML(s) {
+    // `rec`: the trial's results-structure record, whose copied primary measures hold the table.
+    function signalHTML(s, rec) {
         const reviews = Array.isArray(s.review) ? s.review : [];
         const tag = reviews.length
             ? reviews.map(v => `<span class="oc-tag">reviewed by a person: ${esc(v.decision)} for ${esc((RS_DIMENSION_LABELS[v.dimension] || v.dimension || '').toLowerCase())}${v.reviewed_on ? `, ${esc(fmtDate(v.reviewed_on))}` : ''}</span>`).join(' ')
             : '<span class="oc-tag oc-awaiting">signal awaiting review</span>';
         const matched = (Array.isArray(s.matched_text) ? s.matched_text : []).map(t => `<q>${esc(t)}</q>`).join(' ');
+        // Every row a title-level signal points at, uncut (matched_text is cut for display), and where
+        // it is marked: only a primary measure's table is copied, and a rejected signal is not marked.
+        const rows = ROW_FIELDS.includes(s.field) && Array.isArray(s.rows) ? s.rows.filter(isObj) : [];
+        const kind = s.field === 'group_titles' ? 'group' : 'row';
+        const pm = isObj(rec) && Array.isArray(rec.primary_measures)
+            ? rec.primary_measures.find(m => isObj(m) && m.measure_index === s.measure_index) : null;
+        const where = s.measure_type !== 'PRIMARY' ? 'This measure’s values are not copied, so only its titles are shown.'
+            : !rowMark(s) ? 'Not marked in the table: a person rejected this signal.'
+                : !pm ? 'Not marked: the primary measures of this record could not be read.'
+                    : !hasValuesTable(pm) ? 'Not marked: no table of values is shown for this measure.'
+                        : 'Marked in the table under “Primary results as posted”.';
+        const rowsHTML = rows.length
+            ? `<dt>Posted ${kind}s matched</dt><dd>${rows.map(x => `<q>${esc(x.title)}</q>`).join(' ')} <span class="oc-sub">${where}</span></dd>` : '';
         return `<li class="oc-signal">${tag} <strong>${esc(RS_DIMENSION_LABELS[s.dimension] || s.dimension)}</strong>
                     <dl class="oc-grid">
                         <dt>Measure</dt><dd>${esc(s.measure_title)}${s.measure_type ? ` <span class="oc-sub">${esc(words(s.measure_type))}</span>` : ''}</dd>
                         <dt>Field</dt><dd><code class="oc-loc">${esc(s.field_path)}</code></dd>
                         <dt>Matched text</dt><dd>${matched || '<span class="oc-absent">not recorded</span>'}${s.matched_text_truncated ? ' <span class="oc-sub">(cut at 400 characters)</span>' : ''}</dd>
+                        ${rowsHTML}
                         ${s.context ? `<dt>In context</dt><dd><q>${esc(s.context)}</q></dd>` : ''}
                     </dl></li>`;
     }
@@ -1151,7 +1321,7 @@
             signals = (failures ? `<p class="oc-note"><strong>Processing failed</strong> for part of this record:</p><ul class="oc-list">${failures}</ul>` : '') +
                 (list === null ? '<p class="oc-note">The outcome measures could not be read, so the subgroup rule was not applied.</p>'
                     : list.length
-                        ? `<details class="oc-signals" open><summary>${isInt(s.subgroup.n_signals) ? `${s.subgroup.n_signals.toLocaleString()} ` : ''}signal${s.subgroup.n_signals === 1 ? '' : 's'} found by the current method</summary><ul class="oc-signal-list">${list.map(signalHTML).join('')}</ul></details>`
+                        ? `<details class="oc-signals" open><summary>${isInt(s.subgroup.n_signals) ? `${s.subgroup.n_signals.toLocaleString()} ` : ''}signal${s.subgroup.n_signals === 1 ? '' : 's'} found by the current method</summary><ul class="oc-signal-list">${list.map(g => signalHTML(g, s)).join('')}</ul></details>`
                         : '<p class="oc-note">The current method found no signal in the fields it inspects. Posted documents and publications were not read.</p>');
             if (isObj(s.modules)) {
                 usable = `
