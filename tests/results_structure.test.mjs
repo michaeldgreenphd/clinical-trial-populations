@@ -370,7 +370,10 @@ function bandedTrial(review = [], field = 'class_titles') {
   rec.subgroup.signals = [sig];
   return { s, rec, m, sig };
 }
-const FLAG = (status, text) => `<span class="oc-rv-flag oc-rv-flag-${status}">${text}</span>`;
+// The mark as drawn: its words, with a hidden "(note: …)" so a screen reader does not run them into the posted title.
+const FLAG = (status, text) => `<span class="oc-rv-flag oc-rv-flag-${status}"><span class="oc-vh">(note: </span>${text}<span class="oc-vh">)</span></span>`;
+// FLAG as a pattern, for counting marks or placing one inside a larger pattern.
+const FLAGS = (status, text) => FLAG(status, text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 test('rows a title-level subgroup signal matched are marked in the posted table, by review state', () => {
   const { s, rec } = bandedTrial();
@@ -385,13 +388,13 @@ test('rows a title-level subgroup signal matched are marked in the posted table,
   // Accepted by a person: the reviewed label and its date; nothing says "possible".
   const accepted = bandedTrial([{ dimension: 'age', decision: 'accepted', reviewed_on: '2026-11-14' }]);
   const a = O.reportedResultsHTML(accepted.rec, accepted.s, true);
-  assert.equal((a.match(new RegExp(FLAG('accepted', 'age subgroup, reviewed'), 'g')) || []).length, 2);
+  assert.equal((a.match(new RegExp(FLAGS('accepted', 'age subgroup, reviewed'), 'g')) || []).length, 2);
   assert.match(a, /a person reviewed the subgroup rule's signal on these titles and accepted it on 14 Nov 2026\./);
   assert.doesNotMatch(a, /possible age subgroup/);
   // Unresolved: still "possible", and the note says a person could not settle it.
   const open = bandedTrial([{ dimension: 'age', decision: 'unresolved', reviewed_on: '2026-11-14' }]);
   const u = O.reportedResultsHTML(open.rec, open.s, true);
-  assert.equal((u.match(new RegExp(FLAG('unresolved', 'possible age subgroup, review unresolved'), 'g')) || []).length, 2);
+  assert.equal((u.match(new RegExp(FLAGS('unresolved', 'possible age subgroup, review unresolved'), 'g')) || []).length, 2);
   assert.match(u, /a person who reviewed the signal could not settle it/);
   // Rejected: no mark and no note.
   const rejected = bandedTrial([{ dimension: 'age', decision: 'rejected', reviewed_on: '2026-11-14' }]);
@@ -401,14 +404,65 @@ test('rows a title-level subgroup signal matched are marked in the posted table,
   assert.equal((O.reportedResultsHTML(other.rec, other.s, true).match(/oc-rv-flag-awaiting/g) || []).length, 2);
 });
 
+test('a signal with no named characteristic is marked where its reviews leave it, as the engine settles it', () => {
+  // National-origin levels on class titles: dimension 'other', which a person can review under
+  // 'other' or under any of the four characteristics (engine apply_reviews and _decision_for).
+  const origin = (review) => {
+    const t = bandedTrial(review);
+    t.m.classes[1].title = 'Japanese participants'; t.m.classes[2].title = 'Non-Japanese participants';
+    Object.assign(t.sig, { dimension: 'other', rule_dimension: 'origin',
+      rows: [{ class_index: 1, title: 'Japanese participants' }, { class_index: 2, title: 'Non-Japanese participants' }] });
+    return O.reportedResultsHTML(t.rec, t.s, true);
+  };
+  const r = (dimension, decision) => ({ dimension, decision, reviewed_on: '2026-11-14' });
+  const flags = (html, status, text) => (html.match(new RegExp(FLAGS(status, text), 'g')) || []).length;
+  assert.equal(flags(origin([]), 'awaiting', 'possible national-origin subgroup'), 2);
+  // Accepted for one of the four: that subgroup, reviewed, and nothing says no person reviewed it.
+  const race = origin([r('race', 'accepted')]);
+  assert.equal(flags(race, 'accepted', 'race subgroup, reviewed'), 2);
+  assert.match(race, /accepted it on 14 Nov 2026\./);
+  assert.doesNotMatch(race, /No person has reviewed|possible/);
+  // Accepted under 'other': a subgroup by a characteristic that is not one of the four.
+  assert.equal(flags(origin([r('other', 'accepted')]), 'accepted', 'national-origin subgroup, reviewed'), 2);
+  // A review naming a characteristic decides it before the 'other' review does.
+  assert.equal(flags(origin([r('other', 'rejected'), r('race', 'accepted')]), 'accepted', 'race subgroup, reviewed'), 2);
+  // Rejected for every characteristic, by the 'other' review or by one for each of the four: no mark.
+  assert.doesNotMatch(origin([r('other', 'rejected')]), /oc-rv-flag/);
+  assert.doesNotMatch(origin(['age', 'sex', 'race', 'ethnicity'].map((d) => r(d, 'rejected'))), /oc-rv-flag/);
+  // Left unresolved for any of the four: unresolved.
+  assert.equal(flags(origin([r('other', 'unresolved')]), 'unresolved', 'possible national-origin subgroup, review unresolved'), 2);
+  assert.equal(flags(origin([r('other', 'rejected'), r('sex', 'unresolved')]), 'unresolved', 'possible national-origin subgroup, review unresolved'), 2);
+  // Rejected for some and not settled for the rest: reviewed in part, and the note says for which.
+  const part = origin([r('race', 'rejected'), r('ethnicity', 'rejected')]);
+  assert.equal(flags(part, 'partial', 'possible national-origin subgroup, reviewed in part'), 2);
+  assert.match(part, /A person reviewed the signal and rejected it for race and ethnicity; it is not settled for the other characteristics, so it is not a finding that these are subgroup results\./);
+  assert.doesNotMatch(part, /No person has reviewed/);
+});
+
+test('the note under a table gives every review date of the signals that share a label', () => {
+  const t = bandedTrial([{ dimension: 'age', decision: 'accepted', reviewed_on: '2026-11-14' }]);
+  const g = t.m.groups[0];
+  t.rec.subgroup.signals.push({ ...clone(t.sig), signal_id: 'sg-000000000002', field: 'group_titles',
+    review: [{ dimension: 'age', decision: 'accepted', reviewed_on: '2026-11-20' }], rows: [{ group_id: g.id, title: g.title }] });
+  const html = O.reportedResultsHTML(t.rec, t.s, true);
+  assert.equal((html.match(new RegExp(FLAGS('accepted', 'age subgroup, reviewed'), 'g')) || []).length, 3);
+  assert.match(html, /a person reviewed the subgroup rule's signals on these titles and accepted them on 14 Nov 2026 and 20 Nov 2026\./);
+  assert.doesNotMatch(html, /accepted it on/);
+});
+
 test('a class heading, a category row and a group column each carry the mark where the signal points', () => {
   // A class with a heading row (several categories): the heading carries the class's mark.
   const heading = bandedTrial();
   const cat = heading.m.classes[1].categories[0];
   heading.m.classes[1].categories = [{ ...clone(cat), title: 'Week 4' }, { ...clone(cat), title: 'Week 12' }];
   const h = O.reportedResultsHTML(heading.rec, heading.s, true);
-  assert.match(h, new RegExp(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="\\d+">Age 18 to 64 years ${FLAG('awaiting', 'possible age subgroup')}</th></tr>`));
+  assert.match(h, new RegExp(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="\\d+">Age 18 to 64 years ${FLAGS('awaiting', 'possible age subgroup')}</th></tr>`));
   assert.ok(h.includes('<th scope="row">Week 4</th>'), 'the rows under a marked heading are not marked again');
+  // A marked class with no category rows still gets its heading, so the mark is drawn.
+  const empty = bandedTrial();
+  empty.m.classes[1].categories = [];
+  assert.match(O.reportedResultsHTML(empty.rec, empty.s, true),
+    new RegExp(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="\\d+">Age 18 to 64 years ${FLAGS('awaiting', 'possible age subgroup')}</th></tr>`));
   // Category titles: the category row at (class, category).
   const cats = bandedTrial([], 'category_titles');
   cats.m.classes = [{ title: 'Week 12', denominators: [], categories: [{ title: 'Women', measurements: clone(cat.measurements) },
@@ -447,6 +501,16 @@ test('a signal lists every row it matched and says where they are marked', () =>
   assert.match(O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, st), /Marked in the table under “Primary results as posted”\./);
   t.sig.review = [{ dimension: 'age', decision: 'rejected', reviewed_on: '2026-11-14' }];
   assert.match(O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, st), /Not marked in the table: a person rejected this signal\./);
+  // Marked only where a table is drawn: not when the measure posts no values, nor when the record's
+  // primary measures could not be read.
+  const bare = bandedTrial();
+  const sb = { ...bare.s, records: { ...bare.s.records, NCT99000001: bare.rec } };
+  bare.m.classes = [];
+  const noTable = O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, sb);
+  assert.match(noTable, /Not marked: no table of values is shown for this measure\./);
+  assert.doesNotMatch(noTable, /Marked in the table/);
+  bare.rec.primary_measures = null;
+  assert.match(O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, sb), /Not marked: the primary measures of this record could not be read\./);
 });
 
 test('the check refuses rows that are not on a title-level signal or do not name a position and a title', () => {
@@ -466,6 +530,26 @@ test('the check refuses rows that are not on a title-level signal or do not name
   ]) assert.match(problem(change), /a signal's rows are malformed/);
   // A family built before rows were added has none, and is still accepted.
   assert.equal(problem((r) => { for (const rec of Object.values(r)) for (const g of rec.subgroup.signals || []) delete g.rows; }), null);
+  // On a primary measure the record copies, each row is the posted row or group at its position,
+  // with its title (the fixture's primary measure has groups Zorbatinib and Placebo, and one untitled class).
+  const onPrimary = (field, rows, index = 0) => (r) => Object.assign(sex(r), { measure_type: 'PRIMARY', measure_index: index, field, rows });
+  assert.equal(problem(onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }, { group_id: 'OG001', title: 'Placebo' }])), null);
+  for (const change of [
+    onPrimary('group_titles', [{ group_id: 'OG000', title: 'Placebo' }]),
+    onPrimary('group_titles', [{ group_id: 'OG009', title: 'Zorbatinib' }]),
+    onPrimary('class_titles', [{ class_index: 0, title: 'Female' }]),
+    onPrimary('class_titles', [{ class_index: 4, title: 'Female' }]),
+    onPrimary('category_titles', [{ class_index: 0, category_index: 0, title: 'Female' }]),
+    onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }], 7),
+  ]) assert.match(problem(change), /a signal's rows do not match the posted table/);
+  // A record whose primary measures failed to parse has no table; its parse failure must say so.
+  const failed = (stated) => (r) => {
+    onPrimary('group_titles', [{ group_id: 'OG000', title: 'Zorbatinib' }])(r);
+    r.NCT99000001.primary_measures = null;
+    r.NCT99000001.parse = { status: 'failed', failures: stated ? [{ section: 'primary_measures', reason: "KeyError: 'groupId'" }] : [] };
+  };
+  assert.equal(problem(failed(true)), null);
+  assert.match(problem(failed(false)), /neither copies nor records a failure for/);
 });
 
 test('a stale cached file is fetched once more before the family is given up', async () => {
@@ -717,14 +801,18 @@ test('the published results-structure data is a family the page accepts, unchang
 test('the published rows mark the posted tables they point at, and the family stays within its size alarm', { skip: !published && 'nothing published' }, () => {
   const run = json(`${DIR}run.json`); const summary = json(`${DIR}summary.json`); const records = json(`${DIR}records.json`);
   const s = { ok: true, run, summary, records: records.records };
-  // Every title-level signal on a primary measure marks as many rows or group columns as it lists
-  // (no review rows exist, so every mark reads "possible ... subgroup").
-  const primary = Object.values(records.records).flatMap((r) => (r.subgroup.signals || [])
-    .filter((g) => Array.isArray(g.rows) && g.measure_type === 'PRIMARY').map((g) => [r, g]));
-  assert.ok(primary.length > 0, 'the build has title-level signals on primary measures');
-  for (const [r, g] of primary) {
+  // Per trial, the table marks every row or group column its title-level signals on primary
+  // measures list, once per row and label: a trial can have several such signals, and the whole
+  // trial is rendered (Codex, PR 310). No review rows exist, so every mark reads "possible ... subgroup".
+  const where = (g, x) => (g.field === 'group_titles' ? `group ${x.group_id}` : g.field === 'category_titles'
+    ? `category ${x.class_index}/${x.category_index}` : `class ${x.class_index}`);
+  const trials = Object.values(records.records).map((r) => [r, (r.subgroup.signals || [])
+    .filter((g) => Array.isArray(g.rows) && g.measure_type === 'PRIMARY')]).filter(([, l]) => l.length);
+  assert.ok(trials.length > 0, 'the build has title-level signals on primary measures');
+  for (const [r, list] of trials) {
+    const want = new Set(list.flatMap((g) => g.rows.map((x) => `${g.measure_index} ${where(g, x)} ${g.dimension} ${g.rule_dimension}`)));
     const html = O.reportedResultsHTML(r, s, true);
-    assert.equal((html.match(/class="oc-rv-flag oc-rv-flag-awaiting"/g) || []).length, g.rows.length, `${r.nct_id} ${g.signal_id}`);
+    assert.equal((html.match(/class="oc-rv-flag oc-rv-flag-awaiting"/g) || []).length, want.size, r.nct_id);
     assert.match(html, /No person has reviewed this signal, so it is not a finding that these are subgroup results\./);
   }
   // A size alarm, not a hosting limit: records.json gzipped was 488,517 bytes in the build that
