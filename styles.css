@@ -6008,6 +6008,8 @@ footer p {
 @media (max-width: 480px) {
     .oc-rv-table th, .oc-rv-table td { padding: 0.3rem 0.4rem; }
     .oc-rv-table tbody th[scope="row"] { max-width: 9rem; }
+    /* Under its title, so a heading as wide as the scrolling table does not carry it out of view. */
+    .oc-rv-flag { display: block; width: fit-content; margin: 0.15rem 0 0; }
 }
 .oc-unit { margin: 0.75rem 0 0; padding-top: 0.5rem; border-top: 1px dotted var(--oc-rule); }
 .oc-unit h6 { margin: 0; font-size: var(--fs-small); }
