@@ -15,6 +15,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import vm from 'node:vm';
+import { gzipSync } from 'node:zlib';
 
 const root = new URL('../', import.meta.url);
 const read = (p) => readFileSync(new URL(p, root), 'utf8');
@@ -353,6 +354,120 @@ test('the value each group posted: every part shown as posted, in the registry\'
   assert.doesNotMatch(h, /oc-rv-table/);
 });
 
+// ---------------------------------------------------------------- rows a subgroup signal matched
+
+// A fictional primary measure with age-band classes, and the title-level signal that matched two of them.
+function bandedTrial(review = [], field = 'class_titles') {
+  const s = structure();
+  const rec = clone(s.records.NCT99000001);
+  const m = rec.primary_measures[0];
+  const row = m.classes[0].categories[0].measurements;
+  const cls = (title) => ({ title, denominators: [], categories: [{ title: null, measurements: clone(row) }] });
+  m.classes = [cls('Overall'), cls('Age 18 to 64 years'), cls('Age 65 years and older')];
+  const sig = { ...clone(rec.subgroup.signals[1]), field, measure_type: 'PRIMARY', measure_index: m.measure_index,
+    dimension: 'age', rule_dimension: 'age', review,
+    rows: [{ class_index: 1, title: 'Age 18 to 64 years' }, { class_index: 2, title: 'Age 65 years and older' }] };
+  rec.subgroup.signals = [sig];
+  return { s, rec, m, sig };
+}
+const FLAG = (status, text) => `<span class="oc-rv-flag oc-rv-flag-${status}">${text}</span>`;
+
+test('rows a title-level subgroup signal matched are marked in the posted table, by review state', () => {
+  const { s, rec } = bandedTrial();
+  const html = O.reportedResultsHTML(rec, s, true);
+  // The two rows the signal points at, and not the third.
+  assert.ok(html.includes(`<th scope="row">Age 18 to 64 years ${FLAG('awaiting', 'possible age subgroup')}</th>`));
+  assert.ok(html.includes(`<th scope="row">Age 65 years and older ${FLAG('awaiting', 'possible age subgroup')}</th>`));
+  assert.ok(html.includes('<th scope="row">Overall</th>'));
+  assert.equal((html.match(/class="oc-rv-flag /g) || []).length, 2);
+  assert.match(html, /“possible age subgroup”: the subgroup rule read age levels in these titles\. No person has reviewed this signal, so it is not a finding that these are subgroup results\./);
+  assert.doesNotMatch(html, /subgroup, reviewed|accepted it/);
+  // Accepted by a person: the reviewed label and its date; nothing says "possible".
+  const accepted = bandedTrial([{ dimension: 'age', decision: 'accepted', reviewed_on: '2026-11-14' }]);
+  const a = O.reportedResultsHTML(accepted.rec, accepted.s, true);
+  assert.equal((a.match(new RegExp(FLAG('accepted', 'age subgroup, reviewed'), 'g')) || []).length, 2);
+  assert.match(a, /a person reviewed the subgroup rule's signal on these titles and accepted it on 14 Nov 2026\./);
+  assert.doesNotMatch(a, /possible age subgroup/);
+  // Unresolved: still "possible", and the note says a person could not settle it.
+  const open = bandedTrial([{ dimension: 'age', decision: 'unresolved', reviewed_on: '2026-11-14' }]);
+  const u = O.reportedResultsHTML(open.rec, open.s, true);
+  assert.equal((u.match(new RegExp(FLAG('unresolved', 'possible age subgroup, review unresolved'), 'g')) || []).length, 2);
+  assert.match(u, /a person who reviewed the signal could not settle it/);
+  // Rejected: no mark and no note.
+  const rejected = bandedTrial([{ dimension: 'age', decision: 'rejected', reviewed_on: '2026-11-14' }]);
+  assert.doesNotMatch(O.reportedResultsHTML(rejected.rec, rejected.s, true), /oc-rv-flag/);
+  // A review of another characteristic does not settle this one.
+  const other = bandedTrial([{ dimension: 'sex', decision: 'accepted', reviewed_on: '2026-11-14' }]);
+  assert.equal((O.reportedResultsHTML(other.rec, other.s, true).match(/oc-rv-flag-awaiting/g) || []).length, 2);
+});
+
+test('a class heading, a category row and a group column each carry the mark where the signal points', () => {
+  // A class with a heading row (several categories): the heading carries the class's mark.
+  const heading = bandedTrial();
+  const cat = heading.m.classes[1].categories[0];
+  heading.m.classes[1].categories = [{ ...clone(cat), title: 'Week 4' }, { ...clone(cat), title: 'Week 12' }];
+  const h = O.reportedResultsHTML(heading.rec, heading.s, true);
+  assert.match(h, new RegExp(`<tr class="oc-rv-class"><th scope="rowgroup" colspan="\\d+">Age 18 to 64 years ${FLAG('awaiting', 'possible age subgroup')}</th></tr>`));
+  assert.ok(h.includes('<th scope="row">Week 4</th>'), 'the rows under a marked heading are not marked again');
+  // Category titles: the category row at (class, category).
+  const cats = bandedTrial([], 'category_titles');
+  cats.m.classes = [{ title: 'Week 12', denominators: [], categories: [{ title: 'Women', measurements: clone(cat.measurements) },
+    { title: 'Men', measurements: clone(cat.measurements) }] }];
+  cats.sig.dimension = 'sex'; cats.sig.rule_dimension = 'sex';
+  cats.sig.rows = [{ class_index: 0, category_index: 0, title: 'Women' }, { class_index: 0, category_index: 1, title: 'Men' }];
+  const c = O.reportedResultsHTML(cats.rec, cats.s, true);
+  assert.ok(c.includes(`<th scope="row">Women ${FLAG('awaiting', 'possible sex subgroup')}</th>`));
+  assert.ok(c.includes(`<th scope="row">Men ${FLAG('awaiting', 'possible sex subgroup')}</th>`));
+  // Group titles: the column header of each group.
+  const groups = bandedTrial([], 'group_titles');
+  groups.sig.rows = [{ group_id: groups.m.groups[0].id, title: groups.m.groups[0].title }];
+  const g = O.reportedResultsHTML(groups.rec, groups.s, true);
+  assert.ok(g.includes(`<th scope="col">${groups.m.groups[0].title} ${FLAG('awaiting', 'possible age subgroup')}</th>`));
+  assert.equal((g.match(/class="oc-rv-flag /g) || []).length, 1);
+  // A signal on another measure, or on a measure that is not primary, marks nothing here; nor does a
+  // family built before rows were added.
+  for (const change of [(x) => { x.sig.measure_index = 7; }, (x) => { x.sig.measure_type = 'SECONDARY'; }, (x) => { delete x.sig.rows; }]) {
+    const t = bandedTrial(); change(t);
+    assert.doesNotMatch(O.reportedResultsHTML(t.rec, t.s, true), /oc-rv-flag/);
+  }
+});
+
+test('a signal lists every row it matched and says where they are marked', () => {
+  const s = structure();
+  const { run, shards } = outcomes();
+  const html = O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, s);
+  // The fixture's two secondary title-level signals: the titles, uncut, and that the table is not copied.
+  assert.equal((html.match(/<dt>Posted rows matched<\/dt><dd><q>/g) || []).length, 2);
+  assert.match(html, /<dt>Posted rows matched<\/dt><dd><q>Female<\/q> <q>Male<\/q> <span class="oc-sub">This measure’s values are not copied, so only its titles are shown\.<\/span>/);
+  // A cue signal has no rows line.
+  assert.doesNotMatch(O.recordHTML(shards['records/r07.json'].records.NCT99000007, run, false, s), /Posted (rows|groups) matched/);
+  // On a primary measure: where the rows are marked, or that a rejected signal is not.
+  const t = bandedTrial();
+  const st = { ...t.s, records: { ...t.s.records, NCT99000001: t.rec } };
+  assert.match(O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, st), /Marked in the table under “Primary results as posted”\./);
+  t.sig.review = [{ dimension: 'age', decision: 'rejected', reviewed_on: '2026-11-14' }];
+  assert.match(O.recordHTML(shards['records/r01.json'].records.NCT99000001, run, false, st), /Not marked in the table: a person rejected this signal\./);
+});
+
+test('the check refuses rows that are not on a title-level signal or do not name a position and a title', () => {
+  const ok = files();
+  assert.equal(O.structureProblem(ok.run, ok.summary, ok.records), null);
+  const problem = (change) => { const f = files(); change(f.records.records); return O.structureProblem(f.run, f.summary, f.records); };
+  const sex = (r) => r.NCT99000001.subgroup.signals[0];
+  for (const change of [
+    (r) => { sex(r).rows = []; },
+    (r) => { sex(r).rows = [{ title: 'Female' }]; },
+    (r) => { sex(r).rows = [{ class_index: -1, title: 'Female' }]; },
+    (r) => { sex(r).rows = [{ class_index: 0, title: 7 }]; },
+    (r) => { sex(r).rows = 'Female'; },
+    (r) => { sex(r).field = 'category_titles'; },
+    (r) => { sex(r).field = 'group_titles'; },
+    (r) => { r.NCT99000007.subgroup.signals[0].rows = [{ class_index: 0, title: 'Zorbatinib' }]; },
+  ]) assert.match(problem(change), /a signal's rows are malformed/);
+  // A family built before rows were added has none, and is still accepted.
+  assert.equal(problem((r) => { for (const rec of Object.values(r)) for (const g of rec.subgroup.signals || []) delete g.rows; }), null);
+});
+
 test('a stale cached file is fetched once more before the family is given up', async () => {
   const f = files();
   const calls = [];
@@ -599,6 +714,24 @@ test('the published results-structure data is a family the page accepts, unchang
   for (const r of Object.values(records.records)) assert.equal(r.document_and_publication_review, 'not_reviewed', r.nct_id);
 });
 
+test('the published rows mark the posted tables they point at, and the family stays within its size alarm', { skip: !published && 'nothing published' }, () => {
+  const run = json(`${DIR}run.json`); const summary = json(`${DIR}summary.json`); const records = json(`${DIR}records.json`);
+  const s = { ok: true, run, summary, records: records.records };
+  // Every title-level signal on a primary measure marks as many rows or group columns as it lists
+  // (no review rows exist, so every mark reads "possible ... subgroup").
+  const primary = Object.values(records.records).flatMap((r) => (r.subgroup.signals || [])
+    .filter((g) => Array.isArray(g.rows) && g.measure_type === 'PRIMARY').map((g) => [r, g]));
+  assert.ok(primary.length > 0, 'the build has title-level signals on primary measures');
+  for (const [r, g] of primary) {
+    const html = O.reportedResultsHTML(r, s, true);
+    assert.equal((html.match(/class="oc-rv-flag oc-rv-flag-awaiting"/g) || []).length, g.rows.length, `${r.nct_id} ${g.signal_id}`);
+    assert.match(html, /No person has reviewed this signal, so it is not a finding that these are subgroup results\./);
+  }
+  // A size alarm, not a hosting limit: records.json gzipped was 488,517 bytes in the build that
+  // added rows (results-structure-2026-11-19-d6bd5eadb6); this ceiling leaves about 20% headroom.
+  assert.ok(gzipSync(readFileSync(new URL(`${DIR}records.json`, root)), { level: 9 }).length <= 600000, 'records.json over its gzip size alarm');
+});
+
 test('every trial the pane lists has a record or reads "Not yet processed"', { skip: !published && 'nothing published' }, () => {
   const run = json(`${DIR}run.json`); const summary = json(`${DIR}summary.json`); const records = json(`${DIR}records.json`);
   const s = { ok: true, run, summary, records: records.records };
@@ -640,7 +773,7 @@ test('index.html and the stylesheet carry the results-structure view', () => {
   const html = read('index.html');
   assert.match(html, /src="industry_outcomes\.js\?v=[^"]*results-structure/);
   const css = read('styles.css');
-  for (const cls of ['.oc-sg-list', '.oc-sg-dim', '.oc-signal', '.oc-doc-review', '.oc-structure-table']) assert.ok(css.includes(cls), cls);
+  for (const cls of ['.oc-sg-list', '.oc-sg-dim', '.oc-signal', '.oc-doc-review', '.oc-structure-table', '.oc-rv-flag', '.oc-rv-flag-accepted']) assert.ok(css.includes(cls), cls);
   assert.match(css, /\.oc-trials > tbody > tr > td:nth-child\(6\)/, 'the list has a sixth column');
   const src = read('industry_outcomes.js');
   assert.match(src, /const RS_BASE = 'data\/results_structure\/';/, 'a relative path');
