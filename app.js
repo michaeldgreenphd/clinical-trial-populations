@@ -520,7 +520,7 @@ function hideLoadingOverlay() {
 // GitHub-Pages frontend so no extra fetch is needed.
 // ---------------------------------------------------------------------------
 let CONDITION_ONTOLOGY = null;   // { primary: { secondary: [keywords] } }
-let _conditionKeywordIndex = []; // [{keyword, primary, secondary}] sorted longest-first
+let _conditionKeywordIndex = []; // [{keyword, pattern, primary, secondary}] sorted longest-first; pattern only for short keywords
 
 async function loadConditionOntology() {
     try {
@@ -535,12 +535,43 @@ async function loadConditionOntology() {
     _buildKeywordIndex();
 }
 
+// Keywords this short are mostly acronyms ("ra", "ms", "ed", "gi", "all",
+// "sti", "skin", "burn"). Found inside a longer word they name a different
+// condition: "Trauma" holds "ra", "Falls" holds "all", "Sedation" holds "ed",
+// "Dyskinesia" holds "skin". So such a keyword matches only as a whole word,
+// with an optional plural "s"/"es"; longer keywords may still sit inside a
+// compound term ("Gliosarcoma" holds "sarcoma"). The same rule and threshold
+// as the engine's src/condition_classifier.py (SHORT_KEYWORD_MAX_LEN), so the
+// fallback here and the published categories agree.
+const SHORT_CONDITION_KEYWORD_MAX_LEN = 4;
+const CONDITION_WORD_CHAR = /[\p{L}\p{N}_]/u;
+
+// A whole-word test for a short keyword, as { test(text) }. Written without
+// a regex lookbehind, which Safari before 16.4 rejects.
+function _shortKeywordPattern(kw) {
+    const isWordChar = (ch) => ch !== undefined && CONDITION_WORD_CHAR.test(ch);
+    return {
+        test(text) {
+            for (let at = text.indexOf(kw); at >= 0; at = text.indexOf(kw, at + 1)) {
+                if (isWordChar(text[at - 1])) continue;
+                const end = at + kw.length;
+                if (!isWordChar(text[end])) return true;
+                if (text[end] === 's' && !isWordChar(text[end + 1])) return true;
+                if (text.startsWith('es', end) && !isWordChar(text[end + 2])) return true;
+            }
+            return false;
+        },
+    };
+}
+
 function _buildKeywordIndex() {
     _conditionKeywordIndex = [];
     for (const [primary, secondaries] of Object.entries(CONDITION_ONTOLOGY)) {
         for (const [secondary, keywords] of Object.entries(secondaries)) {
             for (const kw of keywords) {
-                _conditionKeywordIndex.push({ keyword: kw.toLowerCase(), primary, secondary });
+                const keyword = kw.toLowerCase();
+                const pattern = keyword.length <= SHORT_CONDITION_KEYWORD_MAX_LEN ? _shortKeywordPattern(keyword) : null;
+                _conditionKeywordIndex.push({ keyword, pattern, primary, secondary });
             }
         }
     }
@@ -579,7 +610,7 @@ function classifyCondition(condition) {
     if (!condition) return { primary: 'Other', secondary: 'Uncategorized' };
     const lower = condition.toLowerCase();
     for (const entry of _conditionKeywordIndex) {
-        if (lower.includes(entry.keyword)) {
+        if (entry.pattern ? entry.pattern.test(lower) : lower.includes(entry.keyword)) {
             return { primary: entry.primary, secondary: entry.secondary };
         }
     }
