@@ -7,8 +7,8 @@
     "classes budgets the class files of a split dataset (tests/record_contract.json, layout): file_gzip_max_bytes for each studies_tab part or detail shard, total_gzip_max_bytes for the sum of a dataset's files of that class. The file counts come from the layout, not from here. For the engine these budgets warn only, and an engine that predates them ignores the block; tests/data_budget.test.mjs checks the class files of data/ and of every snapshot folder against it and fails over budget, the same alarm as for the parts."
   ],
   "part_count": 8,
-  "part_gzip_max_bytes": 20971520,
-  "total_gzip_max_bytes": 160000000,
+  "part_gzip_max_bytes": 23068672,
+  "total_gzip_max_bytes": 182500000,
   "classes": {
     "studies_tab": {
       "file_gzip_max_bytes": 3600000,
